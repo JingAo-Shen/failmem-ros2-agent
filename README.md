@@ -10,6 +10,10 @@ Can a ROS2 agent convert execution failures into reusable episodic memory and sk
 
 **FailMem: Failure-Aware Episodic Memory for Long-Horizon ROS2 Agent Planning**
 
+## Execution Plan Update — 2026-09-15
+
+当前执行以 [细化研究计划](docs/research-plan.md)、[实验矩阵](experiments/experiment-matrix.md) 和 [agent 工作包](docs/agent-task-packets.md) 为准。先读根目录 [执行总纲](RESEARCH-EXECUTION-GUIDE.md)。上面的原始题目是孵化目标；硬件容量尚待实测。所有实验目前均未运行。
+
 ## Repository Status
 
 This repository is currently in the **research incubation** stage. The immediate goal is to turn the idea into a reproducible research question, benchmark, baseline suite, and first paper submission.

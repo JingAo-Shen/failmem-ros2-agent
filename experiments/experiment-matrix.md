@@ -1,29 +1,23 @@
-# Experiment Matrix
+# FailMem 实验矩阵
 
-## Baseline Families
+| ID | 记忆策略 | 额外 verifier | 作用 |
+|---|---|---:|---|
+| B0 | 无 | 无 | 基础 planner |
+| B1 | 无 | 有 | 最关键因果控制 |
+| B2 | 固定规则恢复 | 有 | 强非 LLM 恢复基线 |
+| B3 | Reflexion-style 文本反思 | 有 | 反思控制，标 adapted |
+| B4 | 普通失败片段检索 | 有 | 检索控制 |
+| B5 | REFLECT-style 诊断与修正 | 有 | 相关方法，适配差异单列 |
+| F | 已验证且有前置条件/失效规则的记忆 | 有 | 主方法 |
+| A0 | 与 F 同 schema，但不调用额外验证器，结果保持 unverified | 无 | memory×verifier 因子 |
+| A1 | F 去前置条件 | 有 | 错误情境复用 |
+| A2 | F 去失效规则 | 有 | 地图/目标变化 |
+| A3 | F 保持记录数量但打乱症状与恢复配对 | 有 | 内容确实有用吗 |
 
-- No special mechanism / direct prompting
-- Full-history or enlarged-context baseline
-- Summarization baseline
-- Retrieval baseline
-- Strong recent method from literature
-- Proposed method
+A0 不得把未经验证的成功写 verified，也不能将注入真值替代验证器。
 
-## Common Metrics
+P2：B1/B2/B3/B4/F/A2，45 故障 + 45 配对无故障，seed 17。P3：全部核心基线 + A0/A1/A2，3 seeds {17,29,43}。A3 为诊断，只在预注册子集，不能挑成功样本。
 
-- Task success / primary quality metric
-- Token usage
-- Latency
-- GPU memory
-- Number of model/tool calls
-- Failure rate by category
-- Cost per successful task
+各组相同初始状态、感知、故障时间、action/time/retry 上限、最终真值评分。故障注入器与 agent 分离。主比较 F 对 dev 最强 verifier-on baseline，不对 B0 宣称记忆收益。
 
-## Ablation Template
-
-| Exp | Backbone | Component A | B | C | Primary Metric | Cost | Notes |
-|---|---|---:|---:|---:|---:|---:|---|
-| B0 | TBD | 0 | 0 | 0 | | | baseline |
-| A1 | TBD | 1 | 0 | 0 | | | |
-| A2 | TBD | 1 | 1 | 0 | | | |
-| Full | TBD | 1 | 1 | 1 | | | |
+主表列：注入任务成功率、检测率、recovery、重复失败、false-success 两分母、碰撞数、恢复 p95、动作与 tokens、n/layouts。分层：故障类型、未见布局、地图版本改变。另放无故障损伤表。所有图来自状态日志。
