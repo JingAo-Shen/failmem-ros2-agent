@@ -34,7 +34,7 @@ papers/
   figures/
 ```
 
-`environment.json` 必含代码版本（无 git 则文件哈希清单）、依赖版本、操作系统、GPU 实测、模型 ID/revision/量化、tokenizer、随机种子、UTC 时间。当前根目录未初始化 git；不要假称已有 commit。
+`environment.json` 必含代码版本（Git commit SHA 或文件哈希清单）、依赖版本、操作系统、GPU 实测、模型 ID/revision/量化、tokenizer、随机种子、UTC 时间。当前根目录已初始化 Git 并纳管；记录实际 HEAD commit 与分支。
 
 `events.jsonl` 每行至少有 `run_id, task_id/image_id, family_id/group_id, split, seed, step, event_type, input_ref, output_ref, status, latency_ms, cost`。不适用字段为 null 并说明；图像训练可使用另附 training.jsonl，但预测须逐图记录。保留失败原因、重试次数与全部费用。
 
