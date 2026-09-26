@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  ros2-sim:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ros2_humble
+    image: failmem/ros2-humble-sim:v1
+    container_name: failmem_ros2_sim
+    network_mode: host
+    ipc: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - TURTLEBOT3_MODEL=waffle
+      - ROS_DOMAIN_ID=42
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ..:/workspace
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

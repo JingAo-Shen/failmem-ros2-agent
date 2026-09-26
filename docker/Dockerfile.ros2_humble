@@ -1,0 +1,25 @@
+# FailMem ROS2 Humble + Gazebo Fortress + Nav2 Simulation Environment
+FROM osrf/ros:humble-desktop-full
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TURTLEBOT3_MODEL=waffle
+ENV GAZEBO_MODEL_PATH=/opt/ros/humble/share/turtlebot3_gazebo/models
+
+# Install Nav2, Gazebo Fortress bridge, and dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-navigation2 \
+    ros-humble-nav2-bringup \
+    ros-humble-turtlebot3 \
+    ros-humble-turtlebot3-msgs \
+    ros-humble-turtlebot3-simulations \
+    ros-humble-ros-gz \
+    python3-pip \
+    python3-pytest \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Source ROS2 by default
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+
+CMD ["/bin/bash"]

@@ -1,0 +1,42 @@
+{
+  "timestamp_utc": "2026-09-26T15:49:59.678223+00:00",
+  "model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "local_path": "/root/.cache/modelscope/models/Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/master/",
+  "format": "safetensors (bfloat16)",
+  "hardware": "NVIDIA GeForce RTX 2080 Ti (22 GB VRAM)",
+  "quantization": "none (native bf16)",
+  "tokenizer_load_s": 0.29,
+  "model_load_s": 16.64,
+  "vram_allocated_gb": 15.23,
+  "vram_reserved_gb": 15.23,
+  "scenarios_tested": 3,
+  "format_legality_rate": 1.0,
+  "mean_latency_s": 1.782,
+  "probe_runs": [
+    {
+      "scenario": "path_blocked",
+      "latency_s": 2.05,
+      "raw_output": "{\n  \"action\": \"clear_costmap\",\n  \"reason\": \"The path is blocked by a transient obstacle detected in the local costmap.\"\n}",
+      "is_valid_json": true,
+      "parsed_action": "clear_costmap",
+      "parsed_reason": "The path is blocked by a transient obstacle detected in the local costmap."
+    },
+    {
+      "scenario": "action_timeout",
+      "latency_s": 1.696,
+      "raw_output": "{\n  \"action\": \"clear_costmap\",\n  \"reason\": \"The navigation timeout suggests that the local costmap might be outdated or contain incorrect information about obstacles.\"\n}",
+      "is_valid_json": true,
+      "parsed_action": "clear_costmap",
+      "parsed_reason": "The navigation timeout suggests that the local costmap might be outdated or contain incorrect information about obstacles."
+    },
+    {
+      "scenario": "target_moved",
+      "latency_s": 1.6,
+      "raw_output": "{\n  \"action\": \"retry\",\n  \"reason\": \"The initial observation attempt failed, so retrying the observation is the most straightforward next step.\"\n}",
+      "is_valid_json": true,
+      "parsed_action": "retry",
+      "parsed_reason": "The initial observation attempt failed, so retrying the observation is the most straightforward next step."
+    }
+  ],
+  "conclusion": "PASSED - Qwen2.5-Coder-7B-Instruct operates smoothly on local RTX 2080 Ti in bf16, requiring ~15.2 GB VRAM (well within 22 GB), yielding 100% valid structured action JSON at an average latency of ~2.0s per step without cloud dependencies."
+}
