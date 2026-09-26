@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-R0 Minimal Reproduction Script
-Executes all 8 authenticity audit checks, logs actual behaviors,
-and saves outputs to runs/audit_r0/.
+R0 Minimal Reproduction Script (Revised per Research Lead Review):
+Executes 8 authenticity audit checks, logs actual behaviors,
+and saves outputs to the designated directory (default: reports/evidence/r0/run_artifacts/).
+Supports custom output directory via --output-dir argument.
 """
 
 import os
 import sys
 import json
 import hashlib
+import argparse
+import subprocess
+from datetime import datetime, timezone
 
-# Ensure repository root is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import numpy as np
@@ -25,18 +28,29 @@ def sha256_file(filepath: str) -> str:
             h.update(chunk)
     return h.hexdigest()
 
-def run_all_checks(output_dir: str = "runs/audit_r0"):
+def get_git_info():
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True).strip()
+        status = subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
+        is_dirty = len(status) > 0
+        return {"commit": commit, "branch": branch, "is_dirty": is_dirty}
+    except Exception as e:
+        return {"commit": "unknown", "branch": "unknown", "error": str(e)}
+
+def run_all_checks(output_dir: str = "reports/evidence/r0/run_artifacts"):
     os.makedirs(output_dir, exist_ok=True)
+    git_info = get_git_info()
     findings = []
 
     # -------------------------------------------------------------
-    # Check 1: verifier toggle impact
+    # Check 1: verifier interface and event feedback check
     # -------------------------------------------------------------
     c1_dir_on = os.path.join(output_dir, "check1_ver_on")
     c1_dir_off = os.path.join(output_dir, "check1_ver_off")
     task_c1 = {
         "id": "c1_task",
-        "goal_coord": [2.0, 2.0],
+        "goal_coord": [5.0, 0.0],
         "initial_robot_pos": [0.0, 0.0],
         "fault_type": "path_blocked",
         "injected_fault_step": 2
@@ -49,31 +63,31 @@ def run_all_checks(output_dir: str = "runs/audit_r0"):
     with open(os.path.join(c1_dir_off, "events.jsonl")) as f:
         ev_off = [json.loads(line) for line in f]
 
-    # Verify if actions/events differ (ignoring the echoed 'use_verifier' key itself)
+    has_verification_events = any(e.get("event_type") == "verification" or "verifier_feedback" in e for e in ev_on)
     ev_on_stripped = [{k: v for k, v in e.items() if k != "use_verifier"} for e in ev_on]
     ev_off_stripped = [{k: v for k, v in e.items() if k != "use_verifier"} for e in ev_off]
     identical_behavior = (ev_on_stripped == ev_off_stripped)
 
     findings.append({
         "check_id": 1,
-        "name": "verifier_toggle_impact",
-        "question": "相同输入下 verifier 开/关是否实际改变验证事件与可见反馈",
-        "file": "src/evaluate.py",
-        "defect_confirmed": identical_behavior,
+        "name": "verifier_interface_and_feedback",
+        "question": "相同输入下 verifier 开/关是否实际产生验证事件与可见反馈",
+        "file": "src/evaluate.py:8-13,78,96",
+        "defect_confirmed": (not has_verification_events and identical_behavior),
         "actual_behavior": (
             "use_verifier is only printed into logs and never used in logic. "
-            f"Execution events (excluding echoed field) are identical: {identical_behavior}. "
-            f"Metrics VerON={m_on['recovery_success_rate']} vs VerOFF={m_off['recovery_success_rate']}."
+            "No verification events or agent feedback are emitted (has_verification_events=False). "
+            f"Execution events (excluding echoed field) are identical: {identical_behavior}."
         ),
-        "impact": "CRITICAL - Verifier toggle is completely cosmetic; claims of verifier ablation have 0 empirical validity."
+        "impact": "CRITICAL - Verifier toggle is not wired to any operational call path or feedback mechanism."
     })
 
     # -------------------------------------------------------------
-    # Check 2: map_version 1 -> 2 expiry failure
+    # Check 2: costmap-conditioned memory expiry on map update 1->2
     # -------------------------------------------------------------
     store = FailureMemoryStore()
     store.record_failure({
-        "id": "m1",
+        "id": "mem_costmap_v1",
         "symptom": "ERROR: Path blocked by dynamic obstacle.",
         "recovery_action": "clear_costmap",
         "map_version": 1
@@ -84,20 +98,20 @@ def run_all_checks(output_dir: str = "runs/audit_r0"):
 
     findings.append({
         "check_id": 2,
-        "name": "map_version_update_retrieval",
-        "question": "地图版本 1→2 后旧记忆是否仍被检索",
+        "name": "costmap_conditioned_memory_expiry",
+        "question": "地图版本 1→2 后，依赖已改变条件的旧记忆是否仍被检索",
         "file": "src/failmem.py:44",
         "defect_confirmed": (retrieved_v2 is not None),
         "actual_behavior": (
-            f"At map_ver=1, retrieved={retrieved_v1}. "
-            f"When map changes to map_ver=2, retrieved={retrieved_v2}. "
-            "Line 44 uses 'map_ver <= current_map_version' (1 <= 2 is True), so old memories are never expired."
+            f"At map_ver=1, retrieved='{retrieved_v1}'. "
+            f"When environment updates to map_ver=2, retrieved='{retrieved_v2}'. "
+            "Line 44 uses 'map_ver <= current_map_version' (1 <= 2 is True), so old obstacle memories remain active."
         ),
-        "impact": "CRITICAL - Expiration logic is backwards; stale memories from old maps remain permanently valid."
+        "impact": "CRITICAL - Invalidation rule fails to expire records conditioned on obsolete map versions."
     })
 
     # -------------------------------------------------------------
-    # Check 3: unverified records defaulted to RECOVERED
+    # Check 3: unverified records defaulted to RECOVERED and retrieved
     # -------------------------------------------------------------
     store = FailureMemoryStore()
     store.record_failure({
@@ -109,11 +123,10 @@ def run_all_checks(output_dir: str = "runs/audit_r0"):
     c.execute("SELECT verified_outcome FROM failure_records WHERE id = 'unverified_record'")
     stored_outcome = c.fetchone()[0]
 
-    # Also test if failed outcome is retrieved
     store.record_failure({
         "id": "failed_record",
         "symptom": "symptom_y",
-        "recovery_action": "do_nothing",
+        "recovery_action": "clear_costmap",
         "verified_outcome": "FAILED"
     })
     retrieved_failed = store.retrieve_recovery("symptom_y", current_map_version=1)
@@ -124,99 +137,106 @@ def run_all_checks(output_dir: str = "runs/audit_r0"):
         "name": "unverified_default_and_filter",
         "question": "未提供验证证据的记录是否被默认视为恢复成功，检索时是否检查验证结果",
         "file": "src/failmem.py:29,38",
-        "defect_confirmed": (stored_outcome == "RECOVERED" and retrieved_failed == "do_nothing"),
+        "defect_confirmed": (stored_outcome == "RECOVERED" and retrieved_failed == "clear_costmap"),
         "actual_behavior": (
             f"Omitted verified_outcome defaulted to: '{stored_outcome}'. "
             f"Record with verified_outcome='FAILED' was retrieved as: '{retrieved_failed}'. "
-            "SQL query has no 'WHERE verified_outcome = RECOVERED' condition."
+            "SQL query lacks 'WHERE verified_outcome = RECOVERED' constraint."
         ),
-        "impact": "CRITICAL - Memory store cannot distinguish between verified and failed recovery actions."
+        "impact": "CRITICAL - Memory store fails to isolate verified successes from unverified or failed recovery attempts."
     })
 
     # -------------------------------------------------------------
-    # Check 4: start == goal bypasses fault injection
+    # Check 4: fault exposure accounting for start==goal
     # -------------------------------------------------------------
+    c4_dir = os.path.join(output_dir, "check4_exposure")
     task_c4 = {
         "id": "fixture_robot_01",
         "goal_coord": [0.0, 0.0],
         "initial_robot_pos": [0.0, 0.0],
+        "fault_type": "path_blocked",
         "injected_fault_step": 2
     }
-    env_c4 = RobotSimEnvironment(task_c4)
-    step0_succ = env_c4.is_success()
-    s1, m1, _ = env_c4.step("navigate")
-    step1_succ = env_c4.is_success()
+    m_c4 = run_evaluation([task_c4], use_memory=True, use_verifier=True, output_dir=c4_dir)
+    with open(os.path.join(c4_dir, "events.jsonl")) as f:
+        ev_c4 = json.loads(f.readline())
 
     findings.append({
         "check_id": 4,
-        "name": "start_equals_goal_early_pass",
-        "question": "起点等于终点时，任务是否在故障触发前结束",
-        "file": "data/task-specs.jsonl:1,11; src/sim_env.py:44,58",
-        "defect_confirmed": (step0_succ and step1_succ and env_c4.step_count < 2),
+        "name": "fault_exposure_accounting_start_equals_goal",
+        "question": "起点等于终点时，任务是否在故障触发前结束，评测是否区分未暴露子集",
+        "file": "data/task-specs.jsonl:1; src/evaluate.py:47-83",
+        "defect_confirmed": (ev_c4["steps"] < 2 and ev_c4["passed"] and "fault_exposed" not in ev_c4),
         "actual_behavior": (
-            f"At step 0 before movement, is_success={step0_succ}. "
-            f"At step 1, step('navigate') returns '{m1}', is_success={step1_succ}. "
-            f"Task completes at step {env_c4.step_count} before reaching fault step 2."
+            f"Task succeeded at step {ev_c4['steps']} before reaching fault step 2. "
+            f"Reported recovery_success_rate={m_c4['recovery_success_rate']}. "
+            "Runner does not track fault exposure status; unexposed episodes are credited as recovery success."
         ),
-        "impact": "HIGH - In fixtures and test episodes (8.3% of tasks), robot succeeds without encountering injected fault."
+        "impact": "HIGH - Benchmark conflates allocated episodes with exposed episodes; artificially elevates recovery rate."
     })
 
     # -------------------------------------------------------------
-    # Check 5: fault vanishes after 1 step, enabling blind navigate
+    # Check 5: fault persistence on active task
     # -------------------------------------------------------------
     task_c5 = {
-        "id": "c5_task",
-        "goal_coord": [2.0, 0.0],
+        "id": "c5_active_task",
+        "goal_coord": [5.0, 0.0],
         "initial_robot_pos": [0.0, 0.0],
         "fault_type": "path_blocked",
         "injected_fault_step": 2
     }
     env_c5 = RobotSimEnvironment(task_c5)
-    env_c5.step("navigate") # step 1
-    s2, m2, _ = env_c5.step("navigate") # step 2: fault triggers
-    s3, m3, _ = env_c5.step("navigate") # step 3: blind navigate without recovery
+    s1, _, _ = env_c5.step("navigate")  # step 1: pos at [2,0], not success
+    assert not env_c5.is_success(), "Task completed unexpectedly at step 1"
+    s2, m2, _ = env_c5.step("navigate")  # step 2: fault triggers
+    assert not env_c5.is_success()
+    s3, m3, _ = env_c5.step("navigate")  # step 3: blind navigate without recovery
 
     findings.append({
         "check_id": 5,
-        "name": "fault_transient_blind_pass",
-        "question": "故障后不采取有效恢复，仅继续导航是否也能通过",
+        "name": "fault_persistence_on_active_task",
+        "question": "故障后不采取有效恢复，仅继续导航是否也能通过（在仍未完成的任务上）",
         "file": "src/sim_env.py:29-37",
         "defect_confirmed": (not s2 and s3),
         "actual_behavior": (
-            f"Step 2 fault: success={s2}, msg='{m2}'. "
-            f"Step 3 blind navigate: success={s3}, msg='{m3}', is_success={env_c5.is_success()}. "
-            "Fault condition is guarded by 'if step_count == injected_fault_step', vanishing at step+1."
+            f"Active task (dist=5m): Step 2 fault: success={s2}, msg='{m2}'. "
+            f"Step 3 blind navigate without recovery: success={s3}, msg='{m3}', pos={env_c5.pos.tolist()}. "
+            "Fault is guarded strictly by 'step_count == injected_fault_step', vanishing immediately at step 3."
         ),
-        "impact": "CRITICAL - Obstacles do not persist. Baselines with no memory/recovery naturally pass by simply waiting/retrying."
+        "impact": "CRITICAL - Obstacles do not persist in environment; memory-less blind retry naturally passes."
     })
 
     # -------------------------------------------------------------
-    # Check 6: target_moved ground truth leakage
+    # Check 6: target_moved parameter and state leakage
     # -------------------------------------------------------------
     task_c6 = {
-        "id": "c6_task",
-        "goal_coord": [2.0, 0.0],
+        "id": "c6_active_task",
+        "goal_coord": [5.0, 0.0],
         "initial_robot_pos": [0.0, 0.0],
         "fault_type": "target_moved",
         "injected_fault_step": 2
     }
     env_c6 = RobotSimEnvironment(task_c6)
-    env_c6.step("navigate") # step 1
-    s2, m2, _ = env_c6.step("navigate") # step 2: target relocates to [3.0, 1.0]
-    s3, m3, _ = env_c6.step("navigate") # step 3: agent navigates without params
+    env_c6.step("navigate")  # step 1: moves to [2,0]
+    s2, m2, _ = env_c6.step("navigate")  # step 2: self.goal updated to [6,1]
+    pos_before = env_c6.pos.copy()
+    s3, m3, _ = env_c6.step("navigate")  # step 3: agent passes params=None
+    step_delta = env_c6.pos - pos_before
+    leaked_y_delta = float(step_delta[1])
 
     findings.append({
         "check_id": 6,
-        "name": "target_moved_ground_truth_leakage",
-        "question": "目标移动后是否未经观察就使用新目标位置",
+        "name": "target_moved_parameter_and_state_leakage",
+        "question": "目标移动后是否未经观察就使用新目标位置（参数与内部目标泄漏）",
         "file": "src/sim_env.py:26,33",
-        "defect_confirmed": (env_c6.is_success() and np.allclose(env_c6.pos, [3.0, 1.0])),
+        "defect_confirmed": (leaked_y_delta > 0.0),
         "actual_behavior": (
             f"At step 2, target moved to {env_c6.goal.tolist()}. "
-            f"At step 3, agent called navigate() with no parameters. "
-            f"Env defaulted target to internal self.goal: robot reached {env_c6.pos.tolist()}, is_success={env_c6.is_success()}."
+            "At step 3, agent called navigate() with no goal parameters. "
+            f"Env defaulted target to internal self.goal: robot steered with dy={leaked_y_delta:.3f} "
+            f"towards {env_c6.pos.tolist()} without receiving goal coordinates from agent."
         ),
-        "impact": "CRITICAL - Omniscient goal leakage completely removes the need for target observation or active search."
+        "impact": "CRITICAL - Environment leaks relocated target coordinates to agent without observation requirement."
     })
 
     # -------------------------------------------------------------
@@ -229,7 +249,7 @@ def run_all_checks(output_dir: str = "runs/audit_r0"):
         "injected_fault_step": 99
     }
     env_c7 = RobotSimEnvironment(task_c7)
-    env_c7.step("navigate") # reaches [1.0, 0.0]
+    env_c7.step("navigate")  # reaches [1.0, 0.0]
     is_succ_c7 = env_c7.is_success()
 
     findings.append({
@@ -242,7 +262,7 @@ def run_all_checks(output_dir: str = "runs/audit_r0"):
             f"is_success() returns {is_succ_c7} immediately upon distance < 0.3m. "
             "No check for observe() call, and no 2-second stabilization verification."
         ),
-        "impact": "HIGH - Contradicts claims in feasibility.md (到达距离 < 0.3m 且稳定 2s)."
+        "impact": "HIGH - Implementation deviates from specification claiming distance < 0.3m AND stable 2s."
     })
 
     # -------------------------------------------------------------
@@ -272,6 +292,9 @@ def run_all_checks(output_dir: str = "runs/audit_r0"):
 
     summary_path = os.path.join(output_dir, "audit_summary.json")
     summary = {
+        "audit_version": "R0_revised_2026-09-26",
+        "git": git_info,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "total_checks": len(findings),
         "defects_confirmed": sum(1 for f in findings if f["defect_confirmed"]),
         "findings": findings
@@ -284,4 +307,7 @@ def run_all_checks(output_dir: str = "runs/audit_r0"):
     print(f"Summary saved to: {summary_path} (SHA256: {sha256_file(summary_path)})")
 
 if __name__ == "__main__":
-    run_all_checks()
+    parser = argparse.ArgumentParser(description="FailMem R0 Audit Reproduction Script")
+    parser.add_argument("--output-dir", default="reports/evidence/r0/run_artifacts", help="Output directory for audit artifacts")
+    args = parser.parse_args()
+    run_all_checks(args.output_dir)

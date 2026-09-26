@@ -1,0 +1,108 @@
+{
+  "task_specs_summary": {
+    "filepath": "data/task-specs.jsonl",
+    "total_lines": 12,
+    "unique_coordinate_pairs": 10,
+    "unique_scenario_signatures": 12,
+    "same_start_goal_count": 2,
+    "same_start_goal_ids": [
+      "fixture_robot_01",
+      "fixture_robot_11"
+    ],
+    "fault_type_distribution": {
+      "path_blocked": 4,
+      "target_moved": 4,
+      "action_timeout": 4
+    },
+    "coordinate_repetition": {
+      "((0.0, 0.0), (0.0, 0.0))": 2,
+      "((0.0, 0.0), (2.0, 3.0))": 2,
+      "((0.0, 0.0), (4.0, 6.0))": 1,
+      "((0.0, 0.0), (6.0, 9.0))": 1,
+      "((0.0, 0.0), (8.0, 2.0))": 1,
+      "((0.0, 0.0), (0.0, 5.0))": 1,
+      "((0.0, 0.0), (2.0, 8.0))": 1,
+      "((0.0, 0.0), (4.0, 1.0))": 1,
+      "((0.0, 0.0), (6.0, 4.0))": 1,
+      "((0.0, 0.0), (8.0, 7.0))": 1
+    },
+    "signature_repetition": {
+      "('layout_1', 'path_blocked', (0.0, 0.0))": 1,
+      "('layout_2', 'target_moved', (2.0, 3.0))": 1,
+      "('layout_3', 'action_timeout', (4.0, 6.0))": 1,
+      "('layout_1', 'path_blocked', (6.0, 9.0))": 1,
+      "('layout_2', 'target_moved', (8.0, 2.0))": 1,
+      "('layout_3', 'action_timeout', (0.0, 5.0))": 1,
+      "('layout_1', 'path_blocked', (2.0, 8.0))": 1,
+      "('layout_2', 'target_moved', (4.0, 1.0))": 1,
+      "('layout_3', 'action_timeout', (6.0, 4.0))": 1,
+      "('layout_1', 'path_blocked', (8.0, 7.0))": 1,
+      "('layout_2', 'target_moved', (0.0, 0.0))": 1,
+      "('layout_3', 'action_timeout', (2.0, 3.0))": 1
+    }
+  },
+  "test_episodes_summary": {
+    "filepath": "data/test_episodes.jsonl",
+    "total_lines": 180,
+    "unique_coordinate_pairs": 12,
+    "unique_scenario_signatures": 12,
+    "same_start_goal_count": 15,
+    "same_start_goal_ids": [
+      "formal_task_001",
+      "formal_task_013",
+      "formal_task_025",
+      "formal_task_037",
+      "formal_task_049",
+      "formal_task_061",
+      "formal_task_073",
+      "formal_task_085",
+      "formal_task_097",
+      "formal_task_109",
+      "formal_task_121",
+      "formal_task_133",
+      "formal_task_145",
+      "formal_task_157",
+      "formal_task_169"
+    ],
+    "fault_type_distribution": {
+      "path_blocked": 60,
+      "target_moved": 60,
+      "action_timeout": 60
+    },
+    "coordinate_repetition": {
+      "((0.0, 0.0), (0.0, 0.0))": 15,
+      "((0.0, 0.0), (3.0, 4.0))": 15,
+      "((0.0, 0.0), (6.0, 8.0))": 15,
+      "((0.0, 0.0), (9.0, 0.0))": 15,
+      "((0.0, 0.0), (0.0, 4.0))": 15,
+      "((0.0, 0.0), (3.0, 8.0))": 15,
+      "((0.0, 0.0), (6.0, 0.0))": 15,
+      "((0.0, 0.0), (9.0, 4.0))": 15,
+      "((0.0, 0.0), (0.0, 8.0))": 15,
+      "((0.0, 0.0), (3.0, 0.0))": 15,
+      "((0.0, 0.0), (6.0, 4.0))": 15,
+      "((0.0, 0.0), (9.0, 8.0))": 15
+    },
+    "signature_repetition": {
+      "('unseen_layout_1', 'path_blocked', (0.0, 0.0))": 15,
+      "('unseen_layout_2', 'target_moved', (3.0, 4.0))": 15,
+      "('unseen_layout_3', 'action_timeout', (6.0, 8.0))": 15,
+      "('unseen_layout_4', 'path_blocked', (9.0, 0.0))": 15,
+      "('unseen_layout_5', 'target_moved', (0.0, 4.0))": 15,
+      "('unseen_layout_6', 'action_timeout', (3.0, 8.0))": 15,
+      "('unseen_layout_1', 'path_blocked', (6.0, 0.0))": 15,
+      "('unseen_layout_2', 'target_moved', (9.0, 4.0))": 15,
+      "('unseen_layout_3', 'action_timeout', (0.0, 8.0))": 15,
+      "('unseen_layout_4', 'path_blocked', (3.0, 0.0))": 15,
+      "('unseen_layout_5', 'target_moved', (6.0, 4.0))": 15,
+      "('unseen_layout_6', 'action_timeout', (9.0, 8.0))": 15
+    }
+  },
+  "comparison_notes": [
+    "task-specs.jsonl has 12 items with 10 unique coordinate pairs (2 coordinates are duplicated with different layouts/faults).",
+    "test_episodes.jsonl has 180 items with exactly 12 unique coordinate pairs, each repeated 15 times.",
+    "test_episodes.jsonl is NOT a direct copy of task-specs.jsonl coordinates: task-specs contains coords like (4,6), (8,2), (2,8), (4,1), (8,7), (2,3) not present in test_episodes; test_episodes contains coords like (3,4), (9,0), (0,4), (3,8), (9,4), (3,0), (9,8) not in task-specs.",
+    "Both datasets contain tasks where initial_robot_pos == goal_coord ([0.0, 0.0]): task-specs has 2 (16.7%), test_episodes has 15 (8.33%).",
+    "In test_episodes.jsonl, 12 template tasks are systematically tiled 15 times across 6 layout labels."
+  ]
+}

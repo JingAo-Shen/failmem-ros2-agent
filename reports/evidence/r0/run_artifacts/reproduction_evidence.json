@@ -1,0 +1,74 @@
+[
+  {
+    "check_id": 1,
+    "name": "verifier_interface_and_feedback",
+    "question": "相同输入下 verifier 开/关是否实际产生验证事件与可见反馈",
+    "file": "src/evaluate.py:8-13,78,96",
+    "defect_confirmed": true,
+    "actual_behavior": "use_verifier is only printed into logs and never used in logic. No verification events or agent feedback are emitted (has_verification_events=False). Execution events (excluding echoed field) are identical: True.",
+    "impact": "CRITICAL - Verifier toggle is not wired to any operational call path or feedback mechanism."
+  },
+  {
+    "check_id": 2,
+    "name": "costmap_conditioned_memory_expiry",
+    "question": "地图版本 1→2 后，依赖已改变条件的旧记忆是否仍被检索",
+    "file": "src/failmem.py:44",
+    "defect_confirmed": true,
+    "actual_behavior": "At map_ver=1, retrieved='clear_costmap'. When environment updates to map_ver=2, retrieved='clear_costmap'. Line 44 uses 'map_ver <= current_map_version' (1 <= 2 is True), so old obstacle memories remain active.",
+    "impact": "CRITICAL - Invalidation rule fails to expire records conditioned on obsolete map versions."
+  },
+  {
+    "check_id": 3,
+    "name": "unverified_default_and_filter",
+    "question": "未提供验证证据的记录是否被默认视为恢复成功，检索时是否检查验证结果",
+    "file": "src/failmem.py:29,38",
+    "defect_confirmed": true,
+    "actual_behavior": "Omitted verified_outcome defaulted to: 'RECOVERED'. Record with verified_outcome='FAILED' was retrieved as: 'clear_costmap'. SQL query lacks 'WHERE verified_outcome = RECOVERED' constraint.",
+    "impact": "CRITICAL - Memory store fails to isolate verified successes from unverified or failed recovery attempts."
+  },
+  {
+    "check_id": 4,
+    "name": "fault_exposure_accounting_start_equals_goal",
+    "question": "起点等于终点时，任务是否在故障触发前结束，评测是否区分未暴露子集",
+    "file": "data/task-specs.jsonl:1; src/evaluate.py:47-83",
+    "defect_confirmed": true,
+    "actual_behavior": "Task succeeded at step 1 before reaching fault step 2. Reported recovery_success_rate=1.0. Runner does not track fault exposure status; unexposed episodes are credited as recovery success.",
+    "impact": "HIGH - Benchmark conflates allocated episodes with exposed episodes; artificially elevates recovery rate."
+  },
+  {
+    "check_id": 5,
+    "name": "fault_persistence_on_active_task",
+    "question": "故障后不采取有效恢复，仅继续导航是否也能通过（在仍未完成的任务上）",
+    "file": "src/sim_env.py:29-37",
+    "defect_confirmed": true,
+    "actual_behavior": "Active task (dist=5m): Step 2 fault: success=False, msg='ERROR: Path blocked by dynamic obstacle.'. Step 3 blind navigate without recovery: success=True, msg='Moving towards goal.', pos=[4.0, 0.0]. Fault is guarded strictly by 'step_count == injected_fault_step', vanishing immediately at step 3.",
+    "impact": "CRITICAL - Obstacles do not persist in environment; memory-less blind retry naturally passes."
+  },
+  {
+    "check_id": 6,
+    "name": "target_moved_parameter_and_state_leakage",
+    "question": "目标移动后是否未经观察就使用新目标位置（参数与内部目标泄漏）",
+    "file": "src/sim_env.py:26,33",
+    "defect_confirmed": true,
+    "actual_behavior": "At step 2, target moved to [6.0, 1.0]. At step 3, agent called navigate() with no goal parameters. Env defaulted target to internal self.goal: robot steered with dy=0.485 towards [3.9402850002906638, 0.48507125007266594] without receiving goal coordinates from agent.",
+    "impact": "CRITICAL - Environment leaks relocated target coordinates to agent without observation requirement."
+  },
+  {
+    "check_id": 7,
+    "name": "success_condition_missing_checks",
+    "question": "未执行 observe 或未满足稳定时间是否仍被判成功",
+    "file": "src/sim_env.py:58-59",
+    "defect_confirmed": true,
+    "actual_behavior": "is_success() returns True immediately upon distance < 0.3m. No check for observe() call, and no 2-second stabilization verification.",
+    "impact": "HIGH - Implementation deviates from specification claiming distance < 0.3m AND stable 2s."
+  },
+  {
+    "check_id": 8,
+    "name": "empty_task_metrics_zero_division",
+    "question": "空任务集的指标是否错误输出 0，而不是无定义状态",
+    "file": "src/evaluate.py:87-94",
+    "defect_confirmed": true,
+    "actual_behavior": "When task list is empty, recovery_success_rate=0.0, repeat_failure_rate=0.0. Formula uses max(total, 1), converting undefined ratio 0/0 into 0.0.",
+    "impact": "MEDIUM - Violates EXECUTION-CONTRACT.md line 43 ('分母为 0 时输出 null，不能当成 0%')."
+  }
+]

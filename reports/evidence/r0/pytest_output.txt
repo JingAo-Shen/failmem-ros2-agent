@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.4, pluggy-1.5.0 -- /root/anaconda3/bin/python
+cachedir: .pytest_cache
+rootdir: /code/failmem-ros2-agent
+configfile: pytest.ini
+plugins: anyio-4.15.1
+collecting ... collected 10 items
+
+tests/test_audit_reproductions.py::TestR0DefectReproduction::test_reproduce_verifier_interface_and_feedback_missing XFAIL [ 10%]
+tests/test_audit_reproductions.py::TestR0DefectReproduction::test_reproduce_costmap_conditioned_memory_expiry XFAIL [ 20%]
+tests/test_audit_reproductions.py::TestR0DefectReproduction::test_reproduce_unverified_record_defaulted_to_recovered XFAIL [ 30%]
+tests/test_audit_reproductions.py::TestR0DefectReproduction::test_reproduce_fault_exposure_accounting_start_equals_goal XFAIL [ 40%]
+tests/test_audit_reproductions.py::TestR0DefectReproduction::test_reproduce_fault_persistence_on_active_task XFAIL [ 50%]
+tests/test_audit_reproductions.py::TestR0DefectReproduction::test_reproduce_target_moved_parameter_and_state_leakage XFAIL [ 60%]
+tests/test_audit_reproductions.py::TestR0DefectReproduction::test_reproduce_success_condition_missing_checks XFAIL [ 70%]
+tests/test_audit_reproductions.py::TestR0DefectReproduction::test_reproduce_empty_task_metrics_return_zero_division XFAIL [ 80%]
+tests/test_failmem.py::test_sim_environment_fault_injection PASSED       [ 90%]
+tests/test_failmem.py::test_failure_memory_expiry PASSED                 [100%]
+
+========================= 2 passed, 8 xfailed in 0.10s =========================

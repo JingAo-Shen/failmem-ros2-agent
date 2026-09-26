@@ -1,0 +1,847 @@
+{
+  "analysis_target": "Detailed failure mechanism for formal_task_008 and formal_task_012",
+  "formal_task_008_target_moved": {
+    "initial_state": "pos=[0,0], goal=[9,4], initial_distance=9.8489m",
+    "step_breakdown": {
+      "step_1": "navigate successfully advances 2.0m towards [9,4]. Remaining distance: 7.8489m.",
+      "step_2_fault": "navigate encounters fault. Target relocates to [10,5]. Distance jumps to 9.1830m. Memory has no heuristic for 'target_moved', so fallback retry is executed. Robot does not move (advancement: 0.0m).",
+      "steps_3_to_6": "4 navigate steps advance 4 * 2.0m = 8.0m towards [10,5].",
+      "termination": "Loop finishes 6 iterations. Robot reaches [8.9473, 4.4606]. Final distance to [10,5] is 1.1830m > 0.3m. Task fails.",
+      "effective_nav_steps": 5,
+      "total_effective_distance_covered": "10.0m",
+      "distance_needed": "11.1803m (from origin to [10,5])"
+    },
+    "root_cause_explanation": "Task fails not because of recovery failure, but because: (1) target relocation increased total distance required from 9.85m to 11.18m; (2) memory store contains no recovery rule for target_moved, forcing fallback retry; (3) losing 1 iteration to fault/retry left only 5 navigation steps (max 10m range), which mathematically cannot cover 11.18m within the fixed 6-iteration loop budget."
+  },
+  "formal_task_012_action_timeout": {
+    "initial_state": "pos=[0,0], goal=[9,8], initial_distance=12.0416m",
+    "step_breakdown": {
+      "step_1": "navigate successfully advances 2.0m towards [9,8]. Remaining distance: 10.0416m.",
+      "step_2_fault": "navigate times out. In memory ON, clear_costmap is executed; in memory OFF, retry is executed. Neither action moves the robot (advancement: 0.0m).",
+      "steps_3_to_6": "4 navigate steps advance 4 * 2.0m = 8.0m towards [9,8].",
+      "termination": "Loop finishes 6 iterations. Robot reaches [7.4741, 6.6436]. Final distance to [9,8] is 2.0416m > 0.3m. Task fails.",
+      "effective_nav_steps": 5,
+      "total_effective_distance_covered": "10.0m",
+      "distance_needed": "12.0416m"
+    },
+    "root_cause_explanation": "Task fails because: (1) initial distance is 12.0416m; (2) in the ideal fault-free case with 6 full navigation steps, robot covers 12.0m, arriving within 0.0416m (<0.3m); (3) when fault occurs at step 2, 1 step is spent on recovery/retry with 0m forward progress; (4) with only 5 navigation steps available (10.0m max), the robot remains 2.0416m short of goal. Furthermore, clear_costmap is a dummy action that cannot accelerate or rescue a pure distance/timeout deficit."
+  },
+  "traces": {
+    "task_008_mem_on": {
+      "task_id": "formal_task_008",
+      "fault_type": "target_moved",
+      "use_memory": true,
+      "initial_pos": [
+        0.0,
+        0.0
+      ],
+      "initial_goal": [
+        9.0,
+        4.0
+      ],
+      "final_goal": [
+        10.0,
+        5.0
+      ],
+      "final_pos": [
+        8.947308358838466,
+        4.4605754089019225
+      ],
+      "initial_dist_m": 9.8489,
+      "final_dist_m": 1.1829,
+      "is_success": false,
+      "total_env_steps": 7,
+      "effective_navigation_steps": 5,
+      "recovery_actions_count": 0,
+      "trajectory": [
+        {
+          "loop_iteration": 1,
+          "action": "navigate",
+          "pos_before": [
+            0.0,
+            0.0
+          ],
+          "pos_after": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "goal_before": [
+            9.0,
+            4.0
+          ],
+          "goal_after": [
+            9.0,
+            4.0
+          ],
+          "dist_before": 9.8489,
+          "dist_after": 7.8489,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 1,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 2,
+          "action": "navigate",
+          "pos_before": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "pos_after": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "goal_before": [
+            9.0,
+            4.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 7.8489,
+          "dist_after": 9.1829,
+          "step_success": false,
+          "message": "ERROR: Target object relocated.",
+          "env_step_count": 2,
+          "event": "FAULT_ENCOUNTERED",
+          "symptom": "ERROR: Target object relocated.",
+          "retrieved_recovery": null
+        },
+        {
+          "loop_iteration": 2,
+          "action": "retry",
+          "is_recovery": false,
+          "step_success": true,
+          "message": "Retrying previous action.",
+          "env_step_count": 3,
+          "pos_after": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "remaining_dist": 9.1829
+        },
+        {
+          "loop_iteration": 3,
+          "action": "navigate",
+          "pos_before": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "pos_after": [
+            3.607544412640002,
+            1.7243515513056522
+          ],
+          "goal_before": [
+            10.0,
+            5.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 9.1829,
+          "dist_after": 7.1829,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 4,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 4,
+          "action": "navigate",
+          "pos_before": [
+            3.607544412640002,
+            1.7243515513056522
+          ],
+          "pos_after": [
+            5.38746572803949,
+            2.636426170504409
+          ],
+          "goal_before": [
+            10.0,
+            5.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 7.1829,
+          "dist_after": 5.1829,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 5,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 5,
+          "action": "navigate",
+          "pos_before": [
+            5.38746572803949,
+            2.636426170504409
+          ],
+          "pos_after": [
+            7.1673870434389775,
+            3.5485007897031657
+          ],
+          "goal_before": [
+            10.0,
+            5.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 5.1829,
+          "dist_after": 3.1829,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 6,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 6,
+          "action": "navigate",
+          "pos_before": [
+            7.1673870434389775,
+            3.5485007897031657
+          ],
+          "pos_after": [
+            8.947308358838466,
+            4.4605754089019225
+          ],
+          "goal_before": [
+            10.0,
+            5.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 3.1829,
+          "dist_after": 1.1829,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 7,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        }
+      ]
+    },
+    "task_008_mem_off": {
+      "task_id": "formal_task_008",
+      "fault_type": "target_moved",
+      "use_memory": false,
+      "initial_pos": [
+        0.0,
+        0.0
+      ],
+      "initial_goal": [
+        9.0,
+        4.0
+      ],
+      "final_goal": [
+        10.0,
+        5.0
+      ],
+      "final_pos": [
+        8.947308358838466,
+        4.4605754089019225
+      ],
+      "initial_dist_m": 9.8489,
+      "final_dist_m": 1.1829,
+      "is_success": false,
+      "total_env_steps": 7,
+      "effective_navigation_steps": 5,
+      "recovery_actions_count": 0,
+      "trajectory": [
+        {
+          "loop_iteration": 1,
+          "action": "navigate",
+          "pos_before": [
+            0.0,
+            0.0
+          ],
+          "pos_after": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "goal_before": [
+            9.0,
+            4.0
+          ],
+          "goal_after": [
+            9.0,
+            4.0
+          ],
+          "dist_before": 9.8489,
+          "dist_after": 7.8489,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 1,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 2,
+          "action": "navigate",
+          "pos_before": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "pos_after": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "goal_before": [
+            9.0,
+            4.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 7.8489,
+          "dist_after": 9.1829,
+          "step_success": false,
+          "message": "ERROR: Target object relocated.",
+          "env_step_count": 2,
+          "event": "FAULT_ENCOUNTERED",
+          "symptom": "ERROR: Target object relocated.",
+          "retrieved_recovery": null
+        },
+        {
+          "loop_iteration": 2,
+          "action": "retry",
+          "is_recovery": false,
+          "step_success": true,
+          "message": "Retrying previous action.",
+          "env_step_count": 3,
+          "pos_after": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "remaining_dist": 9.1829
+        },
+        {
+          "loop_iteration": 3,
+          "action": "navigate",
+          "pos_before": [
+            1.8276230972405145,
+            0.8122769321068953
+          ],
+          "pos_after": [
+            3.607544412640002,
+            1.7243515513056522
+          ],
+          "goal_before": [
+            10.0,
+            5.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 9.1829,
+          "dist_after": 7.1829,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 4,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 4,
+          "action": "navigate",
+          "pos_before": [
+            3.607544412640002,
+            1.7243515513056522
+          ],
+          "pos_after": [
+            5.38746572803949,
+            2.636426170504409
+          ],
+          "goal_before": [
+            10.0,
+            5.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 7.1829,
+          "dist_after": 5.1829,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 5,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 5,
+          "action": "navigate",
+          "pos_before": [
+            5.38746572803949,
+            2.636426170504409
+          ],
+          "pos_after": [
+            7.1673870434389775,
+            3.5485007897031657
+          ],
+          "goal_before": [
+            10.0,
+            5.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 5.1829,
+          "dist_after": 3.1829,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 6,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 6,
+          "action": "navigate",
+          "pos_before": [
+            7.1673870434389775,
+            3.5485007897031657
+          ],
+          "pos_after": [
+            8.947308358838466,
+            4.4605754089019225
+          ],
+          "goal_before": [
+            10.0,
+            5.0
+          ],
+          "goal_after": [
+            10.0,
+            5.0
+          ],
+          "dist_before": 3.1829,
+          "dist_after": 1.1829,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 7,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        }
+      ]
+    },
+    "task_012_mem_on": {
+      "task_id": "formal_task_012",
+      "fault_type": "action_timeout",
+      "use_memory": true,
+      "initial_pos": [
+        0.0,
+        0.0
+      ],
+      "initial_goal": [
+        9.0,
+        8.0
+      ],
+      "final_goal": [
+        9.0,
+        8.0
+      ],
+      "final_pos": [
+        7.474093186836597,
+        6.643638388299197
+      ],
+      "initial_dist_m": 12.0416,
+      "final_dist_m": 2.0416,
+      "is_success": false,
+      "total_env_steps": 7,
+      "effective_navigation_steps": 5,
+      "recovery_actions_count": 1,
+      "trajectory": [
+        {
+          "loop_iteration": 1,
+          "action": "navigate",
+          "pos_before": [
+            0.0,
+            0.0
+          ],
+          "pos_after": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 12.0416,
+          "dist_after": 10.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 1,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 2,
+          "action": "navigate",
+          "pos_before": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "pos_after": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 10.0416,
+          "dist_after": 10.0416,
+          "step_success": false,
+          "message": "ERROR: Navigation action timed out.",
+          "env_step_count": 2,
+          "event": "FAULT_ENCOUNTERED",
+          "symptom": "ERROR: Navigation action timed out.",
+          "retrieved_recovery": "clear_costmap"
+        },
+        {
+          "loop_iteration": 2,
+          "action": "clear_costmap",
+          "is_recovery": true,
+          "step_success": true,
+          "message": "Costmap cleared successfully.",
+          "env_step_count": 3,
+          "pos_after": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "remaining_dist": 10.0416
+        },
+        {
+          "loop_iteration": 3,
+          "action": "navigate",
+          "pos_before": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "pos_after": [
+            2.9896372747346387,
+            2.657455355319679
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 10.0416,
+          "dist_after": 8.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 4,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 4,
+          "action": "navigate",
+          "pos_before": [
+            2.9896372747346387,
+            2.657455355319679
+          ],
+          "pos_after": [
+            4.484455912101958,
+            3.9861830329795183
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 8.0416,
+          "dist_after": 6.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 5,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 5,
+          "action": "navigate",
+          "pos_before": [
+            4.484455912101958,
+            3.9861830329795183
+          ],
+          "pos_after": [
+            5.979274549469277,
+            5.314910710639357
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 6.0416,
+          "dist_after": 4.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 6,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 6,
+          "action": "navigate",
+          "pos_before": [
+            5.979274549469277,
+            5.314910710639357
+          ],
+          "pos_after": [
+            7.474093186836597,
+            6.643638388299197
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 4.0416,
+          "dist_after": 2.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 7,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        }
+      ]
+    },
+    "task_012_mem_off": {
+      "task_id": "formal_task_012",
+      "fault_type": "action_timeout",
+      "use_memory": false,
+      "initial_pos": [
+        0.0,
+        0.0
+      ],
+      "initial_goal": [
+        9.0,
+        8.0
+      ],
+      "final_goal": [
+        9.0,
+        8.0
+      ],
+      "final_pos": [
+        7.474093186836597,
+        6.643638388299197
+      ],
+      "initial_dist_m": 12.0416,
+      "final_dist_m": 2.0416,
+      "is_success": false,
+      "total_env_steps": 7,
+      "effective_navigation_steps": 5,
+      "recovery_actions_count": 0,
+      "trajectory": [
+        {
+          "loop_iteration": 1,
+          "action": "navigate",
+          "pos_before": [
+            0.0,
+            0.0
+          ],
+          "pos_after": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 12.0416,
+          "dist_after": 10.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 1,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 2,
+          "action": "navigate",
+          "pos_before": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "pos_after": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 10.0416,
+          "dist_after": 10.0416,
+          "step_success": false,
+          "message": "ERROR: Navigation action timed out.",
+          "env_step_count": 2,
+          "event": "FAULT_ENCOUNTERED",
+          "symptom": "ERROR: Navigation action timed out.",
+          "retrieved_recovery": null
+        },
+        {
+          "loop_iteration": 2,
+          "action": "retry",
+          "is_recovery": false,
+          "step_success": true,
+          "message": "Retrying previous action.",
+          "env_step_count": 3,
+          "pos_after": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "remaining_dist": 10.0416
+        },
+        {
+          "loop_iteration": 3,
+          "action": "navigate",
+          "pos_before": [
+            1.4948186373673193,
+            1.3287276776598396
+          ],
+          "pos_after": [
+            2.9896372747346387,
+            2.657455355319679
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 10.0416,
+          "dist_after": 8.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 4,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 4,
+          "action": "navigate",
+          "pos_before": [
+            2.9896372747346387,
+            2.657455355319679
+          ],
+          "pos_after": [
+            4.484455912101958,
+            3.9861830329795183
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 8.0416,
+          "dist_after": 6.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 5,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 5,
+          "action": "navigate",
+          "pos_before": [
+            4.484455912101958,
+            3.9861830329795183
+          ],
+          "pos_after": [
+            5.979274549469277,
+            5.314910710639357
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 6.0416,
+          "dist_after": 4.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 6,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        },
+        {
+          "loop_iteration": 6,
+          "action": "navigate",
+          "pos_before": [
+            5.979274549469277,
+            5.314910710639357
+          ],
+          "pos_after": [
+            7.474093186836597,
+            6.643638388299197
+          ],
+          "goal_before": [
+            9.0,
+            8.0
+          ],
+          "goal_after": [
+            9.0,
+            8.0
+          ],
+          "dist_before": 4.0416,
+          "dist_after": 2.0416,
+          "step_success": true,
+          "message": "Moving towards goal.",
+          "env_step_count": 7,
+          "event": "ADVANCED_TOWARDS_GOAL"
+        }
+      ]
+    }
+  }
+}
