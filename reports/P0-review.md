@@ -2,7 +2,7 @@
 
 - **项目**: `failmem-ros2-agent` (https://github.com/JingAo-Shen/failmem-ros2-agent)
 - **阶段**: P0（文献、环境可行性与研究协议核查）
-- **审查状态**: **PASSED (通过，建议进入 P1 准备阶段)**
+- **审查状态**: **PARTIAL / NEEDS_CORRECTION (部分通过/需定点修正，详见 reports/P0-correction-review.md)**
 - **执行分支**: `audit/r0-authenticity`
 - **关联依据**:
   - 文献核查: [`reports/literature.csv`](literature.csv), [`reports/novelty-audit.md`](novelty-audit.md)
@@ -112,5 +112,5 @@
 
 ## 8. 建议与总结
 
-- **审查结论**: **P0 阶段各项文献核查、硬件探针、本地大模型实测与问题锁定契约均已严格完成，验收通过 (PASSED)**。
+- **审查结论**: **P0 阶段已完成文献全量核验勘误、研究契约 v0.2 草案更新与本地模型探针修正。状态变更为 PARTIAL / NEEDS_CORRECTION，定点修正记录见 reports/P0-correction-review.md**。
 - **阶段流转建议**: 建议提交研究负责人复核，在确认批准后，正式开启 **P1：真实仿真及可信评测（单环境最小闭环）** 阶段。
