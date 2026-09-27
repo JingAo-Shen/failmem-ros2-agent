@@ -1,0 +1,138 @@
+{
+  "status": "COMPLETED",
+  "timestamp": "2026-09-27T02:26:09.765938+00:00",
+  "purpose": "Model interface feasibility probe under Problem Lock v0.2. DOES NOT evaluate recovery capability.",
+  "environment": {
+    "device": "cuda:0",
+    "device_name": "NVIDIA GeForce RTX 2080 Ti",
+    "device_compute_capability": [
+      7,
+      5
+    ],
+    "torch_version": "2.10.0+cu128",
+    "transformers_version": "5.17.0",
+    "cuda_runtime_version": "12.8",
+    "torch_cuda_is_bf16_supported": true,
+    "hardware_native_bf16_tensor_cores": false,
+    "hardware_native_bf16_note": "Native hardware BF16 Tensor Cores require SM >= 8.0 (Ampere+). On SM 7.5 (Turing), PyTorch executes BF16 operations via software emulation / conversion."
+  },
+  "model_metadata": {
+    "model_path": "/root/.cache/modelscope/models/Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/master",
+    "requested_dtype": "bfloat16",
+    "actual_param_dtype": "torch.bfloat16",
+    "weights_size_gb": 14.2,
+    "manifest_file_count": 15,
+    "model_files": [
+      ".gitattributes",
+      "LICENSE",
+      "README.md",
+      "config.json",
+      "configuration.json",
+      "generation_config.json",
+      "merges.txt",
+      "model-00001-of-00004.safetensors",
+      "model-00002-of-00004.safetensors",
+      "model-00003-of-00004.safetensors",
+      "model-00004-of-00004.safetensors",
+      "model.safetensors.index.json",
+      "tokenizer.json",
+      "tokenizer_config.json",
+      "vocab.json"
+    ]
+  },
+  "performance": {
+    "model_load_time_sec": 18.51,
+    "peak_vram_gb": 14.25,
+    "total_input_tokens": 1262,
+    "total_output_tokens": 264,
+    "mean_latency_sec": 3.055,
+    "min_latency_sec": 1.8819,
+    "max_latency_sec": 4.4643
+  },
+  "validation_metrics": {
+    "total_trials": 5,
+    "json_parseable_count": 5,
+    "json_parseable_rate": 1.0,
+    "schema_valid_count": 5,
+    "schema_valid_rate": 1.0,
+    "action_executable_count": 5,
+    "action_executable_rate": 1.0
+  },
+  "trials": [
+    {
+      "prompt_id": "probe_01_navigate",
+      "description": "Initial navigation toward observation stance",
+      "expected_action": "navigate",
+      "input_tokens": 261,
+      "output_tokens": 70,
+      "latency_sec": 4.2555,
+      "raw_output": "```json\n{\n  \"action\": \"navigate\",\n  \"action_id\": \"nav_to_stance\",\n  \"params\": {\n    \"goal\": [4.0, 3.0, 0.0],\n    \"frame_id\": \"map\",\n    \"timeout_sec\": 60.0\n  }\n}\n```",
+      "json_parseable": true,
+      "schema_valid": true,
+      "action_executable": true,
+      "parsed_action": "navigate",
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "prompt_id": "probe_02_observe",
+      "description": "Target observation upon arrival at stance",
+      "expected_action": "observe",
+      "input_tokens": 258,
+      "output_tokens": 44,
+      "latency_sec": 2.6794,
+      "raw_output": "```json\n{\n  \"action\": \"observe\",\n  \"action_id\": \"obs_01\",\n  \"params\": {\n    \"target_id\": \"target_box_01\"\n  }\n}\n```",
+      "json_parseable": true,
+      "schema_valid": true,
+      "action_executable": true,
+      "parsed_action": "observe",
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "prompt_id": "probe_03_costmap_clear",
+      "description": "Transient lidar artifact clearance",
+      "expected_action": "clear_costmap",
+      "input_tokens": 246,
+      "output_tokens": 29,
+      "latency_sec": 1.8819,
+      "raw_output": "{\n  \"action\": \"clear_costmap\",\n  \"action_id\": \"clear_costmap_1\",\n  \"params\": {}\n}",
+      "json_parseable": true,
+      "schema_valid": true,
+      "action_executable": true,
+      "parsed_action": "clear_costmap",
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "prompt_id": "probe_04_inspect_status",
+      "description": "Inspection of robot odometry and sensors",
+      "expected_action": "inspect_status",
+      "input_tokens": 239,
+      "output_tokens": 32,
+      "latency_sec": 1.9939,
+      "raw_output": "```json\n{\n  \"action\": \"inspect_status\",\n  \"action_id\": \"status_inspection_1\",\n  \"params\": {}\n}\n```",
+      "json_parseable": true,
+      "schema_valid": true,
+      "action_executable": true,
+      "parsed_action": "inspect_status",
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "prompt_id": "probe_05_retry",
+      "description": "Replay original action after clearing transient artifact",
+      "expected_action": "retry",
+      "input_tokens": 258,
+      "output_tokens": 89,
+      "latency_sec": 4.4643,
+      "raw_output": "{\n  \"action\": \"retry\",\n  \"action_id\": \"act_retry_01\",\n  \"params\": {\n    \"original_action_id\": \"act_nav_01\",\n    \"replayed_params\": {\n      \"goal\": [4.0, 3.0, 0.0],\n      \"frame_id\": \"map\",\n      \"timeout_sec\": 60.0\n    }\n  }\n}",
+      "json_parseable": true,
+      "schema_valid": true,
+      "action_executable": true,
+      "parsed_action": "retry",
+      "error_type": null,
+      "error_message": null
+    }
+  ]
+}
