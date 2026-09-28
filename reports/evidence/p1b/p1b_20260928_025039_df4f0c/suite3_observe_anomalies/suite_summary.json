@@ -1,0 +1,456 @@
+{
+  "interface_checks": {
+    "if_missing_odom": {
+      "status": "ERROR",
+      "error_type": "ODOMETRY_UNAVAILABLE",
+      "error_message": "Odometry stream is not available.",
+      "observation": null
+    },
+    "if_missing_scan": {
+      "status": "DEGRADED",
+      "error_type": "SCAN_DEGRADED",
+      "error_message": "SCAN_UNAVAILABLE",
+      "observation": {
+        "timestamp": {
+          "sim_time_sec": 3.0,
+          "amcl_stamp_sec": 1.568,
+          "odom_stamp_sec": 2.785,
+          "scan_stamp_sec": null
+        },
+        "localization": {
+          "pose": [
+            -1.96,
+            -0.46,
+            0.0007
+          ],
+          "covariance_diagonal": [
+            0.176222,
+            0.176222,
+            0.217074
+          ],
+          "frame_id": "map",
+          "staleness_sec": 1.432,
+          "status": "VALID_STATIONARY_CACHE"
+        },
+        "odometry": {
+          "linear_velocity_mps": 0.0,
+          "angular_velocity_radps": -0.0003,
+          "staleness_sec": 0.215
+        },
+        "laser_scan": {
+          "available": false,
+          "fresh": false,
+          "staleness_sec": null,
+          "min_distance_m": null,
+          "valid_ranges_count": 0,
+          "total_ranges_count": 0
+        },
+        "navigation_status": {
+          "nav2_lifecycle_state": "ACTIVE",
+          "current_goal_status": "IDLE"
+        }
+      }
+    }
+  },
+  "real_ros_topic_tests": {
+    "test_3_1_normal": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "obs_3_1_normal",
+      "goal_uuid": "de3128b2-0f43-5d27-a87f-fa4345dd6b9c",
+      "normalized_action": {
+        "action": "observe",
+        "action_id": "obs_3_1_normal",
+        "params": {
+          "target_id": "normal_test"
+        }
+      },
+      "effective_action": {
+        "action": "observe",
+        "action_id": "obs_3_1_normal",
+        "params": {
+          "target_id": "normal_test"
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "SUCCESS",
+        "error_type": null,
+        "error_message": null,
+        "observation": {
+          "timestamp": {
+            "sim_time_sec": 3.0,
+            "amcl_stamp_sec": 1.568,
+            "odom_stamp_sec": 2.853,
+            "scan_stamp_sec": 2.968
+          },
+          "localization": {
+            "pose": [
+              -1.96,
+              -0.46,
+              0.0007
+            ],
+            "covariance_diagonal": [
+              0.176222,
+              0.176222,
+              0.217074
+            ],
+            "frame_id": "map",
+            "staleness_sec": 1.432,
+            "status": "VALID_STATIONARY_CACHE"
+          },
+          "odometry": {
+            "linear_velocity_mps": 0.0001,
+            "angular_velocity_radps": -0.0003,
+            "staleness_sec": 0.147
+          },
+          "laser_scan": {
+            "available": true,
+            "fresh": true,
+            "staleness_sec": 0.032,
+            "min_distance_m": 0.4914,
+            "valid_ranges_count": 360,
+            "total_ranges_count": 360
+          },
+          "navigation_status": {
+            "nav2_lifecycle_state": "ACTIVE",
+            "current_goal_status": "IDLE"
+          }
+        },
+        "wait_timed_out": false,
+        "clock_frozen": false,
+        "wall_duration_sec": 0.0008
+      }
+    },
+    "test_3_2_stale_scan": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "obs_3_2_stale_scan",
+      "goal_uuid": "8808efac-92c5-559f-a85c-4912b5be9ea0",
+      "normalized_action": {
+        "action": "observe",
+        "action_id": "obs_3_2_stale_scan",
+        "params": {
+          "target_id": "stale_scan_test"
+        }
+      },
+      "effective_action": {
+        "action": "observe",
+        "action_id": "obs_3_2_stale_scan",
+        "params": {
+          "target_id": "stale_scan_test"
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "DEGRADED",
+        "error_type": "SCAN_DEGRADED",
+        "error_message": "SCAN_STALE (2.537s > 0.5s)",
+        "observation": {
+          "timestamp": {
+            "sim_time_sec": 5.505,
+            "amcl_stamp_sec": 1.568,
+            "odom_stamp_sec": 5.505,
+            "scan_stamp_sec": 2.968
+          },
+          "localization": {
+            "pose": [
+              -1.96,
+              -0.46,
+              0.0007
+            ],
+            "covariance_diagonal": [
+              0.176222,
+              0.176222,
+              0.217074
+            ],
+            "frame_id": "map",
+            "staleness_sec": 3.937,
+            "status": "VALID_STATIONARY_CACHE"
+          },
+          "odometry": {
+            "linear_velocity_mps": 0.0,
+            "angular_velocity_radps": -0.0003,
+            "staleness_sec": 0.0
+          },
+          "laser_scan": {
+            "available": true,
+            "fresh": false,
+            "staleness_sec": 2.537,
+            "min_distance_m": 0.4914,
+            "valid_ranges_count": 360,
+            "total_ranges_count": 360
+          },
+          "navigation_status": {
+            "nav2_lifecycle_state": "ACTIVE",
+            "current_goal_status": "IDLE"
+          }
+        },
+        "wait_timed_out": false,
+        "clock_frozen": false,
+        "wall_duration_sec": 0.0047
+      }
+    },
+    "test_3_3_scan_recovered": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "obs_3_3_scan_recovered",
+      "goal_uuid": "a4e53118-7846-515d-abad-abcc7ef22048",
+      "normalized_action": {
+        "action": "observe",
+        "action_id": "obs_3_3_scan_recovered",
+        "params": {
+          "target_id": "recovered_scan_test"
+        }
+      },
+      "effective_action": {
+        "action": "observe",
+        "action_id": "obs_3_3_scan_recovered",
+        "params": {
+          "target_id": "recovered_scan_test"
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "SUCCESS",
+        "error_type": null,
+        "error_message": null,
+        "observation": {
+          "timestamp": {
+            "sim_time_sec": 6.168,
+            "amcl_stamp_sec": 1.568,
+            "odom_stamp_sec": 6.151,
+            "scan_stamp_sec": 6.168
+          },
+          "localization": {
+            "pose": [
+              -1.96,
+              -0.46,
+              0.0007
+            ],
+            "covariance_diagonal": [
+              0.176222,
+              0.176222,
+              0.217074
+            ],
+            "frame_id": "map",
+            "staleness_sec": 4.6,
+            "status": "VALID_STATIONARY_CACHE"
+          },
+          "odometry": {
+            "linear_velocity_mps": 0.0001,
+            "angular_velocity_radps": -0.0003,
+            "staleness_sec": 0.017
+          },
+          "laser_scan": {
+            "available": true,
+            "fresh": true,
+            "staleness_sec": 0.0,
+            "min_distance_m": 0.4754,
+            "valid_ranges_count": 360,
+            "total_ranges_count": 360
+          },
+          "navigation_status": {
+            "nav2_lifecycle_state": "ACTIVE",
+            "current_goal_status": "IDLE"
+          }
+        },
+        "wait_timed_out": false,
+        "clock_frozen": false,
+        "wall_duration_sec": 0.0702
+      }
+    },
+    "test_3_4_missing_scan": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "obs_3_4_missing_scan",
+      "goal_uuid": "6f5d462e-39c5-5443-98d2-513604fe03c2",
+      "normalized_action": {
+        "action": "observe",
+        "action_id": "obs_3_4_missing_scan",
+        "params": {
+          "target_id": "missing_scan_test"
+        }
+      },
+      "effective_action": {
+        "action": "observe",
+        "action_id": "obs_3_4_missing_scan",
+        "params": {
+          "target_id": "missing_scan_test"
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "DEGRADED",
+        "error_type": "SCAN_DEGRADED",
+        "error_message": "SCAN_UNAVAILABLE",
+        "observation": {
+          "timestamp": {
+            "sim_time_sec": 6.185,
+            "amcl_stamp_sec": 1.568,
+            "odom_stamp_sec": 6.185,
+            "scan_stamp_sec": null
+          },
+          "localization": {
+            "pose": [
+              -1.96,
+              -0.46,
+              0.0007
+            ],
+            "covariance_diagonal": [
+              0.176222,
+              0.176222,
+              0.217074
+            ],
+            "frame_id": "map",
+            "staleness_sec": 4.617,
+            "status": "VALID_STATIONARY_CACHE"
+          },
+          "odometry": {
+            "linear_velocity_mps": 0.0001,
+            "angular_velocity_radps": -0.0003,
+            "staleness_sec": 0.0
+          },
+          "laser_scan": {
+            "available": false,
+            "fresh": false,
+            "staleness_sec": null,
+            "min_distance_m": null,
+            "valid_ranges_count": 0,
+            "total_ranges_count": 0
+          },
+          "navigation_status": {
+            "nav2_lifecycle_state": "ACTIVE",
+            "current_goal_status": "IDLE"
+          }
+        },
+        "wait_timed_out": false,
+        "clock_frozen": false,
+        "wall_duration_sec": 0.0135
+      }
+    },
+    "test_3_5_stale_odom": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "obs_3_5_stale_odom",
+      "goal_uuid": "620aa449-280b-5abd-aece-f76795d52e06",
+      "normalized_action": {
+        "action": "observe",
+        "action_id": "obs_3_5_stale_odom",
+        "params": {
+          "target_id": "stale_odom_test"
+        }
+      },
+      "effective_action": {
+        "action": "observe",
+        "action_id": "obs_3_5_stale_odom",
+        "params": {
+          "target_id": "stale_odom_test"
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "ERROR",
+        "error_type": "ODOMETRY_STALE",
+        "error_message": "Odometry is stale (2.582s > 0.5s).",
+        "observation": null,
+        "wait_timed_out": false,
+        "clock_frozen": false,
+        "wall_duration_sec": 0.167
+      }
+    },
+    "test_3_6_odom_recovered": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "obs_3_6_odom_recovered",
+      "goal_uuid": "79dc2c54-884f-560a-a306-190a147867c1",
+      "normalized_action": {
+        "action": "observe",
+        "action_id": "obs_3_6_odom_recovered",
+        "params": {
+          "target_id": "recovered_odom_test"
+        }
+      },
+      "effective_action": {
+        "action": "observe",
+        "action_id": "obs_3_6_odom_recovered",
+        "params": {
+          "target_id": "recovered_odom_test"
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "SUCCESS",
+        "error_type": null,
+        "error_message": null,
+        "observation": {
+          "timestamp": {
+            "sim_time_sec": 9.568,
+            "amcl_stamp_sec": 1.568,
+            "odom_stamp_sec": 9.551,
+            "scan_stamp_sec": 9.568
+          },
+          "localization": {
+            "pose": [
+              -1.96,
+              -0.46,
+              0.0007
+            ],
+            "covariance_diagonal": [
+              0.176222,
+              0.176222,
+              0.217074
+            ],
+            "frame_id": "map",
+            "staleness_sec": 8.0,
+            "status": "VALID_STATIONARY_CACHE"
+          },
+          "odometry": {
+            "linear_velocity_mps": 0.0001,
+            "angular_velocity_radps": -0.0003,
+            "staleness_sec": 0.017
+          },
+          "laser_scan": {
+            "available": true,
+            "fresh": true,
+            "staleness_sec": 0.0,
+            "min_distance_m": 0.4856,
+            "valid_ranges_count": 360,
+            "total_ranges_count": 360
+          },
+          "navigation_status": {
+            "nav2_lifecycle_state": "ACTIVE",
+            "current_goal_status": "IDLE"
+          }
+        },
+        "wait_timed_out": false,
+        "clock_frozen": false,
+        "wall_duration_sec": 0.1697
+      }
+    },
+    "test_3_7_clock_pause": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "obs_3_7_clock_pause",
+      "goal_uuid": "f497fc8f-a042-56a8-84a2-1a85ac006133",
+      "normalized_action": {
+        "action": "observe",
+        "action_id": "obs_3_7_clock_pause",
+        "params": {
+          "target_id": "clock_pause_test"
+        }
+      },
+      "effective_action": {
+        "action": "observe",
+        "action_id": "obs_3_7_clock_pause",
+        "params": {
+          "target_id": "clock_pause_test"
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "ERROR",
+        "error_type": "SIMULATION_CLOCK_FROZEN",
+        "error_message": "Simulation clock has stopped advancing while wall-clock time elapsed.",
+        "observation": null,
+        "wait_timed_out": true,
+        "clock_frozen": true,
+        "wall_duration_sec": 1.5394
+      }
+    }
+  },
+  "anomalies_verified": true
+}

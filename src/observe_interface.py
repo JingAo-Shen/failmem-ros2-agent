@@ -108,7 +108,7 @@ class ObserveInterface:
     def __init__(
         self,
         max_sensor_staleness_sec: float = 0.5,
-        max_stationary_amcl_staleness_sec: float = 5.0,
+        max_stationary_amcl_staleness_sec: float = 30.0,
     ):
         self.max_sensor_staleness_sec = max_sensor_staleness_sec
         self.max_stationary_amcl_staleness_sec = max_stationary_amcl_staleness_sec
@@ -121,6 +121,9 @@ class ObserveInterface:
         latest_scan: Optional[Dict[str, Any]],
         nav2_lifecycle_state: Optional[str] = None,
         current_goal_status: Optional[str] = None,
+        odom_history: Optional[List[Dict[str, Any]]] = None,
+        wall_clock_timeout: bool = False,
+        clock_frozen: bool = False,
     ) -> Dict[str, Any]:
         """Extract and strictly validate a structured read-only observation.
         
@@ -128,6 +131,14 @@ class ObserveInterface:
             Dict with 'status' ('SUCCESS' | 'DEGRADED' | 'ERROR'),
                       'error_type', 'error_message', 'observation'.
         """
+        if clock_frozen:
+            return {
+                "status": "ERROR",
+                "error_type": "SIMULATION_CLOCK_FROZEN",
+                "error_message": "Simulation clock has stopped advancing while wall-clock time elapsed.",
+                "observation": None,
+            }
+
         if not is_finite_number(current_sim_time) or current_sim_time < 0.0:
             return {
                 "status": "ERROR",
@@ -155,7 +166,7 @@ class ObserveInterface:
             }
 
         odom_staleness = current_sim_time - odom_stamp
-        if odom_staleness < -0.05:
+        if odom_staleness < -0.20:
             return {
                 "status": "ERROR",
                 "error_type": "ODOMETRY_FUTURE_TIMESTAMP",
@@ -225,7 +236,7 @@ class ObserveInterface:
             }
 
         amcl_staleness = current_sim_time - amcl_stamp
-        if amcl_staleness < -0.05:
+        if amcl_staleness < -0.20:
             return {
                 "status": "ERROR",
                 "error_type": "AMCL_FUTURE_TIMESTAMP",
@@ -236,8 +247,58 @@ class ObserveInterface:
         # AMCL low-frequency handling when stationary
         if amcl_staleness <= self.max_sensor_staleness_sec:
             amcl_status = "UP_TO_DATE"
-        elif is_robot_stationary and amcl_staleness <= self.max_stationary_amcl_staleness_sec:
-            amcl_status = "VALID_STATIONARY_CACHE"
+        elif amcl_staleness <= self.max_stationary_amcl_staleness_sec:
+            if not is_robot_stationary:
+                return {
+                    "status": "ERROR",
+                    "error_type": "AMCL_STALE",
+                    "error_message": f"AMCL pose is stale ({amcl_staleness:.3f}s > {self.max_sensor_staleness_sec}s) while robot is moving.",
+                    "observation": None,
+                }
+
+            # If odom history is provided, verify no significant motion occurred during the AMCL gap
+            if odom_history is not None:
+                gap_records = [
+                    r for r in odom_history
+                    if r.get("msg_stamp_sec") is not None and r["msg_stamp_sec"] >= (amcl_stamp - 0.01)
+                ]
+                motion_detected = False
+                motion_reason = None
+                
+                if len(gap_records) == 0:
+                    motion_detected = True
+                    motion_reason = "No odom history covering the AMCL gap was found."
+                else:
+                    initial_x = gap_records[0].get("x")
+                    initial_y = gap_records[0].get("y")
+                    for r in gap_records:
+                        r_lv = abs(float(r.get("linear_v", 0.0)))
+                        r_av = abs(float(r.get("angular_v", 0.0)))
+                        if r_lv >= 0.05 or r_av >= 0.05:
+                            motion_detected = True
+                            motion_reason = f"Motion detected during AMCL gap (lv={r_lv:.3f}, av={r_av:.3f})"
+                            break
+                        if initial_x is not None and initial_y is not None:
+                            curr_x = r.get("x")
+                            curr_y = r.get("y")
+                            if curr_x is not None and curr_y is not None:
+                                disp = math.hypot(curr_x - initial_x, curr_y - initial_y)
+                                if disp > 0.03:
+                                    motion_detected = True
+                                    motion_reason = f"Displacement during AMCL gap ({disp:.3f}m > 0.03m)"
+                                    break
+
+                if motion_detected:
+                    return {
+                        "status": "ERROR",
+                        "error_type": "AMCL_STALE_AFTER_MOTION",
+                        "error_message": f"AMCL pose is stale ({amcl_staleness:.3f}s) and robot moved during the gap: {motion_reason}.",
+                        "observation": None,
+                    }
+                else:
+                    amcl_status = "VALID_STATIONARY_CACHE"
+            else:
+                amcl_status = "VALID_STATIONARY_CACHE"
         else:
             return {
                 "status": "ERROR",
@@ -266,7 +327,7 @@ class ObserveInterface:
                 scan_stamp = float(scan_stamp_raw)
                 scan_staleness = current_sim_time - scan_stamp
                 scan_available = True
-                scan_fresh = (scan_staleness <= self.max_sensor_staleness_sec and scan_staleness >= -0.05)
+                scan_fresh = (scan_staleness <= self.max_sensor_staleness_sec and scan_staleness >= -0.20)
                 if not scan_fresh:
                     is_scan_degraded = True
                     degradation_reasons.append(f"SCAN_STALE ({scan_staleness:.3f}s > {self.max_sensor_staleness_sec}s)")

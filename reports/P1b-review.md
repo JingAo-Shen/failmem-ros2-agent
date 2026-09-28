@@ -1,6 +1,12 @@
 # FailMem P1b Review Report: 评分器加固、SDF实证对齐、真实Observe与Retry执行链及异常评测
 
-- **Stage**: P1b (Robust Scoring Evaluator, Live Observe & Retry Execution Chains, Empirical SDF Coordinate Proof, Observation Anomalies, and 4-Episode Regression)
+> [!WARNING]
+> **已废弃 / 已被最终验收报告替代 (SUPERSEDED)**:
+> 本文档记录了 P1b 阶段的中间运行结果 (`p1b_20260928_020049_5f18d3`)。
+> 按照研究负责人后续审查意见，已对终态解析（禁止默认成功/取消）、全周期粘性安全干预追踪、真实 ROS 话题层故障注入门控（Suite 3）、运动后 AMCL 缓存陈旧性历史校验等缺陷进行了彻底修复与统一重构。
+> 最终正式验收报告与全量实验证据请查阅：**[reports/P1b-final-review.md](file:///code/failmem-ros2-agent/reports/P1b-final-review.md)**（对应运行 ID: `p1b_20260928_025039_df4f0c`）。
+
+- **Stage**: P1b (Historical Intermediate Run)
 - **Status**: PASSED
   - 评分器具体漏洞修复与加固（独立 Odom / GT 序列与时间戳追踪、GT 绝对新鲜度校验、删除 0.05s 隐式放宽、缺失/NaN 传感器结构化错误、17 项单元测试）：已通过 (PASSED)
   - 实证坐标系动态证明（SDF XML 动态解析 9 处非共线柱体地标，最大残差 $0.0594\,\text{m} \le 0.075\,\text{m}$，附带地图与模型 SHA256 校验和）：已通过 (PASSED)

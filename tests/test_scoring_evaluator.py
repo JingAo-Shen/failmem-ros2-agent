@@ -286,6 +286,62 @@ class TestScoringEvaluatorNegativeCases:
         assert res["strict_physical_arrival_and_stable"] is False
         assert res["final_pose_arrived"] is False
 
+    def test_negative_nav2_aborted_fails_evaluation(self):
+        """ABORTED nav2 status strictly fails navigation evaluation even if robot happens to be at goal."""
+        samples = make_valid_window(2.0, x=-0.5, y=-0.5)
+        res = evaluate_navigation_episode(
+            target_goal=[-0.5, -0.5, 0.0],
+            nav2_status="ABORTED",
+            final_gt={"x": -0.5, "y": -0.5, "yaw": 0.0},
+            final_amcl={"x": -0.5, "y": -0.5, "yaw": 0.0},
+            stability_samples=samples,
+            thresholds=DEFAULT_THRESHOLDS,
+        )
+        assert res["strict_physical_arrival_and_stable"] is False
+        assert res["nav2_action_succeeded"] is False
+
+    def test_negative_nav2_timeout_or_unknown_fails_evaluation(self):
+        """TIMEOUT or UNKNOWN terminal status strictly fails navigation evaluation."""
+        samples = make_valid_window(2.0, x=-0.5, y=-0.5)
+        res = evaluate_navigation_episode(
+            target_goal=[-0.5, -0.5, 0.0],
+            nav2_status="TIMEOUT",
+            final_gt={"x": -0.5, "y": -0.5, "yaw": 0.0},
+            final_amcl={"x": -0.5, "y": -0.5, "yaw": 0.0},
+            stability_samples=samples,
+            thresholds=DEFAULT_THRESHOLDS,
+        )
+        assert res["strict_physical_arrival_and_stable"] is False
+
+    def test_negative_cancel_terminal_status_not_canceled(self):
+        """Cancel requested and accepted, but terminal status was not CANCELED (e.g. EXECUTING or UNKNOWN) must fail."""
+        samples = make_valid_window(2.0)
+        res = evaluate_cancellation_episode(
+            nav2_status="EXECUTING",
+            movement_confirmed_before_cancel=True,
+            cancel_request_accepted=True,
+            stability_samples=samples,
+            thresholds=DEFAULT_THRESHOLDS,
+            safety_intervention=False,
+        )
+        assert res["cancel_stop_verified"] is False
+        assert any("TERMINAL_STATUS_NOT_CANCELED" in r for r in res["failure_reasons"])
+
+    def test_negative_safety_intervention_in_navigation_fails(self):
+        """Safety intervention during navigation strictly fails strict_physical_arrival_and_stable."""
+        samples = make_valid_window(2.0, x=-0.5, y=-0.5)
+        res = evaluate_navigation_episode(
+            target_goal=[-0.5, -0.5, 0.0],
+            nav2_status="SUCCEEDED",
+            final_gt={"x": -0.5, "y": -0.5, "yaw": 0.0},
+            final_amcl={"x": -0.5, "y": -0.5, "yaw": 0.0},
+            stability_samples=samples,
+            thresholds=DEFAULT_THRESHOLDS,
+            safety_intervention=True,
+        )
+        assert res["strict_physical_arrival_and_stable"] is False
+        assert res["halt_evaluation"]["halt_verified"] is False
+
 
 class TestScoringEvaluatorPositiveCases:
     """Positive tests for scoring rules."""

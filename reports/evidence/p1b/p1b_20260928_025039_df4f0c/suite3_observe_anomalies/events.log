@@ -1,0 +1,20 @@
+[2026-09-28 02:51:26.265] === Starting Suite 3: Real ROS Observation Anomaly & Degraded Contract Tests ===
+[2026-09-28 02:51:29.835] Sim clock advanced: 0.00s -> 1.10s (delta=1.10s)
+[2026-09-28 02:51:29.835] Sensors streaming: odom=-2.00, gt=-2.00, scan=360 rays
+[2026-09-28 02:51:30.239] AMCL pose converged at x=-1.98, y=-0.48 (delta=0.03m)
+[2026-09-28 02:51:31.761] Nav2 bt_navigator is verified ACTIVE!
+[2026-09-28 02:51:31.761] Interface Check (Missing Odom): status=ERROR, error_type=ODOMETRY_UNAVAILABLE
+[2026-09-28 02:51:31.761] Interface Check (Missing Scan): status=DEGRADED, error_type=SCAN_DEGRADED
+[2026-09-28 02:51:31.763] Test 3.1 (Real Normal Obs): status=SUCCESS
+[2026-09-28 02:51:31.763] Cutting /scan topic reception gate...
+[2026-09-28 02:51:34.185] Test 3.2 (Natural Stale Scan): status=DEGRADED, error_type=SCAN_DEGRADED
+[2026-09-28 02:51:34.185] Restoring /scan topic reception gate...
+[2026-09-28 02:51:34.852] Test 3.3 (Scan Stream Recovered): status=SUCCESS
+[2026-09-28 02:51:34.867] Test 3.4 (Missing Scan Stream): status=DEGRADED, error_type=SCAN_DEGRADED
+[2026-09-28 02:51:34.867] Cutting /odom topic reception gate...
+[2026-09-28 02:51:37.456] Test 3.5 (Natural Stale Odom): status=ERROR, error_type=ODOMETRY_STALE
+[2026-09-28 02:51:37.457] Restoring /odom topic reception gate...
+[2026-09-28 02:51:38.262] Test 3.6 (Odom Stream Recovered): status=SUCCESS
+[2026-09-28 02:51:38.262] Calling /pause_physics service to pause simulation clock...
+[2026-09-28 02:51:41.003] Test 3.7 (Simulation Clock Paused): status=ERROR, error_type=SIMULATION_CLOCK_FROZEN, wall_time=1.539s
+[2026-09-28 02:51:41.004] Calling /unpause_physics service to resume simulation...

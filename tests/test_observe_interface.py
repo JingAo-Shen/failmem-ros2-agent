@@ -181,6 +181,58 @@ class TestObserveInterface(unittest.TestCase):
         # Check standard fields are preserved
         self.assertEqual(cleaned["localization"]["pose"], [1.0, 2.0, 0.0])
 
+    def test_amcl_stale_after_motion_returns_error(self):
+        """Negative test: AMCL stopped updating at t=10.0, robot moved at t=11.0, then stopped at t=12.0.
+        extract_observation MUST reject the stationary cache and return ERROR."""
+        odom_hist_with_motion = [
+            {"seq": 1, "msg_stamp_sec": 10.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 2, "msg_stamp_sec": 10.5, "x": -1.0, "y": -0.5, "linear_v": 0.20, "angular_v": 0.0},  # moved!
+            {"seq": 3, "msg_stamp_sec": 11.5, "x": -0.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},   # stopped at new location
+        ]
+        stopped_odom_now = {"seq": 4, "msg_stamp_sec": 12.0, "x": -0.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0, "frame_id": "odom"}
+        
+        res = self.obs_iface.extract_observation(
+            current_sim_time=12.1,  # AMCL at 10.0 is 2.1s stale
+            latest_amcl=self.valid_amcl,  # pose still says -1.5, -0.5
+            latest_odom=stopped_odom_now,
+            latest_scan=dict(self.valid_scan, msg_stamp_sec=12.0),
+            odom_history=odom_hist_with_motion,
+        )
+        self.assertEqual(res["status"], "ERROR")
+        self.assertEqual(res["error_type"], "AMCL_STALE_AFTER_MOTION")
+        self.assertIsNone(res["observation"])
+
+    def test_stationary_amcl_verified_by_history_success(self):
+        """Positive test: AMCL at t=10.0, robot verified motionless throughout [10.0, 12.0] by odom history."""
+        odom_hist_still = [
+            {"seq": 1, "msg_stamp_sec": 10.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 2, "msg_stamp_sec": 11.0, "x": -1.5, "y": -0.5, "linear_v": 0.0001, "angular_v": 0.0001},
+            {"seq": 3, "msg_stamp_sec": 12.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+        ]
+        stopped_odom_now = {"seq": 4, "msg_stamp_sec": 12.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0, "frame_id": "odom"}
+
+        res = self.obs_iface.extract_observation(
+            current_sim_time=12.1,
+            latest_amcl=self.valid_amcl,
+            latest_odom=stopped_odom_now,
+            latest_scan=dict(self.valid_scan, msg_stamp_sec=12.0),
+            odom_history=odom_hist_still,
+        )
+        self.assertEqual(res["status"], "SUCCESS")
+        self.assertEqual(res["observation"]["localization"]["status"], "VALID_STATIONARY_CACHE")
+
+    def test_clock_frozen_returns_error(self):
+        """Clock frozen flag immediately causes structured ERROR."""
+        res = self.obs_iface.extract_observation(
+            current_sim_time=10.0,
+            latest_amcl=self.valid_amcl,
+            latest_odom=self.valid_odom,
+            latest_scan=self.valid_scan,
+            clock_frozen=True,
+        )
+        self.assertEqual(res["status"], "ERROR")
+        self.assertEqual(res["error_type"], "SIMULATION_CLOCK_FROZEN")
+
 
 if __name__ == "__main__":
     unittest.main()
