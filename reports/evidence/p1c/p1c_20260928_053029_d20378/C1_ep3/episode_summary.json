@@ -1,0 +1,342 @@
+{
+  "episode_id": "C1_ep3",
+  "condition": "C1",
+  "episode_number": 3,
+  "target_goal": [
+    0.5,
+    -0.5,
+    0.0
+  ],
+  "spawn_pose": [
+    -2.0,
+    -0.5,
+    0.0
+  ],
+  "protocol_sha256": "b90401bc7fdd3ff309021a0aeab0fb586e30b0d6497dc0e9e90f07dd94c9110b",
+  "infrastructure_error": null,
+  "obstacle_present": true,
+  "obstacle_spawned_service": true,
+  "obstacle_spawn_gazebo_confirmed": true,
+  "obstacle_pose": [
+    -1.1,
+    -0.55,
+    0.3
+  ],
+  "collision_state": "UNKNOWN",
+  "scan_before_navigate": {
+    "available": true,
+    "sector_min_rad": -0.5,
+    "sector_max_rad": 0.5,
+    "sector_range_count": 29,
+    "sector_min_range_m": 0.6527,
+    "sector_max_range_m": 0.9898,
+    "sector_mean_range_m": 0.7527,
+    "all_ranges_in_sector": [
+      0.6664,
+      0.6527,
+      0.6669,
+      0.6609,
+      0.6677,
+      0.6715,
+      0.667,
+      0.6617,
+      0.6749,
+      0.6792,
+      0.6595,
+      0.6822,
+      0.6762,
+      0.6765,
+      0.6908,
+      0.7011,
+      0.6775,
+      0.6906,
+      0.6888,
+      0.6863,
+      0.6975,
+      0.9861,
+      0.9898,
+      0.9516,
+      0.9461,
+      0.9578,
+      0.9388,
+      0.9274,
+      0.9358
+    ],
+    "scan_stamp_sec": 5.597
+  },
+  "step1_observe": {
+    "pipeline_status": "DISPATCHED",
+    "action_id": "C1_ep3_obs_initial",
+    "goal_uuid": "4166daa0-16c7-5d14-b007-95c8305b3270",
+    "normalized_action": {
+      "action": "observe",
+      "action_id": "C1_ep3_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      }
+    },
+    "effective_action": {
+      "action": "observe",
+      "action_id": "C1_ep3_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      }
+    },
+    "ros_dispatched": true,
+    "ros_result": {
+      "status": "SUCCESS",
+      "error_type": null,
+      "error_message": null,
+      "observation": {
+        "timestamp": {
+          "sim_time_sec": 5.797,
+          "amcl_stamp_sec": 1.198,
+          "odom_stamp_sec": 5.799,
+          "scan_stamp_sec": 5.797
+        },
+        "localization": {
+          "pose": [
+            -1.9974,
+            -0.5019,
+            0.0076
+          ],
+          "covariance_diagonal": [
+            0.157791,
+            0.198838,
+            0.059812
+          ],
+          "frame_id": "map",
+          "staleness_sec": 4.599,
+          "status": "VALID_STATIONARY_CACHE"
+        },
+        "odometry": {
+          "linear_velocity_mps": 0.0001,
+          "angular_velocity_radps": -0.0003,
+          "staleness_sec": -0.002
+        },
+        "laser_scan": {
+          "available": true,
+          "fresh": true,
+          "staleness_sec": 0.0,
+          "min_distance_m": 0.4828,
+          "valid_ranges_count": 360,
+          "total_ranges_count": 360
+        },
+        "navigation_status": {
+          "nav2_lifecycle_state": "ACTIVE",
+          "current_goal_status": "IDLE"
+        }
+      },
+      "wait_timed_out": false,
+      "clock_frozen": false,
+      "wall_duration_sec": 0.1992
+    }
+  },
+  "step2_navigate_blocked": {
+    "dispatch": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "C1_ep3_nav_blocked",
+      "goal_uuid": "03478c6c-0764-503c-8857-70fa0ef779c3",
+      "normalized_action": {
+        "action": "navigate",
+        "action_id": "C1_ep3_nav_blocked",
+        "params": {
+          "goal": [
+            0.5,
+            -0.5,
+            0.0
+          ],
+          "frame_id": "map",
+          "timeout_sec": 45.0
+        }
+      },
+      "effective_action": {
+        "action": "navigate",
+        "action_id": "C1_ep3_nav_blocked",
+        "params": {
+          "goal": [
+            0.5,
+            -0.5,
+            0.0
+          ],
+          "frame_id": "map",
+          "timeout_sec": 45.0
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "ACCEPTED",
+        "accepted": true,
+        "goal_id": "03478c6c-0764-503c-8857-70fa0ef779c3",
+        "uuid_verified": true
+      }
+    },
+    "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+    "terminal_status_name": "CANCELED",
+    "status_code": 5,
+    "deadline_exceeded": true,
+    "failure_reason": "SIM_BUDGET_EXCEEDED",
+    "settled_ok": true,
+    "safety_intervention": false,
+    "evaluation": {
+      "nav2_action_status": "CANCELED",
+      "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+      "deadline_exceeded": true,
+      "nav2_action_succeeded": false,
+      "failure_reason": "SIM_BUDGET_EXCEEDED",
+      "final_geometric_errors": {
+        "gt_position_error_m": 2.2998,
+        "gt_yaw_error_rad": 2.2383,
+        "amcl_position_error_m": 2.2849,
+        "amcl_yaw_error_rad": 2.251,
+        "thresholds_applied": {
+          "position_tolerance_m": 0.3,
+          "yaw_tolerance_rad": 0.35
+        }
+      },
+      "window_evaluation": {
+        "window_valid": true,
+        "failure_reasons": [],
+        "sim_duration_covered": 2.3,
+        "odom_duration_covered": 2.38,
+        "gt_duration_covered": 2.3,
+        "unique_samples_count": 94,
+        "unique_odom_count": 71,
+        "unique_gt_count": 24,
+        "total_raw_samples_count": 130,
+        "max_sampling_interval_sec": 0.1,
+        "data_fresh": true,
+        "watchdog_triggered": false
+      },
+      "halt_evaluation": {
+        "all_samples_stopped": true,
+        "max_linear_v_seen": 0.0002,
+        "max_angular_v_seen": 0.0035,
+        "max_gt_displacement_m": 0.0004,
+        "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+        "safety_intervention": false,
+        "halt_verified": true,
+        "halt_failure_reason": null
+      },
+      "all_window_pos_ok": false,
+      "all_window_yaw_ok": false,
+      "final_pose_arrived": false,
+      "strict_physical_arrival_and_stable": false
+    }
+  },
+  "step3_observe_post": {
+    "pipeline_status": "DISPATCHED",
+    "action_id": "C1_ep3_obs_post",
+    "goal_uuid": "e5a5260e-ce24-535f-95c4-e272f1f172f4",
+    "normalized_action": {
+      "action": "observe",
+      "action_id": "C1_ep3_obs_post",
+      "params": {
+        "target_id": "post_failure_scan"
+      }
+    },
+    "effective_action": {
+      "action": "observe",
+      "action_id": "C1_ep3_obs_post",
+      "params": {
+        "target_id": "post_failure_scan"
+      }
+    },
+    "ros_dispatched": true,
+    "ros_result": {
+      "status": "ERROR",
+      "error_type": "AMCL_STALE_AFTER_MOTION",
+      "error_message": "AMCL pose is stale (4.600s) and robot moved during the gap: Velocity exceeded threshold (linear_v=0.001, angular_v=0.468).",
+      "observation": null,
+      "wait_timed_out": false,
+      "clock_frozen": false,
+      "wall_duration_sec": 0.2024
+    }
+  },
+  "final_dist_to_goal_m": 2.2998,
+  "evaluation": {
+    "nav2_action_status": "CANCELED",
+    "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+    "deadline_exceeded": true,
+    "nav2_action_succeeded": false,
+    "failure_reason": "SIM_BUDGET_EXCEEDED",
+    "final_geometric_errors": {
+      "gt_position_error_m": 2.2998,
+      "gt_yaw_error_rad": 2.2383,
+      "amcl_position_error_m": 2.2849,
+      "amcl_yaw_error_rad": 2.251,
+      "thresholds_applied": {
+        "position_tolerance_m": 0.3,
+        "yaw_tolerance_rad": 0.35
+      }
+    },
+    "window_evaluation": {
+      "window_valid": true,
+      "failure_reasons": [],
+      "sim_duration_covered": 2.3,
+      "odom_duration_covered": 2.38,
+      "gt_duration_covered": 2.3,
+      "unique_samples_count": 94,
+      "unique_odom_count": 71,
+      "unique_gt_count": 24,
+      "total_raw_samples_count": 130,
+      "max_sampling_interval_sec": 0.1,
+      "data_fresh": true,
+      "watchdog_triggered": false
+    },
+    "halt_evaluation": {
+      "all_samples_stopped": true,
+      "max_linear_v_seen": 0.0002,
+      "max_angular_v_seen": 0.0035,
+      "max_gt_displacement_m": 0.0004,
+      "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+      "safety_intervention": false,
+      "halt_verified": true,
+      "halt_failure_reason": null
+    },
+    "all_window_pos_ok": false,
+    "all_window_yaw_ok": false,
+    "final_pose_arrived": false,
+    "strict_physical_arrival_and_stable": false
+  },
+  "task_success": false,
+  "mechanism_verified": true,
+  "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+  "terminal_status_name": "CANCELED",
+  "action_history": [
+    {
+      "action": "observe",
+      "action_id": "C1_ep3_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      },
+      "dispatch_status": "COMPLETED",
+      "terminal_status": "SUCCESS"
+    },
+    {
+      "action": "navigate",
+      "action_id": "C1_ep3_nav_blocked",
+      "params": {
+        "goal": [
+          0.5,
+          -0.5,
+          0.0
+        ],
+        "frame_id": "map",
+        "timeout_sec": 45.0
+      },
+      "dispatch_status": "COMPLETED",
+      "terminal_status": "CANCELED",
+      "status_code": 5
+    },
+    {
+      "action": "observe",
+      "action_id": "C1_ep3_obs_post",
+      "params": {
+        "target_id": "post_failure_scan"
+      },
+      "dispatch_status": "COMPLETED",
+      "terminal_status": "ERROR"
+    }
+  ]
+}

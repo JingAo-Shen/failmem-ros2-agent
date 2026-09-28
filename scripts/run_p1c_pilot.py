@@ -111,13 +111,33 @@ def kill_process_group(pgid: int, timeout_sec: float = 4.0):
         print(f"[WARN] Error sending SIGKILL to process group {pgid}: {e}")
 
 
-def cleanup_global_simulation():
-    """Initial environment hygiene: stop lingering ros2 daemon and clear domain shm."""
+def cleanup_simulation_processes():
+    """Aggressively terminate lingering Gazebo, ROS 2, and Nav2 processes."""
+    patterns = [
+        "gzserver",
+        "gzclient",
+        "nav2_container",
+        "component_container",
+        "component_container_isolated",
+        "lifecycle_manager",
+        "robot_state_publisher",
+        "spawn_entity",
+        "tb3_simulation_launch",
+        "bt_navigator",
+        "controller_server",
+        "planner_server",
+        "recoveries_server",
+        "behavior_server",
+        "amcl",
+        "map_server",
+    ]
+    for p in patterns:
+        subprocess.run(["pkill", "-9", "-f", p], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         subprocess.run(["ros2", "daemon", "stop"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
-    time.sleep(1.0)
+    time.sleep(1.5)
 
 
 class P1cRunnerNode(Node):
@@ -753,7 +773,7 @@ def execute_navigation_action(
 
 def spawn_simulation(episode_dir: Path) -> Tuple[subprocess.Popen, Any]:
     """Spawn Nav2 + Gazebo in dedicated process group."""
-    cleanup_global_simulation()
+    cleanup_simulation_processes()
     env = os.environ.copy()
     env["TURTLEBOT3_MODEL"] = "waffle"
     env["GAZEBO_MODEL_DATABASE_URI"] = ""
@@ -1365,102 +1385,98 @@ def main():
                     with open(ep_dir / "episode_summary.json", "w", encoding="utf-8") as f:
                         json.dump(ep_data, f, indent=2)
                     pilot_results["C2_temporary_blockage_episodes"].append(ep_data)
-                    # Continue to next episode (no retry)
-                    rclpy.shutdown()
-                    kill_process_group(os.getpgid(sim_proc.pid))
-                    events_log.close()
-                    continue
+                    # No retry; finally block handles rclpy.shutdown and sim cleanup
+                    # Use a flag to skip retry code below
+                    observation_available = False
+                    # Fall through to finally by setting a sentinel - do NOT continue here
+                    # (finally must run; use ep_data to record that we stopped early)
+                    ep_data["_skip_retry_done"] = True
 
-                # Step: Retry with parameters restored from original action
-                retry_act = {
-                    "action": "retry", "action_id": f"{plan['dir_name']}_retry_nav",
-                    "params": {"original_action_id": nav_act_orig_id},
-                }
-                step_retry_sum, retry_eval, stab2_recs = execute_navigation_action(
-                    node=node, dispatcher=dispatcher, action_dict=retry_act,
-                    logger=log_ep, thresholds=thresholds,
-                    visible_state=retry_visible_state,
-                )
-                log_ep(f"C2 Retry nav: outcome={step_retry_sum['execution_outcome']}, arrival={retry_eval.get('strict_physical_arrival_and_stable')}")
+                if observation_available:
+                    # Step: Retry with parameters restored from original action
+                    retry_act = {
+                        "action": "retry", "action_id": f"{plan['dir_name']}_retry_nav",
+                        "params": {"original_action_id": nav_act_orig_id},
+                    }
+                    step_retry_sum, retry_eval, stab2_recs = execute_navigation_action(
+                        node=node, dispatcher=dispatcher, action_dict=retry_act,
+                        logger=log_ep, thresholds=thresholds,
+                        visible_state=retry_visible_state,
+                    )
+                    log_ep(f"C2 Retry nav: outcome={step_retry_sum['execution_outcome']}, arrival={retry_eval.get('strict_physical_arrival_and_stable')}")
 
-                # Save retry_attempt evidence
-                save_attempt_evidence(
-                    ep_dir / "retry_attempt",
-                    node.episode_gt_samples, node.episode_odom_samples, stab2_recs,
-                    {"step_summary": step_retry_sum, "evaluation": retry_eval},
-                )
+                    # Save retry_attempt evidence
+                    save_attempt_evidence(
+                        ep_dir / "retry_attempt",
+                        node.episode_gt_samples, node.episode_odom_samples, stab2_recs,
+                        {"step_summary": step_retry_sum, "evaluation": retry_eval},
+                    )
 
-                # Post-retry final observe
-                obs3 = dispatcher.dispatch({
-                    "action": "observe", "action_id": f"{plan['dir_name']}_obs_final",
-                    "params": {"target_id": "final_scan"},
-                })
-                log_ep(f"C2 Final Observe: status={obs3.get('ros_result', {}).get('status')}")
+                    # Post-retry final observe
+                    obs3 = dispatcher.dispatch({
+                        "action": "observe", "action_id": f"{plan['dir_name']}_obs_final",
+                        "params": {"target_id": "final_scan"},
+                    })
+                    log_ep(f"C2 Final Observe: status={obs3.get('ros_result', {}).get('status')}")
 
-                final_gt = node.latest_gt_record
-                gt_pos_err_retry = (
-                    round(math.hypot(final_gt["x"] - target_goal[0], final_gt["y"] - target_goal[1]), 4)
-                    if final_gt else None
-                )
+                    final_gt = node.latest_gt_record
+                    gt_pos_err_retry = (
+                        round(math.hypot(final_gt["x"] - target_goal[0], final_gt["y"] - target_goal[1]), 4)
+                        if final_gt else None
+                    )
 
-                # task_success: retry arrives at goal
-                task_success = retry_eval.get("strict_physical_arrival_and_stable", False)
+                    # task_success: retry arrives at goal
+                    task_success = retry_eval.get("strict_physical_arrival_and_stable", False)
 
-                # mechanism_verified: all conditions must hold
-                #  1. Obstacle spawn confirmed (initial blockage was real)
-                #  2. Initial navigate genuinely failed (not infra error)
-                #  3. Obstacle delete confirmed via model_states
-                #  4. Natural scan shows clearance (sector min_range increased)
-                #  5. Observe succeeded to provide valid AMCL pose for retry
-                #  6. Retry navigation arrived at goal
-                scan_blocked_range = scan_blocked.get("sector_min_range_m")
-                scan_cleared_range = scan_cleared.get("sector_min_range_m")
-                natural_clearance_evidence = (
-                    scan_blocked_range is not None
-                    and scan_cleared_range is not None
-                    and scan_cleared_range > scan_blocked_range + 0.10
-                )
-                mechanism_verified = (
-                    spawn_service_ok
-                    and spawn_gazebo_confirmed
-                    and initial_failed_genuine
-                    and del_service_ok
-                    and del_gazebo_confirmed
-                    and observation_available
-                    and task_success
-                )
-                log_ep(f"C2 mechanism_verified={mechanism_verified}: spawn={spawn_service_ok}, init_fail={initial_failed_genuine}, del_ok={del_gazebo_confirmed}, obs_ok={observation_available}, task_ok={task_success}")
+                    scan_blocked_range = scan_blocked.get("sector_min_range_m")
+                    scan_cleared_range = scan_cleared.get("sector_min_range_m")
+                    natural_clearance_evidence = (
+                        scan_blocked_range is not None
+                        and scan_cleared_range is not None
+                        and scan_cleared_range > scan_blocked_range + 0.10
+                    )
+                    mechanism_verified = (
+                        spawn_service_ok
+                        and spawn_gazebo_confirmed
+                        and initial_failed_genuine
+                        and del_service_ok
+                        and del_gazebo_confirmed
+                        and observation_available
+                        and task_success
+                    )
+                    log_ep(f"C2 mechanism_verified={mechanism_verified}: spawn={spawn_service_ok}, init_fail={initial_failed_genuine}, del_ok={del_gazebo_confirmed}, obs_ok={observation_available}, task_ok={task_success}")
 
-                ep_data.update({
-                    "obstacle_present": True,
-                    "obstacle_spawned_service": spawn_service_ok,
-                    "obstacle_spawn_gazebo_confirmed": spawn_gazebo_confirmed,
-                    "obstacle_deleted_service": del_service_ok,
-                    "obstacle_delete_gazebo_confirmed": del_gazebo_confirmed,
-                    "collision_state": "UNKNOWN",
-                    "scan_before_initial_navigate": scan_blocked,
-                    "scan_after_removal": scan_cleared,
-                    "natural_clearance_evidence": natural_clearance_evidence,
-                    "step1_observe": obs1,
-                    "step2_initial_navigate": step_orig_sum,
-                    "step3_post_removal_observe": obs2,
-                    "retry_visible_state_source": "AMCL_FROM_OBSERVE",
-                    "retry_visible_state": retry_visible_state,
-                    "step4_retry_navigate": step_retry_sum,
-                    "step5_observe_final": obs3,
-                    "final_gt_pos_error_m_retry": gt_pos_err_retry,
-                    "initial_failed_genuine": initial_failed_genuine,
-                    "observation_available": observation_available,
-                    "retry_execute": True,
-                    "task_success": task_success,
-                    "mechanism_verified": mechanism_verified,
-                    "evaluation_initial": nav1_eval,
-                    "evaluation_retry": retry_eval,
-                    "action_history": context.action_history,
-                })
-                with open(ep_dir / "episode_summary.json", "w", encoding="utf-8") as f:
-                    json.dump(ep_data, f, indent=2)
-                pilot_results["C2_temporary_blockage_episodes"].append(ep_data)
+                    ep_data.update({
+                        "obstacle_present": True,
+                        "obstacle_spawned_service": spawn_service_ok,
+                        "obstacle_spawn_gazebo_confirmed": spawn_gazebo_confirmed,
+                        "obstacle_deleted_service": del_service_ok,
+                        "obstacle_delete_gazebo_confirmed": del_gazebo_confirmed,
+                        "collision_state": "UNKNOWN",
+                        "scan_before_initial_navigate": scan_blocked,
+                        "scan_after_removal": scan_cleared,
+                        "natural_clearance_evidence": natural_clearance_evidence,
+                        "step1_observe": obs1,
+                        "step2_initial_navigate": step_orig_sum,
+                        "step3_post_removal_observe": obs2,
+                        "retry_visible_state_source": "AMCL_FROM_OBSERVE",
+                        "retry_visible_state": retry_visible_state,
+                        "step4_retry_navigate": step_retry_sum,
+                        "step5_observe_final": obs3,
+                        "final_gt_pos_error_m_retry": gt_pos_err_retry,
+                        "initial_failed_genuine": initial_failed_genuine,
+                        "observation_available": True,
+                        "retry_execute": True,
+                        "task_success": task_success,
+                        "mechanism_verified": mechanism_verified,
+                        "evaluation_initial": nav1_eval,
+                        "evaluation_retry": retry_eval,
+                        "action_history": context.action_history,
+                    })
+                    with open(ep_dir / "episode_summary.json", "w", encoding="utf-8") as f:
+                        json.dump(ep_data, f, indent=2)
+                    pilot_results["C2_temporary_blockage_episodes"].append(ep_data)
+                # If not observation_available, ep_data already saved and appended above
 
         except Exception as exc:
             log_ep(f"[ERROR] Episode {plan['dir_name']} failed with exception: {exc}")
@@ -1482,7 +1498,11 @@ def main():
                 rclpy.shutdown()
             except Exception:
                 pass
-            kill_process_group(os.getpgid(sim_proc.pid))
+            try:
+                kill_process_group(os.getpgid(sim_proc.pid))
+            except Exception:
+                pass
+            cleanup_simulation_processes()
             events_log.close()
 
     # ── Overall Status Computation ─────────────────────────────────────────────
