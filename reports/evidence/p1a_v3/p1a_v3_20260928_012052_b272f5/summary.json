@@ -1,0 +1,530 @@
+{
+  "run_id": "p1a_v3_20260928_012052_b272f5",
+  "status": "COMPLETED",
+  "timestamp": "2026-09-28T01:22:26.491890+00:00",
+  "phase": "P1a-v3",
+  "scoring_rules": {
+    "version": "1.0",
+    "phase": "P1a-v2",
+    "thresholds": {
+      "position_tolerance_m": 0.3,
+      "yaw_tolerance_rad": 0.35,
+      "max_linear_velocity_mps": 0.05,
+      "max_angular_velocity_radps": 0.05,
+      "stability_window_duration_sim_sec": 2.0,
+      "max_sensor_staleness_sim_sec": 0.5,
+      "max_time_alignment_delta_sim_sec": 0.1
+    },
+    "coordinate_frames": {
+      "map_frame": "map",
+      "odom_frame": "odom",
+      "base_frame": "base_footprint",
+      "world_frame": "world",
+      "world_equals_map": true,
+      "world_map_alignment_basis": "Gazebo world origin (0,0,0) is at the geometric center of the arena (location of the central cylinder). turtlebot3_world.yaml defines resolution 0.050000 m/px, origin [-10.0, -10.0, 0.0] on a 384x384 image, placing pixel (200, 200) at coordinate (0,0) in map frame, identically aligned with Gazebo world origin. The robot spawn pose in Gazebo is [-2.0, -0.5, 0.0] and initial AMCL pose is published at [-2.0, -0.5, 0.0, map]. Therefore, p_map == p_world and theta_map == theta_world.\n"
+    },
+    "action_constraints": {
+      "default_frame_id": "map",
+      "default_timeout_sec": 60.0,
+      "max_retry_budget_per_episode": 3,
+      "max_retries_per_state_fingerprint": 1
+    }
+  },
+  "coordinate_alignment": {
+    "verified": true,
+    "max_residual_m": 0.0459,
+    "tested_landmarks_count": 5
+  },
+  "episodes": [
+    {
+      "episode_index": 1,
+      "action_id": "nav_ep1_fwd_corridor",
+      "goal": [
+        -0.5,
+        -0.5,
+        0.0
+      ],
+      "is_cancel_test": false,
+      "nav2_action_status": "SUCCEEDED",
+      "nav2_status_code": 4,
+      "goal_uuid": "e5220ff6-0029-5fcf-846a-885c1a55d009",
+      "timing": {
+        "nav_duration_sim_sec": 6.6,
+        "nav_duration_wall_sec": 5.412,
+        "stability_samples_count": 74,
+        "total_gt_samples": 90,
+        "total_amcl_samples": 5,
+        "total_odom_samples": 247
+      },
+      "evaluation": {
+        "nav2_action_status": "SUCCEEDED",
+        "nav2_action_succeeded": true,
+        "final_geometric_errors": {
+          "gt_position_error_m": 0.2613,
+          "gt_yaw_error_rad": 0.0599,
+          "amcl_position_error_m": 0.4305,
+          "amcl_yaw_error_rad": 0.0032,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.35
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.4,
+          "unique_samples_count": 74,
+          "total_raw_samples_count": 74,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.0003,
+          "max_gt_displacement_m": 0.0,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": true,
+        "all_window_yaw_ok": true,
+        "final_pose_arrived": true,
+        "strict_physical_arrival_and_stable": true
+      },
+      "localization_audit": {
+        "time_aligned_samples_count": 4,
+        "unmatched_amcl_samples_count": 1,
+        "mean_localization_discrepancy_m": 0.025,
+        "alignment_max_delta_sec": 0.1
+      },
+      "initial_states": {
+        "gt": {
+          "seq": 23,
+          "msg_stamp_sec": null,
+          "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+          "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+          "recv_sim_time_sec": 3.5,
+          "monotonic_wall_sec": 1180581.6417,
+          "frame_id": "world",
+          "x": -2.0,
+          "y": -0.5,
+          "yaw": 0.0002
+        },
+        "amcl": {
+          "seq": 2,
+          "msg_stamp_sec": 3.366,
+          "recv_sim_time_sec": 3.5,
+          "monotonic_wall_sec": 1180581.6366,
+          "frame_id": "map",
+          "x": -1.9992,
+          "y": -0.4924,
+          "yaw": 0.0077,
+          "covariance_diagonal": [
+            0.15524795518885126,
+            0.19826574191709087,
+            0.060772493226143184
+          ]
+        }
+      },
+      "final_states": {
+        "gt": {
+          "seq": 113,
+          "msg_stamp_sec": null,
+          "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+          "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+          "recv_sim_time_sec": 12.7,
+          "monotonic_wall_sec": 1180590.8531,
+          "frame_id": "world",
+          "x": -0.7537,
+          "y": -0.5626,
+          "yaw": 0.0599
+        },
+        "amcl": {
+          "seq": 7,
+          "msg_stamp_sec": 9.165,
+          "recv_sim_time_sec": 9.1,
+          "monotonic_wall_sec": 1180587.3284,
+          "frame_id": "map",
+          "x": -0.9287,
+          "y": -0.5388,
+          "yaw": 0.0032,
+          "covariance_diagonal": [
+            0.07068623009834185,
+            0.10354103134819437,
+            0.09780390901336462
+          ]
+        }
+      }
+    },
+    {
+      "episode_index": 2,
+      "action_id": "nav_ep2_lateral_rot",
+      "goal": [
+        0.5,
+        -0.5,
+        1.57
+      ],
+      "is_cancel_test": false,
+      "nav2_action_status": "SUCCEEDED",
+      "nav2_status_code": 4,
+      "goal_uuid": "7d5b8c4c-32ef-52d1-bc79-a40cebe3d8fa",
+      "timing": {
+        "nav_duration_sim_sec": 14.8,
+        "nav_duration_wall_sec": 13.672,
+        "stability_samples_count": 74,
+        "total_gt_samples": 171,
+        "total_amcl_samples": 14,
+        "total_odom_samples": 486
+      },
+      "evaluation": {
+        "nav2_action_status": "SUCCEEDED",
+        "nav2_action_succeeded": true,
+        "final_geometric_errors": {
+          "gt_position_error_m": 0.2339,
+          "gt_yaw_error_rad": 0.2403,
+          "amcl_position_error_m": 0.2161,
+          "amcl_yaw_error_rad": 0.271,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.35
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.4,
+          "unique_samples_count": 74,
+          "total_raw_samples_count": 74,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.0004,
+          "max_gt_displacement_m": 0.0,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": true,
+        "all_window_yaw_ok": true,
+        "final_pose_arrived": true,
+        "strict_physical_arrival_and_stable": true
+      },
+      "localization_audit": {
+        "time_aligned_samples_count": 13,
+        "unmatched_amcl_samples_count": 1,
+        "mean_localization_discrepancy_m": 0.0174,
+        "alignment_max_delta_sec": 0.1
+      },
+      "initial_states": {
+        "gt": {
+          "seq": 21,
+          "msg_stamp_sec": null,
+          "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+          "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+          "recv_sim_time_sec": 3.5,
+          "monotonic_wall_sec": 1180604.323,
+          "frame_id": "world",
+          "x": -2.0,
+          "y": -0.5,
+          "yaw": 0.0002
+        },
+        "amcl": {
+          "seq": 2,
+          "msg_stamp_sec": 3.362,
+          "recv_sim_time_sec": 3.5,
+          "monotonic_wall_sec": 1180604.3209,
+          "frame_id": "map",
+          "x": -1.9986,
+          "y": -0.5044,
+          "yaw": 0.0076,
+          "covariance_diagonal": [
+            0.163521304542515,
+            0.20290707983960404,
+            0.05966855104556996
+          ]
+        }
+      },
+      "final_states": {
+        "gt": {
+          "seq": 192,
+          "msg_stamp_sec": null,
+          "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+          "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+          "recv_sim_time_sec": 20.8,
+          "monotonic_wall_sec": 1180621.6476,
+          "frame_id": "world",
+          "x": 0.27,
+          "y": -0.5423,
+          "yaw": 1.3297
+        },
+        "amcl": {
+          "seq": 16,
+          "msg_stamp_sec": 18.162,
+          "recv_sim_time_sec": 18.1,
+          "monotonic_wall_sec": 1180619.014,
+          "frame_id": "map",
+          "x": 0.2921,
+          "y": -0.5589,
+          "yaw": 1.299,
+          "covariance_diagonal": [
+            0.02710595928320801,
+            0.028041584239369255,
+            0.061845121286287726
+          ]
+        }
+      }
+    },
+    {
+      "episode_index": 3,
+      "action_id": "nav_ep3_return_rot",
+      "goal": [
+        -1.8,
+        -0.5,
+        3.14
+      ],
+      "is_cancel_test": false,
+      "nav2_action_status": "SUCCEEDED",
+      "nav2_status_code": 4,
+      "goal_uuid": "9bed3480-c22f-50c5-84b3-3b6b8125e7ca",
+      "timing": {
+        "nav_duration_sim_sec": 6.3,
+        "nav_duration_wall_sec": 4.812,
+        "stability_samples_count": 74,
+        "total_gt_samples": 83,
+        "total_amcl_samples": 11,
+        "total_odom_samples": 226
+      },
+      "evaluation": {
+        "nav2_action_status": "SUCCEEDED",
+        "nav2_action_succeeded": true,
+        "final_geometric_errors": {
+          "gt_position_error_m": 0.2,
+          "gt_yaw_error_rad": 0.231,
+          "amcl_position_error_m": 0.1588,
+          "amcl_yaw_error_rad": 0.2875,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.35
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.4,
+          "unique_samples_count": 74,
+          "total_raw_samples_count": 74,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.0018,
+          "max_gt_displacement_m": 0.0002,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": true,
+        "all_window_yaw_ok": true,
+        "final_pose_arrived": true,
+        "strict_physical_arrival_and_stable": true
+      },
+      "localization_audit": {
+        "time_aligned_samples_count": 10,
+        "unmatched_amcl_samples_count": 1,
+        "mean_localization_discrepancy_m": 0.0531,
+        "alignment_max_delta_sec": 0.1
+      },
+      "initial_states": {
+        "gt": {
+          "seq": 23,
+          "msg_stamp_sec": null,
+          "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+          "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+          "recv_sim_time_sec": 3.4,
+          "monotonic_wall_sec": 1180634.7897,
+          "frame_id": "world",
+          "x": -2.0,
+          "y": -0.5,
+          "yaw": 0.0002
+        },
+        "amcl": {
+          "seq": 2,
+          "msg_stamp_sec": 3.166,
+          "recv_sim_time_sec": 3.4,
+          "monotonic_wall_sec": 1180634.7887,
+          "frame_id": "map",
+          "x": -1.9991,
+          "y": -0.4994,
+          "yaw": 0.0068,
+          "covariance_diagonal": [
+            0.16020962640659908,
+            0.20348769442847006,
+            0.06081759569476063
+          ]
+        }
+      },
+      "final_states": {
+        "gt": {
+          "seq": 106,
+          "msg_stamp_sec": null,
+          "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+          "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+          "recv_sim_time_sec": 12.2,
+          "monotonic_wall_sec": 1180643.6157,
+          "frame_id": "world",
+          "x": -2.0,
+          "y": -0.5039,
+          "yaw": 2.909
+        },
+        "amcl": {
+          "seq": 13,
+          "msg_stamp_sec": 9.367,
+          "recv_sim_time_sec": 9.3,
+          "monotonic_wall_sec": 1180640.7871,
+          "frame_id": "map",
+          "x": -1.9587,
+          "y": -0.4955,
+          "yaw": 2.8525,
+          "covariance_diagonal": [
+            0.025198056955479498,
+            0.09274259513840458,
+            0.04775106224840486
+          ]
+        }
+      }
+    },
+    {
+      "episode_index": 4,
+      "action_id": "nav_ep4_cancel_test",
+      "goal": [
+        0.5,
+        1.8,
+        0.0
+      ],
+      "is_cancel_test": true,
+      "nav2_action_status": "CANCELED",
+      "nav2_status_code": 5,
+      "goal_uuid": "18581e1a-2b7c-511e-9f37-62f57298deb5",
+      "timing": {
+        "nav_duration_sim_sec": 2.5,
+        "nav_duration_wall_sec": 0.524,
+        "stability_samples_count": 74,
+        "total_gt_samples": 44,
+        "total_amcl_samples": 3,
+        "total_odom_samples": 103
+      },
+      "evaluation": {
+        "nav2_action_status": "CANCELED",
+        "movement_confirmed_before_cancel": true,
+        "cancel_request_accepted": true,
+        "safety_intervention": false,
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.4,
+          "unique_samples_count": 74,
+          "total_raw_samples_count": 74,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.0003,
+          "max_gt_displacement_m": 0.0,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "cancel_stop_verified": true,
+        "failure_reasons": []
+      },
+      "localization_audit": {
+        "time_aligned_samples_count": 2,
+        "unmatched_amcl_samples_count": 1,
+        "mean_localization_discrepancy_m": 0.0422,
+        "alignment_max_delta_sec": 0.1
+      },
+      "initial_states": {
+        "gt": {
+          "seq": 22,
+          "msg_stamp_sec": null,
+          "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+          "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+          "recv_sim_time_sec": 3.5,
+          "monotonic_wall_sec": 1180657.2445,
+          "frame_id": "world",
+          "x": -2.0,
+          "y": -0.5,
+          "yaw": 0.0002
+        },
+        "amcl": {
+          "seq": 2,
+          "msg_stamp_sec": 3.365,
+          "recv_sim_time_sec": 3.5,
+          "monotonic_wall_sec": 1180657.2399,
+          "frame_id": "map",
+          "x": -1.9967,
+          "y": -0.4989,
+          "yaw": 0.0078,
+          "covariance_diagonal": [
+            0.1674025785512261,
+            0.19593594474948361,
+            0.05743421796386734
+          ]
+        }
+      },
+      "final_states": {
+        "gt": {
+          "seq": 66,
+          "msg_stamp_sec": null,
+          "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+          "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+          "recv_sim_time_sec": 9.0,
+          "monotonic_wall_sec": 1180662.7578,
+          "frame_id": "world",
+          "x": -1.899,
+          "y": -0.4782,
+          "yaw": 0.546
+        },
+        "amcl": {
+          "seq": 5,
+          "msg_stamp_sec": 6.565,
+          "recv_sim_time_sec": 6.6,
+          "monotonic_wall_sec": 1180660.3486,
+          "frame_id": "map",
+          "x": -1.848,
+          "y": -0.4782,
+          "yaw": 0.5394,
+          "covariance_diagonal": [
+            0.09518961831675998,
+            0.1773462683094446,
+            0.06350850980460923
+          ]
+        }
+      }
+    }
+  ],
+  "overall_evaluation": {
+    "total_episodes": 4,
+    "nav_episodes_count": 3,
+    "nav_nav2_succeeded_count": 3,
+    "nav_strict_physical_arrival_count": 3,
+    "cancel_test_passed": true
+  },
+  "boundary_notice": "P1a-v3 verifies independent simulation reset, unified ROS sim time, passive halt verification without active cmd_vel interference, strict 0.30m contract arrival, and in-motion cancel safety stop. Minimal observe action is implemented in P1b. No LLM loops or FailMem methods included."
+}

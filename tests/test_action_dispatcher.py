@@ -8,6 +8,8 @@ Verifies:
 5. Multiple retries under identical visible state fingerprint NEVER reach ROS execution.
 6. Exceeding retry budget NEVER reaches ROS execution.
 7. Syntax or schema invalid inputs NEVER reach ROS execution.
+8. Scoped UUID isolation across episodes and runs.
+9. Integration execution of original action and retry with verified parameters and distinct goal IDs.
 """
 from __future__ import annotations
 
@@ -21,23 +23,31 @@ from src.action_runtime import EpisodeActionHistoryContext
 class TestActionDispatcher(unittest.TestCase):
     def setUp(self):
         self.context = EpisodeActionHistoryContext(max_retries=3, max_retries_per_state=1)
-        self.mock_ros_executor = MagicMock(return_value={"status": "SUCCEEDED", "code": 4})
+        self.mock_ros_executor = MagicMock(return_value={"status": "ACCEPTED", "code": 1})
         self.dispatcher = ActionDispatcher(context=self.context, ros_executor=self.mock_ros_executor)
 
     def test_valid_navigate_dispatch_with_defaults(self):
-        # Omitted frame_id and timeout_sec should normalize to defaults
         action_input = {
             "action": "navigate",
             "action_id": "nav_01",
             "params": {"goal": [-0.5, -0.5, 0.0]},
         }
-        res = self.dispatcher.dispatch(action_input)
+        res = self.dispatcher.dispatch(action_input, run_id="run_1", episode_id="ep_1")
         self.assertEqual(res["pipeline_status"], "DISPATCHED")
         self.assertTrue(res["ros_dispatched"])
         self.assertEqual(res["normalized_action"]["params"]["frame_id"], "map")
         self.assertEqual(res["normalized_action"]["params"]["timeout_sec"], 60.0)
-        self.assertEqual(res["goal_uuid"], str(derive_ros_goal_uuid("nav_01")))
+        expected_uuid = str(derive_ros_goal_uuid("nav_01", run_id="run_1", episode_id="ep_1"))
+        self.assertEqual(res["goal_uuid"], expected_uuid)
         self.mock_ros_executor.assert_called_once()
+
+    def test_scoped_uuid_isolation_across_episodes_and_runs(self):
+        u1 = derive_ros_goal_uuid("nav_goal", run_id="run_A", episode_id="ep_1")
+        u2 = derive_ros_goal_uuid("nav_goal", run_id="run_A", episode_id="ep_2")
+        u3 = derive_ros_goal_uuid("nav_goal", run_id="run_B", episode_id="ep_1")
+        self.assertNotEqual(u1, u2)
+        self.assertNotEqual(u1, u3)
+        self.assertNotEqual(u2, u3)
 
     def test_duplicate_action_id_never_dispatches_to_ros(self):
         act1 = {
@@ -177,6 +187,68 @@ class TestActionDispatcher(unittest.TestCase):
         self.assertEqual(res["pipeline_status"], "FAILED")
         self.assertFalse(res["ros_dispatched"])
         self.mock_ros_executor.assert_not_called()
+
+    def test_integration_original_action_and_valid_retry_execution(self):
+        """Integration test verifying original action dispatch, failure recording, and retry re-execution."""
+        dispatched_goals = []
+
+        def recording_ros_executor(act, goal_uuid):
+            dispatched_goals.append((act, str(goal_uuid)))
+            return {"status": "ACCEPTED", "ros_goal_id": str(goal_uuid)}
+
+        dispatcher = ActionDispatcher(context=self.context, ros_executor=recording_ros_executor)
+
+        # 1. Original navigate action
+        orig_act = {
+            "action": "navigate",
+            "action_id": "act_initial_nav",
+            "params": {"goal": [1.5, -0.5, 1.57]},
+        }
+        res1 = dispatcher.dispatch(orig_act, run_id="run_test", episode_id="ep_1")
+        self.assertEqual(res1["pipeline_status"], "DISPATCHED")
+        uuid1 = res1["goal_uuid"]
+
+        # Record terminal failure for original action
+        dispatcher.record_terminal_status("act_initial_nav", terminal_status="ABORTED", status_code=6)
+
+        # 2. Dispatch retry action
+        retry_act = {
+            "action": "retry",
+            "action_id": "act_retry_nav",
+            "params": {"original_action_id": "act_initial_nav"},
+        }
+        res2 = dispatcher.dispatch(retry_act, visible_state={"amcl_pose": [-0.5, -0.5, 0.0]}, run_id="run_test", episode_id="ep_1")
+        self.assertEqual(res2["pipeline_status"], "DISPATCHED")
+        uuid2 = res2["goal_uuid"]
+
+        # 3. Assertions
+        # Distinct UUIDs
+        self.assertNotEqual(uuid1, uuid2)
+        self.assertEqual(len(dispatched_goals), 2)
+
+        # Check executor received restored navigate parameters
+        first_dispatched_act, first_uuid = dispatched_goals[0]
+        second_dispatched_act, second_uuid = dispatched_goals[1]
+
+        self.assertEqual(first_uuid, uuid1)
+        self.assertEqual(first_dispatched_act["action"], "navigate")
+        self.assertEqual(first_dispatched_act["params"]["goal"], [1.5, -0.5, 1.57])
+
+        self.assertEqual(second_uuid, uuid2)
+        self.assertEqual(second_dispatched_act["action"], "retry")
+        self.assertEqual(second_dispatched_act["executable_action"], "navigate")
+        self.assertEqual(second_dispatched_act["executable_params"]["goal"], [1.5, -0.5, 1.57])
+
+        # Record terminal success for retry
+        dispatcher.record_terminal_status("act_retry_nav", terminal_status="SUCCEEDED", status_code=4)
+
+        # Check history reflects both terminal statuses
+        hist = self.context.action_history
+        self.assertEqual(len(hist), 2)
+        self.assertEqual(hist[0]["action_id"], "act_initial_nav")
+        self.assertEqual(hist[0]["terminal_status"], "ABORTED")
+        self.assertEqual(hist[1]["action_id"], "act_retry_nav")
+        self.assertEqual(hist[1]["terminal_status"], "SUCCEEDED")
 
 
 if __name__ == "__main__":

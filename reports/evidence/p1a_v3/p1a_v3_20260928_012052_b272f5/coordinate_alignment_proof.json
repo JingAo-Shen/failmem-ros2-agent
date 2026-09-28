@@ -1,0 +1,104 @@
+{
+  "verified": true,
+  "resolution_m": 0.05,
+  "map_origin": [
+    -10.0,
+    -10.0,
+    0.0
+  ],
+  "image_shape": [
+    384,
+    384
+  ],
+  "non_collinear_landmarks_tested": 5,
+  "max_residual_m": 0.0459,
+  "residual_threshold_m": 0.075,
+  "landmarks": [
+    {
+      "landmark": "two_two (center)",
+      "world_xy": [
+        0.0,
+        0.0
+      ],
+      "expected_pixel_uv": [
+        200.0,
+        184.0
+      ],
+      "detected_map_xy": [
+        0.0,
+        0.0446
+      ],
+      "residual_m": 0.0446,
+      "within_resolution_cell": true
+    },
+    {
+      "landmark": "one_two (west)",
+      "world_xy": [
+        -1.1,
+        0.0
+      ],
+      "expected_pixel_uv": [
+        178.0,
+        184.0
+      ],
+      "detected_map_xy": [
+        -1.0919,
+        0.0452
+      ],
+      "residual_m": 0.0459,
+      "within_resolution_cell": true
+    },
+    {
+      "landmark": "three_two (east)",
+      "world_xy": [
+        1.1,
+        0.0
+      ],
+      "expected_pixel_uv": [
+        222.0,
+        184.0
+      ],
+      "detected_map_xy": [
+        1.0875,
+        -0.0031
+      ],
+      "residual_m": 0.0129,
+      "within_resolution_cell": true
+    },
+    {
+      "landmark": "two_three (north)",
+      "world_xy": [
+        0.0,
+        1.1
+      ],
+      "expected_pixel_uv": [
+        200.0,
+        162.0
+      ],
+      "detected_map_xy": [
+        0.0161,
+        1.1
+      ],
+      "residual_m": 0.0161,
+      "within_resolution_cell": true
+    },
+    {
+      "landmark": "two_one (south)",
+      "world_xy": [
+        0.0,
+        -1.1
+      ],
+      "expected_pixel_uv": [
+        200.0,
+        206.0
+      ],
+      "detected_map_xy": [
+        -0.0069,
+        -1.0759
+      ],
+      "residual_m": 0.0251,
+      "within_resolution_cell": true
+    }
+  ],
+  "mathematical_basis": "Image has shape (384, 384) with resolution 0.05m/px and origin [-10.0, -10.0, 0.0]. Pixel transform: map_x = -10.0 + u * 0.05, map_y = -10.0 + (384 - v) * 0.05. All 5 static pillars in Gazebo world align with map obstacles within 0.0459m residual (< 0.075m)."
+}

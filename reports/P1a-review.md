@@ -10,6 +10,9 @@
 - **Review Date**: 2026-09-28
 - **Domain Isolation**: `ROS_DOMAIN_ID=42`, `ROS_LOCALHOST_ONLY=1`
 
+> [!NOTE]
+> **版本演进提示**：本报告为 P1a 初始连续航点链路冒烟历史记录。后续独立 Episode 升级与被动停车验证、作用域UUID、实证坐标系证明与 P1b 最小 observe 接口，请查阅最新的 [P1a-v3-review.md](file:///code/failmem-ros2-agent/reports/P1a-v3-review.md)。
+
 ---
 
 ## 1. Executive Summary & Review Scope

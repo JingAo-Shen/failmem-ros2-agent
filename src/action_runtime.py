@@ -164,6 +164,8 @@ class EpisodeActionHistoryContext:
     def record_action(self, action_dict: Dict[str, Any], visible_state: Optional[Dict[str, Any]] = None):
         """Record an executed action into the episode history."""
         action_copy = copy.deepcopy(action_dict)
+        action_copy.setdefault("dispatch_status", "RECORDED")
+        action_copy.setdefault("terminal_status", None)
         self.action_history.append(action_copy)
         self._action_id_set.add(action_dict["action_id"])
 
@@ -172,6 +174,24 @@ class EpisodeActionHistoryContext:
             fingerprint = compute_visible_state_fingerprint(visible_state)
             key = (orig_id, fingerprint)
             self._retry_state_counts[key] = self._retry_state_counts.get(key, 0) + 1
+
+    def update_action_status(
+        self,
+        action_id: str,
+        dispatch_status: str,
+        terminal_status: Optional[str] = None,
+        status_code: Optional[int] = None,
+    ) -> bool:
+        """Update dispatch and terminal status for an action in history."""
+        for act in self.action_history:
+            if act.get("action_id") == action_id:
+                act["dispatch_status"] = dispatch_status
+                if terminal_status is not None:
+                    act["terminal_status"] = terminal_status
+                if status_code is not None:
+                    act["status_code"] = status_code
+                return True
+        return False
 
 
 # Alias for compatibility with existing imports

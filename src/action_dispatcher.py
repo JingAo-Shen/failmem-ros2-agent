@@ -5,8 +5,8 @@ Orchestrates the complete execution pipeline:
 2. Static Schema Validation (field types, positive finite timeouts, coordinate bounds).
 3. Parameter Normalization (defaults: frame_id="map", timeout_sec=60.0).
 4. Runtime History Constraints (action_id uniqueness, retry validity, budget, state fingerprint).
-5. Parameter Restoration (for retry: restore original parameters from history).
-6. ROS Goal UUID derivation (deterministic mapping from action_id).
+5. Parameter Restoration (for retry: restore original executable action and params from history).
+6. Scoped ROS Goal UUID derivation (deterministic mapping with run/episode scope).
 7. Dispatch to ROS Action Server / Execution Layer.
 8. Terminal Status Recording.
 """
@@ -22,9 +22,14 @@ from src.schema_validator import parse_and_validate_action, validate_action_sche
 FAILMEM_UUID_NAMESPACE = uuid.UUID("79551a6b-151c-4311-ad4b-bb28a6dc589b")
 
 
-def derive_ros_goal_uuid(action_id: str) -> uuid.UUID:
-    """Derive a deterministic 128-bit UUID for ROS 2 Action Goal from action_id."""
-    return uuid.uuid5(FAILMEM_UUID_NAMESPACE, action_id)
+def derive_ros_goal_uuid(
+    action_id: str,
+    run_id: Optional[str] = None,
+    episode_id: Optional[Union[str, int]] = None,
+) -> uuid.UUID:
+    """Derive a deterministic 128-bit UUID for ROS 2 Action Goal with run and episode scoping."""
+    scope_str = f"{run_id or 'global'}:{episode_id or 'default'}:{action_id}"
+    return uuid.uuid5(FAILMEM_UUID_NAMESPACE, scope_str)
 
 
 def normalize_action_parameters(action_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -52,9 +57,13 @@ class ActionDispatcher:
         self,
         context: Optional[EpisodeActionHistoryContext] = None,
         ros_executor: Optional[Callable[[Dict[str, Any], uuid.UUID], Dict[str, Any]]] = None,
+        run_id: Optional[str] = None,
+        episode_id: Optional[Union[str, int]] = None,
     ):
         self.context = context or EpisodeActionHistoryContext()
         self.ros_executor = ros_executor
+        self.run_id = run_id
+        self.episode_id = episode_id
         self.goal_uuid_mapping: Dict[str, str] = {}
         self.dispatched_actions: list[Dict[str, Any]] = []
 
@@ -62,11 +71,16 @@ class ActionDispatcher:
         self,
         raw_or_dict: Union[str, Dict[str, Any]],
         visible_state: Optional[Dict[str, Any]] = None,
+        run_id: Optional[str] = None,
+        episode_id: Optional[Union[str, int]] = None,
     ) -> Dict[str, Any]:
         """Process and dispatch an action through the verified pipeline.
 
         Returns structured result dictionary.
         """
+        effective_run_id = run_id or self.run_id
+        effective_ep_id = episode_id or self.episode_id
+
         # Step 1 & 2: Parse and Static Validate
         if isinstance(raw_or_dict, str):
             val_res = parse_and_validate_action(raw_or_dict)
@@ -134,14 +148,16 @@ class ActionDispatcher:
             orig_act = self.context.get_action_by_id(orig_id)
             if orig_act is not None:
                 # Restore original action params for execution
-                effective_action["executable_action"] = orig_act.get("action")
-                effective_action["executable_params"] = copy.deepcopy(orig_act.get("params", {}))
+                effective_action["executable_action"] = orig_act.get("executable_action", orig_act.get("action"))
+                effective_action["executable_params"] = copy.deepcopy(
+                    orig_act.get("executable_params", orig_act.get("params", {}))
+                )
 
         # Register in context
         self.context.record_action(normalized, visible_state=visible_state)
 
-        # Step 6: Derive ROS Goal UUID
-        goal_uuid = derive_ros_goal_uuid(action_id)
+        # Step 6: Derive Scoped ROS Goal UUID
+        goal_uuid = derive_ros_goal_uuid(action_id, run_id=effective_run_id, episode_id=effective_ep_id)
         self.goal_uuid_mapping[action_id] = str(goal_uuid)
 
         # Step 7: Dispatch to ROS executor if provided
@@ -149,6 +165,8 @@ class ActionDispatcher:
         if self.ros_executor is not None:
             try:
                 ros_result = self.ros_executor(effective_action, goal_uuid)
+                dispatch_status = ros_result.get("status", "DISPATCHED") if isinstance(ros_result, dict) else "DISPATCHED"
+                self.context.update_action_status(action_id, dispatch_status=dispatch_status)
                 self.dispatched_actions.append({
                     "action_id": action_id,
                     "goal_uuid": str(goal_uuid),
@@ -156,6 +174,7 @@ class ActionDispatcher:
                     "ros_result": ros_result,
                 })
             except Exception as e:
+                self.context.update_action_status(action_id, dispatch_status="DISPATCH_EXCEPTION")
                 return {
                     "pipeline_status": "FAILED",
                     "failure_stage": "ROS_EXECUTION_EXCEPTION",
@@ -175,3 +194,17 @@ class ActionDispatcher:
             "ros_dispatched": self.ros_executor is not None,
             "ros_result": ros_result,
         }
+
+    def record_terminal_status(
+        self,
+        action_id: str,
+        terminal_status: str,
+        status_code: Optional[int] = None,
+    ) -> bool:
+        """Record final execution terminal status (SUCCEEDED, ABORTED, CANCELED, TIMEOUT) back to context."""
+        return self.context.update_action_status(
+            action_id,
+            dispatch_status="COMPLETED",
+            terminal_status=terminal_status,
+            status_code=status_code,
+        )

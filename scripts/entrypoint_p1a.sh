@@ -17,6 +17,9 @@ if [ "$1" = "smoke" ]; then
 elif [ "$1" = "v2" ] || [ "$1" = "p1a_v2" ]; then
     echo "Running P1a-v2 isolated episodes runner..."
     exec python3 /workspace/scripts/run_p1a_v2.py
+elif [ "$1" = "v3" ] || [ "$1" = "p1a_v3" ]; then
+    echo "Running P1a-v3 isolated episodes runner with passive halt & scoring evaluator..."
+    exec python3 /workspace/scripts/run_p1a_v3.py
 else
     exec "$@"
 fi
