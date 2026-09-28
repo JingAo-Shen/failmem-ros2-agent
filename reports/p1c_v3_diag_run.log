@@ -1,0 +1,79 @@
+=======================================================================
+FailMem P1c Blockage Pilot Runner (v3.0): p1c_diag_20260928_064406_c7618e
+Evidence Directory: /workspace/reports/evidence/p1c_diagnostic/p1c_diag_20260928_064406_c7618e
+Protocol: configs/p1c_v3_protocol.yaml (SHA256: f703c392ba1af0bba601c4e9ab56d62f0054d4ab53cb530a2807dfb33b8d3a47)
+Target goal: [1.8, 0.0, 0.0], Spawn: [-1.8, 0.0, 0.0]
+Obstacle: corridor_blockage_box at (0.0, 0.0, 0.3)
+Mode: DIAGNOSTIC (1 ep/cond)
+=======================================================================
+[2026-09-28 06:44:06.190] === Starting Episode C0_ep1 (Condition C0 #1) ===
+[2026-09-28 06:44:06.190] Protocol: sim_timeout=45.0s, wall_watchdog=60.0s
+[2026-09-28 06:44:10.544] Sim clock advanced: 0.00s -> 1.10s
+[2026-09-28 06:44:10.545] Sensors streaming: odom=-1.8, scan=360 rays
+[2026-09-28 06:44:10.701] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-28 06:44:12.244] Nav2 bt_navigator is verified ACTIVE!
+[2026-09-28 06:44:12.472] AMCL nomotion update received: stamp 2.997s (seq=4)
+[2026-09-28 06:44:12.472] C0 Step 1 Observe: status=SUCCESS
+[2026-09-28 06:44:12.473] Dispatched action 'C0_ep1_nav': pipeline_status=DISPATCHED
+[2026-09-28 06:44:28.583] Passive physical halt verified: stable for 2.00s sim time (lv=0.0003, av=0.0029)
+[2026-09-28 06:44:31.081] Stability window recording complete: 197 samples across 2.50s sim time
+[2026-09-28 06:44:31.082] C0 Navigate: outcome=BUDGET_SUCCESS, terminal=SUCCEEDED
+[2026-09-28 06:44:31.302] AMCL nomotion update received: stamp 21.797s (seq=59)
+[2026-09-28 06:44:31.303] C0 Step 3 Final Observe: status=SUCCESS
+[2026-09-28 06:44:37.060] === Starting Episode C1_ep1 (Condition C1 #1) ===
+[2026-09-28 06:44:37.060] Protocol: sim_timeout=45.0s, wall_watchdog=60.0s
+[2026-09-28 06:44:41.531] Sim clock advanced: 0.00s -> 1.00s
+[2026-09-28 06:44:41.532] Sensors streaming: odom=-1.8, scan=360 rays
+[2026-09-28 06:44:41.686] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-28 06:44:43.432] Nav2 bt_navigator is verified ACTIVE!
+[2026-09-28 06:44:43.432] C1: Spawning obstacle at (0.0, 0.0, 0.3)...
+[2026-09-28 06:44:43.620] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-28 06:44:43.703] C1: spawn service_ok=True, gazebo_confirmed=True
+[2026-09-28 06:44:44.045] C1: Pre-nav doorway check: occupied=True, points_in_box=21
+[2026-09-28 06:44:44.131] AMCL nomotion update received: stamp 3.570s (seq=4)
+[2026-09-28 06:44:44.133] C1 Observe: status=SUCCESS
+[2026-09-28 06:44:44.135] Dispatched action 'C1_ep1_nav_blocked': pipeline_status=DISPATCHED
+[2026-09-28 06:45:09.207] Passive physical halt verified: stable for 2.00s sim time (lv=0.0000, av=0.0010)
+[2026-09-28 06:45:11.694] Stability window recording complete: 188 samples across 2.50s sim time
+[2026-09-28 06:45:11.700] C1 Navigate: outcome=EXECUTION_FAILED, terminal=ABORTED
+[2026-09-28 06:45:11.950] AMCL nomotion update received: stamp 31.371s (seq=37)
+[2026-09-28 06:45:12.290] C1 mechanism_verified=True: doorway_occupied=True, not_arrived=True, dist_to_goal=3.0747m
+[2026-09-28 06:45:18.080] === Starting Episode C2_ep1 (Condition C2 #1) ===
+[2026-09-28 06:45:18.080] Protocol: sim_timeout=45.0s, wall_watchdog=60.0s
+[2026-09-28 06:45:22.473] Sim clock advanced: 0.00s -> 1.10s
+[2026-09-28 06:45:22.474] Sensors streaming: odom=-1.8, scan=360 rays
+[2026-09-28 06:45:22.628] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-28 06:45:24.104] Nav2 bt_navigator is verified ACTIVE!
+[2026-09-28 06:45:24.104] C2: Spawning temporary obstacle at (0.0, 0.0, 0.3)...
+[2026-09-28 06:45:24.262] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-28 06:45:24.346] C2: spawn service_ok=True, gazebo_confirmed=True
+[2026-09-28 06:45:24.723] C2: Pre-initial-nav doorway check: occupied=True, points_in_box=21
+[2026-09-28 06:45:24.912] AMCL nomotion update received: stamp 3.598s (seq=3)
+[2026-09-28 06:45:24.913] C2 Initial Observe: status=SUCCESS
+[2026-09-28 06:45:24.915] Dispatched action 'C2_ep1_nav_orig': pipeline_status=DISPATCHED
+[2026-09-28 06:45:48.810] Passive physical halt verified: stable for 2.00s sim time (lv=0.0000, av=0.0011)
+[2026-09-28 06:45:51.205] Stability window recording complete: 189 samples across 2.40s sim time
+[2026-09-28 06:45:51.212] C2 Initial blocked nav: outcome=EXECUTION_FAILED, terminal=ABORTED
+[2026-09-28 06:45:51.253] C2: Deleting obstacle 'corridor_blockage_box'...
+[2026-09-28 06:45:51.524] Successfully deleted obstacle 'corridor_blockage_box' from Gazebo world
+[2026-09-28 06:45:51.647] C2: del service_ok=True, gazebo_absent=True
+[2026-09-28 06:45:51.647] C2: Waiting for natural lidar raytrace to clear doorway (no service purge)...
+[2026-09-28 06:45:54.964] C2: Post-removal doorway check: cleared=True, points_in_box=0
+[2026-09-28 06:45:55.255] AMCL nomotion update received: stamp 33.798s (seq=27)
+[2026-09-28 06:45:55.257] C2 Post-removal Observe: status=SUCCESS
+[2026-09-28 06:45:55.257] C2 Retry eligibility: eligible=True, reason=SUCCESS
+[2026-09-28 06:45:55.259] Dispatched action 'C2_ep1_retry_nav': pipeline_status=DISPATCHED
+[2026-09-28 06:46:14.059] Passive physical halt verified: stable for 2.00s sim time (lv=0.0009, av=0.0074)
+[2026-09-28 06:46:16.547] Stability window recording complete: 197 samples across 2.50s sim time
+[2026-09-28 06:46:16.552] C2 Retry nav: outcome=BUDGET_SUCCESS, arrival=True
+[2026-09-28 06:46:16.858] AMCL nomotion update received: stamp 55.398s (seq=92)
+[2026-09-28 06:46:16.859] C2 Final Observe: status=SUCCESS
+[2026-09-28 06:46:16.859] C2 mechanism_verified=True: spawn=True, init_fail=True, del_ok=True, doorway_cleared=True, obs_ok=True, task_ok=True
+
+=======================================================================
+P1c-v3 Pilot Execution Complete: PASSED
+C0 (Baseline): task_ok=True, mech_ok=True  (1 eps)
+C1 (Blocked):  no_spurious=True, mech_ok=True  (1 eps)
+C2 (Retry):    task_ok=True, mech_ok=True  (1 eps)
+Evidence Directory: /workspace/reports/evidence/p1c_diagnostic/p1c_diag_20260928_064406_c7618e
+=======================================================================

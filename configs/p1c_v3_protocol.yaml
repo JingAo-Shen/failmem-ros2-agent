@@ -1,0 +1,94 @@
+version: "3.0"
+phase: "P1c-blockage-pilot-v3"
+description: "FailMem Single-Channel Blockage Protocol (v3.0 - Dual-Room Chokepoint, Natural Clearance & AMCL Nomotion Update)"
+
+environment:
+  world: "configs/chokepoint_world.model"
+  map_yaml: "configs/chokepoint_world.yaml"
+  map_pgm: "configs/chokepoint_world.pgm"
+  nav2_params: "configs/nav2_params.yaml"
+  robot_model: "waffle"
+  spawn_pose:
+    x: -1.8
+    y: 0.0
+    z: 0.01
+    yaw: 0.0
+    frame_id: "map"
+
+navigation_task:
+  goal_pose:
+    x: 1.8
+    y: 0.0
+    z: 0.0
+    yaw: 0.0
+    frame_id: "map"
+  sim_timeout_sec: 45.0
+  wall_watchdog_sec: 60.0
+
+obstacle_channel:
+  channel_name: "dual_room_doorway_chokepoint"
+  obstacle_sdf: "configs/chokepoint_box.sdf"
+  entity_name: "corridor_blockage_box"
+  pose:
+    x: 0.0
+    y: 0.0
+    z: 0.30
+    yaw: 0.0
+    frame_id: "world"
+  dimensions:
+    length_x: 0.4
+    width_y: 1.0
+    height_z: 0.6
+  doorway_bbox:
+    x_min: -0.20
+    x_max: 0.20
+    y_min: -0.30
+    y_max: 0.30
+  geometry_rationale: "Positioned directly inside the single central doorway at x=0.0 between Room 1 and Room 2, physically sealing the 0.90m doorway."
+
+conditions:
+  C0_unblocked_baseline:
+    condition_id: "C0"
+    name: "Normal Navigation Baseline (No Obstacle)"
+    episodes_count: 3
+    obstacle_present_initial: false
+    obstacle_removed_on_retry: false
+    expected_outcome: "BUDGET_SUCCESS"
+    target_arrival_required: true
+    task_success_expected: true
+    mechanism_verified_expected: true
+
+  C1_continuous_blockage:
+    condition_id: "C1"
+    name: "Continuous Obstacle Blockage"
+    episodes_count: 3
+    obstacle_present_initial: true
+    obstacle_removed_on_retry: false
+    expected_outcome: "EXECUTION_FAILED_OR_DEADLINE"
+    target_arrival_required: false
+    task_success_expected: false
+    mechanism_verified_expected: true
+    protocol_notes: "Obstacle completely seals single doorway. Nav2 cannot pass or detour, timing out at 45.0s sim time without reaching goal."
+
+  C2_temporary_blockage_retry:
+    condition_id: "C2"
+    name: "Temporary Obstacle Blockage (Observe -> Initial Blocked Fail -> Delete -> Natural Raytrace Clear -> Valid Observe -> Retry)"
+    episodes_count: 3
+    obstacle_present_initial: true
+    obstacle_removed_on_retry: true
+    expected_step1_outcome: "EXECUTION_FAILED_OR_DEADLINE"
+    expected_retry_outcome: "BUDGET_SUCCESS"
+    target_arrival_required: true
+    task_success_expected: true
+    mechanism_verified_expected: true
+    protocol_notes: "Obstacle spawned before initial navigate. Initial attempt fails genuinely due to blockage. Obstacle is deleted. Doorway clearance verified via map-frame spatial scan and costmap. Observe returns valid AMCL via nomotion update. Retry dispatched with restored parameters and successfully navigates through cleared doorway to Room 2 goal."
+
+scoring_thresholds:
+  position_tolerance_m: 0.30
+  yaw_tolerance_rad: 0.35
+  max_linear_velocity_mps: 0.05
+  max_angular_velocity_radps: 0.05
+  stability_window_duration_sim_sec: 2.0
+  max_gt_displacement_m: 0.03
+  max_sensor_staleness_sim_sec: 0.50
+  max_stationary_amcl_staleness_sec: 30.0

@@ -48,6 +48,15 @@ def parse_sdf_cylinder_landmarks(sdf_path: Path) -> List[Dict[str, Any]]:
         (1.1, -1.1): "three_one (southeast)",
         (1.1, 0.0): "three_two (east)",
         (1.1, 1.1): "three_three (northeast)",
+        # Chokepoint dual-room wall landmarks
+        (0.0, 1.6): "north_wall",
+        (0.0, -1.6): "south_wall",
+        (-3.1, 0.0): "west_wall",
+        (3.1, 0.0): "east_wall",
+        (0.0, 0.97): "dividing_north_wall",
+        (0.0, 0.98): "dividing_north_wall",
+        (0.0, -0.97): "dividing_south_wall",
+        (0.0, -0.98): "dividing_south_wall",
     }
 
     landmarks = []
