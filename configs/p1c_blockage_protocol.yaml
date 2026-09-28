@@ -1,6 +1,6 @@
-version: "1.0"
+version: "2.0"
 phase: "P1c-blockage-pilot"
-description: "FailMem Single-Fault Channel Temporary Blockage Pilot Protocol"
+description: "FailMem Single-Fault Channel Temporary Blockage Pilot Protocol (v2.0 - Natural Clearance & Strict Localization Hygiene)"
 
 environment:
   world: "configs/turtlebot3_world.world"
@@ -48,6 +48,8 @@ conditions:
     obstacle_removed_on_retry: false
     expected_outcome: "BUDGET_SUCCESS"
     target_arrival_required: true
+    task_success_expected: true
+    mechanism_verified_expected: true
 
   C1_continuous_blockage:
     condition_id: "C1"
@@ -57,18 +59,22 @@ conditions:
     obstacle_removed_on_retry: false
     expected_outcome: "EXECUTION_FAILED_OR_DEADLINE"
     target_arrival_required: false
-    protocol_notes: "If Nav2 finds an alternate detour and arrives, record it honestly as incomplete blockage without altering data."
+    task_success_expected: false
+    mechanism_verified_expected: true
+    protocol_notes: "Obstacle occludes corridor for entire duration. Nav2 attempts navigation and terminates or times out at 45.0s sim time without reaching goal."
 
   C2_temporary_blockage_retry:
     condition_id: "C2"
-    name: "Temporary Obstacle Blockage (Observe -> Remove -> Retry)"
+    name: "Temporary Obstacle Blockage (Observe -> Remove -> Natural Raytrace -> Retry)"
     episodes_count: 3
     obstacle_present_initial: true
     obstacle_removed_on_retry: true
     expected_step1_outcome: "EXECUTION_FAILED_OR_DEADLINE"
     expected_retry_outcome: "BUDGET_SUCCESS"
     target_arrival_required: true
-    protocol_notes: "Obstacle is spawned before initial navigate. Upon initial failure/timeout, observe action is executed, obstacle is deleted via /delete_entity, costmap is allowed to update, and retry action is dispatched with replayed parameters."
+    task_success_expected: true
+    mechanism_verified_expected: true
+    protocol_notes: "Obstacle spawned before initial navigate. Upon initial failure/timeout, obstacle is deleted via /delete_entity and confirmed via Gazebo model states. Natural laser scan raytracing clears costmap without service purging. Observe action is executed, followed by retry with restored parameters."
 
 scoring_thresholds:
   position_tolerance_m: 0.30

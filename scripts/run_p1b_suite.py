@@ -608,14 +608,6 @@ def _execute_navigation_with_monitoring(
     settled_ok, safety_interv = node.wait_for_passive_settling(max_sim_sec=2.5)
     node.sticky_safety_intervention = (node.sticky_safety_intervention or safety_interv)
 
-    if node.latest_odom_record and term_res["ros_terminal_status"] == "SUCCEEDED":
-        node.initialize_amcl_pose(
-            x=node.latest_odom_record["x"],
-            y=node.latest_odom_record["y"],
-            yaw=node.latest_odom_record["yaw"],
-            wall_timeout_sec=5.0,
-        )
-
     stability_records, wd_triggered = node.record_stability_window(
         duration_sim_sec=settle_duration_sec,
         logger=logger,
