@@ -250,6 +250,32 @@ class TestActionDispatcher(unittest.TestCase):
         self.assertEqual(hist[1]["action_id"], "act_retry_nav")
         self.assertEqual(hist[1]["terminal_status"], "SUCCEEDED")
 
+    def test_observe_routes_to_observer_never_executor(self):
+        """Observe action routes exclusively to ros_observer and NEVER triggers ros_executor (NavigateToPose)."""
+        mock_observer = MagicMock(return_value={"status": "SUCCESS", "observation": {"pose": [0, 0, 0]}})
+        mock_executor = MagicMock(return_value={"status": "ACCEPTED"})
+        dispatcher = ActionDispatcher(context=self.context, ros_executor=mock_executor, ros_observer=mock_observer)
+
+        observe_act = {
+            "action": "observe",
+            "action_id": "act_obs_01",
+            "params": {"target_id": "front"},
+        }
+        res = dispatcher.dispatch(observe_act, run_id="run_test", episode_id="ep_1")
+        self.assertEqual(res["pipeline_status"], "DISPATCHED")
+        self.assertTrue(res["ros_dispatched"])
+
+        # Observer was called
+        mock_observer.assert_called_once_with(res["effective_action"])
+        # Executor (which sends NavigateToPose) was NEVER called
+        mock_executor.assert_not_called()
+
+        # Terminal status in history
+        hist = self.context.action_history
+        self.assertEqual(hist[-1]["action_id"], "act_obs_01")
+        self.assertEqual(hist[-1]["terminal_status"], "SUCCESS")
+
 
 if __name__ == "__main__":
     unittest.main()
+

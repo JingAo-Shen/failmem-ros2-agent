@@ -1,0 +1,144 @@
+{
+  "test_3a_normal": {
+    "status": "SUCCESS",
+    "error_type": null,
+    "error_message": null,
+    "observation": {
+      "timestamp": {
+        "sim_time_sec": 3.6,
+        "amcl_stamp_sec": 3.402,
+        "odom_stamp_sec": 3.435,
+        "scan_stamp_sec": 3.402
+      },
+      "localization": {
+        "pose": [
+          -1.9606,
+          -0.4606,
+          -0.0129
+        ],
+        "covariance_diagonal": [
+          0.183893,
+          0.183893,
+          0.212182
+        ],
+        "frame_id": "map",
+        "staleness_sec": 0.198,
+        "status": "UP_TO_DATE"
+      },
+      "odometry": {
+        "linear_velocity_mps": 0.0001,
+        "angular_velocity_radps": -0.0003,
+        "staleness_sec": 0.165
+      },
+      "laser_scan": {
+        "available": true,
+        "fresh": true,
+        "staleness_sec": 0.198,
+        "min_distance_m": 0.4896,
+        "valid_ranges_count": 360,
+        "total_ranges_count": 360
+      },
+      "navigation_status": {
+        "nav2_lifecycle_state": "ACTIVE",
+        "current_goal_status": "IDLE"
+      }
+    }
+  },
+  "test_3b_stale_scan_degraded": {
+    "status": "DEGRADED",
+    "error_type": "SCAN_DEGRADED",
+    "error_message": "SCAN_STALE (2.500s > 0.5s)",
+    "observation": {
+      "timestamp": {
+        "sim_time_sec": 3.6,
+        "amcl_stamp_sec": 3.402,
+        "odom_stamp_sec": 3.435,
+        "scan_stamp_sec": 1.1
+      },
+      "localization": {
+        "pose": [
+          -1.9606,
+          -0.4606,
+          -0.0129
+        ],
+        "covariance_diagonal": [
+          0.183893,
+          0.183893,
+          0.212182
+        ],
+        "frame_id": "map",
+        "staleness_sec": 0.198,
+        "status": "UP_TO_DATE"
+      },
+      "odometry": {
+        "linear_velocity_mps": 0.0001,
+        "angular_velocity_radps": -0.0003,
+        "staleness_sec": 0.165
+      },
+      "laser_scan": {
+        "available": true,
+        "fresh": false,
+        "staleness_sec": 2.5,
+        "min_distance_m": 0.4896,
+        "valid_ranges_count": 360,
+        "total_ranges_count": 360
+      },
+      "navigation_status": {
+        "nav2_lifecycle_state": "ACTIVE",
+        "current_goal_status": "IDLE"
+      }
+    }
+  },
+  "test_3c_missing_scan_degraded": {
+    "status": "DEGRADED",
+    "error_type": "SCAN_DEGRADED",
+    "error_message": "SCAN_UNAVAILABLE",
+    "observation": {
+      "timestamp": {
+        "sim_time_sec": 3.6,
+        "amcl_stamp_sec": 3.402,
+        "odom_stamp_sec": 3.435,
+        "scan_stamp_sec": null
+      },
+      "localization": {
+        "pose": [
+          -1.9606,
+          -0.4606,
+          -0.0129
+        ],
+        "covariance_diagonal": [
+          0.183893,
+          0.183893,
+          0.212182
+        ],
+        "frame_id": "map",
+        "staleness_sec": 0.198,
+        "status": "UP_TO_DATE"
+      },
+      "odometry": {
+        "linear_velocity_mps": 0.0001,
+        "angular_velocity_radps": -0.0003,
+        "staleness_sec": 0.165
+      },
+      "laser_scan": {
+        "available": false,
+        "fresh": false,
+        "staleness_sec": null,
+        "min_distance_m": null,
+        "valid_ranges_count": 0,
+        "total_ranges_count": 0
+      },
+      "navigation_status": {
+        "nav2_lifecycle_state": "ACTIVE",
+        "current_goal_status": "IDLE"
+      }
+    }
+  },
+  "test_3d_missing_odom_error": {
+    "status": "ERROR",
+    "error_type": "ODOMETRY_UNAVAILABLE",
+    "error_message": "Odometry stream is not available.",
+    "observation": null
+  },
+  "anomalies_verified": true
+}

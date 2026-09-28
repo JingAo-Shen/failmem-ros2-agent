@@ -8,56 +8,110 @@ Provides structured, policy-visible robot sensor observations:
 - Timestamp metadata
 
 CRITICAL SAFETY & LEAKAGE RESTRICTIONS:
-- Whitelist filtering strictly strips and denies ground truth (GT), hidden fault labels, or evaluation answers.
-- Distinguishes valid observation, stale sensor, missing sensor, and timeout with structured errors. Never fakes observations.
+- Strict field whitelist schema: Unknown, custom, or privileged fields (ground truth, world pose, fault labels, oracle data) are strictly dropped.
+- Distinguishes valid observation, stale sensor, missing sensor, and degraded scan with structured responses.
+- NEVER fakes timestamps, covariance, velocities, lifecycle state, or goal status.
 """
 from __future__ import annotations
 
 import copy
 import math
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
-FORBIDDEN_KEYWORDS = (
-    "ground_truth",
-    "gt_",
-    "_gt",
-    "gt",
-    "world_pose",
-    "true_pose",
-    "fault",
-    "injection",
-    "label",
-    "oracle",
-    "answer",
-    "evaluation",
-)
+def is_finite_number(val: Any) -> bool:
+    """Check if value is a finite number (not None, not NaN, not Inf, not bool)."""
+    if val is None or isinstance(val, bool):
+        return False
+    if not isinstance(val, (int, float)):
+        return False
+    return math.isfinite(val)
 
 
-def filter_observation_whitelist(raw_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Recursively strip any fields that could leak hidden ground truth or evaluation labels."""
-    cleaned = {}
-    for k, v in raw_data.items():
-        k_lower = str(k).lower()
-        if any(bad in k_lower for bad in FORBIDDEN_KEYWORDS):
-            continue
-        if isinstance(v, dict):
-            cleaned[k] = filter_observation_whitelist(v)
-        elif isinstance(v, list):
-            cleaned[k] = [
-                filter_observation_whitelist(elem) if isinstance(elem, dict) else elem
-                for elem in v
-            ]
-        else:
-            cleaned[k] = v
-    return cleaned
+def apply_strict_observation_whitelist(raw_obs: Dict[str, Any]) -> Dict[str, Any]:
+    """Strictly construct the observation using an explicit field whitelist and fixed output schema.
+    
+    Any unrecognized or unwhitelisted top-level or nested keys are discarded.
+    """
+    ts_raw = raw_obs.get("timestamp") or {}
+    loc_raw = raw_obs.get("localization") or {}
+    odom_raw = raw_obs.get("odometry") or {}
+    scan_raw = raw_obs.get("laser_scan") or {}
+    nav_raw = raw_obs.get("navigation_status") or {}
+
+    # 1. Whitelisted Timestamp
+    timestamp_out = {
+        "sim_time_sec": float(ts_raw["sim_time_sec"]) if is_finite_number(ts_raw.get("sim_time_sec")) else None,
+        "amcl_stamp_sec": float(ts_raw["amcl_stamp_sec"]) if is_finite_number(ts_raw.get("amcl_stamp_sec")) else None,
+        "odom_stamp_sec": float(ts_raw["odom_stamp_sec"]) if is_finite_number(ts_raw.get("odom_stamp_sec")) else None,
+        "scan_stamp_sec": float(ts_raw["scan_stamp_sec"]) if is_finite_number(ts_raw.get("scan_stamp_sec")) else None,
+    }
+
+    # 2. Whitelisted Localization
+    pose_raw = loc_raw.get("pose")
+    pose_out = (
+        [round(float(p), 4) for p in pose_raw[:3]]
+        if (isinstance(pose_raw, (list, tuple)) and len(pose_raw) >= 3 and all(is_finite_number(p) for p in pose_raw[:3]))
+        else None
+    )
+
+    cov_raw = loc_raw.get("covariance_diagonal")
+    cov_out = (
+        [round(float(c), 6) for c in cov_raw[:3]]
+        if (isinstance(cov_raw, (list, tuple)) and len(cov_raw) >= 3 and all(is_finite_number(c) for c in cov_raw[:3]))
+        else None
+    )
+
+    localization_out = {
+        "pose": pose_out,
+        "covariance_diagonal": cov_out,
+        "frame_id": str(loc_raw.get("frame_id", "map")),
+        "staleness_sec": round(float(loc_raw["staleness_sec"]), 4) if is_finite_number(loc_raw.get("staleness_sec")) else None,
+        "status": str(loc_raw.get("status", "UNKNOWN")),
+    }
+
+    # 3. Whitelisted Odometry
+    odometry_out = {
+        "linear_velocity_mps": round(float(odom_raw["linear_velocity_mps"]), 4) if is_finite_number(odom_raw.get("linear_velocity_mps")) else None,
+        "angular_velocity_radps": round(float(odom_raw["angular_velocity_radps"]), 4) if is_finite_number(odom_raw.get("angular_velocity_radps")) else None,
+        "staleness_sec": round(float(odom_raw["staleness_sec"]), 4) if is_finite_number(odom_raw.get("staleness_sec")) else None,
+    }
+
+    # 4. Whitelisted Laser Scan
+    laser_scan_out = {
+        "available": bool(scan_raw.get("available", False)),
+        "fresh": bool(scan_raw.get("fresh", False)),
+        "staleness_sec": round(float(scan_raw["staleness_sec"]), 4) if is_finite_number(scan_raw.get("staleness_sec")) else None,
+        "min_distance_m": round(float(scan_raw["min_distance_m"]), 4) if is_finite_number(scan_raw.get("min_distance_m")) else None,
+        "valid_ranges_count": int(scan_raw["valid_ranges_count"]) if isinstance(scan_raw.get("valid_ranges_count"), (int, float)) else 0,
+        "total_ranges_count": int(scan_raw["total_ranges_count"]) if isinstance(scan_raw.get("total_ranges_count"), (int, float)) else 0,
+    }
+
+    # 5. Whitelisted Navigation Status
+    navigation_status_out = {
+        "nav2_lifecycle_state": str(nav_raw.get("nav2_lifecycle_state", "UNKNOWN")),
+        "current_goal_status": str(nav_raw.get("current_goal_status", "UNKNOWN")),
+    }
+
+    return {
+        "timestamp": timestamp_out,
+        "localization": localization_out,
+        "odometry": odometry_out,
+        "laser_scan": laser_scan_out,
+        "navigation_status": navigation_status_out,
+    }
 
 
 class ObserveInterface:
-    """Provides read-only observation queries from live ROS node caches."""
+    """Provides validated, read-only observation queries from live ROS node caches."""
 
-    def __init__(self, max_sensor_staleness_sec: float = 1.0):
+    def __init__(
+        self,
+        max_sensor_staleness_sec: float = 0.5,
+        max_stationary_amcl_staleness_sec: float = 5.0,
+    ):
         self.max_sensor_staleness_sec = max_sensor_staleness_sec
+        self.max_stationary_amcl_staleness_sec = max_stationary_amcl_staleness_sec
 
     def extract_observation(
         self,
@@ -65,42 +119,24 @@ class ObserveInterface:
         latest_amcl: Optional[Dict[str, Any]],
         latest_odom: Optional[Dict[str, Any]],
         latest_scan: Optional[Dict[str, Any]],
-        nav2_lifecycle_state: str = "active",
-        current_goal_status: Optional[str] = "IDLE",
+        nav2_lifecycle_state: Optional[str] = None,
+        current_goal_status: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Extract a structured read-only observation.
+        """Extract and strictly validate a structured read-only observation.
         
         Returns:
-            Dict with 'status': 'SUCCESS' | 'ERROR', 'error_type', 'error_message', 'observation'.
+            Dict with 'status' ('SUCCESS' | 'DEGRADED' | 'ERROR'),
+                      'error_type', 'error_message', 'observation'.
         """
-        if not math.isfinite(current_sim_time):
+        if not is_finite_number(current_sim_time) or current_sim_time < 0.0:
             return {
                 "status": "ERROR",
                 "error_type": "INVALID_SIMULATION_TIME",
-                "error_message": f"Simulation time {current_sim_time} is not finite.",
+                "error_message": f"Simulation time {current_sim_time} is non-finite or negative.",
                 "observation": None,
             }
 
-        # 1. AMCL Localization check
-        if latest_amcl is None:
-            return {
-                "status": "ERROR",
-                "error_type": "AMCL_UNAVAILABLE",
-                "error_message": "AMCL pose estimation is not available.",
-                "observation": None,
-            }
-
-        amcl_stamp = latest_amcl.get("msg_stamp_sec") or latest_amcl.get("recv_sim_time_sec")
-        if amcl_stamp is None or (current_sim_time - amcl_stamp) > self.max_sensor_staleness_sec:
-            staleness = (current_sim_time - amcl_stamp) if amcl_stamp is not None else 999.0
-            return {
-                "status": "ERROR",
-                "error_type": "AMCL_STALE",
-                "error_message": f"AMCL pose is stale ({staleness:.3f}s > {self.max_sensor_staleness_sec}s).",
-                "observation": None,
-            }
-
-        # 2. Odometry check
+        # 1. Odometry Validation (Required)
         if latest_odom is None:
             return {
                 "status": "ERROR",
@@ -109,70 +145,184 @@ class ObserveInterface:
                 "observation": None,
             }
 
-        odom_stamp = latest_odom.get("msg_stamp_sec") or latest_odom.get("recv_sim_time_sec")
-        if odom_stamp is None or (current_sim_time - odom_stamp) > self.max_sensor_staleness_sec:
-            staleness = (current_sim_time - odom_stamp) if odom_stamp is not None else 999.0
+        odom_stamp = latest_odom.get("msg_stamp_sec")
+        if not is_finite_number(odom_stamp) or odom_stamp <= 0.0:
             return {
                 "status": "ERROR",
-                "error_type": "ODOMETRY_STALE",
-                "error_message": f"Odometry is stale ({staleness:.3f}s > {self.max_sensor_staleness_sec}s).",
+                "error_type": "ODOMETRY_INVALID_TIMESTAMP",
+                "error_message": f"Odometry message timestamp {odom_stamp} is non-finite or zero.",
                 "observation": None,
             }
 
-        # 3. Laser Scan check
-        scan_obs: Dict[str, Any]
-        if latest_scan is None:
-            scan_obs = {
-                "available": False,
-                "fresh": False,
-                "staleness_sec": None,
-                "min_distance_m": None,
-                "valid_ranges_count": 0,
-                "total_ranges_count": 0,
+        odom_staleness = current_sim_time - odom_stamp
+        if odom_staleness < -0.05:
+            return {
+                "status": "ERROR",
+                "error_type": "ODOMETRY_FUTURE_TIMESTAMP",
+                "error_message": f"Odometry stamp {odom_stamp} is in the future relative to sim time {current_sim_time}.",
+                "observation": None,
             }
-        else:
-            scan_stamp = latest_scan.get("msg_stamp_sec") or latest_scan.get("recv_sim_time_sec")
-            staleness = (current_sim_time - scan_stamp) if scan_stamp is not None else 999.0
-            fresh = (staleness <= self.max_sensor_staleness_sec)
-            scan_obs = {
-                "available": True,
-                "fresh": fresh,
-                "staleness_sec": round(staleness, 4),
-                "min_distance_m": round(latest_scan.get("min_range", 0.0), 4) if latest_scan.get("min_range") is not None else None,
-                "valid_ranges_count": latest_scan.get("valid_count", 0),
-                "total_ranges_count": latest_scan.get("total_count", 0),
+        if odom_staleness > self.max_sensor_staleness_sec:
+            return {
+                "status": "ERROR",
+                "error_type": "ODOMETRY_STALE",
+                "error_message": f"Odometry is stale ({odom_staleness:.3f}s > {self.max_sensor_staleness_sec}s).",
+                "observation": None,
             }
 
-        # 4. Construct Whitelisted Observation
-        cov_diag = latest_amcl.get("covariance_diagonal", [0.01, 0.01, 0.01])
+        lv = latest_odom.get("linear_v")
+        av = latest_odom.get("angular_v")
+        if not is_finite_number(lv) or not is_finite_number(av):
+            return {
+                "status": "ERROR",
+                "error_type": "ODOMETRY_INVALID_DATA",
+                "error_message": "Odometry linear or angular velocity is non-finite.",
+                "observation": None,
+            }
+
+        is_robot_stationary = (abs(float(lv)) < 0.05 and abs(float(av)) < 0.05)
+
+        # 2. AMCL Validation (Required)
+        if latest_amcl is None:
+            return {
+                "status": "ERROR",
+                "error_type": "AMCL_UNAVAILABLE",
+                "error_message": "AMCL pose estimation is not available.",
+                "observation": None,
+            }
+
+        amcl_x = latest_amcl.get("x")
+        amcl_y = latest_amcl.get("y")
+        amcl_yaw = latest_amcl.get("yaw")
+        if not is_finite_number(amcl_x) or not is_finite_number(amcl_y) or not is_finite_number(amcl_yaw):
+            return {
+                "status": "ERROR",
+                "error_type": "AMCL_INVALID_DATA",
+                "error_message": "AMCL pose coordinates or yaw are non-finite.",
+                "observation": None,
+            }
+
+        cov_diag = latest_amcl.get("covariance_diagonal")
+        if (
+            not isinstance(cov_diag, (list, tuple))
+            or len(cov_diag) < 3
+            or not all(is_finite_number(c) for c in cov_diag[:3])
+        ):
+            return {
+                "status": "ERROR",
+                "error_type": "AMCL_MISSING_COVARIANCE",
+                "error_message": "AMCL covariance diagonal is missing or non-finite (no defaults fabricated).",
+                "observation": None,
+            }
+
+        amcl_stamp = latest_amcl.get("msg_stamp_sec")
+        if not is_finite_number(amcl_stamp) or amcl_stamp <= 0.0:
+            return {
+                "status": "ERROR",
+                "error_type": "AMCL_INVALID_TIMESTAMP",
+                "error_message": f"AMCL message timestamp {amcl_stamp} is non-finite or zero.",
+                "observation": None,
+            }
+
+        amcl_staleness = current_sim_time - amcl_stamp
+        if amcl_staleness < -0.05:
+            return {
+                "status": "ERROR",
+                "error_type": "AMCL_FUTURE_TIMESTAMP",
+                "error_message": f"AMCL stamp {amcl_stamp} is in the future relative to sim time {current_sim_time}.",
+                "observation": None,
+            }
+
+        # AMCL low-frequency handling when stationary
+        if amcl_staleness <= self.max_sensor_staleness_sec:
+            amcl_status = "UP_TO_DATE"
+        elif is_robot_stationary and amcl_staleness <= self.max_stationary_amcl_staleness_sec:
+            amcl_status = "VALID_STATIONARY_CACHE"
+        else:
+            return {
+                "status": "ERROR",
+                "error_type": "AMCL_STALE",
+                "error_message": f"AMCL pose is stale ({amcl_staleness:.3f}s > {self.max_sensor_staleness_sec}s).",
+                "observation": None,
+            }
+
+        # 3. Laser Scan Validation (Contract: Degraded if missing/stale, never faked)
+        scan_stamp = None
+        scan_available = False
+        scan_fresh = False
+        scan_staleness = None
+        scan_min_distance = None
+        scan_valid_count = 0
+        scan_total_count = 0
+        is_scan_degraded = False
+        degradation_reasons = []
+
+        if latest_scan is None:
+            is_scan_degraded = True
+            degradation_reasons.append("SCAN_UNAVAILABLE")
+        else:
+            scan_stamp_raw = latest_scan.get("msg_stamp_sec")
+            if is_finite_number(scan_stamp_raw) and scan_stamp_raw > 0.0:
+                scan_stamp = float(scan_stamp_raw)
+                scan_staleness = current_sim_time - scan_stamp
+                scan_available = True
+                scan_fresh = (scan_staleness <= self.max_sensor_staleness_sec and scan_staleness >= -0.05)
+                if not scan_fresh:
+                    is_scan_degraded = True
+                    degradation_reasons.append(f"SCAN_STALE ({scan_staleness:.3f}s > {self.max_sensor_staleness_sec}s)")
+
+                min_r = latest_scan.get("min_range")
+                scan_min_distance = float(min_r) if is_finite_number(min_r) else None
+                scan_valid_count = int(latest_scan.get("valid_count", 0))
+                scan_total_count = int(latest_scan.get("total_count", 0))
+            else:
+                is_scan_degraded = True
+                degradation_reasons.append("SCAN_INVALID_TIMESTAMP")
+
+        # 4. Construct Raw Observation with Explicit Unfabricated Fields
         raw_observation = {
             "timestamp": {
-                "sim_time_sec": round(current_sim_time, 4),
-                "amcl_stamp_sec": round(amcl_stamp, 4),
-                "odom_stamp_sec": round(odom_stamp, 4),
+                "sim_time_sec": current_sim_time,
+                "amcl_stamp_sec": amcl_stamp,
+                "odom_stamp_sec": odom_stamp,
+                "scan_stamp_sec": scan_stamp,
             },
             "localization": {
-                "pose": [
-                    round(latest_amcl.get("x", 0.0), 4),
-                    round(latest_amcl.get("y", 0.0), 4),
-                    round(latest_amcl.get("yaw", 0.0), 4),
-                ],
-                "covariance_diagonal": [round(c, 6) for c in cov_diag],
+                "pose": [amcl_x, amcl_y, amcl_yaw],
+                "covariance_diagonal": cov_diag[:3],
                 "frame_id": latest_amcl.get("frame_id", "map"),
+                "staleness_sec": amcl_staleness,
+                "status": amcl_status,
             },
             "odometry": {
-                "linear_velocity_mps": round(latest_odom.get("linear_v", 0.0), 4),
-                "angular_velocity_radps": round(latest_odom.get("angular_v", 0.0), 4),
+                "linear_velocity_mps": lv,
+                "angular_velocity_radps": av,
+                "staleness_sec": odom_staleness,
             },
-            "laser_scan": scan_obs,
+            "laser_scan": {
+                "available": scan_available,
+                "fresh": scan_fresh,
+                "staleness_sec": scan_staleness,
+                "min_distance_m": scan_min_distance,
+                "valid_ranges_count": scan_valid_count,
+                "total_ranges_count": scan_total_count,
+            },
             "navigation_status": {
-                "nav2_lifecycle_state": nav2_lifecycle_state,
-                "current_goal_status": current_goal_status,
+                "nav2_lifecycle_state": str(nav2_lifecycle_state or "UNKNOWN"),
+                "current_goal_status": str(current_goal_status or "UNKNOWN"),
             },
         }
 
-        # Enforce whitelist security filter
-        safe_observation = filter_observation_whitelist(raw_observation)
+        # 5. Apply Strict Output Schema & Field Whitelist Filter
+        safe_observation = apply_strict_observation_whitelist(raw_observation)
+
+        if is_scan_degraded:
+            return {
+                "status": "DEGRADED",
+                "error_type": "SCAN_DEGRADED",
+                "error_message": "; ".join(degradation_reasons),
+                "observation": safe_observation,
+            }
 
         return {
             "status": "SUCCESS",

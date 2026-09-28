@@ -7,7 +7,7 @@ Orchestrates the complete execution pipeline:
 4. Runtime History Constraints (action_id uniqueness, retry validity, budget, state fingerprint).
 5. Parameter Restoration (for retry: restore original executable action and params from history).
 6. Scoped ROS Goal UUID derivation (deterministic mapping with run/episode scope).
-7. Dispatch to ROS Action Server / Execution Layer.
+7. Routing by action type (navigate vs observe vs retry).
 8. Terminal Status Recording.
 """
 from __future__ import annotations
@@ -51,17 +51,19 @@ def normalize_action_parameters(action_dict: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class ActionDispatcher:
-    """Unified entrypoint for robot action processing and dispatch."""
+    """Unified entrypoint for robot action processing, parameter restoration, and execution routing."""
 
     def __init__(
         self,
         context: Optional[EpisodeActionHistoryContext] = None,
         ros_executor: Optional[Callable[[Dict[str, Any], uuid.UUID], Dict[str, Any]]] = None,
+        ros_observer: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         run_id: Optional[str] = None,
         episode_id: Optional[Union[str, int]] = None,
     ):
         self.context = context or EpisodeActionHistoryContext()
         self.ros_executor = ros_executor
+        self.ros_observer = ros_observer
         self.run_id = run_id
         self.episode_id = episode_id
         self.goal_uuid_mapping: Dict[str, str] = {}
@@ -160,9 +162,34 @@ class ActionDispatcher:
         goal_uuid = derive_ros_goal_uuid(action_id, run_id=effective_run_id, episode_id=effective_ep_id)
         self.goal_uuid_mapping[action_id] = str(goal_uuid)
 
-        # Step 7: Dispatch to ROS executor if provided
+        # Step 7: Execution Routing by Action Type
+        # Case A: observe action -> route to ros_observer (never send goal to Nav2)
+        exec_type = effective_action.get("executable_action", effective_action.get("action"))
+
         ros_result = None
-        if self.ros_executor is not None:
+        if exec_type == "observe" and self.ros_observer is not None:
+            try:
+                ros_result = self.ros_observer(effective_action)
+                obs_status = ros_result.get("status", "COMPLETED") if isinstance(ros_result, dict) else "COMPLETED"
+                self.context.update_action_status(action_id, dispatch_status="COMPLETED", terminal_status=obs_status)
+                self.dispatched_actions.append({
+                    "action_id": action_id,
+                    "action_type": "observe",
+                    "dispatched_action": effective_action,
+                    "ros_result": ros_result,
+                })
+            except Exception as e:
+                self.context.update_action_status(action_id, dispatch_status="DISPATCH_EXCEPTION")
+                return {
+                    "pipeline_status": "FAILED",
+                    "failure_stage": "OBSERVE_EXECUTION_EXCEPTION",
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "ros_dispatched": True,
+                    "action_id": action_id,
+                }
+        # Case B: navigate (or retry of navigate) -> route to ros_executor
+        elif self.ros_executor is not None:
             try:
                 ros_result = self.ros_executor(effective_action, goal_uuid)
                 dispatch_status = ros_result.get("status", "DISPATCHED") if isinstance(ros_result, dict) else "DISPATCHED"
@@ -185,13 +212,18 @@ class ActionDispatcher:
                     "goal_uuid": str(goal_uuid),
                 }
 
+        is_dispatched = (
+            (exec_type == "observe" and self.ros_observer is not None)
+            or (exec_type != "observe" and self.ros_executor is not None)
+        )
+
         return {
             "pipeline_status": "DISPATCHED",
             "action_id": action_id,
             "goal_uuid": str(goal_uuid),
             "normalized_action": normalized,
             "effective_action": effective_action,
-            "ros_dispatched": self.ros_executor is not None,
+            "ros_dispatched": is_dispatched,
             "ros_result": ros_result,
         }
 
