@@ -402,6 +402,9 @@ def evaluate_navigation_episode(
     thresholds: Dict[str, Any],
     watchdog_triggered: bool = False,
     safety_intervention: bool = False,
+    execution_outcome: Optional[str] = None,
+    deadline_exceeded: bool = False,
+    failure_reason: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Score a navigation episode against strict contract rules."""
     pos_tol = float(thresholds.get("position_tolerance_m", 0.30))
@@ -409,8 +412,13 @@ def evaluate_navigation_episode(
 
     target_x, target_y, target_yaw = float(target_goal[0]), float(target_goal[1]), float(target_goal[2])
 
-    # 1. Action status
-    nav2_succeeded = (nav2_status == "SUCCEEDED")
+    # 1. Action status & budget constraint
+    effective_outcome = execution_outcome or ("BUDGET_SUCCESS" if (nav2_status == "SUCCEEDED" and not deadline_exceeded) else ("BUDGET_DEADLINE_EXCEEDED" if deadline_exceeded else "EXECUTION_FAILED"))
+    nav2_succeeded = (
+        nav2_status == "SUCCEEDED"
+        and not deadline_exceeded
+        and effective_outcome == "BUDGET_SUCCESS"
+    )
 
     # 2. Final geometric errors
     if final_gt and is_finite_number(final_gt.get("x")) and is_finite_number(final_gt.get("y")) and is_finite_number(final_gt.get("yaw")):
@@ -470,7 +478,10 @@ def evaluate_navigation_episode(
 
     return {
         "nav2_action_status": nav2_status,
+        "execution_outcome": effective_outcome,
+        "deadline_exceeded": deadline_exceeded,
         "nav2_action_succeeded": nav2_succeeded,
+        "failure_reason": failure_reason,
         "final_geometric_errors": {
             "gt_position_error_m": round(gt_pos_err, 4) if gt_pos_err is not None else None,
             "gt_yaw_error_rad": round(gt_yaw_err, 4) if gt_yaw_err is not None else None,

@@ -1,0 +1,81 @@
+version: "1.0"
+phase: "P1c-blockage-pilot"
+description: "FailMem Single-Fault Channel Temporary Blockage Pilot Protocol"
+
+environment:
+  world: "configs/turtlebot3_world.world"
+  map_yaml: "configs/turtlebot3_world.yaml"
+  map_pgm: "configs/turtlebot3_world.pgm"
+  nav2_params: "configs/nav2_params.yaml"
+  robot_model: "waffle"
+  spawn_pose:
+    x: -2.0
+    y: -0.5
+    yaw: 0.0
+    frame_id: "map"
+
+navigation_task:
+  goal_pose:
+    x: 0.5
+    y: -0.5
+    yaw: 0.0
+    frame_id: "map"
+  sim_timeout_sec: 45.0
+  wall_watchdog_sec: 60.0
+
+obstacle_channel:
+  channel_name: "south_corridor_chokepoint"
+  obstacle_sdf: "configs/blockage_box.sdf"
+  entity_name: "corridor_blockage_box"
+  pose:
+    x: -1.1
+    y: -0.55
+    z: 0.30
+    yaw: 0.0
+    frame_id: "world"
+  dimensions:
+    length_x: 0.6
+    width_y: 0.6
+    height_z: 0.6
+  geometry_rationale: "Positioned directly between landmark cylinders (-1.1, -1.1) and (-1.1, 0.0), reducing corridor clearance below robot width (0.38m) to physically occlude south passage."
+
+conditions:
+  C0_unblocked_baseline:
+    condition_id: "C0"
+    name: "Normal Navigation Baseline (No Obstacle)"
+    episodes_count: 3
+    obstacle_present_initial: false
+    obstacle_removed_on_retry: false
+    expected_outcome: "BUDGET_SUCCESS"
+    target_arrival_required: true
+
+  C1_continuous_blockage:
+    condition_id: "C1"
+    name: "Continuous Obstacle Blockage"
+    episodes_count: 3
+    obstacle_present_initial: true
+    obstacle_removed_on_retry: false
+    expected_outcome: "EXECUTION_FAILED_OR_DEADLINE"
+    target_arrival_required: false
+    protocol_notes: "If Nav2 finds an alternate detour and arrives, record it honestly as incomplete blockage without altering data."
+
+  C2_temporary_blockage_retry:
+    condition_id: "C2"
+    name: "Temporary Obstacle Blockage (Observe -> Remove -> Retry)"
+    episodes_count: 3
+    obstacle_present_initial: true
+    obstacle_removed_on_retry: true
+    expected_step1_outcome: "EXECUTION_FAILED_OR_DEADLINE"
+    expected_retry_outcome: "BUDGET_SUCCESS"
+    target_arrival_required: true
+    protocol_notes: "Obstacle is spawned before initial navigate. Upon initial failure/timeout, observe action is executed, obstacle is deleted via /delete_entity, costmap is allowed to update, and retry action is dispatched with replayed parameters."
+
+scoring_thresholds:
+  position_tolerance_m: 0.30
+  yaw_tolerance_rad: 0.35
+  max_linear_velocity_mps: 0.05
+  max_angular_velocity_radps: 0.05
+  stability_window_duration_sim_sec: 2.0
+  max_gt_displacement_m: 0.03
+  max_sensor_staleness_sim_sec: 0.50
+  max_stationary_amcl_staleness_sec: 30.0

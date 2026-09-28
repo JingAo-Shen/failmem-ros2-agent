@@ -1,0 +1,129 @@
+{
+  "episode_id": "regression_episode_4",
+  "action_id": "reg_ep4_cancel",
+  "goal": [
+    0.0,
+    0.5,
+    0.0
+  ],
+  "dispatch": {
+    "pipeline_status": "DISPATCHED",
+    "action_id": "reg_ep4_cancel",
+    "goal_uuid": "5c7de90c-10a9-518b-b79a-87ebd7d7f48f",
+    "normalized_action": {
+      "action": "navigate",
+      "action_id": "reg_ep4_cancel",
+      "params": {
+        "goal": [
+          0.0,
+          0.5,
+          0.0
+        ],
+        "frame_id": "map",
+        "timeout_sec": 60.0
+      }
+    },
+    "effective_action": {
+      "action": "navigate",
+      "action_id": "reg_ep4_cancel",
+      "params": {
+        "goal": [
+          0.0,
+          0.5,
+          0.0
+        ],
+        "frame_id": "map",
+        "timeout_sec": 60.0
+      }
+    },
+    "ros_dispatched": true,
+    "ros_result": {
+      "status": "ACCEPTED",
+      "accepted": true,
+      "goal_id": "5c7de90c-10a9-518b-b79a-87ebd7d7f48f",
+      "uuid_verified": true
+    }
+  },
+  "execution_outcome": "EXECUTION_CANCELED",
+  "terminal_status_name": "CANCELED",
+  "status_code": 5,
+  "cancel_accepted": true,
+  "movement_confirmed": true,
+  "evaluation": {
+    "nav2_action_status": "CANCELED",
+    "movement_confirmed_before_cancel": true,
+    "cancel_request_accepted": true,
+    "safety_intervention": false,
+    "window_evaluation": {
+      "window_valid": true,
+      "failure_reasons": [],
+      "sim_duration_covered": 2.4,
+      "odom_duration_covered": 2.516,
+      "gt_duration_covered": 2.4,
+      "unique_samples_count": 99,
+      "unique_odom_count": 75,
+      "unique_gt_count": 25,
+      "total_raw_samples_count": 178,
+      "max_sampling_interval_sec": 0.1,
+      "data_fresh": true,
+      "watchdog_triggered": false
+    },
+    "halt_evaluation": {
+      "all_samples_stopped": true,
+      "max_linear_v_seen": 0.0001,
+      "max_angular_v_seen": 0.0003,
+      "max_gt_displacement_m": 0.0,
+      "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+      "safety_intervention": false,
+      "halt_verified": true,
+      "halt_failure_reason": null
+    },
+    "cancel_stop_verified": true,
+    "failure_reasons": []
+  },
+  "settled_ok": true,
+  "safety_intervention": false,
+  "initial_states": {
+    "gt": {
+      "seq": 17,
+      "msg_stamp_sec": null,
+      "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+      "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+      "recv_sim_time_sec": 3.7,
+      "monotonic_wall_sec": 1189106.1606,
+      "frame_id": "world",
+      "x": -2.0,
+      "y": -0.5,
+      "yaw": 0.0002
+    }
+  },
+  "final_states": {
+    "gt": {
+      "seq": 69,
+      "msg_stamp_sec": null,
+      "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+      "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+      "recv_sim_time_sec": 8.6,
+      "monotonic_wall_sec": 1189111.0712,
+      "frame_id": "world",
+      "x": -1.9775,
+      "y": -0.4998,
+      "yaw": 0.0445
+    },
+    "amcl": {
+      "seq": 4,
+      "msg_stamp_sec": 1.56,
+      "recv_sim_time_sec": 1.8,
+      "monotonic_wall_sec": 1189104.3336,
+      "frame_id": "map",
+      "x": -1.9694,
+      "y": -0.4694,
+      "yaw": -0.023,
+      "covariance_diagonal": [
+        0.18176929623258564,
+        0.18176929589345187,
+        0.20310967034280797
+      ]
+    }
+  }
+}

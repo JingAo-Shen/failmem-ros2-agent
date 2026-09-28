@@ -89,17 +89,54 @@ class TestObserveInterface(unittest.TestCase):
         self.assertEqual(res["error_type"], "ODOMETRY_STALE")
 
     def test_stationary_amcl_cache_status(self):
-        """When robot is stationary, AMCL within stationary staleness returns VALID_STATIONARY_CACHE."""
+        """When robot is stationary and odom history covers gap, AMCL within stationary staleness returns VALID_STATIONARY_CACHE."""
+        valid_hist = [
+            {"seq": 1, "msg_stamp_sec": 10.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 2, "msg_stamp_sec": 10.5, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 3, "msg_stamp_sec": 11.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 4, "msg_stamp_sec": 11.5, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 5, "msg_stamp_sec": 11.9, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+        ]
         res = self.obs_iface.extract_observation(
             current_sim_time=12.0,  # 2.0s later, within 4.0s stationary staleness
             latest_amcl=self.valid_amcl,
             latest_odom=dict(self.valid_odom, msg_stamp_sec=11.9, recv_sim_time_sec=11.9),
             latest_scan=dict(self.valid_scan, msg_stamp_sec=11.9, recv_sim_time_sec=11.9),
+            odom_history=valid_hist,
         )
         self.assertEqual(res["status"], "SUCCESS")
         obs = res["observation"]
         self.assertEqual(obs["localization"]["status"], "VALID_STATIONARY_CACHE")
         self.assertEqual(obs["localization"]["staleness_sec"], 2.0)
+
+    def test_stale_amcl_missing_history_returns_error(self):
+        """Negative test: Stale AMCL with odom_history=None returns ERROR / AMCL_HISTORY_UNAVAILABLE."""
+        res = self.obs_iface.extract_observation(
+            current_sim_time=12.0,
+            latest_amcl=self.valid_amcl,
+            latest_odom=dict(self.valid_odom, msg_stamp_sec=11.9, recv_sim_time_sec=11.9),
+            latest_scan=dict(self.valid_scan, msg_stamp_sec=11.9, recv_sim_time_sec=11.9),
+            odom_history=None,
+        )
+        self.assertEqual(res["status"], "ERROR")
+        self.assertEqual(res["error_type"], "AMCL_HISTORY_UNAVAILABLE")
+
+    def test_stale_amcl_insufficient_history_returns_error(self):
+        """Negative test: Stale AMCL with incomplete history returns ERROR / AMCL_HISTORY_INSUFFICIENT."""
+        # History starts at 11.0s, missing [10.0s, 11.0s]
+        short_hist = [
+            {"seq": 1, "msg_stamp_sec": 11.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 2, "msg_stamp_sec": 11.9, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+        ]
+        res = self.obs_iface.extract_observation(
+            current_sim_time=12.0,
+            latest_amcl=self.valid_amcl,
+            latest_odom=dict(self.valid_odom, msg_stamp_sec=11.9, recv_sim_time_sec=11.9),
+            latest_scan=dict(self.valid_scan, msg_stamp_sec=11.9, recv_sim_time_sec=11.9),
+            odom_history=short_hist,
+        )
+        self.assertEqual(res["status"], "ERROR")
+        self.assertEqual(res["error_type"], "AMCL_HISTORY_INSUFFICIENT")
 
     def test_missing_covariance_fails_without_fabrication(self):
         no_cov_amcl = dict(self.valid_amcl, covariance_diagonal=None)
@@ -186,10 +223,12 @@ class TestObserveInterface(unittest.TestCase):
         extract_observation MUST reject the stationary cache and return ERROR."""
         odom_hist_with_motion = [
             {"seq": 1, "msg_stamp_sec": 10.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
-            {"seq": 2, "msg_stamp_sec": 10.5, "x": -1.0, "y": -0.5, "linear_v": 0.20, "angular_v": 0.0},  # moved!
-            {"seq": 3, "msg_stamp_sec": 11.5, "x": -0.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},   # stopped at new location
+            {"seq": 2, "msg_stamp_sec": 10.5, "x": -1.2, "y": -0.5, "linear_v": 0.20, "angular_v": 0.0},  # moved!
+            {"seq": 3, "msg_stamp_sec": 11.0, "x": -0.8, "y": -0.5, "linear_v": 0.20, "angular_v": 0.0},  # moved!
+            {"seq": 4, "msg_stamp_sec": 11.5, "x": -0.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},   # stopped
+            {"seq": 5, "msg_stamp_sec": 12.0, "x": -0.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},   # stopped
         ]
-        stopped_odom_now = {"seq": 4, "msg_stamp_sec": 12.0, "x": -0.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0, "frame_id": "odom"}
+        stopped_odom_now = {"seq": 6, "msg_stamp_sec": 12.0, "x": -0.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0, "frame_id": "odom"}
         
         res = self.obs_iface.extract_observation(
             current_sim_time=12.1,  # AMCL at 10.0 is 2.1s stale
@@ -206,10 +245,12 @@ class TestObserveInterface(unittest.TestCase):
         """Positive test: AMCL at t=10.0, robot verified motionless throughout [10.0, 12.0] by odom history."""
         odom_hist_still = [
             {"seq": 1, "msg_stamp_sec": 10.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
-            {"seq": 2, "msg_stamp_sec": 11.0, "x": -1.5, "y": -0.5, "linear_v": 0.0001, "angular_v": 0.0001},
-            {"seq": 3, "msg_stamp_sec": 12.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 2, "msg_stamp_sec": 10.5, "x": -1.5, "y": -0.5, "linear_v": 0.0001, "angular_v": 0.0001},
+            {"seq": 3, "msg_stamp_sec": 11.0, "x": -1.5, "y": -0.5, "linear_v": 0.0001, "angular_v": 0.0001},
+            {"seq": 4, "msg_stamp_sec": 11.5, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
+            {"seq": 5, "msg_stamp_sec": 12.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0},
         ]
-        stopped_odom_now = {"seq": 4, "msg_stamp_sec": 12.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0, "frame_id": "odom"}
+        stopped_odom_now = {"seq": 6, "msg_stamp_sec": 12.0, "x": -1.5, "y": -0.5, "linear_v": 0.0, "angular_v": 0.0, "frame_id": "odom"}
 
         res = self.obs_iface.extract_observation(
             current_sim_time=12.1,

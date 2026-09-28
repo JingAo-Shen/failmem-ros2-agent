@@ -1,0 +1,140 @@
+{
+  "episode_id": "regression_episode_3",
+  "action_id": "reg_ep3_ret",
+  "goal": [
+    -0.5,
+    0.5,
+    3.14
+  ],
+  "dispatch": {
+    "pipeline_status": "DISPATCHED",
+    "action_id": "reg_ep3_ret",
+    "goal_uuid": "4e54ec70-b56b-5965-b065-11a3243a684a",
+    "normalized_action": {
+      "action": "navigate",
+      "action_id": "reg_ep3_ret",
+      "params": {
+        "goal": [
+          -0.5,
+          0.5,
+          3.14
+        ],
+        "frame_id": "map",
+        "timeout_sec": 60.0
+      }
+    },
+    "effective_action": {
+      "action": "navigate",
+      "action_id": "reg_ep3_ret",
+      "params": {
+        "goal": [
+          -0.5,
+          0.5,
+          3.14
+        ],
+        "frame_id": "map",
+        "timeout_sec": 60.0
+      }
+    },
+    "ros_dispatched": true,
+    "ros_result": {
+      "status": "ACCEPTED",
+      "accepted": true,
+      "goal_id": "4e54ec70-b56b-5965-b065-11a3243a684a",
+      "uuid_verified": true
+    }
+  },
+  "execution_outcome": "BUDGET_SUCCESS",
+  "terminal_status_name": "SUCCEEDED",
+  "status_code": 4,
+  "evaluation": {
+    "nav2_action_status": "SUCCEEDED",
+    "execution_outcome": "BUDGET_SUCCESS",
+    "deadline_exceeded": false,
+    "nav2_action_succeeded": true,
+    "failure_reason": null,
+    "final_geometric_errors": {
+      "gt_position_error_m": 0.2544,
+      "gt_yaw_error_rad": 0.2599,
+      "amcl_position_error_m": 0.2436,
+      "amcl_yaw_error_rad": 0.229,
+      "thresholds_applied": {
+        "position_tolerance_m": 0.3,
+        "yaw_tolerance_rad": 0.35
+      }
+    },
+    "window_evaluation": {
+      "window_valid": true,
+      "failure_reasons": [],
+      "sim_duration_covered": 2.4,
+      "odom_duration_covered": 2.482,
+      "gt_duration_covered": 2.4,
+      "unique_samples_count": 98,
+      "unique_odom_count": 74,
+      "unique_gt_count": 25,
+      "total_raw_samples_count": 179,
+      "max_sampling_interval_sec": 0.1,
+      "data_fresh": true,
+      "watchdog_triggered": false
+    },
+    "halt_evaluation": {
+      "all_samples_stopped": true,
+      "max_linear_v_seen": 0.0002,
+      "max_angular_v_seen": 0.0024,
+      "max_gt_displacement_m": 0.0001,
+      "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+      "safety_intervention": false,
+      "halt_verified": true,
+      "halt_failure_reason": null
+    },
+    "all_window_pos_ok": true,
+    "all_window_yaw_ok": true,
+    "final_pose_arrived": true,
+    "strict_physical_arrival_and_stable": true
+  },
+  "settled_ok": true,
+  "safety_intervention": false,
+  "initial_states": {
+    "gt": {
+      "seq": 20,
+      "msg_stamp_sec": null,
+      "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+      "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+      "recv_sim_time_sec": 3.7,
+      "monotonic_wall_sec": 1189078.4701,
+      "frame_id": "world",
+      "x": -2.0,
+      "y": -0.5,
+      "yaw": 0.0002
+    }
+  },
+  "final_states": {
+    "gt": {
+      "seq": 198,
+      "msg_stamp_sec": null,
+      "timestamp_type": "RECEIPT_ROS_SIM_TIME_APPROX",
+      "synchronization_note": "ModelStates has no header; timestamp is ROS sim time at callback receipt.",
+      "recv_sim_time_sec": 21.3,
+      "monotonic_wall_sec": 1189096.0494,
+      "frame_id": "world",
+      "x": -0.7463,
+      "y": 0.5635,
+      "yaw": -2.8833
+    },
+    "amcl": {
+      "seq": 63,
+      "msg_stamp_sec": 18.962,
+      "recv_sim_time_sec": 19.0,
+      "monotonic_wall_sec": 1189093.7409,
+      "frame_id": "map",
+      "x": -0.7303,
+      "y": 0.5794,
+      "yaw": -2.9142,
+      "covariance_diagonal": [
+        0.20396230233541512,
+        0.20396230237720636,
+        0.20565558956281343
+      ]
+    }
+  }
+}

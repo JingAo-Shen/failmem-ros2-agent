@@ -256,49 +256,93 @@ class ObserveInterface:
                     "observation": None,
                 }
 
-            # If odom history is provided, verify no significant motion occurred during the AMCL gap
-            if odom_history is not None:
-                gap_records = [
-                    r for r in odom_history
-                    if r.get("msg_stamp_sec") is not None and r["msg_stamp_sec"] >= (amcl_stamp - 0.01)
-                ]
-                motion_detected = False
-                motion_reason = None
-                
-                if len(gap_records) == 0:
-                    motion_detected = True
-                    motion_reason = "No odom history covering the AMCL gap was found."
-                else:
-                    initial_x = gap_records[0].get("x")
-                    initial_y = gap_records[0].get("y")
-                    for r in gap_records:
-                        r_lv = abs(float(r.get("linear_v", 0.0)))
-                        r_av = abs(float(r.get("angular_v", 0.0)))
-                        if r_lv >= 0.05 or r_av >= 0.05:
-                            motion_detected = True
-                            motion_reason = f"Motion detected during AMCL gap (lv={r_lv:.3f}, av={r_av:.3f})"
-                            break
-                        if initial_x is not None and initial_y is not None:
-                            curr_x = r.get("x")
-                            curr_y = r.get("y")
-                            if curr_x is not None and curr_y is not None:
-                                disp = math.hypot(curr_x - initial_x, curr_y - initial_y)
-                                if disp > 0.03:
-                                    motion_detected = True
-                                    motion_reason = f"Displacement during AMCL gap ({disp:.3f}m > 0.03m)"
-                                    break
+            # If robot is stationary, verify odom history strictly covers the AMCL gap without gaps or motion
+            if odom_history is None or len(odom_history) == 0:
+                return {
+                    "status": "ERROR",
+                    "error_type": "AMCL_HISTORY_UNAVAILABLE",
+                    "error_message": f"AMCL pose is stale ({amcl_staleness:.3f}s > {self.max_sensor_staleness_sec}s) and no odometry history is available to verify stationary state.",
+                    "observation": None,
+                }
 
-                if motion_detected:
+            valid_stamps = [
+                float(r["msg_stamp_sec"]) for r in odom_history
+                if is_finite_number(r.get("msg_stamp_sec")) and float(r["msg_stamp_sec"]) > 0.0
+            ]
+            if not valid_stamps:
+                return {
+                    "status": "ERROR",
+                    "error_type": "AMCL_HISTORY_INVALID",
+                    "error_message": "Odometry history contains no valid timestamps.",
+                    "observation": None,
+                }
+
+            earliest_stamp = min(valid_stamps)
+            latest_stamp = max(valid_stamps)
+
+            if earliest_stamp > (amcl_stamp + 0.15):
+                return {
+                    "status": "ERROR",
+                    "error_type": "AMCL_HISTORY_INSUFFICIENT",
+                    "error_message": f"Odometry history starts too late ({earliest_stamp:.3f}s > AMCL stamp {amcl_stamp:.3f}s + 0.15s).",
+                    "observation": None,
+                }
+
+            if latest_stamp < (current_sim_time - 0.25):
+                return {
+                    "status": "ERROR",
+                    "error_type": "AMCL_HISTORY_INSUFFICIENT",
+                    "error_message": f"Odometry history ends too early ({latest_stamp:.3f}s < current sim time {current_sim_time:.3f}s - 0.25s).",
+                    "observation": None,
+                }
+
+            sorted_records = sorted(
+                [r for r in odom_history if is_finite_number(r.get("msg_stamp_sec")) and r["msg_stamp_sec"] >= (amcl_stamp - 0.15)],
+                key=lambda x: x["msg_stamp_sec"]
+            )
+
+            # 1. First check if any motion occurred during the gap
+            motion_detected = False
+            motion_reason = None
+            initial_x = sorted_records[0].get("x")
+            initial_y = sorted_records[0].get("y")
+            for r in sorted_records:
+                r_lv = abs(float(r.get("linear_v", 0.0)))
+                r_av = abs(float(r.get("angular_v", 0.0)))
+                if r_lv >= 0.05 or r_av >= 0.05:
+                    motion_detected = True
+                    motion_reason = f"Velocity exceeded threshold (linear_v={r_lv:.3f}, angular_v={r_av:.3f})"
+                    break
+                if initial_x is not None and initial_y is not None:
+                    curr_x = r.get("x")
+                    curr_y = r.get("y")
+                    if curr_x is not None and curr_y is not None:
+                        disp = math.hypot(curr_x - initial_x, curr_y - initial_y)
+                        if disp > 0.03:
+                            motion_detected = True
+                            motion_reason = f"Displacement exceeded threshold ({disp:.3f}m > 0.03m)"
+                            break
+
+            if motion_detected:
+                return {
+                    "status": "ERROR",
+                    "error_type": "AMCL_STALE_AFTER_MOTION",
+                    "error_message": f"AMCL pose is stale ({amcl_staleness:.3f}s) and robot moved during the gap: {motion_reason}.",
+                    "observation": None,
+                }
+
+            # 2. Check for excessive sampling gap in the history
+            for i in range(1, len(sorted_records)):
+                dt = sorted_records[i]["msg_stamp_sec"] - sorted_records[i-1]["msg_stamp_sec"]
+                if dt > 0.60:
                     return {
                         "status": "ERROR",
-                        "error_type": "AMCL_STALE_AFTER_MOTION",
-                        "error_message": f"AMCL pose is stale ({amcl_staleness:.3f}s) and robot moved during the gap: {motion_reason}.",
+                        "error_type": "AMCL_HISTORY_INSUFFICIENT",
+                        "error_message": f"Odometry history has excessive gap ({dt:.3f}s > 0.60s) between {sorted_records[i-1]['msg_stamp_sec']:.3f}s and {sorted_records[i]['msg_stamp_sec']:.3f}s.",
                         "observation": None,
                     }
-                else:
-                    amcl_status = "VALID_STATIONARY_CACHE"
-            else:
-                amcl_status = "VALID_STATIONARY_CACHE"
+
+            amcl_status = "VALID_STATIONARY_CACHE"
         else:
             return {
                 "status": "ERROR",

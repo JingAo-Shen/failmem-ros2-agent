@@ -1,0 +1,23 @@
+[2026-09-28 03:41:22.098] === Starting Suite 3: Observation Anomaly & Recovery Verification ===
+[2026-09-28 03:41:25.864] Sim clock advanced: 0.00s -> 1.10s (delta=1.10s)
+[2026-09-28 03:41:25.865] Sensors streaming: odom=-2.00, gt=-2.00, scan=360 rays
+[2026-09-28 03:41:26.271] AMCL pose converged at x=-2.01, y=-0.51 (delta=0.01m)
+[2026-09-28 03:41:26.271] Interface Check (Missing Odom): status=ERROR, error_type=ODOMETRY_UNAVAILABLE
+[2026-09-28 03:41:26.272] Interface Check (Missing Scan): status=DEGRADED, error_type=SCAN_DEGRADED
+[2026-09-28 03:41:26.279] Test 3.1 (Real Normal Obs): status=SUCCESS
+[2026-09-28 03:41:26.279] Cutting /scan observation reception gate...
+[2026-09-28 03:41:30.222] Test 3.2 (Natural Stale Scan): status=DEGRADED, error_type=SCAN_DEGRADED
+[2026-09-28 03:41:30.222] Restoring /scan observation reception gate...
+[2026-09-28 03:41:30.929] Test 3.3 (Scan Stream Recovered): status=SUCCESS
+[2026-09-28 03:41:30.929] Testing isolated observation instance with scan stream missing from startup...
+[2026-09-28 03:41:30.930] Test 3.4 (Missing Scan Stream): status=DEGRADED, error_type=SCAN_DEGRADED
+[2026-09-28 03:41:30.930] Cutting /odom observation reception gate...
+[2026-09-28 03:41:34.946] Test 3.5 (Natural Stale Odom): status=ERROR, error_type=ODOMETRY_STALE
+[2026-09-28 03:41:34.946] Restoring /odom observation reception gate and refreshing AMCL initial pose...
+[2026-09-28 03:41:34.947] AMCL pose converged at x=-1.96, y=-0.46 (delta=0.05m)
+[2026-09-28 03:41:35.753] Test 3.6 (Odom Stream Recovered): status=SUCCESS
+[2026-09-28 03:41:35.753] Calling /pause_physics service to pause simulation clock...
+[2026-09-28 03:41:36.355] Verified Gazebo physics paused: t_sim1=11.000s, t_sim2=11.000s, stopped=True
+[2026-09-28 03:41:37.857] Test 3.7 (Simulation Clock Paused): status=ERROR, error_type=SIMULATION_CLOCK_FROZEN, wall_time=1.501s
+[2026-09-28 03:41:37.857] Calling /unpause_physics service to resume simulation in finally block...
+[2026-09-28 03:41:38.059] Verified Gazebo physics resumed: t_sim1=11.000s, t_sim2=11.200s, resumed=True
