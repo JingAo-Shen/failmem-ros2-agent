@@ -1,7 +1,11 @@
-# FailMem P1a Review Report: Single-Scene Headless Navigation Smoke Test
+# FailMem P1a Review Report: 连续航点链路冒烟 (Continuous Waypoint Link Smoke Test)
 
-- **Stage**: P1a Single-Scene Real Navigation Smoke Test
-- **Status**: PASSED (Runtime Navigation Verified; Evidence Packaged)
+- **Stage**: P1a Single-Scene Real Navigation Smoke Test (连续航点链路冒烟)
+- **Status**: PARTIAL / INCOMPLETE
+  - 仿真启动与导航 Action 链路：已有真实证据 (PASSED)
+  - 独立 episode 复位：未完成 (PENDING in P1a-v2)
+  - 严格到达与稳定判定：未完成 (PENDING in P1a-v2)
+  - 取消后的物理停止判定：证据不足 (PENDING in P1a-v2)
 - **Base Commit (Commit A)**: `6e7c1c2` (`fix(validator): strict action validator, runtime context, csv dictwriter, and probe rescoring`)
 - **Review Date**: 2026-09-28
 - **Domain Isolation**: `ROS_DOMAIN_ID=42`, `ROS_LOCALHOST_ONLY=1`
@@ -10,9 +14,11 @@
 
 ## 1. Executive Summary & Review Scope
 
-Following research protocol requirements, P1a focuses strictly on establishing end-to-end headless navigation execution in a single fixed simulation environment without mockups, without LLM closed-loop decision making, and without benchmark performance claims.
-
-All 3 independent navigation runs completed with Nav2 `SUCCEEDED` status, confirmed by physical ground truth arrival from Gazebo Classic. The cancellation safety test successfully interrupted active navigation and brought the robot to a complete halt ($v=0.0\,\text{m/s}$).
+本报告记录第一轮连续航点链路冒烟实测结果。根据研究负责人复核意见，本轮定位为“连续航点链路冒烟”，而非完整通过的 P1a：
+1. **非独立 Episode**：本轮 3 次导航是在同一仿真进程中连续执行的航点移动，未执行每次清空状态、重启仿真的独立 Episode 复位；
+2. **到达判定阈值纠偏**：契约位置阈值为 0.30m。Run 1 的物理终点误差为 0.3046m，按契约严格判定应为未满足（不应静默放宽为 0.35m）；
+3. **停止证据不足**：取消测试仅采样了单点瞬时速度，未提供连续 2 秒仿真时间的完整停稳窗口（含 cmd_vel、odom twist 及 Gazebo 位移变化）。
+上述问题将在 P1a-v2 中通过单次独立重启、统一仿真时钟、严格稳定窗口和统一动作入口全面修正。本报告保留原运行原始数据作为链路打通的历史证据。
 
 ---
 

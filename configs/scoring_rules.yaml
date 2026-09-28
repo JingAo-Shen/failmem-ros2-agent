@@ -1,0 +1,38 @@
+# FailMem P1a-v2 Objective Evaluation & Scoring Rules Configuration
+version: "1.0"
+phase: "P1a-v2"
+
+thresholds:
+  # Contract position threshold (strictly 0.30m, no silent relaxation)
+  position_tolerance_m: 0.30
+  # Heading yaw threshold (~20 degrees in radians)
+  yaw_tolerance_rad: 0.35
+  # Stop stability linear velocity threshold
+  max_linear_velocity_mps: 0.05
+  # Stop stability angular velocity threshold
+  max_angular_velocity_radps: 0.05
+  # Duration of post-arrival or post-cancellation stability observation window (sim time)
+  stability_window_duration_sim_sec: 2.0
+  # Max allowable staleness for sensor messages
+  max_sensor_staleness_sim_sec: 0.5
+  # Max time difference between AMCL estimate and Gazebo ground truth for localization comparison
+  max_time_alignment_delta_sim_sec: 0.1
+
+coordinate_frames:
+  map_frame: "map"
+  odom_frame: "odom"
+  base_frame: "base_footprint"
+  world_frame: "world"
+  world_equals_map: true
+  world_map_alignment_basis: >
+    Gazebo world origin (0,0,0) is at the geometric center of the arena (location of the central cylinder).
+    turtlebot3_world.yaml defines resolution 0.050000 m/px, origin [-10.0, -10.0, 0.0] on a 384x384 image,
+    placing pixel (200, 200) at coordinate (0,0) in map frame, identically aligned with Gazebo world origin.
+    The robot spawn pose in Gazebo is [-2.0, -0.5, 0.0] and initial AMCL pose is published at [-2.0, -0.5, 0.0, map].
+    Therefore, p_map == p_world and theta_map == theta_world.
+
+action_constraints:
+  default_frame_id: "map"
+  default_timeout_sec: 60.0
+  max_retry_budget_per_episode: 3
+  max_retries_per_state_fingerprint: 1
