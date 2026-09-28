@@ -1,25 +1,34 @@
-# FailMem ROS2 Humble + Gazebo Fortress + Nav2 Simulation Environment
-FROM osrf/ros:humble-desktop-full
+# FailMem ROS2 Humble Isolated Simulation Container (P1a Development)
+# Base image digest pinned for strict reproducibility
+FROM ros:humble@sha256:1813d3c85d7f96ff7d3012d865204583255740182db5d0065f8f8cd029a83138
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TURTLEBOT3_MODEL=waffle
 ENV GAZEBO_MODEL_PATH=/opt/ros/humble/share/turtlebot3_gazebo/models
+ENV ROS_DOMAIN_ID=42
+ENV ROS_LOCALHOST_ONLY=1
 
-# Install Nav2, Gazebo Fortress bridge, and dependencies
+# Install Gazebo Classic 11 simulation stack, TurtleBot3, Nav2 bringup, and utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-humble-navigation2 \
-    ros-humble-nav2-bringup \
-    ros-humble-turtlebot3 \
+    ros-humble-turtlebot3-gazebo \
     ros-humble-turtlebot3-msgs \
-    ros-humble-turtlebot3-simulations \
+    ros-humble-nav2-bringup \
+    ros-humble-navigation2 \
     ros-humble-ros-gz \
     python3-pip \
     python3-pytest \
+    psmisc \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
-# Source ROS2 by default
+# Source ROS2 setup by default in bash
 RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 
-CMD ["/bin/bash"]
+# Default headless entrypoint script
+COPY scripts/entrypoint_p1a.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["smoke"]

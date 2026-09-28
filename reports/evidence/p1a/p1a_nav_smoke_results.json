@@ -1,0 +1,151 @@
+{
+  "status": "COMPLETED",
+  "timestamp": "2026-09-28T00:28:27.071921+00:00",
+  "phase": "P1a (Single-scene Headless Navigation Smoke Test)",
+  "compatibility": {
+    "os": "Ubuntu 22.04 LTS (Jammy)",
+    "ros_distro": "humble",
+    "simulator_selected": "Gazebo Classic 11.10.2 (gazebo_ros_pkgs)",
+    "robot_model": "TurtleBot3 Waffle",
+    "nav2_stack": "Navigation2 1.1.20 (nav2_bringup)",
+    "network_isolation": "ROS_DOMAIN_ID=42, ROS_LOCALHOST_ONLY=1",
+    "compatibility_rationale": "Selected Gazebo Classic 11 over Fortress because upstream TurtleBot3 packages for Humble directly provide validated Gazebo Classic SDF models and native /gazebo/model_states topics for ground truth. In Humble, Fortress lacks official TB3 SDF system plugins."
+  },
+  "interfaces_verified": {
+    "clock_active": true,
+    "scan_active": true,
+    "odom_active": true,
+    "tf_active": true,
+    "amcl_pose_active": true,
+    "gazebo_model_states_active": true,
+    "navigate_to_pose_action": true
+  },
+  "topology_summary": {
+    "node_count": 30,
+    "topic_count": 57,
+    "action_count": 12
+  },
+  "navigation_runs": [
+    {
+      "status": "SUCCEEDED",
+      "status_code": 4,
+      "goal": [
+        -0.5,
+        -0.5,
+        0.0
+      ],
+      "duration_sec": 5.163,
+      "approx_path_length_m": 1.202,
+      "nav2_action_succeeded": true,
+      "amcl_estimation_arrived": false,
+      "ground_truth_physical_arrived": true,
+      "ground_truth_status": "VERIFIED",
+      "amcl_end_pose": {
+        "x": -0.9536,
+        "y": -0.5517,
+        "yaw": 0.0012
+      },
+      "amcl_position_error_m": 0.4566,
+      "amcl_yaw_error_rad": 0.0012,
+      "ground_truth_end_pose": {
+        "x": -0.7995,
+        "y": -0.5556,
+        "yaw": 0.0267
+      },
+      "ground_truth_position_error_m": 0.3046,
+      "ground_truth_yaw_error_rad": 0.0267,
+      "amcl_vs_ground_truth_error_m": 0.1542,
+      "gt_trajectory_points_count": 61,
+      "amcl_trajectory_points_count": 7,
+      "run_index": 1
+    },
+    {
+      "status": "SUCCEEDED",
+      "status_code": 4,
+      "goal": [
+        0.5,
+        -0.5,
+        1.57
+      ],
+      "duration_sec": 9.612,
+      "approx_path_length_m": 1.113,
+      "nav2_action_succeeded": true,
+      "amcl_estimation_arrived": false,
+      "ground_truth_physical_arrived": true,
+      "ground_truth_status": "VERIFIED",
+      "amcl_end_pose": {
+        "x": 0.2872,
+        "y": -0.495,
+        "yaw": 1.1834
+      },
+      "amcl_position_error_m": 0.2129,
+      "amcl_yaw_error_rad": 0.3866,
+      "ground_truth_end_pose": {
+        "x": 0.3009,
+        "y": -0.491,
+        "yaw": 1.3559
+      },
+      "ground_truth_position_error_m": 0.1993,
+      "ground_truth_yaw_error_rad": 0.2141,
+      "amcl_vs_ground_truth_error_m": 0.0143,
+      "gt_trajectory_points_count": 106,
+      "amcl_trajectory_points_count": 10,
+      "run_index": 2
+    },
+    {
+      "status": "SUCCEEDED",
+      "status_code": 4,
+      "goal": [
+        -2.0,
+        -0.5,
+        3.14
+      ],
+      "duration_sec": 10.212,
+      "approx_path_length_m": 2.162,
+      "nav2_action_succeeded": true,
+      "amcl_estimation_arrived": false,
+      "ground_truth_physical_arrived": true,
+      "ground_truth_status": "VERIFIED",
+      "amcl_end_pose": {
+        "x": -1.6469,
+        "y": -0.5171,
+        "yaw": 3.0581
+      },
+      "amcl_position_error_m": 0.3535,
+      "amcl_yaw_error_rad": 0.0819,
+      "ground_truth_end_pose": {
+        "x": -1.8044,
+        "y": -0.6247,
+        "yaw": 3.109
+      },
+      "ground_truth_position_error_m": 0.2319,
+      "ground_truth_yaw_error_rad": 0.031,
+      "amcl_vs_ground_truth_error_m": 0.1908,
+      "gt_trajectory_points_count": 111,
+      "amcl_trajectory_points_count": 13,
+      "run_index": 3
+    },
+    {
+      "status": "CANCELED",
+      "status_code": 5,
+      "unreachable_goal": [
+        10.0,
+        10.0
+      ],
+      "cancel_confirmed": true,
+      "robot_stopped": true,
+      "final_linear_velocity": 0.0,
+      "final_angular_velocity": 0.0,
+      "run_index": 4
+    }
+  ],
+  "runs_evaluation": {
+    "total_runs": 4,
+    "standard_runs_count": 3,
+    "standard_runs_succeeded_nav2": 3,
+    "standard_runs_succeeded_amcl": 0,
+    "standard_runs_succeeded_gt": 3,
+    "cancel_test_passed": true
+  },
+  "boundary_notice": "This smoke test only verifies the simulation platform, Nav2 action pipeline, and cancellation safety. It DOES NOT include LLM decision loops, failure memory, or test set evaluations."
+}

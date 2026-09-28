@@ -1,0 +1,52 @@
+[2026-09-27 02:45:48.101] === Starting P1a Headless Navigation Smoke Runner ===
+[2026-09-27 02:45:48.102] Compatibility Stack: Gazebo Classic 11.10.2 (gazebo_ros_pkgs) | Robot: TurtleBot3 Waffle
+[2026-09-27 02:45:48.102] Launching simulation process: ros2 launch nav2_bringup tb3_simulation_launch.py headless:=True use_rviz:=False autostart:=True map:=/workspace/configs/turtlebot3_world.yaml params_file:=/workspace/configs/nav2_params.yaml
+[2026-09-27 02:45:51.218] Waiting for /navigate_to_pose action server to become available...
+[2026-09-27 02:45:51.218] NavigateToPose action server connected after 1s!
+[2026-09-27 02:45:51.820] Published initial pose to /initialpose at x=-2.0, y=-0.5, yaw=0.0
+[2026-09-27 02:45:58.341] Captured system topology: 26 nodes, 53 topics, 12 actions
+[2026-09-27 02:45:58.342] --- Starting Run 1: Navigate to [x=-0.5, y=-0.5, yaw=0.0] ---
+[2026-09-27 02:45:58.342] Sending NavigateToPose goal: [-0.5, -0.5, yaw=0.0]
+[2026-09-27 02:45:58.343] [WARN] Goal was rejected by Nav2 server
+[2026-09-27 02:46:00.345] --- Starting Run 2: Navigate to [x=-0.5, y=0.5, yaw=1.57] ---
+[2026-09-27 02:46:00.346] Sending NavigateToPose goal: [-0.5, 0.5, yaw=1.57]
+[2026-09-27 02:46:00.348] [WARN] Goal was rejected by Nav2 server
+[2026-09-27 02:46:02.351] --- Starting Run 3: Navigate to [x=-2.0, y=-0.5, yaw=3.14] ---
+[2026-09-27 02:46:02.351] Sending NavigateToPose goal: [-2.0, -0.5, yaw=3.14]
+[2026-09-27 02:46:02.352] [WARN] Goal was rejected by Nav2 server
+[2026-09-27 02:46:04.354] --- Starting Run 4: Cancel / Unreachable goal check ---
+[2026-09-27 02:46:04.354] Initiating Cancel/Timeout test with unreachable goal [10.0, 10.0]...
+[2026-09-27 02:46:04.355] Unreachable goal immediately rejected (acceptable response)
+[2026-09-27 02:46:04.355] Terminating simulation process...
+[2026-09-27 02:46:14.358] All smoke runs completed. Results written to /workspace/reports/evidence/p1a/p1a_nav_smoke_results.json
+[2026-09-27 02:46:14.358] === P1a Execution Finished Successfully ===
+[2026-09-28 00:27:34.711] === Starting P1a Headless Navigation Smoke Runner ===
+[2026-09-28 00:27:34.711] Compatibility Stack: Gazebo Classic 11.10.2 (gazebo_ros_pkgs) | Robot: TurtleBot3 Waffle
+[2026-09-28 00:27:34.711] Launching simulation process: ros2 launch nav2_bringup tb3_simulation_launch.py headless:=True use_rviz:=False autostart:=True map:=/workspace/configs/turtlebot3_world.yaml params_file:=/workspace/configs/nav2_params.yaml world:=/workspace/configs/world_with_state.model
+[2026-09-28 00:27:37.794] Waiting for /navigate_to_pose action server to become available...
+[2026-09-28 00:27:37.795] NavigateToPose action server connected after 1s!
+[2026-09-28 00:27:38.796] Published initial pose to /initialpose at x=-2.0, y=-0.5, yaw=0.0
+[2026-09-28 00:27:40.798] Waiting for /amcl_pose and /gazebo/model_states...
+[2026-09-28 00:27:40.800] Both AMCL localization and Gazebo ground truth received!
+[2026-09-28 00:27:42.010] Captured system topology: 30 nodes, 57 topics, 12 actions
+[2026-09-28 00:27:42.010] --- Starting Run 1: Navigate to [x=-0.5, y=-0.5, yaw=0.0] ---
+[2026-09-28 00:27:42.010] Sending NavigateToPose goal: [-0.5, -0.5, yaw=0.0]
+[2026-09-28 00:27:42.012] Goal accepted by Nav2. Tracking navigation progress...
+[2026-09-28 00:27:47.173] Navigation finished: Nav2=SUCCEEDED in 5.16s | AMCL_err=0.457m | GT_err=0.305m | Loc_discrepancy=0.154m | Nav2_ok=True, AMCL_arrived=False, GT_arrived=True
+[2026-09-28 00:27:49.175] --- Starting Run 2: Navigate to [x=0.5, y=-0.5, yaw=1.57] ---
+[2026-09-28 00:27:49.176] Sending NavigateToPose goal: [0.5, -0.5, yaw=1.57]
+[2026-09-28 00:27:49.177] Goal accepted by Nav2. Tracking navigation progress...
+[2026-09-28 00:27:58.788] Navigation finished: Nav2=SUCCEEDED in 9.61s | AMCL_err=0.213m | GT_err=0.199m | Loc_discrepancy=0.014m | Nav2_ok=True, AMCL_arrived=False, GT_arrived=True
+[2026-09-28 00:28:00.789] --- Starting Run 3: Navigate to [x=-2.0, y=-0.5, yaw=3.14] ---
+[2026-09-28 00:28:00.790] Sending NavigateToPose goal: [-2.0, -0.5, yaw=3.14]
+[2026-09-28 00:28:00.791] Goal accepted by Nav2. Tracking navigation progress...
+[2026-09-28 00:28:11.001] Navigation finished: Nav2=SUCCEEDED in 10.21s | AMCL_err=0.354m | GT_err=0.232m | Loc_discrepancy=0.191m | Nav2_ok=True, AMCL_arrived=False, GT_arrived=True
+[2026-09-28 00:28:13.003] --- Starting Run 4: Cancel / Unreachable goal check ---
+[2026-09-28 00:28:13.003] Initiating Cancel/Timeout test with unreachable goal [10.0, 10.0]...
+[2026-09-28 00:28:13.005] Unreachable goal accepted. Letting robot begin movement for 4s...
+[2026-09-28 00:28:17.005] Sending explicit CANCEL request to Action Server...
+[2026-09-28 00:28:17.006] Cancel response received. Goals canceling count: 1
+[2026-09-28 00:28:17.066] Cancel confirmed: status=CANCELED | robot_stopped=True (v_lin=0.000, v_ang=0.000)
+[2026-09-28 00:28:17.066] Terminating simulation process...
+[2026-09-28 00:28:27.072] All smoke runs completed. Results written to /workspace/reports/evidence/p1a/p1a_nav_smoke_results.json
+[2026-09-28 00:28:27.072] === P1a Execution Finished Successfully ===
