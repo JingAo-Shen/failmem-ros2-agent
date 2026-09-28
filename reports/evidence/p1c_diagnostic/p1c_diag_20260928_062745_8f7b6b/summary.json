@@ -1,0 +1,361 @@
+{
+  "run_id": "p1c_diag_20260928_062745_8f7b6b",
+  "timestamp": "2026-09-28T06:27:45.916614+00:00",
+  "phase": "P1c-blockage-pilot-v3",
+  "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+  "protocol_version": "3.0",
+  "diagnostic_mode": true,
+  "runtime_config": {
+    "run_id": "p1c_diag_20260928_062745_8f7b6b",
+    "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+    "protocol_version": "3.0",
+    "diagnostic_mode": true,
+    "spawn_pose": [
+      -1.8,
+      0.0,
+      0.0
+    ],
+    "target_goal": [
+      1.8,
+      0.0,
+      0.0
+    ],
+    "sim_timeout_sec": 45.0,
+    "wall_watchdog_sec": 60.0,
+    "obstacle_pose": [
+      0.0,
+      0.0,
+      0.3
+    ],
+    "obstacle_name": "corridor_blockage_box",
+    "obstacle_sdf_path": "configs/chokepoint_box.sdf",
+    "doorway_bbox": [
+      -0.25,
+      0.25,
+      -0.4,
+      0.4
+    ],
+    "thresholds": {
+      "position_tolerance_m": 0.3,
+      "yaw_tolerance_rad": 0.35,
+      "max_linear_velocity_mps": 0.05,
+      "max_angular_velocity_radps": 0.05,
+      "stability_window_duration_sim_sec": 2.0,
+      "max_gt_displacement_m": 0.03,
+      "max_sensor_staleness_sim_sec": 0.5,
+      "max_stationary_amcl_staleness_sec": 30.0
+    }
+  },
+  "protocol": {
+    "version": "3.0",
+    "phase": "P1c-blockage-pilot-v3",
+    "description": "FailMem Single-Channel Blockage Protocol (v3.0 - Dual-Room Chokepoint, Natural Clearance & AMCL Nomotion Update)",
+    "environment": {
+      "world": "configs/chokepoint_world.model",
+      "map_yaml": "configs/chokepoint_world.yaml",
+      "map_pgm": "configs/chokepoint_world.pgm",
+      "nav2_params": "configs/nav2_params.yaml",
+      "robot_model": "waffle",
+      "spawn_pose": {
+        "x": -1.8,
+        "y": 0.0,
+        "z": 0.01,
+        "yaw": 0.0,
+        "frame_id": "map"
+      }
+    },
+    "navigation_task": {
+      "goal_pose": {
+        "x": 1.8,
+        "y": 0.0,
+        "z": 0.0,
+        "yaw": 0.0,
+        "frame_id": "map"
+      },
+      "sim_timeout_sec": 45.0,
+      "wall_watchdog_sec": 60.0
+    },
+    "obstacle_channel": {
+      "channel_name": "dual_room_doorway_chokepoint",
+      "obstacle_sdf": "configs/chokepoint_box.sdf",
+      "entity_name": "corridor_blockage_box",
+      "pose": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3,
+        "yaw": 0.0,
+        "frame_id": "world"
+      },
+      "dimensions": {
+        "length_x": 0.4,
+        "width_y": 1.0,
+        "height_z": 0.6
+      },
+      "doorway_bbox": {
+        "x_min": -0.25,
+        "x_max": 0.25,
+        "y_min": -0.4,
+        "y_max": 0.4
+      },
+      "geometry_rationale": "Positioned directly inside the single central doorway at x=0.0 between Room 1 and Room 2, physically sealing the 0.90m doorway."
+    },
+    "conditions": {
+      "C0_unblocked_baseline": {
+        "condition_id": "C0",
+        "name": "Normal Navigation Baseline (No Obstacle)",
+        "episodes_count": 3,
+        "obstacle_present_initial": false,
+        "obstacle_removed_on_retry": false,
+        "expected_outcome": "BUDGET_SUCCESS",
+        "target_arrival_required": true,
+        "task_success_expected": true,
+        "mechanism_verified_expected": true
+      },
+      "C1_continuous_blockage": {
+        "condition_id": "C1",
+        "name": "Continuous Obstacle Blockage",
+        "episodes_count": 3,
+        "obstacle_present_initial": true,
+        "obstacle_removed_on_retry": false,
+        "expected_outcome": "EXECUTION_FAILED_OR_DEADLINE",
+        "target_arrival_required": false,
+        "task_success_expected": false,
+        "mechanism_verified_expected": true,
+        "protocol_notes": "Obstacle completely seals single doorway. Nav2 cannot pass or detour, timing out at 45.0s sim time without reaching goal."
+      },
+      "C2_temporary_blockage_retry": {
+        "condition_id": "C2",
+        "name": "Temporary Obstacle Blockage (Observe -> Initial Blocked Fail -> Delete -> Natural Raytrace Clear -> Valid Observe -> Retry)",
+        "episodes_count": 3,
+        "obstacle_present_initial": true,
+        "obstacle_removed_on_retry": true,
+        "expected_step1_outcome": "EXECUTION_FAILED_OR_DEADLINE",
+        "expected_retry_outcome": "BUDGET_SUCCESS",
+        "target_arrival_required": true,
+        "task_success_expected": true,
+        "mechanism_verified_expected": true,
+        "protocol_notes": "Obstacle spawned before initial navigate. Initial attempt fails genuinely due to blockage. Obstacle is deleted. Doorway clearance verified via map-frame spatial scan and costmap. Observe returns valid AMCL via nomotion update. Retry dispatched with restored parameters and successfully navigates through cleared doorway to Room 2 goal."
+      }
+    },
+    "scoring_thresholds": {
+      "position_tolerance_m": 0.3,
+      "yaw_tolerance_rad": 0.35,
+      "max_linear_velocity_mps": 0.05,
+      "max_angular_velocity_radps": 0.05,
+      "stability_window_duration_sim_sec": 2.0,
+      "max_gt_displacement_m": 0.03,
+      "max_sensor_staleness_sim_sec": 0.5,
+      "max_stationary_amcl_staleness_sec": 30.0
+    }
+  },
+  "coordinate_alignment": {
+    "verified": true,
+    "resolution_m": 0.05,
+    "map_origin": [
+      -4.0,
+      -2.5,
+      0.0
+    ],
+    "image_shape": [
+      100,
+      160
+    ],
+    "non_collinear_landmarks_tested": 6,
+    "max_residual_m": 0.0627,
+    "residual_threshold_m": 0.075,
+    "landmarks": [
+      {
+        "landmark": "west_wall",
+        "world_xy": [
+          -3.1,
+          0.0
+        ],
+        "expected_pixel_uv": [
+          18.0,
+          50.0
+        ],
+        "detected_map_xy": [
+          -3.125,
+          0.0
+        ],
+        "residual_m": 0.025,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "south_wall",
+        "world_xy": [
+          0.0,
+          -1.6
+        ],
+        "expected_pixel_uv": [
+          80.0,
+          82.0
+        ],
+        "detected_map_xy": [
+          -0.0054,
+          -1.5375
+        ],
+        "residual_m": 0.0627,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "dividing_south_wall",
+        "world_xy": [
+          0.0,
+          -0.97
+        ],
+        "expected_pixel_uv": [
+          80.0,
+          69.4
+        ],
+        "detected_map_xy": [
+          -0.025,
+          -0.95
+        ],
+        "residual_m": 0.032,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "dividing_north_wall",
+        "world_xy": [
+          0.0,
+          0.97
+        ],
+        "expected_pixel_uv": [
+          80.0,
+          30.6
+        ],
+        "detected_map_xy": [
+          -0.025,
+          0.95
+        ],
+        "residual_m": 0.032,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "north_wall",
+        "world_xy": [
+          0.0,
+          1.6
+        ],
+        "expected_pixel_uv": [
+          80.0,
+          18.0
+        ],
+        "detected_map_xy": [
+          -0.0067,
+          1.5717
+        ],
+        "residual_m": 0.0291,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "east_wall",
+        "world_xy": [
+          3.1,
+          0.0
+        ],
+        "expected_pixel_uv": [
+          142.0,
+          50.0
+        ],
+        "detected_map_xy": [
+          3.075,
+          0.0
+        ],
+        "residual_m": 0.025,
+        "within_resolution_bound": true
+      }
+    ],
+    "file_hashes": {
+      "map_yaml": "0a5ecd11284331d534d20d969a952f7117c26d718e97e0105bbc4a354fca7619",
+      "map_pgm": "c41adaaad5d00dc35d591e88016b2f3394d316fb01e33bb4713a66284cc5b18b",
+      "world_model": "f7aafddaf0d2a2190292959fa9f0d1efc75bcdc24d1c1bb715be569c32b45889",
+      "sdf_model": "f7aafddaf0d2a2190292959fa9f0d1efc75bcdc24d1c1bb715be569c32b45889"
+    },
+    "transformation_convention": "Image shape (100, 160) with origin [-4.0, -2.5, 0.0] and resolution 0.05 m/px. Continuous transform: x_map = -4.0 + u * 0.05, y_map = -2.5 + (100 - v) * 0.05.",
+    "geometric_consistency_statement": "All 6 static SDF landmarks align with PGM map obstacle centroids within bounded discretization error (max residual 0.0627m <= 0.0750m)."
+  },
+  "C0_baseline_episodes": [
+    {
+      "episode_id": "C0_ep1",
+      "condition": "C0",
+      "episode_number": 1,
+      "target_goal": [
+        1.8,
+        0.0,
+        0.0
+      ],
+      "spawn_pose": [
+        -1.8,
+        0.0,
+        0.0
+      ],
+      "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+      "infrastructure_error": "EXCEPTION: evaluate_navigation_episode() got an unexpected keyword argument 'episode_records'",
+      "task_success": false,
+      "mechanism_verified": false
+    }
+  ],
+  "C1_continuous_blockage_episodes": [
+    {
+      "episode_id": "C1_ep1",
+      "condition": "C1",
+      "episode_number": 1,
+      "target_goal": [
+        1.8,
+        0.0,
+        0.0
+      ],
+      "spawn_pose": [
+        -1.8,
+        0.0,
+        0.0
+      ],
+      "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+      "infrastructure_error": "EXCEPTION: evaluate_navigation_episode() got an unexpected keyword argument 'episode_records'",
+      "task_success": false,
+      "mechanism_verified": false
+    }
+  ],
+  "C2_temporary_blockage_episodes": [
+    {
+      "episode_id": "C2_ep1",
+      "condition": "C2",
+      "episode_number": 1,
+      "target_goal": [
+        1.8,
+        0.0,
+        0.0
+      ],
+      "spawn_pose": [
+        -1.8,
+        0.0,
+        0.0
+      ],
+      "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+      "infrastructure_error": "EXCEPTION: evaluate_navigation_episode() got an unexpected keyword argument 'episode_records'",
+      "task_success": false,
+      "mechanism_verified": false
+    }
+  ],
+  "overall_status": "PARTIAL",
+  "summary_table": {
+    "C0": {
+      "task_success": false,
+      "mechanism_verified": false,
+      "episode_count": 1
+    },
+    "C1": {
+      "no_spurious_arrival": true,
+      "mechanism_verified": false,
+      "episode_count": 1
+    },
+    "C2": {
+      "task_success": false,
+      "mechanism_verified": false,
+      "episode_count": 1
+    },
+    "coordinate_alignment": true
+  }
+}

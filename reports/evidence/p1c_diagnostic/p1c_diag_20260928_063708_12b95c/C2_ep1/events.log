@@ -1,0 +1,31 @@
+[2026-09-28 06:38:20.105] === Starting Episode C2_ep1 (Condition C2 #1) ===
+[2026-09-28 06:38:20.105] Protocol: sim_timeout=45.0s, wall_watchdog=60.0s
+[2026-09-28 06:38:24.449] Sim clock advanced: 0.00s -> 1.10s
+[2026-09-28 06:38:24.449] Sensors streaming: odom=-1.8, scan=360 rays
+[2026-09-28 06:38:24.604] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-28 06:38:26.150] Nav2 bt_navigator is verified ACTIVE!
+[2026-09-28 06:38:26.150] C2: Spawning temporary obstacle at (0.0, 0.0, 0.3)...
+[2026-09-28 06:38:26.260] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-28 06:38:26.363] C2: spawn service_ok=True, gazebo_confirmed=True
+[2026-09-28 06:38:26.722] C2: Pre-initial-nav doorway check: occupied=True, points_in_box=28
+[2026-09-28 06:38:26.975] AMCL nomotion update received: stamp 3.601s (seq=4)
+[2026-09-28 06:38:26.977] C2 Initial Observe: status=SUCCESS
+[2026-09-28 06:38:26.979] Dispatched action 'C2_ep1_nav_orig': pipeline_status=DISPATCHED
+[2026-09-28 06:38:50.824] Passive physical halt verified: stable for 2.00s sim time (lv=0.0000, av=0.0011)
+[2026-09-28 06:38:53.213] Stability window recording complete: 187 samples across 2.40s sim time
+[2026-09-28 06:38:53.218] C2 Initial blocked nav: outcome=EXECUTION_FAILED, terminal=ABORTED
+[2026-09-28 06:38:53.231] C2: Deleting obstacle 'corridor_blockage_box'...
+[2026-09-28 06:38:53.525] Successfully deleted obstacle 'corridor_blockage_box' from Gazebo world
+[2026-09-28 06:38:53.653] C2: del service_ok=True, gazebo_absent=True
+[2026-09-28 06:38:53.653] C2: Waiting for natural lidar raytrace to clear doorway (no service purge)...
+[2026-09-28 06:38:57.003] C2: Post-removal doorway check: cleared=True, points_in_box=0
+[2026-09-28 06:38:57.231] AMCL nomotion update received: stamp 33.802s (seq=28)
+[2026-09-28 06:38:57.233] C2 Post-removal Observe: status=SUCCESS
+[2026-09-28 06:38:57.233] C2 Retry eligibility: eligible=True, reason=SUCCESS
+[2026-09-28 06:38:57.235] Dispatched action 'C2_ep1_retry_nav': pipeline_status=DISPATCHED
+[2026-09-28 06:39:19.875] Passive physical halt verified: stable for 2.00s sim time (lv=0.0027, av=0.0083)
+[2026-09-28 06:39:22.267] Stability window recording complete: 188 samples across 2.40s sim time
+[2026-09-28 06:39:22.273] C2 Retry nav: outcome=BUDGET_SUCCESS, arrival=False
+[2026-09-28 06:39:22.477] AMCL nomotion update received: stamp 59.002s (seq=95)
+[2026-09-28 06:39:22.478] C2 Final Observe: status=SUCCESS
+[2026-09-28 06:39:22.478] C2 mechanism_verified=False: spawn=True, init_fail=True, del_ok=True, doorway_cleared=True, obs_ok=True, task_ok=False

@@ -1,0 +1,15 @@
+[2026-09-28 07:51:24.965] === Starting Episode M1_S1_ep1 (M1_S1 #1) ===
+[2026-09-28 07:51:24.965] Policy: M1, Sequence: S1
+[2026-09-28 07:51:29.229] Sim clock advanced: 0.00s -> 1.20s
+[2026-09-28 07:51:30.956] Sensors streaming: odom=-1.7999815703353181, scan=360 rays, costmap=160
+[2026-09-28 07:51:31.212] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-28 07:51:31.214] Nav2 bt_navigator is verified ACTIVE!
+[2026-09-28 07:51:31.214] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-28 07:51:31.379] [WARN] Failed to spawn obstacle 'corridor_blockage_box': Entity [corridor_blockage_box] already exists.
+[2026-09-28 07:51:31.379] [ERROR] Exception during episode execution: ObserveInterface.__init__() got an unexpected keyword argument 'amcl_sub'
+[2026-09-28 07:51:31.379] Traceback (most recent call last):
+  File "/workspace/scripts/run_p2a_experiment.py", line 816, in run_episode
+    obs_sdf = str(obs_cfg.get("obstacle_sdf", "configs/chokepoint_box.sdf"))
+TypeError: ObserveInterface.__init__() got an unexpected keyword argument 'amcl_sub'
+
+[2026-09-28 07:51:37.162] === Episode M1_S1_ep1 Complete: task_success=False, mechanism_verified=False, dispatches=0 ===

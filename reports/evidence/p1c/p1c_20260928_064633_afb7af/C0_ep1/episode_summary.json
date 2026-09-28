@@ -1,0 +1,328 @@
+{
+  "episode_id": "C0_ep1",
+  "condition": "C0",
+  "episode_number": 1,
+  "target_goal": [
+    1.8,
+    0.0,
+    0.0
+  ],
+  "spawn_pose": [
+    -1.8,
+    0.0,
+    0.0
+  ],
+  "protocol_sha256": "f703c392ba1af0bba601c4e9ab56d62f0054d4ab53cb530a2807dfb33b8d3a47",
+  "infrastructure_error": null,
+  "obstacle_present": false,
+  "collision_state": "UNKNOWN",
+  "step1_observe": {
+    "pipeline_status": "DISPATCHED",
+    "action_id": "C0_ep1_obs_initial",
+    "goal_uuid": "e414e13e-d29f-5a2f-b3bd-423bb5e2580a",
+    "normalized_action": {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      }
+    },
+    "effective_action": {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      }
+    },
+    "ros_dispatched": true,
+    "ros_result": {
+      "status": "SUCCESS",
+      "error_type": null,
+      "error_message": null,
+      "observation": {
+        "timestamp": {
+          "sim_time_sec": 3.2,
+          "amcl_stamp_sec": 3.169,
+          "odom_stamp_sec": 3.157,
+          "scan_stamp_sec": 3.169
+        },
+        "localization": {
+          "pose": [
+            -1.8305,
+            -0.0081,
+            -0.0065
+          ],
+          "covariance_diagonal": [
+            0.02984,
+            0.038055,
+            0.032513
+          ],
+          "frame_id": "map",
+          "staleness_sec": 0.031,
+          "status": "UP_TO_DATE"
+        },
+        "odometry": {
+          "linear_velocity_mps": 0.0001,
+          "angular_velocity_radps": -0.0003,
+          "staleness_sec": 0.043
+        },
+        "laser_scan": {
+          "available": true,
+          "fresh": true,
+          "staleness_sec": 0.031,
+          "min_distance_m": 1.1234,
+          "valid_ranges_count": 360,
+          "total_ranges_count": 360
+        },
+        "navigation_status": {
+          "nav2_lifecycle_state": "ACTIVE",
+          "current_goal_status": "IDLE"
+        }
+      },
+      "wall_duration_sec": 0.2488
+    }
+  },
+  "step2_navigate": {
+    "dispatch": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "C0_ep1_nav",
+      "goal_uuid": "be4fe466-06cc-5a64-865b-5f5f05e62ffd",
+      "normalized_action": {
+        "action": "navigate",
+        "action_id": "C0_ep1_nav",
+        "params": {
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "frame_id": "map",
+          "timeout_sec": 45.0
+        }
+      },
+      "effective_action": {
+        "action": "navigate",
+        "action_id": "C0_ep1_nav",
+        "params": {
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "frame_id": "map",
+          "timeout_sec": 45.0
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "ACCEPTED",
+        "accepted": true,
+        "goal_id": "be4fe466-06cc-5a64-865b-5f5f05e62ffd",
+        "uuid_verified": true
+      }
+    },
+    "execution_outcome": "BUDGET_SUCCESS",
+    "terminal_status_name": "SUCCEEDED",
+    "status_code": 4,
+    "deadline_exceeded": false,
+    "failure_reason": null,
+    "settled_ok": true,
+    "safety_intervention": false,
+    "evaluation": {
+      "nav2_action_status": "SUCCEEDED",
+      "execution_outcome": "BUDGET_SUCCESS",
+      "deadline_exceeded": false,
+      "nav2_action_succeeded": true,
+      "failure_reason": null,
+      "final_geometric_errors": {
+        "gt_position_error_m": 0.1797,
+        "gt_yaw_error_rad": 0.1136,
+        "amcl_position_error_m": 0.2752,
+        "amcl_yaw_error_rad": 0.0948,
+        "thresholds_applied": {
+          "position_tolerance_m": 0.3,
+          "yaw_tolerance_rad": 0.35
+        }
+      },
+      "window_evaluation": {
+        "window_valid": true,
+        "failure_reasons": [],
+        "sim_duration_covered": 2.4,
+        "odom_duration_covered": 2.788,
+        "gt_duration_covered": 2.5,
+        "unique_samples_count": 108,
+        "unique_odom_count": 83,
+        "unique_gt_count": 26,
+        "total_raw_samples_count": 185,
+        "max_sampling_interval_sec": 0.1,
+        "data_fresh": true,
+        "watchdog_triggered": false
+      },
+      "halt_evaluation": {
+        "all_samples_stopped": true,
+        "max_linear_v_seen": 0.0001,
+        "max_angular_v_seen": 0.0005,
+        "max_gt_displacement_m": 0.0,
+        "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+        "safety_intervention": false,
+        "halt_verified": true,
+        "halt_failure_reason": null
+      },
+      "all_window_pos_ok": true,
+      "all_window_yaw_ok": true,
+      "final_pose_arrived": true,
+      "strict_physical_arrival_and_stable": true
+    }
+  },
+  "step3_observe": {
+    "pipeline_status": "DISPATCHED",
+    "action_id": "C0_ep1_obs_final",
+    "goal_uuid": "0a281164-bd2c-5a1a-9945-379140a958f7",
+    "normalized_action": {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_final",
+      "params": {
+        "target_id": "final_scan"
+      }
+    },
+    "effective_action": {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_final",
+      "params": {
+        "target_id": "final_scan"
+      }
+    },
+    "ros_dispatched": true,
+    "ros_result": {
+      "status": "SUCCESS",
+      "error_type": null,
+      "error_message": null,
+      "observation": {
+        "timestamp": {
+          "sim_time_sec": 22.200000000000003,
+          "amcl_stamp_sec": 22.169,
+          "odom_stamp_sec": 22.163,
+          "scan_stamp_sec": 22.169
+        },
+        "localization": {
+          "pose": [
+            1.5677,
+            -0.0631,
+            0.1144
+          ],
+          "covariance_diagonal": [
+            0.008262,
+            0.006073,
+            0.012425
+          ],
+          "frame_id": "map",
+          "staleness_sec": 0.031,
+          "status": "UP_TO_DATE"
+        },
+        "odometry": {
+          "linear_velocity_mps": 0.0001,
+          "angular_velocity_radps": -0.0004,
+          "staleness_sec": 0.037
+        },
+        "laser_scan": {
+          "available": true,
+          "fresh": true,
+          "staleness_sec": 0.031,
+          "min_distance_m": 1.4299,
+          "valid_ranges_count": 360,
+          "total_ranges_count": 360
+        },
+        "navigation_status": {
+          "nav2_lifecycle_state": "ACTIVE",
+          "current_goal_status": "IDLE"
+        }
+      },
+      "wall_duration_sec": 0.1276
+    }
+  },
+  "final_gt_pos_error_m": 0.1797,
+  "evaluation": {
+    "nav2_action_status": "SUCCEEDED",
+    "execution_outcome": "BUDGET_SUCCESS",
+    "deadline_exceeded": false,
+    "nav2_action_succeeded": true,
+    "failure_reason": null,
+    "final_geometric_errors": {
+      "gt_position_error_m": 0.1797,
+      "gt_yaw_error_rad": 0.1136,
+      "amcl_position_error_m": 0.2752,
+      "amcl_yaw_error_rad": 0.0948,
+      "thresholds_applied": {
+        "position_tolerance_m": 0.3,
+        "yaw_tolerance_rad": 0.35
+      }
+    },
+    "window_evaluation": {
+      "window_valid": true,
+      "failure_reasons": [],
+      "sim_duration_covered": 2.4,
+      "odom_duration_covered": 2.788,
+      "gt_duration_covered": 2.5,
+      "unique_samples_count": 108,
+      "unique_odom_count": 83,
+      "unique_gt_count": 26,
+      "total_raw_samples_count": 185,
+      "max_sampling_interval_sec": 0.1,
+      "data_fresh": true,
+      "watchdog_triggered": false
+    },
+    "halt_evaluation": {
+      "all_samples_stopped": true,
+      "max_linear_v_seen": 0.0001,
+      "max_angular_v_seen": 0.0005,
+      "max_gt_displacement_m": 0.0,
+      "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+      "safety_intervention": false,
+      "halt_verified": true,
+      "halt_failure_reason": null
+    },
+    "all_window_pos_ok": true,
+    "all_window_yaw_ok": true,
+    "final_pose_arrived": true,
+    "strict_physical_arrival_and_stable": true
+  },
+  "task_success": true,
+  "mechanism_verified": true,
+  "execution_outcome": "BUDGET_SUCCESS",
+  "terminal_status_name": "SUCCEEDED",
+  "action_history": [
+    {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      },
+      "dispatch_status": "COMPLETED",
+      "terminal_status": "SUCCESS"
+    },
+    {
+      "action": "navigate",
+      "action_id": "C0_ep1_nav",
+      "params": {
+        "goal": [
+          1.8,
+          0.0,
+          0.0
+        ],
+        "frame_id": "map",
+        "timeout_sec": 45.0
+      },
+      "dispatch_status": "ACCEPTED",
+      "terminal_status": null
+    },
+    {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_final",
+      "params": {
+        "target_id": "final_scan"
+      },
+      "dispatch_status": "COMPLETED",
+      "terminal_status": "SUCCESS"
+    }
+  ]
+}

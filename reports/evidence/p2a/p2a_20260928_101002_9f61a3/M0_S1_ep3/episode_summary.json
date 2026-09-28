@@ -1,0 +1,482 @@
+{
+  "episode_id": "M0_S1_ep3",
+  "condition_id": "M0_S1",
+  "policy_name": "M0",
+  "sequence_name": "S1",
+  "task_success": false,
+  "mechanism_verified": true,
+  "dispatches_attempted": 5,
+  "redundant_retries_count": 4,
+  "invalidation_verified": false,
+  "recovery_verified": false,
+  "obstacle_spawned": true,
+  "obstacle_deleted": false,
+  "policy_final_state": {
+    "policy_name": "M0_NO_MEMORY",
+    "dispatches_attempted": 5,
+    "failures_recorded": 5,
+    "memory_entries": []
+  },
+  "action_summaries": [
+    {
+      "dispatch": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "M0_S1_ep3_nav_step1",
+        "goal_uuid": "bc8f6b45-aeba-5621-ad5a-333aab209b1a",
+        "normalized_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step1",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "effective_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step1",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "ACCEPTED",
+          "accepted": true,
+          "goal_id": "bc8f6b45-aeba-5621-ad5a-333aab209b1a",
+          "uuid_verified": true
+        }
+      },
+      "execution_outcome": "EXECUTION_FAILED",
+      "terminal_status_name": "ABORTED",
+      "status_code": 6,
+      "deadline_exceeded": false,
+      "failure_reason": "NAV2_ABORTED",
+      "settled_ok": true,
+      "safety_intervention": false,
+      "evaluation": {
+        "nav2_action_status": "ABORTED",
+        "execution_outcome": "EXECUTION_FAILED",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": false,
+        "failure_reason": "NAV2_ABORTED",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.5976,
+          "gt_yaw_error_rad": 3.0441,
+          "amcl_position_error_m": 3.6361,
+          "amcl_yaw_error_rad": 3.0836,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.4
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.3,
+          "odom_duration_covered": 2.72,
+          "gt_duration_covered": 2.4,
+          "unique_samples_count": 105,
+          "unique_odom_count": 81,
+          "unique_gt_count": 25,
+          "total_raw_samples_count": 416,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0,
+          "max_angular_v_seen": 0.0011,
+          "max_gt_displacement_m": 0.0001,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      }
+    },
+    {
+      "dispatch": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "M0_S1_ep3_nav_step2",
+        "goal_uuid": "927a434c-10e6-5bdc-95c1-7dac2749789e",
+        "normalized_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step2",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "effective_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step2",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "ACCEPTED",
+          "accepted": true,
+          "goal_id": "927a434c-10e6-5bdc-95c1-7dac2749789e",
+          "uuid_verified": true
+        }
+      },
+      "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+      "terminal_status_name": "CANCELED",
+      "status_code": 5,
+      "deadline_exceeded": true,
+      "failure_reason": "SIM_BUDGET_EXCEEDED",
+      "settled_ok": true,
+      "safety_intervention": false,
+      "evaluation": {
+        "nav2_action_status": "CANCELED",
+        "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+        "deadline_exceeded": true,
+        "nav2_action_succeeded": false,
+        "failure_reason": "SIM_BUDGET_EXCEEDED",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.2928,
+          "gt_yaw_error_rad": 1.4524,
+          "amcl_position_error_m": 3.3299,
+          "amcl_yaw_error_rad": 1.4719,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.4
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.4,
+          "odom_duration_covered": 2.788,
+          "gt_duration_covered": 2.5,
+          "unique_samples_count": 108,
+          "unique_odom_count": 83,
+          "unique_gt_count": 26,
+          "total_raw_samples_count": 424,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.0018,
+          "max_gt_displacement_m": 0.0002,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      }
+    },
+    {
+      "dispatch": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "M0_S1_ep3_nav_step3",
+        "goal_uuid": "2e6fc5cc-2304-543f-82b1-0df430a86e5b",
+        "normalized_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step3",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "effective_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step3",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "ACCEPTED",
+          "accepted": true,
+          "goal_id": "2e6fc5cc-2304-543f-82b1-0df430a86e5b",
+          "uuid_verified": true
+        }
+      },
+      "execution_outcome": "EXECUTION_FAILED",
+      "terminal_status_name": "ABORTED",
+      "status_code": 6,
+      "deadline_exceeded": false,
+      "failure_reason": "NAV2_ABORTED",
+      "settled_ok": true,
+      "safety_intervention": false,
+      "evaluation": {
+        "nav2_action_status": "ABORTED",
+        "execution_outcome": "EXECUTION_FAILED",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": false,
+        "failure_reason": "NAV2_ABORTED",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.6006,
+          "gt_yaw_error_rad": 1.7681,
+          "amcl_position_error_m": 3.6435,
+          "amcl_yaw_error_rad": 1.7518,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.4
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.3,
+          "odom_duration_covered": 2.754,
+          "gt_duration_covered": 2.4,
+          "unique_samples_count": 105,
+          "unique_odom_count": 81,
+          "unique_gt_count": 25,
+          "total_raw_samples_count": 416,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.0027,
+          "max_gt_displacement_m": 0.0004,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      }
+    },
+    {
+      "dispatch": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "M0_S1_ep3_nav_step4",
+        "goal_uuid": "50e791e1-3834-5e8f-9cda-5d0f063af65d",
+        "normalized_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step4",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "effective_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step4",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "ACCEPTED",
+          "accepted": true,
+          "goal_id": "50e791e1-3834-5e8f-9cda-5d0f063af65d",
+          "uuid_verified": true
+        }
+      },
+      "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+      "terminal_status_name": "CANCELED",
+      "status_code": 5,
+      "deadline_exceeded": true,
+      "failure_reason": "SIM_BUDGET_EXCEEDED",
+      "settled_ok": true,
+      "safety_intervention": false,
+      "evaluation": {
+        "nav2_action_status": "CANCELED",
+        "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+        "deadline_exceeded": true,
+        "nav2_action_succeeded": false,
+        "failure_reason": "SIM_BUDGET_EXCEEDED",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.5468,
+          "gt_yaw_error_rad": 2.9259,
+          "amcl_position_error_m": 3.6301,
+          "amcl_yaw_error_rad": 2.9051,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.4
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.3,
+          "odom_duration_covered": 2.754,
+          "gt_duration_covered": 2.4,
+          "unique_samples_count": 105,
+          "unique_odom_count": 81,
+          "unique_gt_count": 25,
+          "total_raw_samples_count": 414,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.001,
+          "max_gt_displacement_m": 0.0,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      }
+    },
+    {
+      "dispatch": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "M0_S1_ep3_nav_step5",
+        "goal_uuid": "82d403a1-b78c-563b-9210-dce480593dd0",
+        "normalized_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step5",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "effective_action": {
+          "action": "navigate",
+          "action_id": "M0_S1_ep3_nav_step5",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "ACCEPTED",
+          "accepted": true,
+          "goal_id": "82d403a1-b78c-563b-9210-dce480593dd0",
+          "uuid_verified": true
+        }
+      },
+      "execution_outcome": "EXECUTION_FAILED",
+      "terminal_status_name": "ABORTED",
+      "status_code": 6,
+      "deadline_exceeded": false,
+      "failure_reason": "NAV2_ABORTED",
+      "settled_ok": true,
+      "safety_intervention": false,
+      "evaluation": {
+        "nav2_action_status": "ABORTED",
+        "execution_outcome": "EXECUTION_FAILED",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": false,
+        "failure_reason": "NAV2_ABORTED",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.5847,
+          "gt_yaw_error_rad": 0.288,
+          "amcl_position_error_m": 3.6637,
+          "amcl_yaw_error_rad": 0.3276,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.4
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.3,
+          "odom_duration_covered": 2.686,
+          "gt_duration_covered": 2.4,
+          "unique_samples_count": 104,
+          "unique_odom_count": 80,
+          "unique_gt_count": 25,
+          "total_raw_samples_count": 414,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.001,
+          "max_gt_displacement_m": 0.0,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": true,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      }
+    }
+  ]
+}

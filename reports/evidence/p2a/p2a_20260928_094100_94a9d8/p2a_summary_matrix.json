@@ -1,0 +1,4841 @@
+{
+  "run_id": "p2a_20260928_094100_94a9d8",
+  "timestamp": "2026-09-28T10:08:46.073196+00:00",
+  "protocol_sha256": "e74f71444b79d4d72eae7124c640a02df0d8cb0d1864fd0e20f8eb673bb7091c",
+  "smoke_mode": false,
+  "total_episodes": 18,
+  "conditions_evaluated": [
+    "M0_S1",
+    "M0_S2",
+    "M1_S1",
+    "M1_S2",
+    "M2_S1",
+    "M2_S2"
+  ],
+  "episodes": [
+    {
+      "episode_id": "M0_S1_ep1",
+      "condition_id": "M0_S1",
+      "policy_name": "M0",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 5,
+      "redundant_retries_count": 4,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "policy_name": "M0_NO_MEMORY",
+        "dispatches_attempted": 5,
+        "failures_recorded": 5,
+        "memory_entries": []
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep1_nav_step1",
+            "goal_uuid": "cb2a198b-15ac-56e9-abe0-8336bbbb9dfe",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "cb2a198b-15ac-56e9-abe0-8336bbbb9dfe",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0433,
+              "amcl_position_error_m": 3.6586,
+              "amcl_yaw_error_rad": 3.0768,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 399,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep1_nav_step2",
+            "goal_uuid": "e83c2c0c-561b-5287-9197-958b037f1ac4",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "e83c2c0c-561b-5287-9197-958b037f1ac4",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "terminal_status_name": "CANCELED",
+          "status_code": 5,
+          "deadline_exceeded": true,
+          "failure_reason": "SIM_BUDGET_EXCEEDED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "CANCELED",
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "nav2_action_succeeded": false,
+            "failure_reason": "SIM_BUDGET_EXCEEDED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.2929,
+              "gt_yaw_error_rad": 1.4467,
+              "amcl_position_error_m": 3.3307,
+              "amcl_yaw_error_rad": 1.402,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.686,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 104,
+              "unique_odom_count": 80,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 403,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.0019,
+              "max_gt_displacement_m": 0.0002,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep1_nav_step3",
+            "goal_uuid": "97eacb85-28b4-57a1-b1f8-e6c5631852d5",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step3",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step3",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "97eacb85-28b4-57a1-b1f8-e6c5631852d5",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.6004,
+              "gt_yaw_error_rad": 1.7764,
+              "amcl_position_error_m": 3.617,
+              "amcl_yaw_error_rad": 1.7774,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.686,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 104,
+              "unique_odom_count": 80,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 397,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0002,
+              "max_angular_v_seen": 0.0028,
+              "max_gt_displacement_m": 0.0003,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep1_nav_step4",
+            "goal_uuid": "ff883606-7c6c-584d-9279-f86db21f8346",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step4",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step4",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "ff883606-7c6c-584d-9279-f86db21f8346",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "terminal_status_name": "CANCELED",
+          "status_code": 5,
+          "deadline_exceeded": true,
+          "failure_reason": "SIM_BUDGET_EXCEEDED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "CANCELED",
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "nav2_action_succeeded": false,
+            "failure_reason": "SIM_BUDGET_EXCEEDED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5514,
+              "gt_yaw_error_rad": 2.9178,
+              "amcl_position_error_m": 3.5938,
+              "amcl_yaw_error_rad": 2.8564,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.686,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 104,
+              "unique_odom_count": 80,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 398,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.001,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep1_nav_step5",
+            "goal_uuid": "81e87631-9ff0-51eb-b5be-2dd159a27f24",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step5",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep1_nav_step5",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "81e87631-9ff0-51eb-b5be-2dd159a27f24",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5914,
+              "gt_yaw_error_rad": 0.2971,
+              "amcl_position_error_m": 3.6458,
+              "amcl_yaw_error_rad": 0.2838,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 397,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.001,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M0_S1_ep2",
+      "condition_id": "M0_S1",
+      "policy_name": "M0",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 5,
+      "redundant_retries_count": 4,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "policy_name": "M0_NO_MEMORY",
+        "dispatches_attempted": 5,
+        "failures_recorded": 5,
+        "memory_entries": []
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep2_nav_step1",
+            "goal_uuid": "e44372a0-daea-5361-b2b2-c90c972ee2ba",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "e44372a0-daea-5361-b2b2-c90c972ee2ba",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0433,
+              "amcl_position_error_m": 3.671,
+              "amcl_yaw_error_rad": 3.0389,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 415,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep2_nav_step2",
+            "goal_uuid": "90a8d5a2-9fa0-5322-9edd-7fe9a0e76b62",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "90a8d5a2-9fa0-5322-9edd-7fe9a0e76b62",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "terminal_status_name": "CANCELED",
+          "status_code": 5,
+          "deadline_exceeded": true,
+          "failure_reason": "SIM_BUDGET_EXCEEDED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "CANCELED",
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "nav2_action_succeeded": false,
+            "failure_reason": "SIM_BUDGET_EXCEEDED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.2931,
+              "gt_yaw_error_rad": 1.4469,
+              "amcl_position_error_m": 3.3236,
+              "amcl_yaw_error_rad": 1.4427,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.686,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 104,
+              "unique_odom_count": 80,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 405,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.0019,
+              "max_gt_displacement_m": 0.0002,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep2_nav_step3",
+            "goal_uuid": "25624fe1-92ce-5a55-8991-f8e9a533f388",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step3",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step3",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "25624fe1-92ce-5a55-8991-f8e9a533f388",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.6006,
+              "gt_yaw_error_rad": 1.7757,
+              "amcl_position_error_m": 3.6696,
+              "amcl_yaw_error_rad": 1.8246,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 400,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0002,
+              "max_angular_v_seen": 0.0028,
+              "max_gt_displacement_m": 0.0004,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep2_nav_step4",
+            "goal_uuid": "97952860-dc92-570b-932a-8321be545666",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step4",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step4",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "97952860-dc92-570b-932a-8321be545666",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "terminal_status_name": "CANCELED",
+          "status_code": 5,
+          "deadline_exceeded": true,
+          "failure_reason": "SIM_BUDGET_EXCEEDED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "CANCELED",
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "nav2_action_succeeded": false,
+            "failure_reason": "SIM_BUDGET_EXCEEDED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5446,
+              "gt_yaw_error_rad": 2.9184,
+              "amcl_position_error_m": 3.6469,
+              "amcl_yaw_error_rad": 2.9475,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.686,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 104,
+              "unique_odom_count": 80,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 399,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.001,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep2_nav_step5",
+            "goal_uuid": "b4ad4cf2-33a1-52ff-acdd-b1eee537615a",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step5",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep2_nav_step5",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "b4ad4cf2-33a1-52ff-acdd-b1eee537615a",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.585,
+              "gt_yaw_error_rad": 0.2954,
+              "amcl_position_error_m": 3.6469,
+              "amcl_yaw_error_rad": 0.3034,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.72,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 395,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.001,
+              "max_gt_displacement_m": 0.0,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M0_S1_ep3",
+      "condition_id": "M0_S1",
+      "policy_name": "M0",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 5,
+      "redundant_retries_count": 4,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "policy_name": "M0_NO_MEMORY",
+        "dispatches_attempted": 5,
+        "failures_recorded": 5,
+        "memory_entries": []
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep3_nav_step1",
+            "goal_uuid": "1f26d469-7f6d-5faf-bb99-a48795b23fac",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "1f26d469-7f6d-5faf-bb99-a48795b23fac",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0432,
+              "amcl_position_error_m": 3.6731,
+              "amcl_yaw_error_rad": 3.0314,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.686,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 104,
+              "unique_odom_count": 80,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 397,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep3_nav_step2",
+            "goal_uuid": "a69fd510-c6c0-5ad9-b839-052d3b993e16",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "a69fd510-c6c0-5ad9-b839-052d3b993e16",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "terminal_status_name": "CANCELED",
+          "status_code": 5,
+          "deadline_exceeded": true,
+          "failure_reason": "SIM_BUDGET_EXCEEDED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "CANCELED",
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "nav2_action_succeeded": false,
+            "failure_reason": "SIM_BUDGET_EXCEEDED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.2923,
+              "gt_yaw_error_rad": 1.4465,
+              "amcl_position_error_m": 3.3389,
+              "amcl_yaw_error_rad": 1.4675,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.72,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 104,
+              "unique_odom_count": 80,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 395,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.0019,
+              "max_gt_displacement_m": 0.0002,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep3_nav_step3",
+            "goal_uuid": "ec5071a4-145e-5b87-9ae6-1d3ac9289266",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step3",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step3",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "ec5071a4-145e-5b87-9ae6-1d3ac9289266",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5999,
+              "gt_yaw_error_rad": 1.776,
+              "amcl_position_error_m": 3.6823,
+              "amcl_yaw_error_rad": 1.8301,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.72,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 394,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0002,
+              "max_angular_v_seen": 0.0028,
+              "max_gt_displacement_m": 0.0004,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep3_nav_step4",
+            "goal_uuid": "35343658-3aa8-5202-9f38-c37c09275551",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step4",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step4",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "35343658-3aa8-5202-9f38-c37c09275551",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "terminal_status_name": "CANCELED",
+          "status_code": 5,
+          "deadline_exceeded": true,
+          "failure_reason": "SIM_BUDGET_EXCEEDED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "CANCELED",
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "nav2_action_succeeded": false,
+            "failure_reason": "SIM_BUDGET_EXCEEDED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5056,
+              "gt_yaw_error_rad": 2.917,
+              "amcl_position_error_m": 3.5876,
+              "amcl_yaw_error_rad": 2.8983,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.72,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 399,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.001,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S1_ep3_nav_step5",
+            "goal_uuid": "620aa187-7a8c-5805-8373-7690b1e134eb",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step5",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S1_ep3_nav_step5",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "620aa187-7a8c-5805-8373-7690b1e134eb",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.546,
+              "gt_yaw_error_rad": 0.2985,
+              "amcl_position_error_m": 3.6045,
+              "amcl_yaw_error_rad": 0.3266,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.72,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 399,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.001,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M0_S2_ep1",
+      "condition_id": "M0_S2",
+      "policy_name": "M0",
+      "sequence_name": "S2",
+      "task_success": true,
+      "mechanism_verified": true,
+      "dispatches_attempted": 2,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "policy_name": "M0_NO_MEMORY",
+        "dispatches_attempted": 2,
+        "failures_recorded": 1,
+        "memory_entries": []
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S2_ep1_nav_step1",
+            "goal_uuid": "2895ff21-4daf-5dbd-8e9a-aa6d212a2ba3",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "2895ff21-4daf-5dbd-8e9a-aa6d212a2ba3",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.3006,
+              "gt_yaw_error_rad": 3.0713,
+              "amcl_position_error_m": 3.3312,
+              "amcl_yaw_error_rad": 3.0665,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 108,
+              "unique_odom_count": 83,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 408,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S2_ep1_nav_step2",
+            "goal_uuid": "582384db-015d-5fae-acc2-6e9dfeb5bd5f",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep1_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep1_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "582384db-015d-5fae-acc2-6e9dfeb5bd5f",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_SUCCESS",
+          "terminal_status_name": "SUCCEEDED",
+          "status_code": 4,
+          "deadline_exceeded": false,
+          "failure_reason": null,
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "SUCCEEDED",
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": true,
+            "failure_reason": null,
+            "final_geometric_errors": {
+              "gt_position_error_m": 0.1945,
+              "gt_yaw_error_rad": 0.0736,
+              "amcl_position_error_m": 0.2729,
+              "amcl_yaw_error_rad": 0.0624,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 108,
+              "unique_odom_count": 81,
+              "unique_gt_count": 28,
+              "total_raw_samples_count": 412,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0006,
+              "max_angular_v_seen": 0.009,
+              "max_gt_displacement_m": 0.0,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": true,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": true,
+            "strict_physical_arrival_and_stable": true
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M0_S2_ep2",
+      "condition_id": "M0_S2",
+      "policy_name": "M0",
+      "sequence_name": "S2",
+      "task_success": true,
+      "mechanism_verified": true,
+      "dispatches_attempted": 2,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "policy_name": "M0_NO_MEMORY",
+        "dispatches_attempted": 2,
+        "failures_recorded": 1,
+        "memory_entries": []
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S2_ep2_nav_step1",
+            "goal_uuid": "119a759f-d39e-5181-b555-2cc5464de8c2",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "119a759f-d39e-5181-b555-2cc5464de8c2",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.316,
+              "gt_yaw_error_rad": 3.0969,
+              "amcl_position_error_m": 3.3997,
+              "amcl_yaw_error_rad": 3.1011,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.89,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 110,
+              "unique_odom_count": 85,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 403,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0012,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S2_ep2_nav_step2",
+            "goal_uuid": "129576e1-d851-5661-8878-25c359754381",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep2_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep2_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "129576e1-d851-5661-8878-25c359754381",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_SUCCESS",
+          "terminal_status_name": "SUCCEEDED",
+          "status_code": 4,
+          "deadline_exceeded": false,
+          "failure_reason": null,
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "SUCCEEDED",
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": true,
+            "failure_reason": null,
+            "final_geometric_errors": {
+              "gt_position_error_m": 0.2011,
+              "gt_yaw_error_rad": 0.079,
+              "amcl_position_error_m": 0.2599,
+              "amcl_yaw_error_rad": 0.0765,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 112,
+              "unique_odom_count": 84,
+              "unique_gt_count": 29,
+              "total_raw_samples_count": 422,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0007,
+              "max_angular_v_seen": 0.0095,
+              "max_gt_displacement_m": 0.0,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": true,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": true,
+            "strict_physical_arrival_and_stable": true
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M0_S2_ep3",
+      "condition_id": "M0_S2",
+      "policy_name": "M0",
+      "sequence_name": "S2",
+      "task_success": true,
+      "mechanism_verified": true,
+      "dispatches_attempted": 3,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "policy_name": "M0_NO_MEMORY",
+        "dispatches_attempted": 3,
+        "failures_recorded": 2,
+        "memory_entries": []
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S2_ep3_nav_step1",
+            "goal_uuid": "4afbdd6f-3d46-5b64-ae28-aaf599880f84",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "4afbdd6f-3d46-5b64-ae28-aaf599880f84",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0432,
+              "amcl_position_error_m": 3.702,
+              "amcl_yaw_error_rad": 3.0327,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 399,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S2_ep3_nav_step2",
+            "goal_uuid": "160f10e8-1fea-5fad-b71b-fc4bb44abe24",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep3_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep3_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "160f10e8-1fea-5fad-b71b-fc4bb44abe24",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_SUCCESS",
+          "terminal_status_name": "SUCCEEDED",
+          "status_code": 4,
+          "deadline_exceeded": false,
+          "failure_reason": null,
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "SUCCEEDED",
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": true,
+            "failure_reason": null,
+            "final_geometric_errors": {
+              "gt_position_error_m": 0.1945,
+              "gt_yaw_error_rad": 0.04,
+              "amcl_position_error_m": 0.2376,
+              "amcl_yaw_error_rad": 0.0283,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 112,
+              "unique_odom_count": 84,
+              "unique_gt_count": 29,
+              "total_raw_samples_count": 433,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": false,
+              "max_linear_v_seen": 0.0125,
+              "max_angular_v_seen": 0.0652,
+              "max_gt_displacement_m": 0.0004,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": false,
+              "halt_failure_reason": "EXCESS_VELOCITY (max lv=0.0125 > 0.05 or max av=0.0652 > 0.05)"
+            },
+            "all_window_pos_ok": true,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": true,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M0_S2_ep3_nav_step3",
+            "goal_uuid": "18fe2aee-3568-5568-97d8-7fc85ddefd4e",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep3_nav_step3",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M0_S2_ep3_nav_step3",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "18fe2aee-3568-5568-97d8-7fc85ddefd4e",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_SUCCESS",
+          "terminal_status_name": "SUCCEEDED",
+          "status_code": 4,
+          "deadline_exceeded": false,
+          "failure_reason": null,
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "SUCCEEDED",
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": true,
+            "failure_reason": null,
+            "final_geometric_errors": {
+              "gt_position_error_m": 0.1947,
+              "gt_yaw_error_rad": 0.0767,
+              "amcl_position_error_m": 0.2281,
+              "amcl_yaw_error_rad": 0.082,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.788,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 82,
+              "unique_gt_count": 28,
+              "total_raw_samples_count": 415,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0072,
+              "max_angular_v_seen": 0.0365,
+              "max_gt_displacement_m": 0.0004,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": true,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": true,
+            "strict_physical_arrival_and_stable": true
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M1_S1_ep1",
+      "condition_id": "M1_S1",
+      "policy_name": "M1",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "policy_name": "M1_PERSISTENT_MEMORY",
+        "dispatches_attempted": 2,
+        "dispatches_blocked": 1,
+        "blocked_goals": [
+          {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "sim_time": 51.2,
+            "reason": "EXECUTION_FAILED"
+          }
+        ],
+        "blocked_regions": [
+          "room2_corridor_chokepoint"
+        ]
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M1_S1_ep1_nav_step1",
+            "goal_uuid": "62a23654-ccec-537a-bd58-586cbc9e738b",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M1_S1_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M1_S1_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "62a23654-ccec-537a-bd58-586cbc9e738b",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0433,
+              "amcl_position_error_m": 3.6597,
+              "amcl_yaw_error_rad": 3.0728,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 108,
+              "unique_odom_count": 83,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 399,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M1_S1_ep2",
+      "condition_id": "M1_S1",
+      "policy_name": "M1",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "policy_name": "M1_PERSISTENT_MEMORY",
+        "dispatches_attempted": 2,
+        "dispatches_blocked": 1,
+        "blocked_goals": [
+          {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "sim_time": 51.4,
+            "reason": "EXECUTION_FAILED"
+          }
+        ],
+        "blocked_regions": [
+          "room2_corridor_chokepoint"
+        ]
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M1_S1_ep2_nav_step1",
+            "goal_uuid": "56e3e2e1-ba37-564e-bc6b-5d4fa803305b",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M1_S1_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M1_S1_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "56e3e2e1-ba37-564e-bc6b-5d4fa803305b",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.3152,
+              "gt_yaw_error_rad": 3.0183,
+              "amcl_position_error_m": 3.3642,
+              "amcl_yaw_error_rad": 3.0585,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 110,
+              "unique_odom_count": 85,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 412,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M1_S1_ep3",
+      "condition_id": "M1_S1",
+      "policy_name": "M1",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "policy_name": "M1_PERSISTENT_MEMORY",
+        "dispatches_attempted": 2,
+        "dispatches_blocked": 1,
+        "blocked_goals": [
+          {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "sim_time": 51.6,
+            "reason": "EXECUTION_FAILED"
+          }
+        ],
+        "blocked_regions": [
+          "room2_corridor_chokepoint"
+        ]
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M1_S1_ep3_nav_step1",
+            "goal_uuid": "a7ab1c9a-985e-51c0-97ba-d0851ab5e467",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M1_S1_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M1_S1_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "a7ab1c9a-985e-51c0-97ba-d0851ab5e467",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.3333,
+              "gt_yaw_error_rad": 3.0745,
+              "amcl_position_error_m": 3.3718,
+              "amcl_yaw_error_rad": 3.0831,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 412,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0012,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M1_S2_ep1",
+      "condition_id": "M1_S2",
+      "policy_name": "M1",
+      "sequence_name": "S2",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "policy_name": "M1_PERSISTENT_MEMORY",
+        "dispatches_attempted": 5,
+        "dispatches_blocked": 4,
+        "blocked_goals": [
+          {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "sim_time": 51.6,
+            "reason": "EXECUTION_FAILED"
+          }
+        ],
+        "blocked_regions": [
+          "room2_corridor_chokepoint"
+        ]
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M1_S2_ep1_nav_step1",
+            "goal_uuid": "3cb089e6-35df-5eea-ab6e-372091cc4aa4",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M1_S2_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M1_S2_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "3cb089e6-35df-5eea-ab6e-372091cc4aa4",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.2984,
+              "gt_yaw_error_rad": 3.0446,
+              "amcl_position_error_m": 3.3485,
+              "amcl_yaw_error_rad": 3.0525,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 401,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M1_S2_ep2",
+      "condition_id": "M1_S2",
+      "policy_name": "M1",
+      "sequence_name": "S2",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "policy_name": "M1_PERSISTENT_MEMORY",
+        "dispatches_attempted": 5,
+        "dispatches_blocked": 4,
+        "blocked_goals": [
+          {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "sim_time": 51.8,
+            "reason": "EXECUTION_FAILED"
+          }
+        ],
+        "blocked_regions": [
+          "room2_corridor_chokepoint"
+        ]
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M1_S2_ep2_nav_step1",
+            "goal_uuid": "3f8d0d52-227b-50b8-8c38-97fd741159d4",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M1_S2_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M1_S2_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "3f8d0d52-227b-50b8-8c38-97fd741159d4",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.2897,
+              "gt_yaw_error_rad": 3.0103,
+              "amcl_position_error_m": 3.3663,
+              "amcl_yaw_error_rad": 2.9985,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 405,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M1_S2_ep3",
+      "condition_id": "M1_S2",
+      "policy_name": "M1",
+      "sequence_name": "S2",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "policy_name": "M1_PERSISTENT_MEMORY",
+        "dispatches_attempted": 5,
+        "dispatches_blocked": 4,
+        "blocked_goals": [
+          {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "sim_time": 51.0,
+            "reason": "EXECUTION_FAILED"
+          }
+        ],
+        "blocked_regions": [
+          "room2_corridor_chokepoint"
+        ]
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M1_S2_ep3_nav_step1",
+            "goal_uuid": "7da68409-175b-5dd1-9b83-bcb92b1ae5a5",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M1_S2_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M1_S2_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "7da68409-175b-5dd1-9b83-bcb92b1ae5a5",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0433,
+              "amcl_position_error_m": 3.6587,
+              "amcl_yaw_error_rad": 3.0312,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 400,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M2_S1_ep1",
+      "condition_id": "M2_S1",
+      "policy_name": "M2",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "total_entries": 1,
+        "active_count": 1,
+        "invalidated_count": 0,
+        "recovery_verified_count": 0,
+        "entries": [
+          {
+            "memory_id": "mem_entry_0001",
+            "created_sim_time": 50.6,
+            "target_goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "target_region": "room2_corridor_chokepoint",
+            "failure_reason": "EXECUTION_FAILED",
+            "invalidation_criteria": {
+              "type": "DOORWAY_CLEARANCE",
+              "region": "room2_corridor_chokepoint",
+              "required_doorway_state": "FREE"
+            },
+            "state": "ACTIVE",
+            "invalidation_sim_time": null,
+            "invalidation_evidence": null,
+            "verification_sim_time": null,
+            "verification_evidence": null,
+            "metadata": {
+              "initial_evidence": {
+                "doorway_state": "OCCUPIED",
+                "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+                "doorway_bbox": [
+                  -0.3,
+                  0.3,
+                  -0.35,
+                  0.35
+                ],
+                "hits_inside_count": 25,
+                "pass_through_count": 0,
+                "rays_intersecting_bbox_count": 26,
+                "sample_hits_inside": [
+                  [
+                    -0.2399,
+                    -0.3492,
+                    1.5083
+                  ],
+                  [
+                    -0.201,
+                    -0.3217,
+                    1.5478
+                  ],
+                  [
+                    -0.2011,
+                    -0.2946,
+                    1.5487
+                  ],
+                  [
+                    -0.2249,
+                    -0.269,
+                    1.5263
+                  ],
+                  [
+                    -0.2215,
+                    -0.2419,
+                    1.5317
+                  ]
+                ],
+                "sample_pass_through": [],
+                "laser_origin_map": [
+                  -1.7481,
+                  -0.3667
+                ],
+                "laser_yaw_map": -3.0497,
+                "costmap_status": "VALID",
+                "costmap_summary": {
+                  "status": "VALID",
+                  "error": null,
+                  "grid_bounds_u": [
+                    73,
+                    85
+                  ],
+                  "grid_bounds_v": [
+                    42,
+                    56
+                  ],
+                  "total_cells": 195,
+                  "unknown_cells": 0,
+                  "occupied_cells": 16,
+                  "free_cells": 179,
+                  "max_cost": 100,
+                  "costmap_cleared": false,
+                  "stamp_sec": 48.7
+                },
+                "error": null,
+                "doorway_cleared": false,
+                "points_count": 25
+              }
+            }
+          }
+        ],
+        "policy_name": "M2_CONDITIONAL_MEMORY",
+        "dispatches_attempted": 2,
+        "dispatches_blocked": 1,
+        "dispatches_permitted": 1
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S1_ep1_nav_step1",
+            "goal_uuid": "c3d0a7ca-8914-5dba-8a85-757a6fc9ce72",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S1_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S1_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "c3d0a7ca-8914-5dba-8a85-757a6fc9ce72",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0433,
+              "amcl_position_error_m": 3.6312,
+              "amcl_yaw_error_rad": 3.0452,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 108,
+              "unique_odom_count": 83,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 402,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M2_S1_ep2",
+      "condition_id": "M2_S1",
+      "policy_name": "M2",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "total_entries": 1,
+        "active_count": 1,
+        "invalidated_count": 0,
+        "recovery_verified_count": 0,
+        "entries": [
+          {
+            "memory_id": "mem_entry_0001",
+            "created_sim_time": 51.8,
+            "target_goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "target_region": "room2_corridor_chokepoint",
+            "failure_reason": "EXECUTION_FAILED",
+            "invalidation_criteria": {
+              "type": "DOORWAY_CLEARANCE",
+              "region": "room2_corridor_chokepoint",
+              "required_doorway_state": "FREE"
+            },
+            "state": "ACTIVE",
+            "invalidation_sim_time": null,
+            "invalidation_evidence": null,
+            "verification_sim_time": null,
+            "verification_evidence": null,
+            "metadata": {
+              "initial_evidence": {
+                "doorway_state": "OCCUPIED",
+                "reason": "OBSTACLE_DETECTED (30 laser hits inside doorway bbox, costmap_occupied=17)",
+                "doorway_bbox": [
+                  -0.3,
+                  0.3,
+                  -0.35,
+                  0.35
+                ],
+                "hits_inside_count": 30,
+                "pass_through_count": 0,
+                "rays_intersecting_bbox_count": 31,
+                "sample_hits_inside": [
+                  [
+                    -0.2299,
+                    -0.3375,
+                    1.2297
+                  ],
+                  [
+                    -0.224,
+                    -0.3158,
+                    1.2362
+                  ],
+                  [
+                    -0.2302,
+                    -0.2944,
+                    1.2309
+                  ],
+                  [
+                    -0.2347,
+                    -0.2732,
+                    1.2277
+                  ],
+                  [
+                    -0.2304,
+                    -0.2512,
+                    1.2336
+                  ]
+                ],
+                "sample_pass_through": [],
+                "laser_origin_map": [
+                  -1.4595,
+                  -0.3576
+                ],
+                "laser_yaw_map": -3.0275,
+                "costmap_status": "VALID",
+                "costmap_summary": {
+                  "status": "VALID",
+                  "error": null,
+                  "grid_bounds_u": [
+                    73,
+                    85
+                  ],
+                  "grid_bounds_v": [
+                    42,
+                    56
+                  ],
+                  "total_cells": 195,
+                  "unknown_cells": 0,
+                  "occupied_cells": 17,
+                  "free_cells": 178,
+                  "max_cost": 100,
+                  "costmap_cleared": false,
+                  "stamp_sec": 50.6
+                },
+                "error": null,
+                "doorway_cleared": false,
+                "points_count": 30
+              }
+            }
+          }
+        ],
+        "policy_name": "M2_CONDITIONAL_MEMORY",
+        "dispatches_attempted": 2,
+        "dispatches_blocked": 1,
+        "dispatches_permitted": 1
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S1_ep2_nav_step1",
+            "goal_uuid": "fad5b1a7-1ce3-50cf-96a7-8bc9c07ab85c",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S1_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S1_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "fad5b1a7-1ce3-50cf-96a7-8bc9c07ab85c",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.3068,
+              "gt_yaw_error_rad": 3.0447,
+              "amcl_position_error_m": 3.3432,
+              "amcl_yaw_error_rad": 3.0229,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 404,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M2_S1_ep3",
+      "condition_id": "M2_S1",
+      "policy_name": "M2",
+      "sequence_name": "S1",
+      "task_success": false,
+      "mechanism_verified": true,
+      "dispatches_attempted": 1,
+      "redundant_retries_count": 0,
+      "invalidation_verified": false,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": false,
+      "policy_final_state": {
+        "total_entries": 1,
+        "active_count": 1,
+        "invalidated_count": 0,
+        "recovery_verified_count": 0,
+        "entries": [
+          {
+            "memory_id": "mem_entry_0001",
+            "created_sim_time": 50.4,
+            "target_goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "target_region": "room2_corridor_chokepoint",
+            "failure_reason": "EXECUTION_FAILED",
+            "invalidation_criteria": {
+              "type": "DOORWAY_CLEARANCE",
+              "region": "room2_corridor_chokepoint",
+              "required_doorway_state": "FREE"
+            },
+            "state": "ACTIVE",
+            "invalidation_sim_time": null,
+            "invalidation_evidence": null,
+            "verification_sim_time": null,
+            "verification_evidence": null,
+            "metadata": {
+              "initial_evidence": {
+                "doorway_state": "OCCUPIED",
+                "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=18)",
+                "doorway_bbox": [
+                  -0.3,
+                  0.3,
+                  -0.35,
+                  0.35
+                ],
+                "hits_inside_count": 25,
+                "pass_through_count": 0,
+                "rays_intersecting_bbox_count": 26,
+                "sample_hits_inside": [
+                  [
+                    -0.2315,
+                    -0.3459,
+                    1.5375
+                  ],
+                  [
+                    -0.252,
+                    -0.3191,
+                    1.517
+                  ],
+                  [
+                    -0.239,
+                    -0.2923,
+                    1.5303
+                  ],
+                  [
+                    -0.2395,
+                    -0.2655,
+                    1.5307
+                  ],
+                  [
+                    -0.2467,
+                    -0.2391,
+                    1.5248
+                  ]
+                ],
+                "sample_pass_through": [],
+                "laser_origin_map": [
+                  -1.7689,
+                  -0.3286
+                ],
+                "laser_yaw_map": -3.0725,
+                "costmap_status": "VALID",
+                "costmap_summary": {
+                  "status": "VALID",
+                  "error": null,
+                  "grid_bounds_u": [
+                    73,
+                    85
+                  ],
+                  "grid_bounds_v": [
+                    42,
+                    56
+                  ],
+                  "total_cells": 195,
+                  "unknown_cells": 0,
+                  "occupied_cells": 18,
+                  "free_cells": 177,
+                  "max_cost": 100,
+                  "costmap_cleared": false,
+                  "stamp_sec": 48.4
+                },
+                "error": null,
+                "doorway_cleared": false,
+                "points_count": 25
+              }
+            }
+          }
+        ],
+        "policy_name": "M2_CONDITIONAL_MEMORY",
+        "dispatches_attempted": 2,
+        "dispatches_blocked": 1,
+        "dispatches_permitted": 1
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S1_ep3_nav_step1",
+            "goal_uuid": "376ce8e5-bce9-5acd-bd14-3e4e997012e8",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S1_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S1_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "376ce8e5-bce9-5acd-bd14-3e4e997012e8",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0433,
+              "amcl_position_error_m": 3.6482,
+              "amcl_yaw_error_rad": 3.1029,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 400,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M2_S2_ep1",
+      "condition_id": "M2_S2",
+      "policy_name": "M2",
+      "sequence_name": "S2",
+      "task_success": false,
+      "mechanism_verified": false,
+      "dispatches_attempted": 2,
+      "redundant_retries_count": 0,
+      "invalidation_verified": true,
+      "recovery_verified": false,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "total_entries": 2,
+        "active_count": 1,
+        "invalidated_count": 1,
+        "recovery_verified_count": 0,
+        "entries": [
+          {
+            "memory_id": "mem_entry_0001",
+            "created_sim_time": 51.4,
+            "target_goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "target_region": "room2_corridor_chokepoint",
+            "failure_reason": "EXECUTION_FAILED",
+            "invalidation_criteria": {
+              "type": "DOORWAY_CLEARANCE",
+              "region": "room2_corridor_chokepoint",
+              "required_doorway_state": "FREE"
+            },
+            "state": "INVALIDATED",
+            "invalidation_sim_time": 55.5,
+            "invalidation_evidence": {
+              "doorway_state": "FREE",
+              "reason": "DOORWAY_CLEARANCE_VERIFIED (22 rays traversing through doorway to Room 2, costmap free)",
+              "doorway_bbox": [
+                -0.3,
+                0.3,
+                -0.35,
+                0.35
+              ],
+              "hits_inside_count": 0,
+              "pass_through_count": 22,
+              "rays_intersecting_bbox_count": 25,
+              "sample_hits_inside": [],
+              "sample_pass_through": [
+                [
+                  2.9217,
+                  -0.3493,
+                  4.7172
+                ],
+                [
+                  2.9179,
+                  -0.2668,
+                  4.7139
+                ],
+                [
+                  2.9301,
+                  -0.1839,
+                  4.7282
+                ],
+                [
+                  2.9397,
+                  -0.1006,
+                  4.7413
+                ],
+                [
+                  2.9197,
+                  -0.0188,
+                  4.7261
+                ]
+              ],
+              "laser_origin_map": [
+                -1.7955,
+                -0.3395
+              ],
+              "laser_yaw_map": -3.0634,
+              "costmap_status": "VALID",
+              "costmap_summary": {
+                "status": "VALID",
+                "error": null,
+                "grid_bounds_u": [
+                  73,
+                  85
+                ],
+                "grid_bounds_v": [
+                  42,
+                  56
+                ],
+                "total_cells": 195,
+                "unknown_cells": 0,
+                "occupied_cells": 0,
+                "free_cells": 195,
+                "max_cost": 99,
+                "costmap_cleared": true,
+                "stamp_sec": 54.5
+              },
+              "error": null,
+              "doorway_cleared": true,
+              "points_count": 0
+            },
+            "verification_sim_time": null,
+            "verification_evidence": null,
+            "metadata": {
+              "initial_evidence": {
+                "doorway_state": "OCCUPIED",
+                "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=30)",
+                "doorway_bbox": [
+                  -0.3,
+                  0.3,
+                  -0.35,
+                  0.35
+                ],
+                "hits_inside_count": 25,
+                "pass_through_count": 0,
+                "rays_intersecting_bbox_count": 25,
+                "sample_hits_inside": [
+                  [
+                    -0.2748,
+                    -0.3281,
+                    1.5219
+                  ],
+                  [
+                    -0.2761,
+                    -0.3015,
+                    1.521
+                  ],
+                  [
+                    -0.2641,
+                    -0.2744,
+                    1.5337
+                  ],
+                  [
+                    -0.2746,
+                    -0.2481,
+                    1.5245
+                  ],
+                  [
+                    -0.2829,
+                    -0.222,
+                    1.518
+                  ]
+                ],
+                "sample_pass_through": [],
+                "laser_origin_map": [
+                  -1.7967,
+                  -0.3336
+                ],
+                "laser_yaw_map": -3.0402,
+                "costmap_status": "VALID",
+                "costmap_summary": {
+                  "status": "VALID",
+                  "error": null,
+                  "grid_bounds_u": [
+                    73,
+                    85
+                  ],
+                  "grid_bounds_v": [
+                    42,
+                    56
+                  ],
+                  "total_cells": 195,
+                  "unknown_cells": 0,
+                  "occupied_cells": 30,
+                  "free_cells": 165,
+                  "max_cost": 100,
+                  "costmap_cleared": false,
+                  "stamp_sec": 50.5
+                },
+                "error": null,
+                "doorway_cleared": false,
+                "points_count": 25
+              }
+            }
+          },
+          {
+            "memory_id": "mem_entry_0002",
+            "created_sim_time": 79.8,
+            "target_goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "target_region": "room2_corridor_chokepoint",
+            "failure_reason": "BUDGET_SUCCESS",
+            "invalidation_criteria": {
+              "type": "DOORWAY_CLEARANCE",
+              "region": "room2_corridor_chokepoint",
+              "required_doorway_state": "FREE"
+            },
+            "state": "ACTIVE",
+            "invalidation_sim_time": null,
+            "invalidation_evidence": null,
+            "verification_sim_time": null,
+            "verification_evidence": null,
+            "metadata": {
+              "initial_evidence": {
+                "doorway_state": "UNKNOWN",
+                "reason": "INSUFFICIENT_CLEARANCE_EVIDENCE (hits=0, pass_through=0 < 8, costmap_cleared=True)",
+                "doorway_bbox": [
+                  -0.3,
+                  0.3,
+                  -0.35,
+                  0.35
+                ],
+                "hits_inside_count": 0,
+                "pass_through_count": 0,
+                "rays_intersecting_bbox_count": 32,
+                "sample_hits_inside": [],
+                "sample_pass_through": [],
+                "laser_origin_map": [
+                  1.508,
+                  0.0144
+                ],
+                "laser_yaw_map": -0.0263,
+                "costmap_status": "VALID",
+                "costmap_summary": {
+                  "status": "VALID",
+                  "error": null,
+                  "grid_bounds_u": [
+                    73,
+                    85
+                  ],
+                  "grid_bounds_v": [
+                    42,
+                    56
+                  ],
+                  "total_cells": 195,
+                  "unknown_cells": 0,
+                  "occupied_cells": 0,
+                  "free_cells": 195,
+                  "max_cost": 99,
+                  "costmap_cleared": true,
+                  "stamp_sec": 78.5
+                },
+                "error": null,
+                "doorway_cleared": false,
+                "points_count": 0
+              }
+            }
+          }
+        ],
+        "policy_name": "M2_CONDITIONAL_MEMORY",
+        "dispatches_attempted": 5,
+        "dispatches_blocked": 3,
+        "dispatches_permitted": 2
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S2_ep1_nav_step1",
+            "goal_uuid": "5b934680-2dc5-5028-b420-2ab42953d101",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep1_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "5b934680-2dc5-5028-b420-2ab42953d101",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5961,
+              "gt_yaw_error_rad": 3.0382,
+              "amcl_position_error_m": 3.6764,
+              "amcl_yaw_error_rad": 3.0359,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 400,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S2_ep1_nav_step2",
+            "goal_uuid": "30863755-bb86-51c2-bee1-d983ba02d4f6",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep1_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep1_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "30863755-bb86-51c2-bee1-d983ba02d4f6",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_SUCCESS",
+          "terminal_status_name": "SUCCEEDED",
+          "status_code": 4,
+          "deadline_exceeded": false,
+          "failure_reason": null,
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "SUCCEEDED",
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": true,
+            "failure_reason": null,
+            "final_geometric_errors": {
+              "gt_position_error_m": 0.2,
+              "gt_yaw_error_rad": 0.0515,
+              "amcl_position_error_m": 0.2282,
+              "amcl_yaw_error_rad": 0.0217,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.72,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 80,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 412,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": false,
+              "max_linear_v_seen": 0.0113,
+              "max_angular_v_seen": 0.0921,
+              "max_gt_displacement_m": 0.0004,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": false,
+              "halt_failure_reason": "EXCESS_VELOCITY (max lv=0.0113 > 0.05 or max av=0.0921 > 0.05)"
+            },
+            "all_window_pos_ok": true,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": true,
+            "strict_physical_arrival_and_stable": false
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M2_S2_ep2",
+      "condition_id": "M2_S2",
+      "policy_name": "M2",
+      "sequence_name": "S2",
+      "task_success": true,
+      "mechanism_verified": true,
+      "dispatches_attempted": 2,
+      "redundant_retries_count": 0,
+      "invalidation_verified": true,
+      "recovery_verified": true,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "total_entries": 1,
+        "active_count": 0,
+        "invalidated_count": 0,
+        "recovery_verified_count": 1,
+        "entries": [
+          {
+            "memory_id": "mem_entry_0001",
+            "created_sim_time": 51.8,
+            "target_goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "target_region": "room2_corridor_chokepoint",
+            "failure_reason": "EXECUTION_FAILED",
+            "invalidation_criteria": {
+              "type": "DOORWAY_CLEARANCE",
+              "region": "room2_corridor_chokepoint",
+              "required_doorway_state": "FREE"
+            },
+            "state": "RECOVERY_VERIFIED",
+            "invalidation_sim_time": 55.9,
+            "invalidation_evidence": {
+              "doorway_state": "FREE",
+              "reason": "DOORWAY_CLEARANCE_VERIFIED (21 rays traversing through doorway to Room 2, costmap free)",
+              "doorway_bbox": [
+                -0.3,
+                0.3,
+                -0.35,
+                0.35
+              ],
+              "hits_inside_count": 0,
+              "pass_through_count": 21,
+              "rays_intersecting_bbox_count": 25,
+              "sample_hits_inside": [],
+              "sample_pass_through": [
+                [
+                  2.9152,
+                  -0.3417,
+                  4.7167
+                ],
+                [
+                  2.9259,
+                  -0.259,
+                  4.7281
+                ],
+                [
+                  2.9285,
+                  -0.1762,
+                  4.7328
+                ],
+                [
+                  2.9146,
+                  -0.094,
+                  4.7224
+                ],
+                [
+                  2.9408,
+                  -0.0094,
+                  4.7537
+                ]
+              ],
+              "laser_origin_map": [
+                -1.8015,
+                -0.3373
+              ],
+              "laser_yaw_map": -3.0797,
+              "costmap_status": "VALID",
+              "costmap_summary": {
+                "status": "VALID",
+                "error": null,
+                "grid_bounds_u": [
+                  73,
+                  85
+                ],
+                "grid_bounds_v": [
+                  42,
+                  56
+                ],
+                "total_cells": 195,
+                "unknown_cells": 0,
+                "occupied_cells": 0,
+                "free_cells": 195,
+                "max_cost": 99,
+                "costmap_cleared": true,
+                "stamp_sec": 54.7
+              },
+              "error": null,
+              "doorway_cleared": true,
+              "points_count": 0
+            },
+            "verification_sim_time": 77.6,
+            "verification_evidence": {
+              "nav2_action_status": "SUCCEEDED",
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "nav2_action_succeeded": true,
+              "failure_reason": null,
+              "final_geometric_errors": {
+                "gt_position_error_m": 0.2032,
+                "gt_yaw_error_rad": 0.092,
+                "amcl_position_error_m": 0.2604,
+                "amcl_yaw_error_rad": 0.0896,
+                "thresholds_applied": {
+                  "position_tolerance_m": 0.3,
+                  "yaw_tolerance_rad": 0.4
+                }
+              },
+              "window_evaluation": {
+                "window_valid": true,
+                "failure_reasons": [],
+                "sim_duration_covered": 2.4,
+                "odom_duration_covered": 2.856,
+                "gt_duration_covered": 2.5,
+                "unique_samples_count": 112,
+                "unique_odom_count": 84,
+                "unique_gt_count": 29,
+                "total_raw_samples_count": 415,
+                "max_sampling_interval_sec": 0.1,
+                "data_fresh": true,
+                "watchdog_triggered": false
+              },
+              "halt_evaluation": {
+                "all_samples_stopped": true,
+                "max_linear_v_seen": 0.0059,
+                "max_angular_v_seen": 0.0326,
+                "max_gt_displacement_m": 0.0001,
+                "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+                "safety_intervention": false,
+                "halt_verified": true,
+                "halt_failure_reason": null
+              },
+              "all_window_pos_ok": true,
+              "all_window_yaw_ok": true,
+              "final_pose_arrived": true,
+              "strict_physical_arrival_and_stable": true
+            },
+            "metadata": {
+              "initial_evidence": {
+                "doorway_state": "OCCUPIED",
+                "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=22)",
+                "doorway_bbox": [
+                  -0.3,
+                  0.3,
+                  -0.35,
+                  0.35
+                ],
+                "hits_inside_count": 25,
+                "pass_through_count": 0,
+                "rays_intersecting_bbox_count": 25,
+                "sample_hits_inside": [
+                  [
+                    -0.268,
+                    -0.34,
+                    1.5251
+                  ],
+                  [
+                    -0.2709,
+                    -0.3134,
+                    1.5225
+                  ],
+                  [
+                    -0.2649,
+                    -0.2865,
+                    1.5293
+                  ],
+                  [
+                    -0.2738,
+                    -0.2602,
+                    1.5216
+                  ],
+                  [
+                    -0.2714,
+                    -0.2333,
+                    1.5257
+                  ]
+                ],
+                "sample_pass_through": [],
+                "laser_origin_map": [
+                  -1.7931,
+                  -0.3437
+                ],
+                "laser_yaw_map": -3.0589,
+                "costmap_status": "VALID",
+                "costmap_summary": {
+                  "status": "VALID",
+                  "error": null,
+                  "grid_bounds_u": [
+                    73,
+                    85
+                  ],
+                  "grid_bounds_v": [
+                    42,
+                    56
+                  ],
+                  "total_cells": 195,
+                  "unknown_cells": 0,
+                  "occupied_cells": 22,
+                  "free_cells": 173,
+                  "max_cost": 100,
+                  "costmap_cleared": false,
+                  "stamp_sec": 50.7
+                },
+                "error": null,
+                "doorway_cleared": false,
+                "points_count": 25
+              }
+            }
+          }
+        ],
+        "policy_name": "M2_CONDITIONAL_MEMORY",
+        "dispatches_attempted": 2,
+        "dispatches_blocked": 0,
+        "dispatches_permitted": 2
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S2_ep2_nav_step1",
+            "goal_uuid": "90fada35-8768-559a-91fc-d0aee78cc86a",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep2_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "90fada35-8768-559a-91fc-d0aee78cc86a",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5976,
+              "gt_yaw_error_rad": 3.0433,
+              "amcl_position_error_m": 3.6736,
+              "amcl_yaw_error_rad": 3.0544,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 401,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S2_ep2_nav_step2",
+            "goal_uuid": "8d899df3-942e-51f4-b087-d1100369f8c1",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep2_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep2_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "8d899df3-942e-51f4-b087-d1100369f8c1",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_SUCCESS",
+          "terminal_status_name": "SUCCEEDED",
+          "status_code": 4,
+          "deadline_exceeded": false,
+          "failure_reason": null,
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "SUCCEEDED",
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": true,
+            "failure_reason": null,
+            "final_geometric_errors": {
+              "gt_position_error_m": 0.2032,
+              "gt_yaw_error_rad": 0.092,
+              "amcl_position_error_m": 0.2604,
+              "amcl_yaw_error_rad": 0.0896,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 112,
+              "unique_odom_count": 84,
+              "unique_gt_count": 29,
+              "total_raw_samples_count": 415,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0059,
+              "max_angular_v_seen": 0.0326,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": true,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": true,
+            "strict_physical_arrival_and_stable": true
+          }
+        }
+      ]
+    },
+    {
+      "episode_id": "M2_S2_ep3",
+      "condition_id": "M2_S2",
+      "policy_name": "M2",
+      "sequence_name": "S2",
+      "task_success": true,
+      "mechanism_verified": true,
+      "dispatches_attempted": 2,
+      "redundant_retries_count": 0,
+      "invalidation_verified": true,
+      "recovery_verified": true,
+      "obstacle_spawned": true,
+      "obstacle_deleted": true,
+      "policy_final_state": {
+        "total_entries": 1,
+        "active_count": 0,
+        "invalidated_count": 0,
+        "recovery_verified_count": 1,
+        "entries": [
+          {
+            "memory_id": "mem_entry_0001",
+            "created_sim_time": 51.8,
+            "target_goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "target_region": "room2_corridor_chokepoint",
+            "failure_reason": "EXECUTION_FAILED",
+            "invalidation_criteria": {
+              "type": "DOORWAY_CLEARANCE",
+              "region": "room2_corridor_chokepoint",
+              "required_doorway_state": "FREE"
+            },
+            "state": "RECOVERY_VERIFIED",
+            "invalidation_sim_time": 56.0,
+            "invalidation_evidence": {
+              "doorway_state": "FREE",
+              "reason": "DOORWAY_CLEARANCE_VERIFIED (21 rays traversing through doorway to Room 2, costmap free)",
+              "doorway_bbox": [
+                -0.3,
+                0.3,
+                -0.35,
+                0.35
+              ],
+              "hits_inside_count": 0,
+              "pass_through_count": 21,
+              "rays_intersecting_bbox_count": 26,
+              "sample_hits_inside": [],
+              "sample_pass_through": [
+                [
+                  3.0079,
+                  -0.3217,
+                  4.7278
+                ],
+                [
+                  3.0092,
+                  -0.239,
+                  4.73
+                ],
+                [
+                  3.0044,
+                  -0.1564,
+                  4.7277
+                ],
+                [
+                  3.0132,
+                  -0.0731,
+                  4.7403
+                ],
+                [
+                  3.0072,
+                  0.0096,
+                  4.7396
+                ]
+              ],
+              "laser_origin_map": [
+                -1.7199,
+                -0.3353
+              ],
+              "laser_yaw_map": -3.0759,
+              "costmap_status": "VALID",
+              "costmap_summary": {
+                "status": "VALID",
+                "error": null,
+                "grid_bounds_u": [
+                  73,
+                  85
+                ],
+                "grid_bounds_v": [
+                  42,
+                  56
+                ],
+                "total_cells": 195,
+                "unknown_cells": 0,
+                "occupied_cells": 0,
+                "free_cells": 195,
+                "max_cost": 99,
+                "costmap_cleared": true,
+                "stamp_sec": 54.7
+              },
+              "error": null,
+              "doorway_cleared": true,
+              "points_count": 0
+            },
+            "verification_sim_time": 78.8,
+            "verification_evidence": {
+              "nav2_action_status": "SUCCEEDED",
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "nav2_action_succeeded": true,
+              "failure_reason": null,
+              "final_geometric_errors": {
+                "gt_position_error_m": 0.1925,
+                "gt_yaw_error_rad": 0.0738,
+                "amcl_position_error_m": 0.253,
+                "amcl_yaw_error_rad": 0.0181,
+                "thresholds_applied": {
+                  "position_tolerance_m": 0.3,
+                  "yaw_tolerance_rad": 0.4
+                }
+              },
+              "window_evaluation": {
+                "window_valid": true,
+                "failure_reasons": [],
+                "sim_duration_covered": 2.4,
+                "odom_duration_covered": 2.822,
+                "gt_duration_covered": 2.5,
+                "unique_samples_count": 111,
+                "unique_odom_count": 84,
+                "unique_gt_count": 28,
+                "total_raw_samples_count": 423,
+                "max_sampling_interval_sec": 0.1,
+                "data_fresh": true,
+                "watchdog_triggered": false
+              },
+              "halt_evaluation": {
+                "all_samples_stopped": true,
+                "max_linear_v_seen": 0.006,
+                "max_angular_v_seen": 0.0125,
+                "max_gt_displacement_m": 0.0,
+                "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+                "safety_intervention": false,
+                "halt_verified": true,
+                "halt_failure_reason": null
+              },
+              "all_window_pos_ok": true,
+              "all_window_yaw_ok": true,
+              "final_pose_arrived": true,
+              "strict_physical_arrival_and_stable": true
+            },
+            "metadata": {
+              "initial_evidence": {
+                "doorway_state": "OCCUPIED",
+                "reason": "OBSTACLE_DETECTED (24 laser hits inside doorway bbox, costmap_occupied=21)",
+                "doorway_bbox": [
+                  -0.3,
+                  0.3,
+                  -0.35,
+                  0.35
+                ],
+                "hits_inside_count": 24,
+                "pass_through_count": 0,
+                "rays_intersecting_bbox_count": 26,
+                "sample_hits_inside": [
+                  [
+                    -0.2039,
+                    -0.3283,
+                    1.5275
+                  ],
+                  [
+                    -0.2199,
+                    -0.3018,
+                    1.5118
+                  ],
+                  [
+                    -0.22,
+                    -0.2754,
+                    1.5124
+                  ],
+                  [
+                    -0.1919,
+                    -0.2474,
+                    1.5417
+                  ],
+                  [
+                    -0.2059,
+                    -0.2213,
+                    1.5293
+                  ]
+                ],
+                "sample_pass_through": [],
+                "laser_origin_map": [
+                  -1.7314,
+                  -0.3296
+                ],
+                "laser_yaw_map": -3.0954,
+                "costmap_status": "VALID",
+                "costmap_summary": {
+                  "status": "VALID",
+                  "error": null,
+                  "grid_bounds_u": [
+                    73,
+                    85
+                  ],
+                  "grid_bounds_v": [
+                    42,
+                    56
+                  ],
+                  "total_cells": 195,
+                  "unknown_cells": 0,
+                  "occupied_cells": 21,
+                  "free_cells": 174,
+                  "max_cost": 100,
+                  "costmap_cleared": false,
+                  "stamp_sec": 50.7
+                },
+                "error": null,
+                "doorway_cleared": false,
+                "points_count": 24
+              }
+            }
+          }
+        ],
+        "policy_name": "M2_CONDITIONAL_MEMORY",
+        "dispatches_attempted": 2,
+        "dispatches_blocked": 0,
+        "dispatches_permitted": 2
+      },
+      "action_summaries": [
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S2_ep3_nav_step1",
+            "goal_uuid": "2ee41ae6-552b-596a-b264-1360d9761c9d",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep3_nav_step1",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "2ee41ae6-552b-596a-b264-1360d9761c9d",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "EXECUTION_FAILED",
+          "terminal_status_name": "ABORTED",
+          "status_code": 6,
+          "deadline_exceeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "ABORTED",
+            "execution_outcome": "EXECUTION_FAILED",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": false,
+            "failure_reason": "NAV2_ABORTED",
+            "final_geometric_errors": {
+              "gt_position_error_m": 3.5969,
+              "gt_yaw_error_rad": 3.041,
+              "amcl_position_error_m": 3.6109,
+              "amcl_yaw_error_rad": 3.0909,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
+              "unique_gt_count": 26,
+              "total_raw_samples_count": 402,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.0,
+              "max_angular_v_seen": 0.0011,
+              "max_gt_displacement_m": 0.0001,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": false,
+            "all_window_yaw_ok": false,
+            "final_pose_arrived": false,
+            "strict_physical_arrival_and_stable": false
+          }
+        },
+        {
+          "dispatch": {
+            "pipeline_status": "DISPATCHED",
+            "action_id": "M2_S2_ep3_nav_step2",
+            "goal_uuid": "dec1cb53-aaf4-5bd7-8dc3-d7997b60c0eb",
+            "normalized_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep3_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "effective_action": {
+              "action": "navigate",
+              "action_id": "M2_S2_ep3_nav_step2",
+              "params": {
+                "goal": [
+                  1.8,
+                  0.0,
+                  0.0
+                ],
+                "frame_id": "map",
+                "timeout_sec": 25.0
+              }
+            },
+            "ros_dispatched": true,
+            "ros_result": {
+              "status": "ACCEPTED",
+              "accepted": true,
+              "goal_id": "dec1cb53-aaf4-5bd7-8dc3-d7997b60c0eb",
+              "uuid_verified": true
+            }
+          },
+          "execution_outcome": "BUDGET_SUCCESS",
+          "terminal_status_name": "SUCCEEDED",
+          "status_code": 4,
+          "deadline_exceeded": false,
+          "failure_reason": null,
+          "settled_ok": true,
+          "safety_intervention": false,
+          "evaluation": {
+            "nav2_action_status": "SUCCEEDED",
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "nav2_action_succeeded": true,
+            "failure_reason": null,
+            "final_geometric_errors": {
+              "gt_position_error_m": 0.1925,
+              "gt_yaw_error_rad": 0.0738,
+              "amcl_position_error_m": 0.253,
+              "amcl_yaw_error_rad": 0.0181,
+              "thresholds_applied": {
+                "position_tolerance_m": 0.3,
+                "yaw_tolerance_rad": 0.4
+              }
+            },
+            "window_evaluation": {
+              "window_valid": true,
+              "failure_reasons": [],
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 111,
+              "unique_odom_count": 84,
+              "unique_gt_count": 28,
+              "total_raw_samples_count": 423,
+              "max_sampling_interval_sec": 0.1,
+              "data_fresh": true,
+              "watchdog_triggered": false
+            },
+            "halt_evaluation": {
+              "all_samples_stopped": true,
+              "max_linear_v_seen": 0.006,
+              "max_angular_v_seen": 0.0125,
+              "max_gt_displacement_m": 0.0,
+              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+              "safety_intervention": false,
+              "halt_verified": true,
+              "halt_failure_reason": null
+            },
+            "all_window_pos_ok": true,
+            "all_window_yaw_ok": true,
+            "final_pose_arrived": true,
+            "strict_physical_arrival_and_stable": true
+          }
+        }
+      ]
+    }
+  ]
+}

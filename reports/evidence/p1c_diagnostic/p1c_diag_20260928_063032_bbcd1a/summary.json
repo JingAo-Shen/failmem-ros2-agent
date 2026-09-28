@@ -1,0 +1,2636 @@
+{
+  "run_id": "p1c_diag_20260928_063032_bbcd1a",
+  "timestamp": "2026-09-28T06:30:32.241049+00:00",
+  "phase": "P1c-blockage-pilot-v3",
+  "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+  "protocol_version": "3.0",
+  "diagnostic_mode": true,
+  "runtime_config": {
+    "run_id": "p1c_diag_20260928_063032_bbcd1a",
+    "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+    "protocol_version": "3.0",
+    "diagnostic_mode": true,
+    "spawn_pose": [
+      -1.8,
+      0.0,
+      0.0
+    ],
+    "target_goal": [
+      1.8,
+      0.0,
+      0.0
+    ],
+    "sim_timeout_sec": 45.0,
+    "wall_watchdog_sec": 60.0,
+    "obstacle_pose": [
+      0.0,
+      0.0,
+      0.3
+    ],
+    "obstacle_name": "corridor_blockage_box",
+    "obstacle_sdf_path": "configs/chokepoint_box.sdf",
+    "doorway_bbox": [
+      -0.25,
+      0.25,
+      -0.4,
+      0.4
+    ],
+    "thresholds": {
+      "position_tolerance_m": 0.3,
+      "yaw_tolerance_rad": 0.35,
+      "max_linear_velocity_mps": 0.05,
+      "max_angular_velocity_radps": 0.05,
+      "stability_window_duration_sim_sec": 2.0,
+      "max_gt_displacement_m": 0.03,
+      "max_sensor_staleness_sim_sec": 0.5,
+      "max_stationary_amcl_staleness_sec": 30.0
+    }
+  },
+  "protocol": {
+    "version": "3.0",
+    "phase": "P1c-blockage-pilot-v3",
+    "description": "FailMem Single-Channel Blockage Protocol (v3.0 - Dual-Room Chokepoint, Natural Clearance & AMCL Nomotion Update)",
+    "environment": {
+      "world": "configs/chokepoint_world.model",
+      "map_yaml": "configs/chokepoint_world.yaml",
+      "map_pgm": "configs/chokepoint_world.pgm",
+      "nav2_params": "configs/nav2_params.yaml",
+      "robot_model": "waffle",
+      "spawn_pose": {
+        "x": -1.8,
+        "y": 0.0,
+        "z": 0.01,
+        "yaw": 0.0,
+        "frame_id": "map"
+      }
+    },
+    "navigation_task": {
+      "goal_pose": {
+        "x": 1.8,
+        "y": 0.0,
+        "z": 0.0,
+        "yaw": 0.0,
+        "frame_id": "map"
+      },
+      "sim_timeout_sec": 45.0,
+      "wall_watchdog_sec": 60.0
+    },
+    "obstacle_channel": {
+      "channel_name": "dual_room_doorway_chokepoint",
+      "obstacle_sdf": "configs/chokepoint_box.sdf",
+      "entity_name": "corridor_blockage_box",
+      "pose": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3,
+        "yaw": 0.0,
+        "frame_id": "world"
+      },
+      "dimensions": {
+        "length_x": 0.4,
+        "width_y": 1.0,
+        "height_z": 0.6
+      },
+      "doorway_bbox": {
+        "x_min": -0.25,
+        "x_max": 0.25,
+        "y_min": -0.4,
+        "y_max": 0.4
+      },
+      "geometry_rationale": "Positioned directly inside the single central doorway at x=0.0 between Room 1 and Room 2, physically sealing the 0.90m doorway."
+    },
+    "conditions": {
+      "C0_unblocked_baseline": {
+        "condition_id": "C0",
+        "name": "Normal Navigation Baseline (No Obstacle)",
+        "episodes_count": 3,
+        "obstacle_present_initial": false,
+        "obstacle_removed_on_retry": false,
+        "expected_outcome": "BUDGET_SUCCESS",
+        "target_arrival_required": true,
+        "task_success_expected": true,
+        "mechanism_verified_expected": true
+      },
+      "C1_continuous_blockage": {
+        "condition_id": "C1",
+        "name": "Continuous Obstacle Blockage",
+        "episodes_count": 3,
+        "obstacle_present_initial": true,
+        "obstacle_removed_on_retry": false,
+        "expected_outcome": "EXECUTION_FAILED_OR_DEADLINE",
+        "target_arrival_required": false,
+        "task_success_expected": false,
+        "mechanism_verified_expected": true,
+        "protocol_notes": "Obstacle completely seals single doorway. Nav2 cannot pass or detour, timing out at 45.0s sim time without reaching goal."
+      },
+      "C2_temporary_blockage_retry": {
+        "condition_id": "C2",
+        "name": "Temporary Obstacle Blockage (Observe -> Initial Blocked Fail -> Delete -> Natural Raytrace Clear -> Valid Observe -> Retry)",
+        "episodes_count": 3,
+        "obstacle_present_initial": true,
+        "obstacle_removed_on_retry": true,
+        "expected_step1_outcome": "EXECUTION_FAILED_OR_DEADLINE",
+        "expected_retry_outcome": "BUDGET_SUCCESS",
+        "target_arrival_required": true,
+        "task_success_expected": true,
+        "mechanism_verified_expected": true,
+        "protocol_notes": "Obstacle spawned before initial navigate. Initial attempt fails genuinely due to blockage. Obstacle is deleted. Doorway clearance verified via map-frame spatial scan and costmap. Observe returns valid AMCL via nomotion update. Retry dispatched with restored parameters and successfully navigates through cleared doorway to Room 2 goal."
+      }
+    },
+    "scoring_thresholds": {
+      "position_tolerance_m": 0.3,
+      "yaw_tolerance_rad": 0.35,
+      "max_linear_velocity_mps": 0.05,
+      "max_angular_velocity_radps": 0.05,
+      "stability_window_duration_sim_sec": 2.0,
+      "max_gt_displacement_m": 0.03,
+      "max_sensor_staleness_sim_sec": 0.5,
+      "max_stationary_amcl_staleness_sec": 30.0
+    }
+  },
+  "coordinate_alignment": {
+    "verified": true,
+    "resolution_m": 0.05,
+    "map_origin": [
+      -4.0,
+      -2.5,
+      0.0
+    ],
+    "image_shape": [
+      100,
+      160
+    ],
+    "non_collinear_landmarks_tested": 6,
+    "max_residual_m": 0.0627,
+    "residual_threshold_m": 0.075,
+    "landmarks": [
+      {
+        "landmark": "west_wall",
+        "world_xy": [
+          -3.1,
+          0.0
+        ],
+        "expected_pixel_uv": [
+          18.0,
+          50.0
+        ],
+        "detected_map_xy": [
+          -3.125,
+          0.0
+        ],
+        "residual_m": 0.025,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "south_wall",
+        "world_xy": [
+          0.0,
+          -1.6
+        ],
+        "expected_pixel_uv": [
+          80.0,
+          82.0
+        ],
+        "detected_map_xy": [
+          -0.0054,
+          -1.5375
+        ],
+        "residual_m": 0.0627,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "dividing_south_wall",
+        "world_xy": [
+          0.0,
+          -0.97
+        ],
+        "expected_pixel_uv": [
+          80.0,
+          69.4
+        ],
+        "detected_map_xy": [
+          -0.025,
+          -0.95
+        ],
+        "residual_m": 0.032,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "dividing_north_wall",
+        "world_xy": [
+          0.0,
+          0.97
+        ],
+        "expected_pixel_uv": [
+          80.0,
+          30.6
+        ],
+        "detected_map_xy": [
+          -0.025,
+          0.95
+        ],
+        "residual_m": 0.032,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "north_wall",
+        "world_xy": [
+          0.0,
+          1.6
+        ],
+        "expected_pixel_uv": [
+          80.0,
+          18.0
+        ],
+        "detected_map_xy": [
+          -0.0067,
+          1.5717
+        ],
+        "residual_m": 0.0291,
+        "within_resolution_bound": true
+      },
+      {
+        "landmark": "east_wall",
+        "world_xy": [
+          3.1,
+          0.0
+        ],
+        "expected_pixel_uv": [
+          142.0,
+          50.0
+        ],
+        "detected_map_xy": [
+          3.075,
+          0.0
+        ],
+        "residual_m": 0.025,
+        "within_resolution_bound": true
+      }
+    ],
+    "file_hashes": {
+      "map_yaml": "0a5ecd11284331d534d20d969a952f7117c26d718e97e0105bbc4a354fca7619",
+      "map_pgm": "c41adaaad5d00dc35d591e88016b2f3394d316fb01e33bb4713a66284cc5b18b",
+      "world_model": "f7aafddaf0d2a2190292959fa9f0d1efc75bcdc24d1c1bb715be569c32b45889",
+      "sdf_model": "f7aafddaf0d2a2190292959fa9f0d1efc75bcdc24d1c1bb715be569c32b45889"
+    },
+    "transformation_convention": "Image shape (100, 160) with origin [-4.0, -2.5, 0.0] and resolution 0.05 m/px. Continuous transform: x_map = -4.0 + u * 0.05, y_map = -2.5 + (100 - v) * 0.05.",
+    "geometric_consistency_statement": "All 6 static SDF landmarks align with PGM map obstacle centroids within bounded discretization error (max residual 0.0627m <= 0.0750m)."
+  },
+  "C0_baseline_episodes": [
+    {
+      "episode_id": "C0_ep1",
+      "condition": "C0",
+      "episode_number": 1,
+      "target_goal": [
+        1.8,
+        0.0,
+        0.0
+      ],
+      "spawn_pose": [
+        -1.8,
+        0.0,
+        0.0
+      ],
+      "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+      "infrastructure_error": null,
+      "obstacle_present": false,
+      "collision_state": "UNKNOWN",
+      "step1_observe": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "C0_ep1_obs_initial",
+        "goal_uuid": "a842a921-f0a7-5139-ae5b-c40acc658237",
+        "normalized_action": {
+          "action": "observe",
+          "action_id": "C0_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          }
+        },
+        "effective_action": {
+          "action": "observe",
+          "action_id": "C0_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "SUCCESS",
+          "error_type": null,
+          "error_message": null,
+          "observation": {
+            "timestamp": {
+              "sim_time_sec": 3.2,
+              "amcl_stamp_sec": 3.168,
+              "odom_stamp_sec": 3.156,
+              "scan_stamp_sec": 3.168
+            },
+            "localization": {
+              "pose": [
+                -1.8265,
+                -0.0077,
+                -0.0042
+              ],
+              "covariance_diagonal": [
+                0.031216,
+                0.035067,
+                0.032588
+              ],
+              "frame_id": "map",
+              "staleness_sec": 0.032,
+              "status": "UP_TO_DATE"
+            },
+            "odometry": {
+              "linear_velocity_mps": 0.0001,
+              "angular_velocity_radps": -0.0003,
+              "staleness_sec": 0.044
+            },
+            "laser_scan": {
+              "available": true,
+              "fresh": true,
+              "staleness_sec": 0.032,
+              "min_distance_m": 1.1276,
+              "valid_ranges_count": 360,
+              "total_ranges_count": 360
+            },
+            "navigation_status": {
+              "nav2_lifecycle_state": "ACTIVE",
+              "current_goal_status": "IDLE"
+            }
+          },
+          "wall_duration_sec": 0.2317
+        }
+      },
+      "step2_navigate": {
+        "dispatch": {
+          "pipeline_status": "DISPATCHED",
+          "action_id": "C0_ep1_nav",
+          "goal_uuid": "ad4610c5-8f02-547e-8187-92e53ab40e87",
+          "normalized_action": {
+            "action": "navigate",
+            "action_id": "C0_ep1_nav",
+            "params": {
+              "goal": [
+                1.8,
+                0.0,
+                0.0
+              ],
+              "frame_id": "map",
+              "timeout_sec": 45.0
+            }
+          },
+          "effective_action": {
+            "action": "navigate",
+            "action_id": "C0_ep1_nav",
+            "params": {
+              "goal": [
+                1.8,
+                0.0,
+                0.0
+              ],
+              "frame_id": "map",
+              "timeout_sec": 45.0
+            }
+          },
+          "ros_dispatched": true,
+          "ros_result": {
+            "status": "ACCEPTED",
+            "accepted": true,
+            "goal_id": "ad4610c5-8f02-547e-8187-92e53ab40e87",
+            "uuid_verified": true
+          }
+        },
+        "execution_outcome": "BUDGET_SUCCESS",
+        "terminal_status_name": "SUCCEEDED",
+        "status_code": 4,
+        "deadline_exceeded": false,
+        "failure_reason": null,
+        "settled_ok": true,
+        "safety_intervention": false,
+        "evaluation": {
+          "nav2_action_status": "SUCCEEDED",
+          "execution_outcome": "BUDGET_SUCCESS",
+          "deadline_exceeded": false,
+          "nav2_action_succeeded": true,
+          "failure_reason": null,
+          "final_geometric_errors": {
+            "gt_position_error_m": 0.1918,
+            "gt_yaw_error_rad": 0.0306,
+            "amcl_position_error_m": 0.2568,
+            "amcl_yaw_error_rad": 0.0183,
+            "thresholds_applied": {
+              "position_tolerance_m": 0.3,
+              "yaw_tolerance_rad": 0.35
+            }
+          },
+          "window_evaluation": {
+            "window_valid": false,
+            "failure_reasons": [
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_0",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_1",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_2",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_3",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_4",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_5",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_6",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_7",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_8",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_9",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_10",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_11",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_12",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_13",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_14",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_15",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_16",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_17",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_18",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_19",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_20",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_21",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_22",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_23",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_24",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_25",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_26",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_27",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_28",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_29",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_30",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_31",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_32",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_33",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_34",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_35",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_36",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_37",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_38",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_39",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_40",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_41",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_42",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_43",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_44",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_45",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_46",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_47",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_48",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_49",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_50",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_51",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_52",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_53",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_54",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_55",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_56",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_57",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_58",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_59",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_60",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_61",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_62",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_63",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_64",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_65",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_66",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_67",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_68",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_69",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_70",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_71",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_72",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_73",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_74",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_75",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_76",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_77",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_78",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_79",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_80",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_81",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_82",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_83",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_84",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_85",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_86",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_87",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_88",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_89",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_90",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_91",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_92",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_93",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_94",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_95",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_96",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_97",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_98",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_99",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_100",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_101",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_102",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_103",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_104",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_105",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_106",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_107",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_108",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_109",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_110",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_111",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_112",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_113",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_114",
+              "INSUFFICIENT_UNIQUE_ODOM_UPDATES (0 < 5)",
+              "INSUFFICIENT_UNIQUE_GT_UPDATES (0 < 5)",
+              "INSUFFICIENT_ODOM_DURATION (0.000s < 2.0s)",
+              "INSUFFICIENT_GT_DURATION (0.000s < 2.0s)",
+              "INSUFFICIENT_UNIQUE_SAMPLES_IN_WINDOW"
+            ],
+            "sim_duration_covered": 0.0,
+            "odom_duration_covered": 0.0,
+            "gt_duration_covered": 0.0,
+            "unique_samples_count": 0,
+            "unique_odom_count": 0,
+            "unique_gt_count": 0,
+            "total_raw_samples_count": 115,
+            "max_sampling_interval_sec": null,
+            "data_fresh": false,
+            "watchdog_triggered": false
+          },
+          "halt_evaluation": {
+            "all_samples_stopped": false,
+            "max_linear_v_seen": null,
+            "max_angular_v_seen": null,
+            "max_gt_displacement_m": null,
+            "cmd_vel_status": "ERROR_MISSING_ODOM",
+            "safety_intervention": false,
+            "halt_verified": false,
+            "halt_failure_reason": "MISSING_ODOM_AT_SAMPLE_0"
+          },
+          "all_window_pos_ok": false,
+          "all_window_yaw_ok": false,
+          "final_pose_arrived": true,
+          "strict_physical_arrival_and_stable": false
+        }
+      },
+      "step3_observe": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "C0_ep1_obs_final",
+        "goal_uuid": "90ee568b-0a9c-55b3-880a-e296e5b0bc54",
+        "normalized_action": {
+          "action": "observe",
+          "action_id": "C0_ep1_obs_final",
+          "params": {
+            "target_id": "final_scan"
+          }
+        },
+        "effective_action": {
+          "action": "observe",
+          "action_id": "C0_ep1_obs_final",
+          "params": {
+            "target_id": "final_scan"
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "SUCCESS",
+          "error_type": null,
+          "error_message": null,
+          "observation": {
+            "timestamp": {
+              "sim_time_sec": 22.0,
+              "amcl_stamp_sec": 21.969,
+              "odom_stamp_sec": 21.754,
+              "scan_stamp_sec": 21.969
+            },
+            "localization": {
+              "pose": [
+                1.5752,
+                -0.0126,
+                0.0283
+              ],
+              "covariance_diagonal": [
+                0.008539,
+                0.00581,
+                0.012832
+              ],
+              "frame_id": "map",
+              "staleness_sec": 0.031,
+              "status": "UP_TO_DATE"
+            },
+            "odometry": {
+              "linear_velocity_mps": 0.0003,
+              "angular_velocity_radps": 0.0024,
+              "staleness_sec": 0.246
+            },
+            "laser_scan": {
+              "available": true,
+              "fresh": true,
+              "staleness_sec": 0.031,
+              "min_distance_m": 1.4356,
+              "valid_ranges_count": 360,
+              "total_ranges_count": 360
+            },
+            "navigation_status": {
+              "nav2_lifecycle_state": "ACTIVE",
+              "current_goal_status": "IDLE"
+            }
+          },
+          "wall_duration_sec": 0.1444
+        }
+      },
+      "final_gt_pos_error_m": 0.1918,
+      "evaluation": {
+        "nav2_action_status": "SUCCEEDED",
+        "execution_outcome": "BUDGET_SUCCESS",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": true,
+        "failure_reason": null,
+        "final_geometric_errors": {
+          "gt_position_error_m": 0.1918,
+          "gt_yaw_error_rad": 0.0306,
+          "amcl_position_error_m": 0.2568,
+          "amcl_yaw_error_rad": 0.0183,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.35
+          }
+        },
+        "window_evaluation": {
+          "window_valid": false,
+          "failure_reasons": [
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_0",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_1",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_2",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_3",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_4",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_5",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_6",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_7",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_8",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_9",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_10",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_11",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_12",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_13",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_14",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_15",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_16",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_17",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_18",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_19",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_20",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_21",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_22",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_23",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_24",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_25",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_26",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_27",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_28",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_29",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_30",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_31",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_32",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_33",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_34",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_35",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_36",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_37",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_38",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_39",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_40",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_41",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_42",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_43",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_44",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_45",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_46",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_47",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_48",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_49",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_50",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_51",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_52",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_53",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_54",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_55",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_56",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_57",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_58",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_59",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_60",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_61",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_62",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_63",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_64",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_65",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_66",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_67",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_68",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_69",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_70",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_71",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_72",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_73",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_74",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_75",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_76",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_77",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_78",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_79",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_80",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_81",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_82",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_83",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_84",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_85",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_86",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_87",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_88",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_89",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_90",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_91",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_92",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_93",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_94",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_95",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_96",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_97",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_98",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_99",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_100",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_101",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_102",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_103",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_104",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_105",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_106",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_107",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_108",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_109",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_110",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_111",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_112",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_113",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_114",
+            "INSUFFICIENT_UNIQUE_ODOM_UPDATES (0 < 5)",
+            "INSUFFICIENT_UNIQUE_GT_UPDATES (0 < 5)",
+            "INSUFFICIENT_ODOM_DURATION (0.000s < 2.0s)",
+            "INSUFFICIENT_GT_DURATION (0.000s < 2.0s)",
+            "INSUFFICIENT_UNIQUE_SAMPLES_IN_WINDOW"
+          ],
+          "sim_duration_covered": 0.0,
+          "odom_duration_covered": 0.0,
+          "gt_duration_covered": 0.0,
+          "unique_samples_count": 0,
+          "unique_odom_count": 0,
+          "unique_gt_count": 0,
+          "total_raw_samples_count": 115,
+          "max_sampling_interval_sec": null,
+          "data_fresh": false,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": false,
+          "max_linear_v_seen": null,
+          "max_angular_v_seen": null,
+          "max_gt_displacement_m": null,
+          "cmd_vel_status": "ERROR_MISSING_ODOM",
+          "safety_intervention": false,
+          "halt_verified": false,
+          "halt_failure_reason": "MISSING_ODOM_AT_SAMPLE_0"
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": true,
+        "strict_physical_arrival_and_stable": false
+      },
+      "task_success": false,
+      "mechanism_verified": false,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "terminal_status_name": "SUCCEEDED",
+      "action_history": [
+        {
+          "action": "observe",
+          "action_id": "C0_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          },
+          "dispatch_status": "COMPLETED",
+          "terminal_status": "SUCCESS"
+        },
+        {
+          "action": "navigate",
+          "action_id": "C0_ep1_nav",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 45.0
+          },
+          "dispatch_status": "ACCEPTED",
+          "terminal_status": null
+        },
+        {
+          "action": "observe",
+          "action_id": "C0_ep1_obs_final",
+          "params": {
+            "target_id": "final_scan"
+          },
+          "dispatch_status": "COMPLETED",
+          "terminal_status": "SUCCESS"
+        }
+      ]
+    }
+  ],
+  "C1_continuous_blockage_episodes": [
+    {
+      "episode_id": "C1_ep1",
+      "condition": "C1",
+      "episode_number": 1,
+      "target_goal": [
+        1.8,
+        0.0,
+        0.0
+      ],
+      "spawn_pose": [
+        -1.8,
+        0.0,
+        0.0
+      ],
+      "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+      "infrastructure_error": null,
+      "obstacle_present": true,
+      "obstacle_spawned_service": true,
+      "obstacle_spawn_gazebo_confirmed": true,
+      "collision_state": "UNKNOWN",
+      "doorway_check_pre_nav": {
+        "doorway_cleared": false,
+        "points_count": 28,
+        "min_range_in_doorway_m": 1.636,
+        "doorway_bbox": [
+          -0.25,
+          0.25,
+          -0.4,
+          0.4
+        ],
+        "robot_map_pose": [
+          -1.8214,
+          0.0014,
+          0.0028
+        ],
+        "sample_points_in_box": [
+          [
+            -0.153,
+            0.006,
+            1.668
+          ],
+          [
+            -0.162,
+            0.035,
+            1.66
+          ],
+          [
+            -0.151,
+            0.065,
+            1.672
+          ],
+          [
+            -0.162,
+            0.093,
+            1.662
+          ],
+          [
+            -0.172,
+            0.122,
+            1.654
+          ],
+          [
+            -0.147,
+            0.153,
+            1.681
+          ],
+          [
+            -0.171,
+            0.18,
+            1.66
+          ],
+          [
+            -0.16,
+            0.211,
+            1.675
+          ],
+          [
+            -0.167,
+            0.239,
+            1.672
+          ],
+          [
+            -0.159,
+            0.27,
+            1.684
+          ]
+        ],
+        "error": null
+      },
+      "doorway_check_post_nav": {
+        "doorway_cleared": true,
+        "points_count": 0,
+        "min_range_in_doorway_m": null,
+        "doorway_bbox": [
+          -0.25,
+          0.25,
+          -0.4,
+          0.4
+        ],
+        "robot_map_pose": [
+          -1.5067,
+          -0.3931,
+          -3.0917
+        ],
+        "sample_points_in_box": [],
+        "error": null
+      },
+      "step1_observe": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "C1_ep1_obs_initial",
+        "goal_uuid": "eeb8b950-06a8-5f4b-b8df-80eb35708478",
+        "normalized_action": {
+          "action": "observe",
+          "action_id": "C1_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          }
+        },
+        "effective_action": {
+          "action": "observe",
+          "action_id": "C1_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "SUCCESS",
+          "error_type": null,
+          "error_message": null,
+          "observation": {
+            "timestamp": {
+              "sim_time_sec": 3.3000000000000003,
+              "amcl_stamp_sec": 3.202,
+              "odom_stamp_sec": 3.197,
+              "scan_stamp_sec": 3.202
+            },
+            "localization": {
+              "pose": [
+                -1.817,
+                0.01,
+                -0.0008
+              ],
+              "covariance_diagonal": [
+                0.035367,
+                0.038127,
+                0.03561
+              ],
+              "frame_id": "map",
+              "staleness_sec": 0.098,
+              "status": "UP_TO_DATE"
+            },
+            "odometry": {
+              "linear_velocity_mps": 0.0001,
+              "angular_velocity_radps": -0.0003,
+              "staleness_sec": 0.103
+            },
+            "laser_scan": {
+              "available": true,
+              "fresh": true,
+              "staleness_sec": 0.098,
+              "min_distance_m": 1.1278,
+              "valid_ranges_count": 360,
+              "total_ranges_count": 360
+            },
+            "navigation_status": {
+              "nav2_lifecycle_state": "ACTIVE",
+              "current_goal_status": "IDLE"
+            }
+          },
+          "wall_duration_sec": 0.2108
+        }
+      },
+      "step2_navigate_blocked": {
+        "dispatch": {
+          "pipeline_status": "DISPATCHED",
+          "action_id": "C1_ep1_nav_blocked",
+          "goal_uuid": "a85b8eb9-5b69-53be-8a98-6cd00f50c366",
+          "normalized_action": {
+            "action": "navigate",
+            "action_id": "C1_ep1_nav_blocked",
+            "params": {
+              "goal": [
+                1.8,
+                0.0,
+                0.0
+              ],
+              "frame_id": "map",
+              "timeout_sec": 45.0
+            }
+          },
+          "effective_action": {
+            "action": "navigate",
+            "action_id": "C1_ep1_nav_blocked",
+            "params": {
+              "goal": [
+                1.8,
+                0.0,
+                0.0
+              ],
+              "frame_id": "map",
+              "timeout_sec": 45.0
+            }
+          },
+          "ros_dispatched": true,
+          "ros_result": {
+            "status": "ACCEPTED",
+            "accepted": true,
+            "goal_id": "a85b8eb9-5b69-53be-8a98-6cd00f50c366",
+            "uuid_verified": true
+          }
+        },
+        "execution_outcome": "EXECUTION_FAILED",
+        "terminal_status_name": "ABORTED",
+        "status_code": 6,
+        "deadline_exceeded": false,
+        "failure_reason": "NAV2_ABORTED",
+        "settled_ok": true,
+        "safety_intervention": false,
+        "evaluation": {
+          "nav2_action_status": "ABORTED",
+          "execution_outcome": "EXECUTION_FAILED",
+          "deadline_exceeded": false,
+          "nav2_action_succeeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "final_geometric_errors": {
+            "gt_position_error_m": 3.2859,
+            "gt_yaw_error_rad": 3.0887,
+            "amcl_position_error_m": 3.3504,
+            "amcl_yaw_error_rad": 3.1002,
+            "thresholds_applied": {
+              "position_tolerance_m": 0.3,
+              "yaw_tolerance_rad": 0.35
+            }
+          },
+          "window_evaluation": {
+            "window_valid": false,
+            "failure_reasons": [
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_0",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_1",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_2",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_3",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_4",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_5",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_6",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_7",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_8",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_9",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_10",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_11",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_12",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_13",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_14",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_15",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_16",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_17",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_18",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_19",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_20",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_21",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_22",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_23",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_24",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_25",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_26",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_27",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_28",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_29",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_30",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_31",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_32",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_33",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_34",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_35",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_36",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_37",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_38",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_39",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_40",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_41",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_42",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_43",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_44",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_45",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_46",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_47",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_48",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_49",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_50",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_51",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_52",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_53",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_54",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_55",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_56",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_57",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_58",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_59",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_60",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_61",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_62",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_63",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_64",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_65",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_66",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_67",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_68",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_69",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_70",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_71",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_72",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_73",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_74",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_75",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_76",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_77",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_78",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_79",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_80",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_81",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_82",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_83",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_84",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_85",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_86",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_87",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_88",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_89",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_90",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_91",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_92",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_93",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_94",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_95",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_96",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_97",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_98",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_99",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_100",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_101",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_102",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_103",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_104",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_105",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_106",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_107",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_108",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_109",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_110",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_111",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_112",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_113",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_114",
+              "INSUFFICIENT_UNIQUE_ODOM_UPDATES (0 < 5)",
+              "INSUFFICIENT_UNIQUE_GT_UPDATES (0 < 5)",
+              "INSUFFICIENT_ODOM_DURATION (0.000s < 2.0s)",
+              "INSUFFICIENT_GT_DURATION (0.000s < 2.0s)",
+              "INSUFFICIENT_UNIQUE_SAMPLES_IN_WINDOW"
+            ],
+            "sim_duration_covered": 0.0,
+            "odom_duration_covered": 0.0,
+            "gt_duration_covered": 0.0,
+            "unique_samples_count": 0,
+            "unique_odom_count": 0,
+            "unique_gt_count": 0,
+            "total_raw_samples_count": 115,
+            "max_sampling_interval_sec": null,
+            "data_fresh": false,
+            "watchdog_triggered": false
+          },
+          "halt_evaluation": {
+            "all_samples_stopped": false,
+            "max_linear_v_seen": null,
+            "max_angular_v_seen": null,
+            "max_gt_displacement_m": null,
+            "cmd_vel_status": "ERROR_MISSING_ODOM",
+            "safety_intervention": false,
+            "halt_verified": false,
+            "halt_failure_reason": "MISSING_ODOM_AT_SAMPLE_0"
+          },
+          "all_window_pos_ok": false,
+          "all_window_yaw_ok": false,
+          "final_pose_arrived": false,
+          "strict_physical_arrival_and_stable": false
+        }
+      },
+      "step3_observe": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "C1_ep1_obs_post_nav",
+        "goal_uuid": "86d2a988-e41a-5ed8-acae-ba7c4c18ca5d",
+        "normalized_action": {
+          "action": "observe",
+          "action_id": "C1_ep1_obs_post_nav",
+          "params": {
+            "target_id": "post_nav_scan"
+          }
+        },
+        "effective_action": {
+          "action": "observe",
+          "action_id": "C1_ep1_obs_post_nav",
+          "params": {
+            "target_id": "post_nav_scan"
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "SUCCESS",
+          "error_type": null,
+          "error_message": null,
+          "observation": {
+            "timestamp": {
+              "sim_time_sec": 30.1,
+              "amcl_stamp_sec": 30.004,
+              "odom_stamp_sec": 29.819,
+              "scan_stamp_sec": 30.004
+            },
+            "localization": {
+              "pose": [
+                -1.5067,
+                -0.3931,
+                -3.0917
+              ],
+              "covariance_diagonal": [
+                0.01947,
+                0.01365,
+                0.029818
+              ],
+              "frame_id": "map",
+              "staleness_sec": 0.096,
+              "status": "UP_TO_DATE"
+            },
+            "odometry": {
+              "linear_velocity_mps": 0.0,
+              "angular_velocity_radps": -0.0011,
+              "staleness_sec": 0.281
+            },
+            "laser_scan": {
+              "available": true,
+              "fresh": true,
+              "staleness_sec": 0.096,
+              "min_distance_m": 1.1757,
+              "valid_ranges_count": 360,
+              "total_ranges_count": 360
+            },
+            "navigation_status": {
+              "nav2_lifecycle_state": "ACTIVE",
+              "current_goal_status": "IDLE"
+            }
+          },
+          "wall_duration_sec": 0.2071
+        }
+      },
+      "final_gt_pos_error_m": 3.2859,
+      "evaluation": {
+        "nav2_action_status": "ABORTED",
+        "execution_outcome": "EXECUTION_FAILED",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": false,
+        "failure_reason": "NAV2_ABORTED",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.2859,
+          "gt_yaw_error_rad": 3.0887,
+          "amcl_position_error_m": 3.3504,
+          "amcl_yaw_error_rad": 3.1002,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.35
+          }
+        },
+        "window_evaluation": {
+          "window_valid": false,
+          "failure_reasons": [
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_0",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_1",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_2",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_3",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_4",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_5",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_6",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_7",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_8",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_9",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_10",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_11",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_12",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_13",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_14",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_15",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_16",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_17",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_18",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_19",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_20",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_21",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_22",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_23",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_24",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_25",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_26",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_27",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_28",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_29",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_30",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_31",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_32",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_33",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_34",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_35",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_36",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_37",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_38",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_39",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_40",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_41",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_42",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_43",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_44",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_45",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_46",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_47",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_48",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_49",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_50",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_51",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_52",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_53",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_54",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_55",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_56",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_57",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_58",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_59",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_60",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_61",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_62",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_63",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_64",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_65",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_66",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_67",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_68",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_69",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_70",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_71",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_72",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_73",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_74",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_75",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_76",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_77",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_78",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_79",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_80",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_81",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_82",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_83",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_84",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_85",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_86",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_87",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_88",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_89",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_90",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_91",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_92",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_93",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_94",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_95",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_96",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_97",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_98",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_99",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_100",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_101",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_102",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_103",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_104",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_105",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_106",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_107",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_108",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_109",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_110",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_111",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_112",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_113",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_114",
+            "INSUFFICIENT_UNIQUE_ODOM_UPDATES (0 < 5)",
+            "INSUFFICIENT_UNIQUE_GT_UPDATES (0 < 5)",
+            "INSUFFICIENT_ODOM_DURATION (0.000s < 2.0s)",
+            "INSUFFICIENT_GT_DURATION (0.000s < 2.0s)",
+            "INSUFFICIENT_UNIQUE_SAMPLES_IN_WINDOW"
+          ],
+          "sim_duration_covered": 0.0,
+          "odom_duration_covered": 0.0,
+          "gt_duration_covered": 0.0,
+          "unique_samples_count": 0,
+          "unique_odom_count": 0,
+          "unique_gt_count": 0,
+          "total_raw_samples_count": 115,
+          "max_sampling_interval_sec": null,
+          "data_fresh": false,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": false,
+          "max_linear_v_seen": null,
+          "max_angular_v_seen": null,
+          "max_gt_displacement_m": null,
+          "cmd_vel_status": "ERROR_MISSING_ODOM",
+          "safety_intervention": false,
+          "halt_verified": false,
+          "halt_failure_reason": "MISSING_ODOM_AT_SAMPLE_0"
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      },
+      "task_success": false,
+      "mechanism_verified": true,
+      "execution_outcome": "EXECUTION_FAILED",
+      "terminal_status_name": "ABORTED",
+      "action_history": [
+        {
+          "action": "observe",
+          "action_id": "C1_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          },
+          "dispatch_status": "COMPLETED",
+          "terminal_status": "SUCCESS"
+        },
+        {
+          "action": "navigate",
+          "action_id": "C1_ep1_nav_blocked",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 45.0
+          },
+          "dispatch_status": "ACCEPTED",
+          "terminal_status": null
+        },
+        {
+          "action": "observe",
+          "action_id": "C1_ep1_obs_post_nav",
+          "params": {
+            "target_id": "post_nav_scan"
+          },
+          "dispatch_status": "COMPLETED",
+          "terminal_status": "SUCCESS"
+        }
+      ]
+    }
+  ],
+  "C2_temporary_blockage_episodes": [
+    {
+      "episode_id": "C2_ep1",
+      "condition": "C2",
+      "episode_number": 1,
+      "target_goal": [
+        1.8,
+        0.0,
+        0.0
+      ],
+      "spawn_pose": [
+        -1.8,
+        0.0,
+        0.0
+      ],
+      "protocol_sha256": "d1fd5dc5fb44fba526cd3ec5c167c049075ce8a4559798ebff4baa153b4663b8",
+      "infrastructure_error": null,
+      "obstacle_present": true,
+      "obstacle_spawned_service": true,
+      "obstacle_spawn_gazebo_confirmed": true,
+      "obstacle_deleted_service": true,
+      "obstacle_delete_gazebo_confirmed": true,
+      "collision_state": "UNKNOWN",
+      "doorway_check_blocked": {
+        "doorway_cleared": true,
+        "points_count": 0,
+        "min_range_in_doorway_m": null,
+        "doorway_bbox": [
+          -0.25,
+          0.25,
+          -0.4,
+          0.4
+        ],
+        "robot_map_pose": [
+          -1.8217,
+          0.0098,
+          -0.003
+        ],
+        "sample_points_in_box": [],
+        "error": null
+      },
+      "doorway_check_cleared": {
+        "doorway_cleared": true,
+        "points_count": 0,
+        "min_range_in_doorway_m": null,
+        "doorway_bbox": [
+          -0.25,
+          0.25,
+          -0.4,
+          0.4
+        ],
+        "robot_map_pose": [
+          -1.4544,
+          -0.3668,
+          -2.9955
+        ],
+        "sample_points_in_box": [],
+        "error": null
+      },
+      "step1_observe": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "C2_ep1_obs_initial",
+        "goal_uuid": "d9f13693-8489-5dd2-9e2d-6d2fd4e38fa2",
+        "normalized_action": {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          }
+        },
+        "effective_action": {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "SUCCESS",
+          "error_type": null,
+          "error_message": null,
+          "observation": {
+            "timestamp": {
+              "sim_time_sec": 3.4000000000000004,
+              "amcl_stamp_sec": 3.366,
+              "odom_stamp_sec": 3.324,
+              "scan_stamp_sec": 3.366
+            },
+            "localization": {
+              "pose": [
+                -1.8164,
+                -0.0013,
+                -0.0058
+              ],
+              "covariance_diagonal": [
+                0.036416,
+                0.037164,
+                0.042526
+              ],
+              "frame_id": "map",
+              "staleness_sec": 0.034,
+              "status": "UP_TO_DATE"
+            },
+            "odometry": {
+              "linear_velocity_mps": 0.0001,
+              "angular_velocity_radps": -0.0003,
+              "staleness_sec": 0.076
+            },
+            "laser_scan": {
+              "available": true,
+              "fresh": true,
+              "staleness_sec": 0.034,
+              "min_distance_m": 1.1283,
+              "valid_ranges_count": 360,
+              "total_ranges_count": 360
+            },
+            "navigation_status": {
+              "nav2_lifecycle_state": "ACTIVE",
+              "current_goal_status": "IDLE"
+            }
+          },
+          "wall_duration_sec": 0.1903
+        }
+      },
+      "step2_initial_navigate": {
+        "dispatch": {
+          "pipeline_status": "DISPATCHED",
+          "action_id": "C2_ep1_nav_orig",
+          "goal_uuid": "56ca0dd4-9d81-588d-b96f-e0b54f8211b9",
+          "normalized_action": {
+            "action": "navigate",
+            "action_id": "C2_ep1_nav_orig",
+            "params": {
+              "goal": [
+                1.8,
+                0.0,
+                0.0
+              ],
+              "frame_id": "map",
+              "timeout_sec": 45.0
+            }
+          },
+          "effective_action": {
+            "action": "navigate",
+            "action_id": "C2_ep1_nav_orig",
+            "params": {
+              "goal": [
+                1.8,
+                0.0,
+                0.0
+              ],
+              "frame_id": "map",
+              "timeout_sec": 45.0
+            }
+          },
+          "ros_dispatched": true,
+          "ros_result": {
+            "status": "ACCEPTED",
+            "accepted": true,
+            "goal_id": "56ca0dd4-9d81-588d-b96f-e0b54f8211b9",
+            "uuid_verified": true
+          }
+        },
+        "execution_outcome": "EXECUTION_FAILED",
+        "terminal_status_name": "ABORTED",
+        "status_code": 6,
+        "deadline_exceeded": false,
+        "failure_reason": "NAV2_ABORTED",
+        "settled_ok": true,
+        "safety_intervention": false,
+        "evaluation": {
+          "nav2_action_status": "ABORTED",
+          "execution_outcome": "EXECUTION_FAILED",
+          "deadline_exceeded": false,
+          "nav2_action_succeeded": false,
+          "failure_reason": "NAV2_ABORTED",
+          "final_geometric_errors": {
+            "gt_position_error_m": 3.2558,
+            "gt_yaw_error_rad": 3.0409,
+            "amcl_position_error_m": 3.275,
+            "amcl_yaw_error_rad": 2.9955,
+            "thresholds_applied": {
+              "position_tolerance_m": 0.3,
+              "yaw_tolerance_rad": 0.35
+            }
+          },
+          "window_evaluation": {
+            "window_valid": false,
+            "failure_reasons": [
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_0",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_1",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_2",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_3",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_4",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_5",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_6",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_7",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_8",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_9",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_10",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_11",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_12",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_13",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_14",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_15",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_16",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_17",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_18",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_19",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_20",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_21",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_22",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_23",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_24",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_25",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_26",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_27",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_28",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_29",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_30",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_31",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_32",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_33",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_34",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_35",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_36",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_37",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_38",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_39",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_40",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_41",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_42",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_43",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_44",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_45",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_46",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_47",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_48",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_49",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_50",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_51",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_52",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_53",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_54",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_55",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_56",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_57",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_58",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_59",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_60",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_61",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_62",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_63",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_64",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_65",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_66",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_67",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_68",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_69",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_70",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_71",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_72",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_73",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_74",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_75",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_76",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_77",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_78",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_79",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_80",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_81",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_82",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_83",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_84",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_85",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_86",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_87",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_88",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_89",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_90",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_91",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_92",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_93",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_94",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_95",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_96",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_97",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_98",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_99",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_100",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_101",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_102",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_103",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_104",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_105",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_106",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_107",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_108",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_109",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_110",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_111",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_112",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_113",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_114",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_115",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_116",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_117",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_118",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_119",
+              "INSUFFICIENT_UNIQUE_ODOM_UPDATES (0 < 5)",
+              "INSUFFICIENT_UNIQUE_GT_UPDATES (0 < 5)",
+              "INSUFFICIENT_ODOM_DURATION (0.000s < 2.0s)",
+              "INSUFFICIENT_GT_DURATION (0.000s < 2.0s)",
+              "INSUFFICIENT_UNIQUE_SAMPLES_IN_WINDOW"
+            ],
+            "sim_duration_covered": 0.0,
+            "odom_duration_covered": 0.0,
+            "gt_duration_covered": 0.0,
+            "unique_samples_count": 0,
+            "unique_odom_count": 0,
+            "unique_gt_count": 0,
+            "total_raw_samples_count": 120,
+            "max_sampling_interval_sec": null,
+            "data_fresh": false,
+            "watchdog_triggered": false
+          },
+          "halt_evaluation": {
+            "all_samples_stopped": false,
+            "max_linear_v_seen": null,
+            "max_angular_v_seen": null,
+            "max_gt_displacement_m": null,
+            "cmd_vel_status": "ERROR_MISSING_ODOM",
+            "safety_intervention": false,
+            "halt_verified": false,
+            "halt_failure_reason": "MISSING_ODOM_AT_SAMPLE_0"
+          },
+          "all_window_pos_ok": false,
+          "all_window_yaw_ok": false,
+          "final_pose_arrived": false,
+          "strict_physical_arrival_and_stable": false
+        }
+      },
+      "step3_post_removal_observe": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "C2_ep1_obs_post_removal",
+        "goal_uuid": "6a51bfe7-6755-5480-944e-4ee163577ec7",
+        "normalized_action": {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_post_removal",
+          "params": {
+            "target_id": "post_removal_scan"
+          }
+        },
+        "effective_action": {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_post_removal",
+          "params": {
+            "target_id": "post_removal_scan"
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "SUCCESS",
+          "error_type": null,
+          "error_message": null,
+          "observation": {
+            "timestamp": {
+              "sim_time_sec": 33.800000000000004,
+              "amcl_stamp_sec": 33.767,
+              "odom_stamp_sec": 33.754,
+              "scan_stamp_sec": 33.767
+            },
+            "localization": {
+              "pose": [
+                -1.4574,
+                -0.3732,
+                -3.0099
+              ],
+              "covariance_diagonal": [
+                0.022433,
+                0.014361,
+                0.028407
+              ],
+              "frame_id": "map",
+              "staleness_sec": 0.033,
+              "status": "UP_TO_DATE"
+            },
+            "odometry": {
+              "linear_velocity_mps": 0.0,
+              "angular_velocity_radps": -0.0011,
+              "staleness_sec": 0.046
+            },
+            "laser_scan": {
+              "available": true,
+              "fresh": true,
+              "staleness_sec": 0.033,
+              "min_distance_m": 1.1743,
+              "valid_ranges_count": 360,
+              "total_ranges_count": 360
+            },
+            "navigation_status": {
+              "nav2_lifecycle_state": "ACTIVE",
+              "current_goal_status": "IDLE"
+            }
+          },
+          "wall_duration_sec": 0.2538
+        }
+      },
+      "retry_visible_state_source": "AMCL_FROM_OBSERVE",
+      "retry_visible_state": {
+        "amcl_pose": [
+          -1.4574,
+          -0.3732,
+          -3.0099
+        ]
+      },
+      "step4_retry_navigate": {
+        "dispatch": {
+          "pipeline_status": "DISPATCHED",
+          "action_id": "C2_ep1_retry_nav",
+          "goal_uuid": "8bdec7a3-f07c-5851-bae0-7522dee3b457",
+          "normalized_action": {
+            "action": "retry",
+            "action_id": "C2_ep1_retry_nav",
+            "params": {
+              "original_action_id": "C2_ep1_nav_orig",
+              "replayed_params": null
+            }
+          },
+          "effective_action": {
+            "action": "retry",
+            "action_id": "C2_ep1_retry_nav",
+            "params": {
+              "original_action_id": "C2_ep1_nav_orig",
+              "replayed_params": null
+            },
+            "executable_action": "navigate",
+            "executable_params": {
+              "goal": [
+                1.8,
+                0.0,
+                0.0
+              ],
+              "frame_id": "map",
+              "timeout_sec": 45.0
+            }
+          },
+          "ros_dispatched": true,
+          "ros_result": {
+            "status": "ACCEPTED",
+            "accepted": true,
+            "goal_id": "8bdec7a3-f07c-5851-bae0-7522dee3b457",
+            "uuid_verified": true
+          }
+        },
+        "execution_outcome": "BUDGET_SUCCESS",
+        "terminal_status_name": "SUCCEEDED",
+        "status_code": 4,
+        "deadline_exceeded": false,
+        "failure_reason": null,
+        "settled_ok": true,
+        "safety_intervention": false,
+        "evaluation": {
+          "nav2_action_status": "SUCCEEDED",
+          "execution_outcome": "BUDGET_SUCCESS",
+          "deadline_exceeded": false,
+          "nav2_action_succeeded": true,
+          "failure_reason": null,
+          "final_geometric_errors": {
+            "gt_position_error_m": 0.2085,
+            "gt_yaw_error_rad": 0.1352,
+            "amcl_position_error_m": 0.2651,
+            "amcl_yaw_error_rad": 0.1136,
+            "thresholds_applied": {
+              "position_tolerance_m": 0.3,
+              "yaw_tolerance_rad": 0.35
+            }
+          },
+          "window_evaluation": {
+            "window_valid": false,
+            "failure_reasons": [
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_0",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_1",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_2",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_3",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_4",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_5",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_6",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_7",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_8",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_9",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_10",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_11",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_12",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_13",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_14",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_15",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_16",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_17",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_18",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_19",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_20",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_21",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_22",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_23",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_24",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_25",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_26",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_27",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_28",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_29",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_30",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_31",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_32",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_33",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_34",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_35",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_36",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_37",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_38",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_39",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_40",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_41",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_42",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_43",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_44",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_45",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_46",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_47",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_48",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_49",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_50",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_51",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_52",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_53",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_54",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_55",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_56",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_57",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_58",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_59",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_60",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_61",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_62",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_63",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_64",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_65",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_66",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_67",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_68",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_69",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_70",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_71",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_72",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_73",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_74",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_75",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_76",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_77",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_78",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_79",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_80",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_81",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_82",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_83",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_84",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_85",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_86",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_87",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_88",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_89",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_90",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_91",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_92",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_93",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_94",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_95",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_96",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_97",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_98",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_99",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_100",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_101",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_102",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_103",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_104",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_105",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_106",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_107",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_108",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_109",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_110",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_111",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_112",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_113",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_114",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_115",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_116",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_117",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_118",
+              "NON_FINITE_SIM_TIME_AT_SAMPLE_119",
+              "INSUFFICIENT_UNIQUE_ODOM_UPDATES (0 < 5)",
+              "INSUFFICIENT_UNIQUE_GT_UPDATES (0 < 5)",
+              "INSUFFICIENT_ODOM_DURATION (0.000s < 2.0s)",
+              "INSUFFICIENT_GT_DURATION (0.000s < 2.0s)",
+              "INSUFFICIENT_UNIQUE_SAMPLES_IN_WINDOW"
+            ],
+            "sim_duration_covered": 0.0,
+            "odom_duration_covered": 0.0,
+            "gt_duration_covered": 0.0,
+            "unique_samples_count": 0,
+            "unique_odom_count": 0,
+            "unique_gt_count": 0,
+            "total_raw_samples_count": 120,
+            "max_sampling_interval_sec": null,
+            "data_fresh": false,
+            "watchdog_triggered": false
+          },
+          "halt_evaluation": {
+            "all_samples_stopped": false,
+            "max_linear_v_seen": null,
+            "max_angular_v_seen": null,
+            "max_gt_displacement_m": null,
+            "cmd_vel_status": "ERROR_MISSING_ODOM",
+            "safety_intervention": false,
+            "halt_verified": false,
+            "halt_failure_reason": "MISSING_ODOM_AT_SAMPLE_0"
+          },
+          "all_window_pos_ok": false,
+          "all_window_yaw_ok": false,
+          "final_pose_arrived": true,
+          "strict_physical_arrival_and_stable": false
+        }
+      },
+      "step5_observe_final": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "C2_ep1_obs_final",
+        "goal_uuid": "8898810c-a082-5b28-bac7-f914783e327c",
+        "normalized_action": {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_final",
+          "params": {
+            "target_id": "final_scan"
+          }
+        },
+        "effective_action": {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_final",
+          "params": {
+            "target_id": "final_scan"
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "SUCCESS",
+          "error_type": null,
+          "error_message": null,
+          "observation": {
+            "timestamp": {
+              "sim_time_sec": 59.300000000000004,
+              "amcl_stamp_sec": 59.366,
+              "odom_stamp_sec": 59.084,
+              "scan_stamp_sec": 59.366
+            },
+            "localization": {
+              "pose": [
+                1.5507,
+                -0.0553,
+                0.1278
+              ],
+              "covariance_diagonal": [
+                0.009822,
+                0.00493,
+                0.011091
+              ],
+              "frame_id": "map",
+              "staleness_sec": -0.066,
+              "status": "UP_TO_DATE"
+            },
+            "odometry": {
+              "linear_velocity_mps": 0.0012,
+              "angular_velocity_radps": 0.0096,
+              "staleness_sec": 0.216
+            },
+            "laser_scan": {
+              "available": true,
+              "fresh": true,
+              "staleness_sec": -0.066,
+              "min_distance_m": 1.4454,
+              "valid_ranges_count": 360,
+              "total_ranges_count": 360
+            },
+            "navigation_status": {
+              "nav2_lifecycle_state": "ACTIVE",
+              "current_goal_status": "IDLE"
+            }
+          },
+          "wall_duration_sec": 0.1653
+        }
+      },
+      "final_gt_pos_error_m_retry": 0.2085,
+      "initial_failed_genuine": true,
+      "observation_available": true,
+      "retry_execute": true,
+      "task_success": false,
+      "mechanism_verified": false,
+      "evaluation_initial": {
+        "nav2_action_status": "ABORTED",
+        "execution_outcome": "EXECUTION_FAILED",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": false,
+        "failure_reason": "NAV2_ABORTED",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.2558,
+          "gt_yaw_error_rad": 3.0409,
+          "amcl_position_error_m": 3.275,
+          "amcl_yaw_error_rad": 2.9955,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.35
+          }
+        },
+        "window_evaluation": {
+          "window_valid": false,
+          "failure_reasons": [
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_0",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_1",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_2",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_3",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_4",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_5",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_6",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_7",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_8",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_9",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_10",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_11",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_12",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_13",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_14",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_15",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_16",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_17",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_18",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_19",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_20",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_21",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_22",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_23",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_24",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_25",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_26",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_27",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_28",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_29",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_30",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_31",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_32",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_33",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_34",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_35",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_36",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_37",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_38",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_39",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_40",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_41",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_42",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_43",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_44",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_45",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_46",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_47",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_48",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_49",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_50",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_51",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_52",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_53",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_54",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_55",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_56",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_57",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_58",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_59",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_60",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_61",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_62",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_63",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_64",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_65",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_66",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_67",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_68",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_69",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_70",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_71",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_72",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_73",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_74",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_75",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_76",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_77",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_78",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_79",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_80",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_81",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_82",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_83",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_84",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_85",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_86",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_87",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_88",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_89",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_90",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_91",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_92",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_93",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_94",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_95",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_96",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_97",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_98",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_99",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_100",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_101",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_102",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_103",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_104",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_105",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_106",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_107",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_108",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_109",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_110",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_111",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_112",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_113",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_114",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_115",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_116",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_117",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_118",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_119",
+            "INSUFFICIENT_UNIQUE_ODOM_UPDATES (0 < 5)",
+            "INSUFFICIENT_UNIQUE_GT_UPDATES (0 < 5)",
+            "INSUFFICIENT_ODOM_DURATION (0.000s < 2.0s)",
+            "INSUFFICIENT_GT_DURATION (0.000s < 2.0s)",
+            "INSUFFICIENT_UNIQUE_SAMPLES_IN_WINDOW"
+          ],
+          "sim_duration_covered": 0.0,
+          "odom_duration_covered": 0.0,
+          "gt_duration_covered": 0.0,
+          "unique_samples_count": 0,
+          "unique_odom_count": 0,
+          "unique_gt_count": 0,
+          "total_raw_samples_count": 120,
+          "max_sampling_interval_sec": null,
+          "data_fresh": false,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": false,
+          "max_linear_v_seen": null,
+          "max_angular_v_seen": null,
+          "max_gt_displacement_m": null,
+          "cmd_vel_status": "ERROR_MISSING_ODOM",
+          "safety_intervention": false,
+          "halt_verified": false,
+          "halt_failure_reason": "MISSING_ODOM_AT_SAMPLE_0"
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      },
+      "evaluation_retry": {
+        "nav2_action_status": "SUCCEEDED",
+        "execution_outcome": "BUDGET_SUCCESS",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": true,
+        "failure_reason": null,
+        "final_geometric_errors": {
+          "gt_position_error_m": 0.2085,
+          "gt_yaw_error_rad": 0.1352,
+          "amcl_position_error_m": 0.2651,
+          "amcl_yaw_error_rad": 0.1136,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.35
+          }
+        },
+        "window_evaluation": {
+          "window_valid": false,
+          "failure_reasons": [
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_0",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_1",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_2",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_3",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_4",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_5",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_6",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_7",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_8",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_9",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_10",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_11",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_12",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_13",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_14",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_15",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_16",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_17",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_18",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_19",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_20",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_21",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_22",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_23",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_24",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_25",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_26",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_27",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_28",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_29",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_30",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_31",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_32",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_33",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_34",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_35",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_36",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_37",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_38",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_39",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_40",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_41",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_42",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_43",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_44",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_45",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_46",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_47",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_48",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_49",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_50",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_51",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_52",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_53",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_54",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_55",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_56",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_57",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_58",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_59",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_60",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_61",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_62",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_63",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_64",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_65",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_66",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_67",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_68",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_69",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_70",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_71",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_72",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_73",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_74",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_75",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_76",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_77",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_78",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_79",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_80",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_81",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_82",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_83",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_84",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_85",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_86",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_87",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_88",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_89",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_90",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_91",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_92",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_93",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_94",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_95",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_96",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_97",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_98",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_99",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_100",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_101",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_102",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_103",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_104",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_105",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_106",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_107",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_108",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_109",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_110",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_111",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_112",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_113",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_114",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_115",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_116",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_117",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_118",
+            "NON_FINITE_SIM_TIME_AT_SAMPLE_119",
+            "INSUFFICIENT_UNIQUE_ODOM_UPDATES (0 < 5)",
+            "INSUFFICIENT_UNIQUE_GT_UPDATES (0 < 5)",
+            "INSUFFICIENT_ODOM_DURATION (0.000s < 2.0s)",
+            "INSUFFICIENT_GT_DURATION (0.000s < 2.0s)",
+            "INSUFFICIENT_UNIQUE_SAMPLES_IN_WINDOW"
+          ],
+          "sim_duration_covered": 0.0,
+          "odom_duration_covered": 0.0,
+          "gt_duration_covered": 0.0,
+          "unique_samples_count": 0,
+          "unique_odom_count": 0,
+          "unique_gt_count": 0,
+          "total_raw_samples_count": 120,
+          "max_sampling_interval_sec": null,
+          "data_fresh": false,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": false,
+          "max_linear_v_seen": null,
+          "max_angular_v_seen": null,
+          "max_gt_displacement_m": null,
+          "cmd_vel_status": "ERROR_MISSING_ODOM",
+          "safety_intervention": false,
+          "halt_verified": false,
+          "halt_failure_reason": "MISSING_ODOM_AT_SAMPLE_0"
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": true,
+        "strict_physical_arrival_and_stable": false
+      },
+      "action_history": [
+        {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_initial",
+          "params": {
+            "target_id": "initial_scan"
+          },
+          "dispatch_status": "COMPLETED",
+          "terminal_status": "SUCCESS"
+        },
+        {
+          "action": "navigate",
+          "action_id": "C2_ep1_nav_orig",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 45.0
+          },
+          "dispatch_status": "ACCEPTED",
+          "terminal_status": null
+        },
+        {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_post_removal",
+          "params": {
+            "target_id": "post_removal_scan"
+          },
+          "dispatch_status": "COMPLETED",
+          "terminal_status": "SUCCESS"
+        },
+        {
+          "action": "retry",
+          "action_id": "C2_ep1_retry_nav",
+          "params": {
+            "original_action_id": "C2_ep1_nav_orig",
+            "replayed_params": null
+          },
+          "dispatch_status": "ACCEPTED",
+          "terminal_status": null
+        },
+        {
+          "action": "observe",
+          "action_id": "C2_ep1_obs_final",
+          "params": {
+            "target_id": "final_scan"
+          },
+          "dispatch_status": "COMPLETED",
+          "terminal_status": "SUCCESS"
+        }
+      ]
+    }
+  ],
+  "overall_status": "PARTIAL",
+  "summary_table": {
+    "C0": {
+      "task_success": false,
+      "mechanism_verified": false,
+      "episode_count": 1
+    },
+    "C1": {
+      "no_spurious_arrival": true,
+      "mechanism_verified": true,
+      "episode_count": 1
+    },
+    "C2": {
+      "task_success": false,
+      "mechanism_verified": false,
+      "episode_count": 1
+    },
+    "coordinate_alignment": true
+  }
+}

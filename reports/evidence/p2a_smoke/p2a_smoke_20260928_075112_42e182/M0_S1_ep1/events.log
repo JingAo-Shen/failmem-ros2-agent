@@ -1,0 +1,19 @@
+[2026-09-28 07:51:12.600] === Starting Episode M0_S1_ep1 (M0_S1 #1) ===
+[2026-09-28 07:51:12.600] Policy: M0, Sequence: S1
+[2026-09-28 07:51:16.819] Sim clock advanced: 0.00s -> 1.20s
+[2026-09-28 07:51:18.747] Sensors streaming: odom=-1.7999814471492084, scan=360 rays, costmap=160
+[2026-09-28 07:51:19.004] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-28 07:51:19.010] Nav2 bt_navigator is verified ACTIVE!
+[2026-09-28 07:51:19.010] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-28 07:51:19.161] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-28 07:51:19.161] Obstacle spawn confirmed in Gazebo
+[2026-09-28 07:51:19.161] --- [Step 1] Sim Time: 3.50s ---
+[2026-09-28 07:51:19.164] [ERROR] Exception during episode execution: evaluate_doorway_clearance() got an unexpected keyword argument 'scan_record'
+[2026-09-28 07:51:19.165] Traceback (most recent call last):
+  File "/workspace/scripts/run_p2a_experiment.py", line 888, in run_episode
+    doorway_eval = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox)
+  File "/workspace/scripts/run_p2a_experiment.py", line 443, in evaluate_doorway_perception
+    return evaluate_doorway_clearance(
+TypeError: evaluate_doorway_clearance() got an unexpected keyword argument 'scan_record'
+
+[2026-09-28 07:51:24.965] === Episode M0_S1_ep1 Complete: task_success=False, mechanism_verified=False, dispatches=0 ===

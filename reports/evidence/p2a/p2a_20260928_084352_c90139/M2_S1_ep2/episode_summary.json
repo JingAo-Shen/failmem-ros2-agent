@@ -1,0 +1,212 @@
+{
+  "episode_id": "M2_S1_ep2",
+  "condition_id": "M2_S1",
+  "policy_name": "M2",
+  "sequence_name": "S1",
+  "task_success": false,
+  "mechanism_verified": true,
+  "dispatches_attempted": 1,
+  "redundant_retries_count": 0,
+  "invalidation_verified": false,
+  "recovery_verified": false,
+  "obstacle_spawned": true,
+  "obstacle_deleted": false,
+  "policy_final_state": {
+    "total_entries": 1,
+    "active_count": 1,
+    "invalidated_count": 0,
+    "recovery_verified_count": 0,
+    "entries": [
+      {
+        "memory_id": "mem_entry_0001",
+        "created_sim_time": 51.5,
+        "target_goal": [
+          1.8,
+          0.0,
+          0.0
+        ],
+        "target_region": "room2_corridor_chokepoint",
+        "failure_reason": "EXECUTION_FAILED",
+        "invalidation_criteria": {
+          "type": "DOORWAY_CLEARANCE",
+          "region": "room2_corridor_chokepoint",
+          "required_doorway_state": "FREE"
+        },
+        "state": "ACTIVE",
+        "invalidation_sim_time": null,
+        "invalidation_evidence": null,
+        "verification_sim_time": null,
+        "verification_evidence": null,
+        "metadata": {
+          "initial_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (30 laser hits inside doorway bbox, costmap_occupied=18)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 30,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 32,
+            "sample_hits_inside": [
+              [
+                -0.2491,
+                -0.3464,
+                1.2085
+              ],
+              [
+                -0.2319,
+                -0.325,
+                1.2258
+              ],
+              [
+                -0.2435,
+                -0.3039,
+                1.2147
+              ],
+              [
+                -0.2409,
+                -0.2825,
+                1.218
+              ],
+              [
+                -0.2354,
+                -0.2608,
+                1.2248
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.4576,
+              -0.3403
+            ],
+            "laser_yaw_map": -3.0663,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 18,
+              "free_cells": 177,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 50.7
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 30
+          }
+        }
+      }
+    ],
+    "policy_name": "M2_CONDITIONAL_MEMORY",
+    "dispatches_attempted": 2,
+    "dispatches_blocked": 1,
+    "dispatches_permitted": 1
+  },
+  "action_summaries": [
+    {
+      "dispatch": {
+        "pipeline_status": "DISPATCHED",
+        "action_id": "M2_S1_ep2_nav_step1",
+        "goal_uuid": "e905fa3c-38e8-5954-9ce0-0c48cc095a0f",
+        "normalized_action": {
+          "action": "navigate",
+          "action_id": "M2_S1_ep2_nav_step1",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "effective_action": {
+          "action": "navigate",
+          "action_id": "M2_S1_ep2_nav_step1",
+          "params": {
+            "goal": [
+              1.8,
+              0.0,
+              0.0
+            ],
+            "frame_id": "map",
+            "timeout_sec": 25.0
+          }
+        },
+        "ros_dispatched": true,
+        "ros_result": {
+          "status": "ACCEPTED",
+          "accepted": true,
+          "goal_id": "e905fa3c-38e8-5954-9ce0-0c48cc095a0f",
+          "uuid_verified": true
+        }
+      },
+      "execution_outcome": "EXECUTION_FAILED",
+      "terminal_status_name": "ABORTED",
+      "status_code": 6,
+      "deadline_exceeded": false,
+      "failure_reason": "NAV2_ABORTED",
+      "settled_ok": true,
+      "safety_intervention": false,
+      "evaluation": {
+        "nav2_action_status": "ABORTED",
+        "execution_outcome": "EXECUTION_FAILED",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": false,
+        "failure_reason": "NAV2_ABORTED",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.291,
+          "gt_yaw_error_rad": 3.0445,
+          "amcl_position_error_m": 3.3395,
+          "amcl_yaw_error_rad": 3.0619,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.4
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.4,
+          "odom_duration_covered": 2.89,
+          "gt_duration_covered": 2.5,
+          "unique_samples_count": 110,
+          "unique_odom_count": 85,
+          "unique_gt_count": 26,
+          "total_raw_samples_count": 401,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0,
+          "max_angular_v_seen": 0.0011,
+          "max_gt_displacement_m": 0.0001,
+          "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": false,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      }
+    }
+  ]
+}

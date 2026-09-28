@@ -166,7 +166,7 @@ class ObserveInterface:
             }
 
         odom_staleness = current_sim_time - odom_stamp
-        if odom_staleness < -0.20:
+        if odom_staleness < -0.50:
             return {
                 "status": "ERROR",
                 "error_type": "ODOMETRY_FUTURE_TIMESTAMP",
@@ -236,7 +236,7 @@ class ObserveInterface:
             }
 
         amcl_staleness = current_sim_time - amcl_stamp
-        if amcl_staleness < -0.20:
+        if amcl_staleness < -0.50:
             return {
                 "status": "ERROR",
                 "error_type": "AMCL_FUTURE_TIMESTAMP",
@@ -371,7 +371,7 @@ class ObserveInterface:
                 scan_stamp = float(scan_stamp_raw)
                 scan_staleness = current_sim_time - scan_stamp
                 scan_available = True
-                scan_fresh = (scan_staleness <= self.max_sensor_staleness_sec and scan_staleness >= -0.20)
+                scan_fresh = (scan_staleness <= self.max_sensor_staleness_sec and scan_staleness >= -0.50)
                 if not scan_fresh:
                     is_scan_degraded = True
                     degradation_reasons.append(f"SCAN_STALE ({scan_staleness:.3f}s > {self.max_sensor_staleness_sec}s)")

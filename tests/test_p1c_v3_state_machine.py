@@ -5,8 +5,17 @@ from unittest.mock import MagicMock
 from src.observe_interface import ObserveInterface
 
 
-def evaluate_c2_retry_eligibility(obs_result: dict) -> tuple[bool, dict | None, str]:
+def evaluate_c2_retry_eligibility(
+    obs_result: dict,
+    doorway_evidence: dict | None = None,
+) -> tuple[bool, dict | None, str]:
     """Pure logic function for evaluating C2 retry eligibility from observation result."""
+    # 1. Doorway spatial clearance gate (if evidence provided)
+    if doorway_evidence is not None:
+        doorway_state = doorway_evidence.get("doorway_state")
+        if doorway_state != "FREE":
+            return False, None, f"DOORWAY_NOT_FREE ({doorway_state})"
+
     obs_status = obs_result.get("status")
     obs_data = obs_result.get("observation") or {}
     localization = obs_data.get("localization") or {}
@@ -164,6 +173,42 @@ class TestP1cV3StateMachine(unittest.TestCase):
         self.assertFalse(eligible)
         self.assertIsNone(visible_state)
         self.assertEqual(reason, "OBSERVATION_UNAVAILABLE_ERROR")
+
+    def test_doorway_evidence_not_free_rejects_retry(self):
+        """Even with SUCCESS observation, if doorway is OCCUPIED or UNKNOWN, retry is rejected."""
+        obs_res = {
+            "status": "SUCCESS",
+            "observation": {
+                "localization": {
+                    "pose": [-1.8, 0.0, 0.0],
+                    "frame_id": "map",
+                    "covariance_diagonal": [0.01, 0.01, 0.02],
+                    "status": "UP_TO_DATE",
+                }
+            }
+        }
+        # Occupied doorway
+        eligible, visible_state, reason = evaluate_c2_retry_eligibility(
+            obs_res, doorway_evidence={"doorway_state": "OCCUPIED"}
+        )
+        self.assertFalse(eligible)
+        self.assertIsNone(visible_state)
+        self.assertIn("DOORWAY_NOT_FREE", reason)
+
+        # Unknown doorway
+        eligible_unk, _, reason_unk = evaluate_c2_retry_eligibility(
+            obs_res, doorway_evidence={"doorway_state": "UNKNOWN"}
+        )
+        self.assertFalse(eligible_unk)
+        self.assertIn("DOORWAY_NOT_FREE", reason_unk)
+
+        # Free doorway -> accepts
+        eligible_free, vis_free, reason_free = evaluate_c2_retry_eligibility(
+            obs_res, doorway_evidence={"doorway_state": "FREE"}
+        )
+        self.assertTrue(eligible_free)
+        self.assertEqual(vis_free, {"amcl_pose": [-1.8, 0.0, 0.0]})
+        self.assertEqual(reason_free, "SUCCESS")
 
     def test_initial_attempt_success_early_exit(self):
         """If initial navigate succeeds (detour), task_success=True and mechanism_verified=False."""

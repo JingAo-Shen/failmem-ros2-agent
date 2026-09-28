@@ -1,0 +1,43 @@
+[2026-09-28 09:58:37.054] === Starting Episode M1_S2_ep2 (M1_S2 #2) ===
+[2026-09-28 09:58:37.054] Policy: M1, Sequence: S2
+[2026-09-28 09:58:41.310] Sim clock advanced: 0.00s -> 1.20s
+[2026-09-28 09:58:43.243] Sensors streaming: odom=-1.8, scan=360 rays, costmap=160
+[2026-09-28 09:58:43.398] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-28 09:59:03.555] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-28 09:59:03.696] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-28 09:59:03.696] Obstacle spawn confirmed in Gazebo
+[2026-09-28 09:59:03.696] --- [Step 1] Sim Time: 23.50s ---
+[2026-09-28 09:59:03.988] AMCL nomotion update received: stamp 23.764s (seq=4)
+[2026-09-28 09:59:04.685] Step 1 Doorway Perception: state=OCCUPIED, pass_through=0, hits=25
+[2026-09-28 09:59:04.685] Step 1 Dispatch Gate: allowed=True, reason='M1_DISPATCH_ALLOWED'
+[2026-09-28 09:59:04.688] Dispatched action 'M1_S2_ep2_nav_step1': pipeline_status=DISPATCHED
+[2026-09-28 09:59:28.873] Passive physical halt verified: stable for 2.00s sim time (lv=0.0000, av=0.0010)
+[2026-09-28 09:59:31.341] Stability window recording complete: 405 samples across 2.50s sim time
+[2026-09-28 09:59:31.347] Step 1 Nav Result: outcome=EXECUTION_FAILED, arrival=False, dist_to_goal=3.2897m
+[2026-09-28 09:59:31.658] AMCL nomotion update received: stamp 51.365s (seq=33)
+[2026-09-28 09:59:32.523] Failure recorded in policy: M1
+[2026-09-28 09:59:32.523] --- [Step 2] Sim Time: 51.80s ---
+[2026-09-28 09:59:32.523] [S2 Timeline] Triggering obstacle removal at sim_time=51.80s
+[2026-09-28 09:59:32.766] Successfully deleted obstacle 'corridor_blockage_box' from Gazebo world
+[2026-09-28 09:59:32.766] [S2 Timeline] Obstacle deleted from Gazebo. Waiting for natural laser raytrace...
+[2026-09-28 09:59:36.046] AMCL nomotion update received: stamp 55.765s (seq=34)
+[2026-09-28 09:59:36.659] Step 2 Doorway Perception: state=FREE, pass_through=26, hits=0
+[2026-09-28 09:59:36.659] Step 2 Dispatch Gate: allowed=False, reason='M1_PERSISTENT_BLOCK_REGION (room2_corridor_chokepoint)'
+[2026-09-28 09:59:36.659] Step 2: Navigation dispatch SUPPRESSED by policy (M1_PERSISTENT_BLOCK_REGION (room2_corridor_chokepoint))
+[2026-09-28 09:59:39.184] --- [Step 3] Sim Time: 58.60s ---
+[2026-09-28 09:59:39.499] AMCL nomotion update received: stamp 59.165s (seq=35)
+[2026-09-28 09:59:40.112] Step 3 Doorway Perception: state=FREE, pass_through=26, hits=0
+[2026-09-28 09:59:40.113] Step 3 Dispatch Gate: allowed=False, reason='M1_PERSISTENT_BLOCK_REGION (room2_corridor_chokepoint)'
+[2026-09-28 09:59:40.113] Step 3: Navigation dispatch SUPPRESSED by policy (M1_PERSISTENT_BLOCK_REGION (room2_corridor_chokepoint))
+[2026-09-28 09:59:42.636] --- [Step 4] Sim Time: 62.00s ---
+[2026-09-28 09:59:42.865] AMCL nomotion update received: stamp 62.565s (seq=36)
+[2026-09-28 09:59:43.480] Step 4 Doorway Perception: state=OCCUPIED, pass_through=26, hits=0
+[2026-09-28 09:59:43.481] Step 4 Dispatch Gate: allowed=False, reason='M1_PERSISTENT_BLOCK_REGION (room2_corridor_chokepoint)'
+[2026-09-28 09:59:43.481] Step 4: Navigation dispatch SUPPRESSED by policy (M1_PERSISTENT_BLOCK_REGION (room2_corridor_chokepoint))
+[2026-09-28 09:59:46.002] --- [Step 5] Sim Time: 65.50s ---
+[2026-09-28 09:59:46.210] AMCL nomotion update received: stamp 65.965s (seq=37)
+[2026-09-28 09:59:47.023] Step 5 Doorway Perception: state=UNKNOWN, pass_through=0, hits=0
+[2026-09-28 09:59:47.024] Step 5 Dispatch Gate: allowed=False, reason='M1_PERSISTENT_BLOCK_REGION (room2_corridor_chokepoint)'
+[2026-09-28 09:59:47.024] Step 5: Navigation dispatch SUPPRESSED by policy (M1_PERSISTENT_BLOCK_REGION (room2_corridor_chokepoint))
+[2026-09-28 09:59:47.024] Sequence S2: multiple suppressions (4) without clearance change. Ending episode.
+[2026-09-28 09:59:52.897] === Episode M1_S2_ep2 Complete: task_success=False, mechanism_verified=True, dispatches=1 ===

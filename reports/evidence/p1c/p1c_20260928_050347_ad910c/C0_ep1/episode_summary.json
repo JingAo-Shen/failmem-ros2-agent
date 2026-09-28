@@ -1,0 +1,296 @@
+{
+  "episode_id": "C0_ep1",
+  "condition": "C0",
+  "episode_number": 1,
+  "target_goal": [
+    0.5,
+    -0.5,
+    0.0
+  ],
+  "spawn_pose": [
+    -2.0,
+    -0.5,
+    0.0
+  ],
+  "protocol_sha256": "b90401bc7fdd3ff309021a0aeab0fb586e30b0d6497dc0e9e90f07dd94c9110b",
+  "infrastructure_error": null,
+  "obstacle_present": false,
+  "collision_state": "UNKNOWN",
+  "step1_observe": {
+    "pipeline_status": "DISPATCHED",
+    "action_id": "C0_ep1_obs_initial",
+    "goal_uuid": "fe9d6671-171e-5f0a-a863-e49252887572",
+    "normalized_action": {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      }
+    },
+    "effective_action": {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      }
+    },
+    "ros_dispatched": true,
+    "ros_result": {
+      "status": "SUCCESS",
+      "error_type": null,
+      "error_message": null,
+      "observation": {
+        "timestamp": {
+          "sim_time_sec": 4.966,
+          "amcl_stamp_sec": 4.766,
+          "odom_stamp_sec": 4.956,
+          "scan_stamp_sec": 4.966
+        },
+        "localization": {
+          "pose": [
+            -1.6483,
+            -0.5328,
+            -0.12
+          ],
+          "covariance_diagonal": [
+            0.019518,
+            0.052485,
+            0.027448
+          ],
+          "frame_id": "map",
+          "staleness_sec": 0.2,
+          "status": "UP_TO_DATE"
+        },
+        "odometry": {
+          "linear_velocity_mps": 0.2601,
+          "angular_velocity_radps": -0.001,
+          "staleness_sec": 0.01
+        },
+        "laser_scan": {
+          "available": true,
+          "fresh": true,
+          "staleness_sec": 0.0,
+          "min_distance_m": 0.6099,
+          "valid_ranges_count": 360,
+          "total_ranges_count": 360
+        },
+        "navigation_status": {
+          "nav2_lifecycle_state": "ACTIVE",
+          "current_goal_status": "IDLE"
+        }
+      },
+      "wait_timed_out": false,
+      "clock_frozen": false,
+      "wall_duration_sec": 0.123
+    }
+  },
+  "step2_navigate": {
+    "dispatch": {
+      "pipeline_status": "DISPATCHED",
+      "action_id": "C0_ep1_nav",
+      "goal_uuid": "fe6919f0-a25e-5686-93ea-065c738f1225",
+      "normalized_action": {
+        "action": "navigate",
+        "action_id": "C0_ep1_nav",
+        "params": {
+          "goal": [
+            0.5,
+            -0.5,
+            0.0
+          ],
+          "frame_id": "map",
+          "timeout_sec": 45.0
+        }
+      },
+      "effective_action": {
+        "action": "navigate",
+        "action_id": "C0_ep1_nav",
+        "params": {
+          "goal": [
+            0.5,
+            -0.5,
+            0.0
+          ],
+          "frame_id": "map",
+          "timeout_sec": 45.0
+        }
+      },
+      "ros_dispatched": true,
+      "ros_result": {
+        "status": "ACCEPTED",
+        "accepted": true,
+        "goal_id": "fe6919f0-a25e-5686-93ea-065c738f1225",
+        "uuid_verified": true
+      }
+    },
+    "execution_outcome": "EXECUTION_FAILED",
+    "terminal_status_name": "ABORTED",
+    "status_code": 6,
+    "deadline_exceeded": false,
+    "failure_reason": "NAV2_ABORTED",
+    "settled_ok": false,
+    "safety_intervention": true,
+    "evaluation": {
+      "nav2_action_status": "ABORTED",
+      "execution_outcome": "EXECUTION_FAILED",
+      "deadline_exceeded": false,
+      "nav2_action_succeeded": false,
+      "failure_reason": "NAV2_ABORTED",
+      "final_geometric_errors": {
+        "gt_position_error_m": 2.5,
+        "gt_yaw_error_rad": 0.0002,
+        "amcl_position_error_m": 0.9206,
+        "amcl_yaw_error_rad": 0.0376,
+        "thresholds_applied": {
+          "position_tolerance_m": 0.3,
+          "yaw_tolerance_rad": 0.35
+        }
+      },
+      "window_evaluation": {
+        "window_valid": false,
+        "failure_reasons": [
+          "WATCHDOG_TRIGGERED_EARLY_EXIT"
+        ],
+        "sim_duration_covered": 0.0,
+        "odom_duration_covered": 0.0,
+        "gt_duration_covered": 0.0,
+        "unique_samples_count": 465,
+        "unique_odom_count": 0,
+        "unique_gt_count": 0,
+        "max_sampling_interval_sec": null,
+        "data_fresh": false,
+        "watchdog_triggered": true
+      },
+      "halt_evaluation": {
+        "all_samples_stopped": false,
+        "max_linear_v_seen": null,
+        "max_angular_v_seen": null,
+        "max_gt_displacement_m": null,
+        "cmd_vel_status": "SAFETY_INTERVENTION_OVERRIDE",
+        "safety_intervention": true,
+        "halt_verified": false,
+        "halt_failure_reason": "SAFETY_INTERVENTION_OVERRIDE_TRIGGERED"
+      },
+      "all_window_pos_ok": false,
+      "all_window_yaw_ok": true,
+      "final_pose_arrived": false,
+      "strict_physical_arrival_and_stable": false
+    }
+  },
+  "step3_observe": {
+    "pipeline_status": "DISPATCHED",
+    "action_id": "C0_ep1_obs_final",
+    "goal_uuid": "9527ad65-cd86-547e-ada5-77ed6840ef55",
+    "normalized_action": {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_final",
+      "params": {
+        "target_id": "final_scan"
+      }
+    },
+    "effective_action": {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_final",
+      "params": {
+        "target_id": "final_scan"
+      }
+    },
+    "ros_dispatched": true,
+    "ros_result": {
+      "status": "ERROR",
+      "error_type": "ODOMETRY_FUTURE_TIMESTAMP",
+      "error_message": "Odometry stamp 4.081 is in the future relative to sim time 3.605.",
+      "observation": null,
+      "wait_timed_out": false,
+      "clock_frozen": false,
+      "wall_duration_sec": 0.5322
+    }
+  },
+  "final_gt_pos_error_m": 2.5,
+  "evaluation": {
+    "nav2_action_status": "ABORTED",
+    "execution_outcome": "EXECUTION_FAILED",
+    "deadline_exceeded": false,
+    "nav2_action_succeeded": false,
+    "failure_reason": "NAV2_ABORTED",
+    "final_geometric_errors": {
+      "gt_position_error_m": 2.5,
+      "gt_yaw_error_rad": 0.0002,
+      "amcl_position_error_m": 0.9206,
+      "amcl_yaw_error_rad": 0.0376,
+      "thresholds_applied": {
+        "position_tolerance_m": 0.3,
+        "yaw_tolerance_rad": 0.35
+      }
+    },
+    "window_evaluation": {
+      "window_valid": false,
+      "failure_reasons": [
+        "WATCHDOG_TRIGGERED_EARLY_EXIT"
+      ],
+      "sim_duration_covered": 0.0,
+      "odom_duration_covered": 0.0,
+      "gt_duration_covered": 0.0,
+      "unique_samples_count": 465,
+      "unique_odom_count": 0,
+      "unique_gt_count": 0,
+      "max_sampling_interval_sec": null,
+      "data_fresh": false,
+      "watchdog_triggered": true
+    },
+    "halt_evaluation": {
+      "all_samples_stopped": false,
+      "max_linear_v_seen": null,
+      "max_angular_v_seen": null,
+      "max_gt_displacement_m": null,
+      "cmd_vel_status": "SAFETY_INTERVENTION_OVERRIDE",
+      "safety_intervention": true,
+      "halt_verified": false,
+      "halt_failure_reason": "SAFETY_INTERVENTION_OVERRIDE_TRIGGERED"
+    },
+    "all_window_pos_ok": false,
+    "all_window_yaw_ok": true,
+    "final_pose_arrived": false,
+    "strict_physical_arrival_and_stable": false
+  },
+  "task_success": false,
+  "mechanism_verified": false,
+  "execution_outcome": "EXECUTION_FAILED",
+  "terminal_status_name": "ABORTED",
+  "action_history": [
+    {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_initial",
+      "params": {
+        "target_id": "initial_scan"
+      },
+      "dispatch_status": "COMPLETED",
+      "terminal_status": "SUCCESS"
+    },
+    {
+      "action": "navigate",
+      "action_id": "C0_ep1_nav",
+      "params": {
+        "goal": [
+          0.5,
+          -0.5,
+          0.0
+        ],
+        "frame_id": "map",
+        "timeout_sec": 45.0
+      },
+      "dispatch_status": "COMPLETED",
+      "terminal_status": "ABORTED",
+      "status_code": 6
+    },
+    {
+      "action": "observe",
+      "action_id": "C0_ep1_obs_final",
+      "params": {
+        "target_id": "final_scan"
+      },
+      "dispatch_status": "COMPLETED",
+      "terminal_status": "ERROR"
+    }
+  ]
+}

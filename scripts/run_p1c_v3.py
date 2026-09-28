@@ -58,6 +58,7 @@ from nav2_msgs.srv import ClearEntireCostmap
 from lifecycle_msgs.srv import GetState
 from std_srvs.srv import Empty
 from unique_identifier_msgs.msg import UUID as RosUUID
+import tf2_ros
 
 from src.observe_interface import ObserveInterface
 from src.action_dispatcher import ActionDispatcher
@@ -69,6 +70,11 @@ from src.scoring_evaluator import (
     load_scoring_rules,
 )
 from src.coordinate_alignment import verify_world_map_alignment
+from src.doorway_evaluator import (
+    evaluate_doorway_clearance,
+    extract_costmap_doorway_subgrid,
+    project_laser_scan_rays_tf,
+)
 
 
 def quat_to_yaw(x: float, y: float, z: float, w: float) -> float:
@@ -156,24 +162,32 @@ class P1cV3RunnerNode(Node):
         self.delete_entity_client = self.create_client(DeleteEntity, "/delete_entity")
         self.nomotion_update_client = self.create_client(Empty, "/request_nomotion_update")
 
+        # TF2 Buffer & Listener for map <- base_scan projection
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+
         # Subscriptions
         self.cmd_vel_sub = self.create_subscription(Twist, "cmd_vel", self._cmd_vel_cb, 10)
         self.odom_sub = self.create_subscription(Odometry, "odom", self._odom_cb, 10)
         self.amcl_sub = self.create_subscription(PoseWithCovarianceStamped, "amcl_pose", self._amcl_cb, 10)
         self.scan_sub = self.create_subscription(LaserScan, "scan", self._scan_cb, qos_profile_sensor_data)
+        self.costmap_sub = self.create_subscription(OccupancyGrid, "/global_costmap/costmap", self._costmap_cb, qos_profile_sensor_data)
         self.gazebo_sub = self.create_subscription(ModelStates, "/gazebo/model_states", self._gazebo_cb, qos_profile_sensor_data)
 
         self.latest_odom_record: Optional[Dict[str, Any]] = None
         self.latest_amcl_record: Optional[Dict[str, Any]] = None
         self.latest_scan_record: Optional[Dict[str, Any]] = None
+        self.latest_costmap_record: Optional[Dict[str, Any]] = None
         self.latest_gt_record: Optional[Dict[str, Any]] = None
         self.latest_cmd_vel_record: Optional[Dict[str, Any]] = None
         self._latest_raw_scan: Any = None
+        self._latest_raw_costmap: Optional[OccupancyGrid] = None
         self._gazebo_model_names: List[str] = []
 
         self.odom_msg_count = 0
         self.amcl_msg_count = 0
         self.scan_msg_count = 0
+        self.costmap_msg_count = 0
         self.gt_msg_count = 0
         self.cmd_vel_msg_count = 0
 
@@ -346,9 +360,82 @@ class P1cV3RunnerNode(Node):
         self.log("[WARN] AMCL nomotion update timed out waiting for new amcl_pose message")
         return False
 
+    def _costmap_cb(self, msg: OccupancyGrid):
+        self.costmap_msg_count += 1
+        sim_now = self.get_sim_time_sec()
+        stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        self._latest_raw_costmap = msg
+        rec = {
+            "seq": self.costmap_msg_count,
+            "msg_stamp_sec": round(stamp_sec, 4),
+            "recv_sim_time_sec": round(sim_now, 4),
+            "width": msg.info.width,
+            "height": msg.info.height,
+            "resolution": round(float(msg.info.resolution), 4),
+            "origin_x": round(float(msg.info.origin.position.x), 4),
+            "origin_y": round(float(msg.info.origin.position.y), 4),
+            "frame_id": msg.header.frame_id or "map",
+        }
+        self.latest_costmap_record = rec
+
+    def get_laser_map_transform(self, stamp_sec: Optional[float] = None, timeout_sec: float = 0.5) -> Optional[Dict[str, Any]]:
+        """Lookup TF transform from map to base_scan frame at exact timestamp."""
+        try:
+            target_time = rclpy.time.Time()
+            if stamp_sec is not None:
+                nanosec = int(round(stamp_sec * 1e9))
+                target_time = rclpy.time.Time(nanoseconds=nanosec)
+            transform = self.tf_buffer.lookup_transform(
+                "map", "base_scan", target_time, timeout=rclpy.duration.Duration(seconds=timeout_sec)
+            )
+            t = transform.transform.translation
+            r = transform.transform.rotation
+            yaw = quat_to_yaw(r.x, r.y, r.z, r.w)
+            return {
+                "translation": [float(t.x), float(t.y), float(t.z)],
+                "yaw": yaw,
+                "stamp_sec": stamp_sec if stamp_sec is not None else (transform.header.stamp.sec + transform.header.stamp.nanosec * 1e-9),
+                "frame_id": transform.header.frame_id,
+                "child_frame_id": transform.child_frame_id,
+            }
+        except Exception:
+            # Fallback: lookup latest transform if exact stamp not yet in buffer
+            try:
+                transform = self.tf_buffer.lookup_transform(
+                    "map", "base_scan", rclpy.time.Time(), timeout=rclpy.duration.Duration(seconds=0.2)
+                )
+                t = transform.transform.translation
+                r = transform.transform.rotation
+                yaw = quat_to_yaw(r.x, r.y, r.z, r.w)
+                return {
+                    "translation": [float(t.x), float(t.y), float(t.z)],
+                    "yaw": yaw,
+                    "stamp_sec": stamp_sec if stamp_sec is not None else (transform.header.stamp.sec + transform.header.stamp.nanosec * 1e-9),
+                    "frame_id": transform.header.frame_id,
+                    "child_frame_id": transform.child_frame_id,
+                }
+            except Exception:
+                return None
+
+    def query_lifecycle_state(self, timeout_sec: float = 0.5) -> str:
+        """Query real Nav2 lifecycle state."""
+        if not self.lifecycle_client.service_is_ready():
+            if not self.lifecycle_client.wait_for_service(timeout_sec=0.2):
+                return "UNAVAILABLE"
+        try:
+            req = GetState.Request()
+            future = self.lifecycle_client.call_async(req)
+            rclpy.spin_until_future_complete(self, future, timeout_sec=timeout_sec)
+            if future.done() and future.result():
+                return future.result().current_state.label.upper()
+        except Exception:
+            pass
+        return "UNKNOWN"
+
     def get_live_observation(self, wait_fresh: bool = True, timeout_sec: float = 2.0, refresh_amcl_if_stale: bool = True) -> Dict[str, Any]:
-        """Extract live observation with optional nomotion AMCL refresh when stationary."""
+        """Extract live observation with real lifecycle & goal state query and nomotion AMCL refresh."""
         wall_start = time.monotonic()
+        t0_sim = self.get_sim_time_sec()
 
         # Check if robot is stationary and AMCL is stale -> request nomotion update
         if refresh_amcl_if_stale and self.latest_odom_record:
@@ -361,7 +448,6 @@ class P1cV3RunnerNode(Node):
                     self.request_nomotion_amcl_update(timeout_sec=1.5)
 
         if wait_fresh:
-            t0_sim = self.get_sim_time_sec()
             while (time.monotonic() - wall_start) < timeout_sec:
                 rclpy.spin_once(self, timeout_sec=0.04)
                 curr_sim = self.get_sim_time_sec()
@@ -372,68 +458,121 @@ class P1cV3RunnerNode(Node):
                 time.sleep(0.02)
 
         sim_now = self.get_sim_time_sec()
+        wall_elapsed = time.monotonic() - wall_start
+        clock_frozen = (wall_elapsed > 1.0 and abs(sim_now - t0_sim) < 0.01)
+
+        # Real Nav2 lifecycle state
+        lifecycle_state = self.query_lifecycle_state(timeout_sec=0.3)
+
+        # Real goal status
+        goal_status = "IDLE"
+        if self.current_active_goal_handle is not None:
+            gh_status = getattr(self.current_active_goal_handle, "status", None)
+            if gh_status in (1, 2, 3):
+                goal_status = "ACTIVE"
+
         obs_res = self.obs_interface.extract_observation(
             current_sim_time=sim_now,
             latest_amcl=self.latest_amcl_record,
             latest_odom=self.latest_odom_record,
             latest_scan=self.latest_scan_record,
-            nav2_lifecycle_state="ACTIVE",
-            current_goal_status="IDLE",
+            nav2_lifecycle_state=lifecycle_state,
+            current_goal_status=goal_status,
             odom_history=list(self.continuous_odom_buffer),
+            clock_frozen=clock_frozen,
         )
         obs_res["wall_duration_sec"] = round(time.monotonic() - wall_start, 4)
         return obs_res
+
+    def evaluate_doorway_perception(
+        self,
+        doorway_bbox: Tuple[float, float, float, float] = (-0.20, 0.20, -0.30, 0.30),
+        spin_for_fresh_sec: float = 0.5,
+        refresh_amcl_if_stale: bool = True,
+    ) -> Dict[str, Any]:
+        """Perform rigorous 3-valued doorway clearance evaluation using TF laser projection & costmap subgrid."""
+        # Ensure fresh AMCL if stationary
+        if refresh_amcl_if_stale and self.latest_odom_record:
+            lv = abs(float(self.latest_odom_record.get("linear_v", 0.0)))
+            av = abs(float(self.latest_odom_record.get("angular_v", 0.0)))
+            if lv < 0.05 and av < 0.05:
+                curr_sim = self.get_sim_time_sec()
+                amcl_stamp = self.latest_amcl_record.get("msg_stamp_sec", 0.0) if self.latest_amcl_record else 0.0
+                if (curr_sim - amcl_stamp) > 0.40:
+                    self.request_nomotion_amcl_update(timeout_sec=1.5)
+
+        if spin_for_fresh_sec > 0.0:
+            t0 = time.monotonic()
+            prev_seq = self.latest_scan_record.get("seq", 0) if self.latest_scan_record else 0
+            while time.monotonic() - t0 < spin_for_fresh_sec:
+                rclpy.spin_once(self, timeout_sec=0.04)
+                curr_seq = self.latest_scan_record.get("seq", 0) if self.latest_scan_record else 0
+                if curr_seq > prev_seq + 1:
+                    break
+                time.sleep(0.02)
+
+        if self._latest_raw_scan is None:
+            return {
+                "doorway_state": "UNKNOWN",
+                "doorway_cleared": False,
+                "reason": "SCAN_UNAVAILABLE",
+                "doorway_bbox": list(doorway_bbox),
+                "error": "LATEST_RAW_SCAN_IS_NONE",
+            }
+
+        scan = self._latest_raw_scan
+        scan_stamp = scan.header.stamp.sec + scan.header.stamp.nanosec * 1e-9
+        curr_sim = self.get_sim_time_sec()
+
+        # Get TF map <- base_scan
+        tf_info = self.get_laser_map_transform(stamp_sec=scan_stamp)
+        tf_trans = tf_info["translation"] if tf_info else None
+        tf_yaw = tf_info["yaw"] if tf_info else None
+        tf_stamp = tf_info["stamp_sec"] if tf_info else None
+
+        # Costmap subgrid extraction
+        costmap_summary = None
+        if self._latest_raw_costmap is not None:
+            cm = self._latest_raw_costmap
+            cm_stamp = cm.header.stamp.sec + cm.header.stamp.nanosec * 1e-9
+            costmap_summary = extract_costmap_doorway_subgrid(
+                costmap_data=list(cm.data),
+                width=cm.info.width,
+                height=cm.info.height,
+                resolution=cm.info.resolution,
+                origin_x=cm.info.origin.position.x,
+                origin_y=cm.info.origin.position.y,
+                doorway_bbox=doorway_bbox,
+                costmap_stamp_sec=cm_stamp,
+                current_sim_time=curr_sim,
+            )
+
+        doorway_res = evaluate_doorway_clearance(
+            ranges=list(scan.ranges),
+            angle_min=scan.angle_min,
+            angle_increment=scan.angle_increment,
+            range_min=scan.range_min,
+            range_max=scan.range_max,
+            tf_translation=tf_trans,
+            tf_yaw=tf_yaw,
+            tf_stamp_sec=tf_stamp,
+            scan_stamp_sec=scan_stamp,
+            current_sim_time=curr_sim,
+            doorway_bbox=doorway_bbox,
+            costmap_data_summary=costmap_summary,
+        )
+        # Backwards compatibility key
+        doorway_res["doorway_cleared"] = (doorway_res["doorway_state"] == "FREE")
+        doorway_res["points_count"] = doorway_res.get("hits_inside_count", 0)
+        return doorway_res
 
     def check_doorway_clearance_evidence(
         self,
         doorway_bbox: Tuple[float, float, float, float] = (-0.20, 0.20, -0.30, 0.30),
         spin_for_fresh_sec: float = 0.5,
     ) -> Dict[str, Any]:
-        """Project 2D laser scan rays into map frame and count points inside doorway bounding box."""
-        if spin_for_fresh_sec > 0.0:
-            t0 = time.monotonic()
-            prev_seq = self.latest_scan_record.get("seq", 0) if self.latest_scan_record else 0
-            while time.monotonic() - t0 < spin_for_fresh_sec:
-                rclpy.spin_once(self, timeout_sec=0.05)
-                curr_seq = self.latest_scan_record.get("seq", 0) if self.latest_scan_record else 0
-                if curr_seq > prev_seq + 1:
-                    break
-                time.sleep(0.02)
-
-        if self._latest_raw_scan is None or self.latest_amcl_record is None:
-            return {"doorway_cleared": False, "points_count": -1, "error": "MISSING_SCAN_OR_AMCL"}
-
-        pose = [self.latest_amcl_record["x"], self.latest_amcl_record["y"], self.latest_amcl_record["yaw"]]
-        rx, ry, ryaw = pose[0], pose[1], pose[2]
-        scan = self._latest_raw_scan
-        xmin, xmax, ymin, ymax = doorway_bbox
-        points_in_box = []
-
-        for i, r in enumerate(scan.ranges):
-            if not math.isfinite(r) or r < scan.range_min or r > scan.range_max:
-                continue
-            theta = scan.angle_min + i * scan.angle_increment
-            lx = r * math.cos(theta)
-            ly = r * math.sin(theta)
-            mx = rx + lx * math.cos(ryaw) - ly * math.sin(ryaw)
-            my = ry + lx * math.sin(ryaw) + ly * math.cos(ryaw)
-
-            if xmin <= mx <= xmax and ymin <= my <= ymax:
-                points_in_box.append((round(mx, 3), round(my, 3), round(r, 3)))
-
-        points_count = len(points_in_box)
-        doorway_cleared = (points_count == 0)
-        min_r = min([p[2] for p in points_in_box]) if points_in_box else None
-
-        return {
-            "doorway_cleared": doorway_cleared,
-            "points_count": points_count,
-            "min_range_in_doorway_m": min_r,
-            "doorway_bbox": list(doorway_bbox),
-            "robot_map_pose": [round(p, 4) for p in pose],
-            "sample_points_in_box": points_in_box[:10],
-            "error": None,
-        }
+        """Wrapper for evaluate_doorway_perception."""
+        return self.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=spin_for_fresh_sec)
 
     def check_model_in_gazebo_states(self, model_name: str, wall_timeout_sec: float = 3.0) -> bool:
         """Verify model presence in Gazebo model states."""
@@ -635,7 +774,12 @@ def execute_navigation_action(
     )
 
     # Passive settling
-    settled_ok = node.wait_for_passive_settling(min_duration_sec=2.0, max_wait_sec=8.0)
+    settled_ok = node.wait_for_passive_settling(
+        min_duration_sec=3.0,
+        max_wait_sec=12.0,
+        linear_thresh=0.02,
+        angular_thresh=0.02,
+    )
     stability_records, wd_triggered = node.record_stability_window(
         duration_sim_sec=2.4,
         logger=logger,
@@ -743,8 +887,18 @@ def compute_sha256_tree(directory: Path, output_file: Path):
         f.writelines(lines)
 
 
-def evaluate_c2_retry_eligibility(obs_result: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any]], str]:
-    """Pure logic function for evaluating C2 retry eligibility from observation result."""
+def evaluate_c2_retry_eligibility(
+    obs_result: Dict[str, Any],
+    doorway_evidence: Optional[Dict[str, Any]] = None,
+) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+    """Pure logic function for evaluating C2 retry eligibility from observation result and doorway clearance."""
+    # 1. Doorway spatial clearance gate (if evidence provided)
+    if doorway_evidence is not None:
+        doorway_state = doorway_evidence.get("doorway_state")
+        if doorway_state != "FREE":
+            return False, None, f"DOORWAY_NOT_FREE ({doorway_state})"
+
+    # 2. Observation status & localization gate
     obs_status = obs_result.get("status")
     obs_data = obs_result.get("observation") or {}
     localization = obs_data.get("localization") or {}
@@ -956,12 +1110,12 @@ def main():
 
             # Verify sensor streams
             t_sensor_start = time.monotonic()
-            while time.monotonic() - t_sensor_start < 15.0:
+            while time.monotonic() - t_sensor_start < 20.0:
                 rclpy.spin_once(node, timeout_sec=0.1)
-                if node.latest_odom_record and node.latest_gt_record and node.latest_scan_record:
+                if node.latest_odom_record and node.latest_gt_record and node.latest_scan_record and node.latest_costmap_record:
                     break
                 time.sleep(0.05)
-            log_ep(f"Sensors streaming: odom={node.latest_odom_record['x'] if node.latest_odom_record else 'None'}, scan={node.latest_scan_record['total_count'] if node.latest_scan_record else 'None'} rays")
+            log_ep(f"Sensors streaming: odom={node.latest_odom_record['x'] if node.latest_odom_record else 'None'}, scan={node.latest_scan_record['total_count'] if node.latest_scan_record else 'None'} rays, costmap={node.latest_costmap_record['width'] if node.latest_costmap_record else 'None'}")
 
             # Initialize AMCL pose strictly at spawn
             node.initialize_amcl_pose(spawn_coords)
@@ -990,6 +1144,9 @@ def main():
 
             # ── Condition C0: Unblocked Baseline ──────────────────────────────
             if cond == "C0":
+                doorway_check_pre = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox)
+                log_ep(f"C0: Pre-nav doorway check: state={doorway_check_pre.get('doorway_state')}, pass_through={doorway_check_pre.get('pass_through_count')}")
+
                 obs1 = dispatcher.dispatch({
                     "action": "observe", "action_id": f"{plan['dir_name']}_obs_initial",
                     "params": {"target_id": "initial_scan"},
@@ -1057,8 +1214,8 @@ def main():
                     ep_data["infrastructure_error"] = "OBSTACLE_SPAWN_FAILED"
                     raise RuntimeError(f"Failed to spawn+confirm obstacle in {plan['dir_name']}")
 
-                doorway_check_pre = node.check_doorway_clearance_evidence(doorway_bbox=doorway_bbox)
-                log_ep(f"C1: Pre-nav doorway check: occupied={not doorway_check_pre['doorway_cleared']}, points_in_box={doorway_check_pre['points_count']}")
+                doorway_check_pre = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox)
+                log_ep(f"C1: Pre-nav doorway check: state={doorway_check_pre.get('doorway_state')}, hits={doorway_check_pre.get('hits_inside_count')}")
 
                 obs1 = dispatcher.dispatch({
                     "action": "observe", "action_id": f"{plan['dir_name']}_obs_initial",
@@ -1086,7 +1243,7 @@ def main():
                     "action": "observe", "action_id": f"{plan['dir_name']}_obs_post_nav",
                     "params": {"target_id": "post_nav_scan"},
                 })
-                doorway_check_post = node.check_doorway_clearance_evidence(doorway_bbox=doorway_bbox)
+                doorway_check_post = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox)
 
                 final_gt = node.latest_gt_record
                 gt_pos_err = (
@@ -1099,13 +1256,13 @@ def main():
                 mechanism_verified = (
                     spawn_service_ok
                     and spawn_gazebo_confirmed
-                    and (not doorway_check_pre["doorway_cleared"])
+                    and (doorway_check_pre.get("doorway_state") == "OCCUPIED")
                     and outcome in ("BUDGET_DEADLINE_EXCEEDED", "EXECUTION_FAILED", "EXECUTION_CANCELED")
                     and (not task_success)
                     and (gt_pos_err is not None and gt_pos_err > 0.50)
                     and (ep_data.get("infrastructure_error") is None)
                 )
-                log_ep(f"C1 mechanism_verified={mechanism_verified}: doorway_occupied={not doorway_check_pre['doorway_cleared']}, not_arrived={not task_success}, dist_to_goal={gt_pos_err}m")
+                log_ep(f"C1 mechanism_verified={mechanism_verified}: doorway_state={doorway_check_pre.get('doorway_state')}, not_arrived={not task_success}, dist_to_goal={gt_pos_err}m")
 
                 ep_data.update({
                     "obstacle_present": True,
@@ -1142,8 +1299,8 @@ def main():
                     ep_data["infrastructure_error"] = "OBSTACLE_SPAWN_FAILED"
                     raise RuntimeError(f"Failed to spawn obstacle in {plan['dir_name']}")
 
-                doorway_check_blocked = node.check_doorway_clearance_evidence(doorway_bbox=doorway_bbox)
-                log_ep(f"C2: Pre-initial-nav doorway check: occupied={not doorway_check_blocked['doorway_cleared']}, points_in_box={doorway_check_blocked['points_count']}")
+                doorway_check_blocked = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox)
+                log_ep(f"C2: Pre-initial-nav doorway check: state={doorway_check_blocked.get('doorway_state')}, hits={doorway_check_blocked.get('hits_inside_count')}")
 
                 obs1 = dispatcher.dispatch({
                     "action": "observe", "action_id": f"{plan['dir_name']}_obs_initial",
@@ -1219,8 +1376,8 @@ def main():
                         rclpy.spin_once(node, timeout_sec=0.04)
 
                     # Spatial doorway clearance check
-                    doorway_check_cleared = node.check_doorway_clearance_evidence(doorway_bbox=doorway_bbox)
-                    log_ep(f"C2: Post-removal doorway check: cleared={doorway_check_cleared['doorway_cleared']}, points_in_box={doorway_check_cleared['points_count']}")
+                    doorway_check_cleared = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox)
+                    log_ep(f"C2: Post-removal doorway check: state={doorway_check_cleared.get('doorway_state')}, pass_through={doorway_check_cleared.get('pass_through_count')}")
 
                     # Post-removal observe with AMCL nomotion refresh
                     obs2 = dispatcher.dispatch({
@@ -1231,7 +1388,9 @@ def main():
                     log_ep(f"C2 Post-removal Observe: status={obs_res_dict.get('status')}")
 
                     # Determine retry eligibility
-                    retry_eligible, retry_visible_state, retry_reason = evaluate_c2_retry_eligibility(obs_res_dict)
+                    retry_eligible, retry_visible_state, retry_reason = evaluate_c2_retry_eligibility(
+                        obs_res_dict, doorway_evidence=doorway_check_cleared
+                    )
                     log_ep(f"C2 Retry eligibility: eligible={retry_eligible}, reason={retry_reason}")
 
                     if not retry_eligible:
@@ -1294,19 +1453,19 @@ def main():
                         )
                         task_success = retry_eval.get("strict_physical_arrival_and_stable", False)
 
-                        # mechanism_verified: all 6 conditions must hold
+                        # mechanism_verified: all conditions must hold
                         mechanism_verified = (
                             spawn_service_ok
                             and spawn_gazebo_confirmed
-                            and (not doorway_check_blocked["doorway_cleared"])
+                            and (doorway_check_blocked.get("doorway_state") == "OCCUPIED")
                             and initial_failed_genuine
                             and del_service_ok
                             and del_gazebo_confirmed
-                            and doorway_check_cleared["doorway_cleared"]
+                            and (doorway_check_cleared.get("doorway_state") == "FREE")
                             and retry_eligible
                             and task_success
                         )
-                        log_ep(f"C2 mechanism_verified={mechanism_verified}: spawn={spawn_service_ok}, init_fail={initial_failed_genuine}, del_ok={del_gazebo_confirmed}, doorway_cleared={doorway_check_cleared['doorway_cleared']}, obs_ok={retry_eligible}, task_ok={task_success}")
+                        log_ep(f"C2 mechanism_verified={mechanism_verified}: spawn={spawn_service_ok}, init_fail={initial_failed_genuine}, del_ok={del_gazebo_confirmed}, doorway_cleared={doorway_check_cleared.get('doorway_state') == 'FREE'}, obs_ok={retry_eligible}, task_ok={task_success}")
 
                         ep_data.update({
                             "obstacle_present": True,

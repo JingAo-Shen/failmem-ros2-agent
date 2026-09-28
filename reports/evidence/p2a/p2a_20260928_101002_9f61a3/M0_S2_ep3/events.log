@@ -1,0 +1,32 @@
+[2026-09-28 10:22:07.422] === Starting Episode M0_S2_ep3 (M0_S2 #3) ===
+[2026-09-28 10:22:07.422] Policy: M0, Sequence: S2
+[2026-09-28 10:22:11.828] Sim clock advanced: 0.00s -> 1.10s
+[2026-09-28 10:22:13.508] Sensors streaming: odom=-1.8, scan=360 rays, costmap=160
+[2026-09-28 10:22:13.662] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-28 10:22:33.825] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-28 10:22:33.889] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-28 10:22:33.889] Obstacle spawn confirmed in Gazebo
+[2026-09-28 10:22:33.889] --- [Step 1] Sim Time: 23.20s ---
+[2026-09-28 10:22:34.242] AMCL nomotion update received: stamp 23.401s (seq=3)
+[2026-09-28 10:22:35.065] Step 1 Doorway Perception: state=OCCUPIED, pass_through=0, hits=25
+[2026-09-28 10:22:35.065] Step 1 Dispatch Gate: allowed=True, reason='M0_ALWAYS_ALLOWED'
+[2026-09-28 10:22:35.067] Dispatched action 'M0_S2_ep3_nav_step1': pipeline_status=DISPATCHED
+[2026-09-28 10:22:59.204] Passive physical halt verified: stable for 3.00s sim time (lv=0.0000, av=0.0011)
+[2026-09-28 10:23:01.587] Stability window recording complete: 414 samples across 2.40s sim time
+[2026-09-28 10:23:01.593] Step 1 Nav Result: outcome=EXECUTION_FAILED, arrival=False, dist_to_goal=3.5976m
+[2026-09-28 10:23:01.760] AMCL nomotion update received: stamp 51.001s (seq=27)
+[2026-09-28 10:23:02.498] Failure recorded in policy: M0
+[2026-09-28 10:23:02.498] --- [Step 2] Sim Time: 51.20s ---
+[2026-09-28 10:23:02.498] [S2 Timeline] Triggering obstacle removal at sim_time=51.20s
+[2026-09-28 10:23:02.753] Successfully deleted obstacle 'corridor_blockage_box' from Gazebo world
+[2026-09-28 10:23:02.753] [S2 Timeline] Obstacle deleted from Gazebo. Waiting for natural laser raytrace...
+[2026-09-28 10:23:05.984] AMCL nomotion update received: stamp 55.202s (seq=28)
+[2026-09-28 10:23:06.600] Step 2 Doorway Perception: state=OCCUPIED, pass_through=20, hits=2
+[2026-09-28 10:23:06.600] Step 2 Dispatch Gate: allowed=True, reason='M0_ALWAYS_ALLOWED'
+[2026-09-28 10:23:06.600] [REDUNDANT RETRY] Policy M0 dispatched repeat navigation into OCCUPIED doorway!
+[2026-09-28 10:23:06.603] Dispatched action 'M0_S2_ep3_nav_step2': pipeline_status=DISPATCHED
+[2026-09-28 10:23:26.227] Passive physical halt verified: stable for 3.00s sim time (lv=0.0023, av=0.0099)
+[2026-09-28 10:23:28.620] Stability window recording complete: 421 samples across 2.40s sim time
+[2026-09-28 10:23:28.629] Step 2 Nav Result: outcome=BUDGET_SUCCESS, arrival=True, dist_to_goal=0.2265m
+[2026-09-28 10:23:28.629] Goal arrived and stable in Step 2! Task Success confirmed.
+[2026-09-28 10:23:34.499] === Episode M0_S2_ep3 Complete: task_success=True, mechanism_verified=True, dispatches=2 ===
