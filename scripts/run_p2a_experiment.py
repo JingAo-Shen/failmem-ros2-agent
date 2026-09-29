@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FailMem Milestone P2a Experiment Runner: Minimal Failure Memory Mechanism Verification.
+"""FailMem Milestone P2a-v2 Experiment Runner: Minimal Failure Memory Mechanism Verification.
 
 Evaluates deterministic memory policies on the dual-room single-doorway chokepoint arena:
 - Policies:
@@ -11,7 +11,7 @@ Evaluates deterministic memory policies on the dual-room single-doorway chokepoi
 
 - Sequences:
   * S1 (Continuous Blockage): Obstacle remains in doorway for entire episode.
-  * S2 (Timed Clearance at t=25s): Obstacle spawned at t=0, cleared at t=25s sim time.
+  * S2 (Timed Clearance at elapsed_sim=25s): Obstacle spawned at t=0, cleared at elapsed_sim=25s by concurrent controller.
 
 - Formal Suite: 3 policies x 2 sequences x 3 runs = 18 formal episodes.
 - Diagnostic / Smoke Mode: 3 policies x 2 sequences x 1 run = 6 episodes.
@@ -28,6 +28,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -77,6 +78,126 @@ from scripts.run_p1c_v3 import (
 )
 
 
+class EnvironmentTimelineController:
+    """Independent concurrent environment controller managing obstacle timelines.
+    
+    Operates completely decoupled from policy state and navigation action status
+    using a dedicated ROS node and SingleThreadedExecutor.
+    """
+
+    def __init__(
+        self,
+        sequence_name: str,
+        obstacle_name: str,
+        clear_target_elapsed_sec: Optional[float] = 25.0,
+        logger: Optional[Callable[[str], None]] = None,
+    ):
+        self.sequence_name = sequence_name
+        self.obstacle_name = obstacle_name
+        self.clear_target_elapsed_sec = clear_target_elapsed_sec if sequence_name == "S2" else None
+        self.logger = logger or print
+
+        self.episode_t0: Optional[float] = None
+        self.running = False
+        self.thread: Optional[threading.Thread] = None
+        self.latest_sim_time: Optional[float] = None
+
+        self.planned_removal_elapsed_sec = self.clear_target_elapsed_sec
+        self.removal_requested = False
+        self.request_sim_time: Optional[float] = None
+        self.request_elapsed_sim: Optional[float] = None
+        self.request_wall_time: Optional[float] = None
+        self.deletion_success: bool = False
+        self.deletion_confirmed_sim_time: Optional[float] = None
+        self.deletion_confirmed_elapsed_sim: Optional[float] = None
+        self.deletion_confirmed_wall_time: Optional[float] = None
+        self.scheduling_error_sec: Optional[float] = None
+
+    def start(self, episode_t0: float):
+        self.episode_t0 = episode_t0
+        self.running = True
+        self.thread = threading.Thread(target=self._run_loop, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=3.0)
+
+    def _run_loop(self):
+        from rosgraph_msgs.msg import Clock
+        from gazebo_msgs.srv import DeleteEntity
+        from rclpy.executors import SingleThreadedExecutor
+        from rclpy.parameter import Parameter
+        from rclpy.qos import qos_profile_sensor_data
+
+        env_node = rclpy.create_node(
+            f"env_timeline_{uuid.uuid4().hex[:6]}",
+            parameter_overrides=[Parameter("use_sim_time", Parameter.Type.BOOL, True)],
+        )
+        executor = SingleThreadedExecutor()
+        executor.add_node(env_node)
+
+        def _clock_cb(msg: Clock):
+            self.latest_sim_time = msg.clock.sec + msg.clock.nanosec * 1e-9
+
+        clock_sub = env_node.create_subscription(Clock, "/clock", _clock_cb, qos_profile_sensor_data)
+        del_client = env_node.create_client(DeleteEntity, "/delete_entity")
+
+        try:
+            while self.running:
+                executor.spin_once(timeout_sec=0.05)
+                sim_now = env_node.get_clock().now().nanoseconds * 1e-9
+                if sim_now > 0.0:
+                    self.latest_sim_time = sim_now
+
+                if self.sequence_name == "S2" and not self.removal_requested and self.episode_t0 is not None and self.latest_sim_time is not None:
+                    elapsed_sim = self.latest_sim_time - self.episode_t0
+                    if elapsed_sim >= (self.clear_target_elapsed_sec or 25.0):
+                        self.removal_requested = True
+                        self.request_sim_time = self.latest_sim_time
+                        self.request_elapsed_sim = round(elapsed_sim, 4)
+                        self.request_wall_time = time.monotonic()
+                        self.scheduling_error_sec = round(self.request_elapsed_sim - (self.clear_target_elapsed_sec or 25.0), 4)
+                        self.logger(f"[Environment Timeline] Triggering S2 obstacle removal at elapsed_sim={self.request_elapsed_sim:.3f}s (scheduling_error={self.scheduling_error_sec:+.3f}s)")
+
+                        if del_client.wait_for_service(timeout_sec=5.0):
+                            req = DeleteEntity.Request()
+                            req.name = self.obstacle_name
+                            future = del_client.call_async(req)
+
+                            t_del_wait = time.monotonic()
+                            while self.running and not future.done() and (time.monotonic() - t_del_wait < 5.0):
+                                executor.spin_once(timeout_sec=0.05)
+
+                            if future.done() and future.result() and future.result().success:
+                                self.deletion_success = True
+                                self.deletion_confirmed_sim_time = env_node.get_clock().now().nanoseconds * 1e-9
+                                self.deletion_confirmed_elapsed_sim = round(self.deletion_confirmed_sim_time - self.episode_t0, 4)
+                                self.deletion_confirmed_wall_time = time.monotonic()
+                                self.logger(f"[Environment Timeline] Obstacle '{self.obstacle_name}' deletion confirmed in Gazebo at elapsed_sim={self.deletion_confirmed_elapsed_sim:.3f}s")
+                            else:
+                                self.logger(f"[Environment Timeline ERROR] Obstacle '{self.obstacle_name}' deletion service failed or timed out!")
+                        else:
+                            self.logger(f"[Environment Timeline ERROR] /delete_entity service unavailable!")
+                time.sleep(0.02)
+        finally:
+            env_node.destroy_node()
+
+    def export_summary(self) -> Dict[str, Any]:
+        return {
+            "sequence_name": self.sequence_name,
+            "planned_removal_elapsed_sec": self.planned_removal_elapsed_sec,
+            "removal_requested": self.removal_requested,
+            "request_sim_time": self.request_sim_time,
+            "request_elapsed_sim": self.request_elapsed_sim,
+            "scheduling_error_sec": self.scheduling_error_sec,
+            "deletion_success": self.deletion_success,
+            "deletion_confirmed_sim_time": self.deletion_confirmed_sim_time,
+            "deletion_confirmed_elapsed_sim": self.deletion_confirmed_elapsed_sim,
+        }
+
+
 def run_episode(
     condition_id: str,
     policy_name: str,
@@ -87,7 +208,7 @@ def run_episode(
     thresholds: Dict[str, Any],
     run_id: str,
 ) -> Dict[str, Any]:
-    """Execute a single formal P2a episode for the given policy and environment sequence."""
+    """Execute a single formal P2a-v2 episode with decoupled timeline and unified budget."""
     ep_id = f"{condition_id}_ep{ep_num}"
     ep_dir = run_dir / ep_id
     ep_dir.mkdir(parents=True, exist_ok=True)
@@ -107,6 +228,7 @@ def run_episode(
     log_ep(f"=== Starting Episode {ep_id} ({condition_id} #{ep_num}) ===")
     log_ep(f"Policy: {policy_name}, Sequence: {sequence_name}")
 
+    map_version = str(protocol_config["environment"].get("map_version", "chokepoint_world_v1"))
     spawn_cfg = protocol_config["environment"]["spawn_pose"]
     spawn_coords = [float(spawn_cfg["x"]), float(spawn_cfg["y"]), float(spawn_cfg.get("yaw", 0.0))]
     goal_cfg = protocol_config["navigation_task"]["goal_pose"]
@@ -114,6 +236,8 @@ def run_episode(
     target_region = str(protocol_config["navigation_task"].get("target_region", "room2_corridor_chokepoint"))
     sim_timeout = float(protocol_config["navigation_task"]["action_sim_timeout_sec"])
     wall_watchdog = float(protocol_config["navigation_task"]["action_wall_watchdog_sec"])
+    episode_total_sim_budget_sec = float(protocol_config["navigation_task"].get("episode_total_sim_budget_sec", 75.0))
+    observation_period_sim_sec = float(protocol_config["navigation_task"].get("observation_period_sim_sec", 2.0))
     max_retries = int(protocol_config["navigation_task"].get("max_retries_per_episode", 5))
 
     doorway_bbox_dict = protocol_config["obstacle_channel"].get("doorway_bbox", {"x_min": -0.30, "x_max": 0.30, "y_min": -0.35, "y_max": 0.35})
@@ -133,25 +257,30 @@ def run_episode(
     if policy_name == "M0":
         policy: FailureMemoryPolicy = M0NoMemoryPolicy()
     elif policy_name == "M1":
-        policy = M1PersistentMemoryPolicy(tolerance_m=0.50)
+        policy = M1PersistentMemoryPolicy(tolerance_m=float(thresholds.get("position_tolerance_m", 0.30)) + 0.20)
     elif policy_name == "M2":
-        policy = M2ConditionalMemoryPolicy(tolerance_m=0.50)
+        policy = M2ConditionalMemoryPolicy(tolerance_m=float(thresholds.get("position_tolerance_m", 0.30)) + 0.20)
     else:
         raise ValueError(f"Unknown policy: {policy_name}")
 
+    timeline_controller: Optional[EnvironmentTimelineController] = None
     memory_events: List[Dict[str, Any]] = []
     doorway_perception_records: List[Dict[str, Any]] = []
     action_summaries: List[Dict[str, Any]] = []
+
     task_success = False
-    invalidation_verified = False
-    recovery_verified = False
-    dispatches_attempted = 0
+    episode_valid = True
+    terminal_reason = "EPISODE_COMPLETED"
+    observation_count = 0
+    suppression_count = 0
+    navigation_attempt_count = 0
+    retry_count = 0
     redundant_retries_count = 0
     obstacle_spawned = False
-    obstacle_deleted = False
+    episode_t0: Optional[float] = None
 
     try:
-        # Wait for simulation clock to advance
+        # 1. Wait for simulation clock to advance
         t0_sim = node.get_sim_time_sec()
         t0_wall = time.monotonic()
         while (node.get_sim_time_sec() - t0_sim < 1.0) and (time.monotonic() - t0_wall < 30.0):
@@ -159,16 +288,16 @@ def run_episode(
             time.sleep(0.05)
         log_ep(f"Sim clock advanced: {t0_sim:.2f}s -> {node.get_sim_time_sec():.2f}s")
 
-        # Wait for sensor streams
+        # 2. Wait for sensor streams
         t_sensor_start = time.monotonic()
         while time.monotonic() - t_sensor_start < 25.0:
             rclpy.spin_once(node, timeout_sec=0.1)
             if node.latest_odom_record and node.latest_gt_record and node.latest_scan_record and node.latest_costmap_record:
                 break
             time.sleep(0.05)
-        log_ep(f"Sensors streaming: odom={node.latest_odom_record['x'] if node.latest_odom_record else 'None'}, scan={node.latest_scan_record['total_count'] if node.latest_scan_record else 'None'} rays, costmap={node.latest_costmap_record['width'] if node.latest_costmap_record else 'None'}")
+        log_ep(f"Sensors streaming verified: odom={node.latest_odom_record['x'] if node.latest_odom_record else 'None'}, scan={node.latest_scan_record['total_count'] if node.latest_scan_record else 'None'} rays")
 
-        # Initialize AMCL pose strictly at spawn
+        # 3. Initialize AMCL pose strictly at spawn
         node.initialize_amcl_pose(spawn_coords)
         t_amcl_start = time.monotonic()
         while time.monotonic() - t_amcl_start < 25.0:
@@ -180,7 +309,7 @@ def run_episode(
                     break
             time.sleep(0.1)
 
-        # Verify Nav2 bt_navigator lifecycle
+        # 4. Verify Nav2 bt_navigator lifecycle
         t_nav_start = time.monotonic()
         while time.monotonic() - t_nav_start < 20.0:
             st = node.query_lifecycle_state(timeout_sec=0.5)
@@ -189,7 +318,7 @@ def run_episode(
                 break
             time.sleep(0.5)
 
-        # Always spawn obstacle at t=0 for S1 and S2
+        # 5. Spawn obstacle at t=0 for S1 and S2
         obs_cfg = protocol_config["obstacle_channel"]
         obs_name = str(obs_cfg.get("entity_name", "corridor_blockage_box"))
         obs_sdf = str(obs_cfg.get("obstacle_sdf", "configs/chokepoint_box.sdf"))
@@ -203,8 +332,23 @@ def run_episode(
             obstacle_spawned = True
             log_ep("Obstacle spawn confirmed in Gazebo")
 
+        # -----------------------------------------------------------------
+        # Define Unified Episode t0 after Readiness
+        # -----------------------------------------------------------------
+        episode_t0 = node.get_sim_time_sec()
+        log_ep(f"Readiness Complete. Defined episode_t0 = {episode_t0:.3f}s. Starting concurrent EnvironmentTimelineController...")
+
+        # Start Independent Environment Timeline Controller (S1 vs S2)
+        timeline_controller = EnvironmentTimelineController(
+            sequence_name=sequence_name,
+            obstacle_name=obs_name,
+            clear_target_elapsed_sec=float(protocol_config["environment_sequences"]["S2"].get("obstacle_clear_elapsed_sim_sec", 25.0)),
+            logger=log_ep,
+        )
+        timeline_controller.start(episode_t0=episode_t0)
+
         # Set up ActionDispatcher
-        action_history_ctx = EpisodeActionHistoryContext(max_retries=5, max_retries_per_state=2)
+        action_history_ctx = EpisodeActionHistoryContext(max_retries=10, max_retries_per_state=5)
         dispatcher = ActionDispatcher(context=action_history_ctx, run_id=run_id, episode_id=ep_id)
         dispatcher.ros_observer = lambda act: node.get_live_observation(wait_fresh=True, timeout_sec=2.0, refresh_amcl_if_stale=True)
 
@@ -231,107 +375,115 @@ def run_episode(
 
         dispatcher.ros_executor = ros_send_nav
 
-        # -------------------------------------------------------------
-        # Main Agent Execution Loop with Memory Gate & Environment Timeline
-        # -------------------------------------------------------------
-        step_idx = 0
-        consecutive_suppressions = 0
-
-        while step_idx < max_retries:
-            step_idx += 1
+        # -----------------------------------------------------------------
+        # Generic Agent Execution Loop (Sequence-Agnostic, Unified Budget)
+        # -----------------------------------------------------------------
+        while True:
             sim_now = node.get_sim_time_sec()
-            log_ep(f"--- [Step {step_idx}] Sim Time: {sim_now:.2f}s ---")
+            elapsed_sim = round(sim_now - episode_t0, 4)
 
-            # Environment Timeline for Sequence S2 (Timed Clearance)
-            if sequence_name == "S2" and not obstacle_deleted:
-                # In S2, obstacle is cleared after initial attempt or at t >= 25.0s
-                if step_idx > 1 or sim_now >= 25.0:
-                    log_ep(f"[S2 Timeline] Triggering obstacle removal at sim_time={sim_now:.2f}s")
-                    del_ok = node.delete_obstacle(obs_name)
-                    if del_ok:
-                        obstacle_deleted = True
-                        log_ep("[S2 Timeline] Obstacle deleted from Gazebo. Waiting for natural laser raytrace...")
-                        # Spin to let natural laser scans clear the costmap
-                        t_clear_wait = time.monotonic()
-                        while time.monotonic() - t_clear_wait < 3.0:
-                            rclpy.spin_once(node, timeout_sec=0.05)
-                            time.sleep(0.05)
+            # Check Unified Episode Total Sim Budget
+            if elapsed_sim >= episode_total_sim_budget_sec:
+                log_ep(f"Total episode sim budget reached ({elapsed_sim:.2f}s >= {episode_total_sim_budget_sec:.2f}s). Ending execution loop.")
+                terminal_reason = "TOTAL_BUDGET_EXHAUSTED"
+                break
 
-            # Step 1: Physical Observation & Doorway Perception
+            if task_success:
+                terminal_reason = "TASK_SUCCESS_CONFIRMED"
+                break
+
+            # Step 1: Observation & Physical Perception
+            observation_count += 1
+            obs_id = f"{ep_id}_obs_{observation_count}"
             node.request_nomotion_amcl_update(timeout_sec=1.5)
             obs_dict = dispatcher.dispatch({
                 "action": "observe",
-                "action_id": f"{ep_id}_obs_step{step_idx}",
-                "params": {"doorway_bbox": list(doorway_bbox)},
+                "action_id": obs_id,
+                "params": {"target_id": "doorway"},
             })
-            doorway_eval = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox)
+            doorway_eval = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
             doorway_perception_records.append({
-                "step": step_idx,
-                "timestamp_sim": node.get_sim_time_sec(),
+                "observation_index": observation_count,
+                "action_id": obs_id,
+                "elapsed_sim_sec": elapsed_sim,
+                "sim_time": sim_now,
                 "evaluation": doorway_eval,
             })
-            log_ep(f"Step {step_idx} Doorway Perception: state={doorway_eval['doorway_state']}, pass_through={doorway_eval.get('pass_through_count', 0)}, hits={doorway_eval.get('points_count', 0)}")
+            log_ep(f"[Obs #{observation_count}] elapsed={elapsed_sim:.2f}s: doorway={doorway_eval.get('doorway_state')} (pass_through={doorway_eval.get('pass_through_count', 0)}, hits={doorway_eval.get('hits_inside_count', 0)})")
 
-            # Update Policy with Observation
-            policy.on_observation_update(doorway_eval, node.get_sim_time_sec())
-            if isinstance(policy, M2ConditionalMemoryPolicy):
-                store_summary = policy.store.get_summary()
-                if store_summary["invalidated_count"] > 0:
-                    invalidation_verified = True
+            # Update Policy with Observation (No GT Leakage!)
+            policy.on_observation_update(
+                perception_evidence=doorway_eval,
+                sim_time=elapsed_sim,
+                evidence_id=obs_id,
+                map_version=map_version,
+                region_id=target_region,
+            )
 
-            # Step 2: Check Policy Memory Gate for Navigation Dispatch
-            allowed, gate_reason = policy.check_dispatch_allowed(target_goal, target_region, node.get_sim_time_sec())
+            # Step 2: Policy Dispatch Gate Check
+            allowed, gate_reason, blocked_by_id = policy.check_dispatch_allowed(
+                target_goal=target_goal,
+                target_region=target_region,
+                sim_time=elapsed_sim,
+                map_version=map_version,
+            )
             mem_event = {
-                "step": step_idx,
-                "timestamp_sim": node.get_sim_time_sec(),
+                "observation_index": observation_count,
+                "elapsed_sim_sec": elapsed_sim,
+                "sim_time": sim_now,
                 "event_type": "DISPATCH_GATE_CHECK",
                 "allowed": allowed,
                 "reason": gate_reason,
+                "blocked_by_memory_id": blocked_by_id,
                 "policy_state": policy.export_state(),
             }
             memory_events.append(mem_event)
-            log_ep(f"Step {step_idx} Dispatch Gate: allowed={allowed}, reason='{gate_reason}'")
 
             if not allowed:
-                # Dispatch suppressed by memory policy
-                consecutive_suppressions += 1
-                log_ep(f"Step {step_idx}: Navigation dispatch SUPPRESSED by policy ({gate_reason})")
+                suppression_count += 1
+                log_ep(f"[Gate Check #{observation_count}] Dispatch SUPPRESSED by policy ({gate_reason})")
                 
-                # In S1, once memory suppresses, there is no obstacle change expected -> verify suppression and terminate
-                if sequence_name == "S1":
-                    log_ep(f"Sequence S1 continuous blockage: suppression verified ({consecutive_suppressions} consecutive). Ending episode.")
-                    break
-                
-                # In S2, allow multiple observation cycles for obstacle clearance and raytracing
-                if sequence_name == "S2":
-                    if consecutive_suppressions >= 4:
-                        log_ep(f"Sequence S2: multiple suppressions ({consecutive_suppressions}) without clearance change. Ending episode.")
-                        break
-                    # Wait briefly for environment timeline / raytracing
-                    t_wait = time.monotonic()
-                    while time.monotonic() - t_wait < 2.5:
-                        rclpy.spin_once(node, timeout_sec=0.1)
-                        time.sleep(0.1)
+                # Fixed cadence sleep (2.0s sim time) while spinning ROS
+                t_sim_wait_start = node.get_sim_time_sec()
+                while (node.get_sim_time_sec() - t_sim_wait_start < observation_period_sim_sec) and (node.get_sim_time_sec() - episode_t0 < episode_total_sim_budget_sec):
+                    rclpy.spin_once(node, timeout_sec=0.05)
+                    time.sleep(0.02)
                 continue
 
-            consecutive_suppressions = 0
+            # Dispatch Allowed by Policy
+            # Check remaining budget for navigation
+            rem_budget = round(episode_total_sim_budget_sec - (node.get_sim_time_sec() - episode_t0), 4)
+            if rem_budget <= 1.0:
+                log_ep(f"Remaining budget too low for navigation dispatch ({rem_budget:.2f}s <= 1.0s). Ending loop.")
+                terminal_reason = "TOTAL_BUDGET_EXHAUSTED"
+                break
 
-            # Dispatch allowed by policy -> Execute Navigation Action
-            dispatches_attempted += 1
-            if dispatches_attempted > 1 and doorway_eval.get("doorway_state") == "OCCUPIED":
+            # Check retry quota (1 initial attempt + max_retries retries)
+            if navigation_attempt_count > 0 and retry_count >= max_retries:
+                log_ep(f"Max retries exhausted ({retry_count} >= {max_retries}). Ending loop.")
+                terminal_reason = "MAX_RETRIES_EXHAUSTED"
+                break
+
+            navigation_attempt_count += 1
+            retry_count = max(0, navigation_attempt_count - 1)
+            nav_action_id = f"{ep_id}_nav_attempt{navigation_attempt_count}"
+
+            if navigation_attempt_count > 1 and doorway_eval.get("doorway_state") == "OCCUPIED":
                 redundant_retries_count += 1
-                log_ep(f"[REDUNDANT RETRY] Policy {policy_name} dispatched repeat navigation into OCCUPIED doorway!")
+                log_ep(f"[REDUNDANT RETRY #{redundant_retries_count}] Policy {policy_name} dispatched repeat navigation into OCCUPIED doorway!")
 
+            clamped_nav_timeout = min(sim_timeout, rem_budget)
             nav_action = {
                 "action": "navigate",
-                "action_id": f"{ep_id}_nav_step{step_idx}",
+                "action_id": nav_action_id,
                 "params": {
                     "goal": target_goal,
                     "frame_id": "map",
-                    "timeout_sec": sim_timeout,
+                    "timeout_sec": clamped_nav_timeout,
                 },
             }
 
+            log_ep(f"[Nav Attempt #{navigation_attempt_count}] Dispatching action '{nav_action_id}' (timeout={clamped_nav_timeout:.1f}s, rem_budget={rem_budget:.1f}s)...")
             step_summary, eval_dict, stability_records = execute_navigation_action(
                 node=node,
                 dispatcher=dispatcher,
@@ -343,86 +495,114 @@ def run_episode(
 
             is_arrival = eval_dict.get("strict_physical_arrival_and_stable", False)
             exec_outcome = step_summary["execution_outcome"]
-            log_ep(f"Step {step_idx} Nav Result: outcome={exec_outcome}, arrival={is_arrival}, dist_to_goal={eval_dict.get('final_geometric_errors', {}).get('gt_position_error_m', 99.0):.4f}m")
+            final_geom = eval_dict.get("final_geometric_errors", {})
+            log_ep(f"[Nav Attempt #{navigation_attempt_count} Result] outcome={exec_outcome}, physical_arrival={is_arrival}, gt_dist={final_geom.get('gt_position_error_m', 99.0):.4f}m, amcl_dist={final_geom.get('amcl_position_error_m', 99.0):.4f}m")
+
+            # Public Online Feedback for Policy (ZERO GT Leakage!)
+            online_feedback = {
+                "nav2_status": step_summary["terminal_status_name"],
+                "status_code": step_summary["status_code"],
+                "execution_outcome": exec_outcome,
+                "amcl_pose": node.latest_amcl_record,
+            }
 
             if exec_outcome == "BUDGET_SUCCESS" and is_arrival:
-                # Navigation Succeeded!
                 task_success = True
-                policy.on_navigation_success(target_goal, target_region, eval_dict, node.get_sim_time_sec())
-                if isinstance(policy, M2ConditionalMemoryPolicy):
-                    store_summary = policy.store.get_summary()
-                    if store_summary["recovery_verified_count"] > 0:
-                        recovery_verified = True
-                log_ep(f"Goal arrived and stable in Step {step_idx}! Task Success confirmed.")
+                policy.on_navigation_success(
+                    target_goal=target_goal,
+                    target_region=target_region,
+                    action_id=nav_action_id,
+                    online_feedback=online_feedback,
+                    sim_time=round(node.get_sim_time_sec() - episode_t0, 4),
+                    map_version=map_version,
+                    memory_id=blocked_by_id,
+                )
+                log_ep(f"Goal arrived and stable in Nav Attempt #{navigation_attempt_count}! Task Success confirmed.")
                 break
             else:
-                # Navigation Failed / Aborted / Blocked
                 node.request_nomotion_amcl_update(timeout_sec=1.5)
-                post_fail_doorway = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox)
+                post_fail_doorway = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+                post_fail_obs_id = f"{ep_id}_postfail_obs_{navigation_attempt_count}"
                 policy.on_navigation_failure(
                     target_goal=target_goal,
                     target_region=target_region,
                     failure_reason=exec_outcome,
-                    sim_time=node.get_sim_time_sec(),
+                    sim_time=round(node.get_sim_time_sec() - episode_t0, 4),
+                    failed_action_id=nav_action_id,
+                    failure_evidence_id=post_fail_obs_id,
                     perception_evidence=post_fail_doorway,
+                    map_version=map_version,
                 )
-                mem_event_fail = {
-                    "step": step_idx,
-                    "timestamp_sim": node.get_sim_time_sec(),
-                    "event_type": "FAILURE_RECORDED",
-                    "failure_reason": exec_outcome,
-                    "policy_state": policy.export_state(),
-                }
-                memory_events.append(mem_event_fail)
-                log_ep(f"Failure recorded in policy: {policy_name}")
 
     except Exception as e:
+        episode_valid = False
+        terminal_reason = f"EXCEPTION: {str(e)}"
         log_ep(f"[ERROR] Exception during episode execution: {e}")
         import traceback
         log_ep(traceback.format_exc())
 
     finally:
-        # Save episode artifacts
+        if timeline_controller:
+            timeline_controller.stop()
         node.destroy_node()
         rclpy.shutdown()
         kill_process_group(sim_proc.pid)
         sim_proc.wait()
         cleanup_simulation_processes()
 
-    # Determine Mechanism Verification Status
+    timeline_summary = timeline_controller.export_summary() if timeline_controller else {}
+
+    # Determine Invalidation and Recovery Status
+    policy_state = policy.export_state()
+    invalidation_verified = (
+        policy_state.get("invalidated_count", 0) > 0
+        or policy_state.get("ever_invalidated_count", 0) > 0
+        or any(e.get("invalidation_time") is not None for e in policy_state.get("entries", []))
+    )
+    policy_reported_recovery = (policy_state.get("recovery_verified_count", 0) > 0)
+    evaluator_verified_recovery = (task_success is True and navigation_attempt_count >= 2)
+
+    # Determine Causal Mechanism Verification Status
     mechanism_verified = False
-    if sequence_name == "S1":
-        if policy_name == "M0":
-            # M0 on S1: Expected to blindly retry until retries/budget exhausted
-            mechanism_verified = (task_success is False and dispatches_attempted > 1)
-        elif policy_name in ("M1", "M2"):
-            # M1 & M2 on S1: Expected to block redundant retries (dispatches_attempted == 1, redundant_retries == 0)
-            mechanism_verified = (task_success is False and dispatches_attempted == 1 and redundant_retries_count == 0)
-    elif sequence_name == "S2":
-        if policy_name == "M0":
-            # M0 on S2: Succeeded by blind retry
-            mechanism_verified = (task_success is True and dispatches_attempted >= 2)
-        elif policy_name == "M1":
-            # M1 on S2: Deadlocked due to persistent block (dispatches_attempted == 1, task_success == False)
-            mechanism_verified = (task_success is False and dispatches_attempted == 1)
-        elif policy_name == "M2":
-            # M2 on S2: Succeeded via verified invalidation and recovery
-            mechanism_verified = (task_success is True and invalidation_verified is True and recovery_verified is True)
+    if episode_valid:
+        if sequence_name == "S1":
+            if policy_name == "M0":
+                # M0 on S1: Repeatedly dispatches until budget/retries exhausted (redundant_retries > 0)
+                mechanism_verified = (task_success is False and navigation_attempt_count > 1 and redundant_retries_count >= 1)
+            elif policy_name in ("M1", "M2"):
+                # M1 & M2 on S1: Suppresses redundant retries (navigation_attempt_count == 1, redundant_retries == 0, suppression_count > 0)
+                mechanism_verified = (task_success is False and navigation_attempt_count == 1 and redundant_retries_count == 0 and suppression_count >= 1)
+        elif sequence_name == "S2":
+            if policy_name == "M0":
+                # M0 on S2: Succeeded by blind retry
+                mechanism_verified = (task_success is True and navigation_attempt_count >= 2)
+            elif policy_name == "M1":
+                # M1 on S2: Deadlocked due to persistent block (dispatches == 1, task_success == False, suppression_count > 0)
+                mechanism_verified = (task_success is False and navigation_attempt_count == 1 and suppression_count >= 1)
+            elif policy_name == "M2":
+                # M2 on S2: Succeeded via verified invalidation and recovery
+                mechanism_verified = (task_success is True and invalidation_verified is True and policy_reported_recovery is True and evaluator_verified_recovery is True)
 
     ep_summary = {
         "episode_id": ep_id,
         "condition_id": condition_id,
         "policy_name": policy_name,
         "sequence_name": sequence_name,
+        "map_version": map_version,
+        "episode_valid": episode_valid,
         "task_success": task_success,
         "mechanism_verified": mechanism_verified,
-        "dispatches_attempted": dispatches_attempted,
+        "terminal_reason": terminal_reason,
+        "observation_count": observation_count,
+        "suppression_count": suppression_count,
+        "navigation_attempt_count": navigation_attempt_count,
+        "retry_count": retry_count,
         "redundant_retries_count": redundant_retries_count,
         "invalidation_verified": invalidation_verified,
-        "recovery_verified": recovery_verified,
-        "obstacle_spawned": obstacle_spawned,
-        "obstacle_deleted": obstacle_deleted,
-        "policy_final_state": policy.export_state(),
+        "policy_reported_recovery": policy_reported_recovery,
+        "evaluator_verified_recovery": evaluator_verified_recovery,
+        "timeline_summary": timeline_summary,
+        "policy_final_state": policy_state,
         "action_summaries": action_summaries,
     }
 
@@ -433,14 +613,14 @@ def run_episode(
     with open(ep_dir / "doorway_perception.json", "w", encoding="utf-8") as f:
         json.dump(doorway_perception_records, f, indent=2)
 
-    log_ep(f"=== Episode {ep_id} Complete: task_success={task_success}, mechanism_verified={mechanism_verified}, dispatches={dispatches_attempted} ===")
+    log_ep(f"=== Episode {ep_id} Complete: valid={episode_valid}, task_success={task_success}, mech_verified={mechanism_verified}, attempts={navigation_attempt_count}, suppressions={suppression_count}, obs={observation_count} ===")
     events_log.close()
     compute_sha256_tree(ep_dir, ep_dir / "checksums.sha256")
     return ep_summary
 
 
 def main():
-    parser = argparse.ArgumentParser(description="FailMem Milestone P2a Experiment Runner")
+    parser = argparse.ArgumentParser(description="FailMem Milestone P2a-v2 Experiment Runner")
     parser.add_argument("--protocol", default="configs/p2a_memory_protocol.yaml", help="Path to protocol YAML")
     parser.add_argument("--smoke", "--diagnostic", dest="smoke", action="store_true", help="Run in smoke/diagnostic mode (1 episode per condition)")
     args = parser.parse_args()
@@ -460,17 +640,17 @@ def main():
 
     timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     rand_suffix = uuid.uuid4().hex[:6]
-    run_prefix = "p2a_smoke" if args.smoke else "p2a"
+    run_prefix = "p2a_v2_smoke" if args.smoke else "p2a_v2"
     run_id = f"{run_prefix}_{timestamp_str}_{rand_suffix}"
 
-    evidence_base = Path("/workspace/reports/evidence/p2a") if Path("/workspace").exists() else Path("reports/evidence/p2a")
+    evidence_base = Path("/workspace/reports/evidence/p2a_v2") if Path("/workspace").exists() else Path("reports/evidence/p2a_v2")
     if args.smoke:
-        evidence_base = Path("/workspace/reports/evidence/p2a_smoke") if Path("/workspace").exists() else Path("reports/evidence/p2a_smoke")
+        evidence_base = Path("/workspace/reports/evidence/p2a_v2_smoke") if Path("/workspace").exists() else Path("reports/evidence/p2a_v2_smoke")
     run_dir = evidence_base / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     print("=======================================================================")
-    print(f"FailMem P2a Memory Mechanism Verification Runner: {run_id}")
+    print(f"FailMem P2a-v2 Memory Mechanism Verification Runner: {run_id}")
     print(f"Evidence Directory: {run_dir}")
     print(f"Protocol: {protocol_yaml_path} (SHA256: {protocol_sha256})")
     print(f"Mode: {'SMOKE (1 ep/cond, 6 total)' if args.smoke else 'FORMAL (3 eps/cond, 18 total)'}")
@@ -489,7 +669,7 @@ def main():
     runtime_config = {
         "run_id": run_id,
         "protocol_sha256": protocol_sha256,
-        "protocol_version": protocol_config.get("protocol_version", "1.0"),
+        "protocol_version": protocol_config.get("protocol_version", "2.0"),
         "smoke_mode": args.smoke,
         "protocol": protocol_config,
     }
@@ -538,10 +718,10 @@ def main():
     compute_sha256_tree(run_dir, run_dir / "checksums.sha256")
 
     print("\n=======================================================================")
-    print("P2a Experiment Suite Complete. Summary:")
+    print("P2a-v2 Experiment Suite Complete. Summary:")
     print("-----------------------------------------------------------------------")
     for r in results:
-        print(f"[{r['episode_id']}] Task OK: {r['task_success']}, Mech OK: {r['mechanism_verified']}, Dispatches: {r['dispatches_attempted']}, Redundant Retries: {r['redundant_retries_count']}")
+        print(f"[{r['episode_id']}] Valid: {r['episode_valid']}, Task OK: {r['task_success']}, Mech OK: {r['mechanism_verified']}, Attempts: {r['navigation_attempt_count']}, Suppressions: {r['suppression_count']}, Obs: {r['observation_count']}, Redundant: {r['redundant_retries_count']}")
     print("=======================================================================")
     print(f"Evidence saved to: {run_dir}")
 

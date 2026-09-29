@@ -1,0 +1,3763 @@
+[
+  {
+    "observation_index": 1,
+    "elapsed_sim_sec": 0.0,
+    "sim_time": 23.5,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": true,
+    "reason": "DISPATCH_ALLOWED",
+    "blocked_by_memory_id": null,
+    "policy_state": {
+      "total_entries": 0,
+      "active_count": 0,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 1,
+      "dispatches_blocked": 0,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 2,
+    "elapsed_sim_sec": 6.3,
+    "sim_time": 29.8,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 2,
+      "dispatches_blocked": 1,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 3,
+    "elapsed_sim_sec": 9.2,
+    "sim_time": 32.7,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 3,
+      "dispatches_blocked": 2,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 4,
+    "elapsed_sim_sec": 11.4,
+    "sim_time": 34.900000000000006,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 4,
+      "dispatches_blocked": 3,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 5,
+    "elapsed_sim_sec": 13.6,
+    "sim_time": 37.1,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 5,
+      "dispatches_blocked": 4,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 6,
+    "elapsed_sim_sec": 16.1,
+    "sim_time": 39.6,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 6,
+      "dispatches_blocked": 5,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 7,
+    "elapsed_sim_sec": 18.5,
+    "sim_time": 42.0,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 7,
+      "dispatches_blocked": 6,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 8,
+    "elapsed_sim_sec": 20.8,
+    "sim_time": 44.300000000000004,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 8,
+      "dispatches_blocked": 7,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 9,
+    "elapsed_sim_sec": 23.3,
+    "sim_time": 46.800000000000004,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 9,
+      "dispatches_blocked": 8,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 10,
+    "elapsed_sim_sec": 25.7,
+    "sim_time": 49.2,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 10,
+      "dispatches_blocked": 9,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 11,
+    "elapsed_sim_sec": 28.3,
+    "sim_time": 51.800000000000004,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 11,
+      "dispatches_blocked": 10,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 12,
+    "elapsed_sim_sec": 30.7,
+    "sim_time": 54.2,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 12,
+      "dispatches_blocked": 11,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 13,
+    "elapsed_sim_sec": 33.1,
+    "sim_time": 56.6,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 13,
+      "dispatches_blocked": 12,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 14,
+    "elapsed_sim_sec": 35.7,
+    "sim_time": 59.2,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 14,
+      "dispatches_blocked": 13,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 15,
+    "elapsed_sim_sec": 38.3,
+    "sim_time": 61.800000000000004,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 15,
+      "dispatches_blocked": 14,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 16,
+    "elapsed_sim_sec": 40.7,
+    "sim_time": 64.2,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 16,
+      "dispatches_blocked": 15,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 17,
+    "elapsed_sim_sec": 43.1,
+    "sim_time": 66.60000000000001,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 17,
+      "dispatches_blocked": 16,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 18,
+    "elapsed_sim_sec": 45.4,
+    "sim_time": 68.9,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 18,
+      "dispatches_blocked": 17,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 19,
+    "elapsed_sim_sec": 47.9,
+    "sim_time": 71.4,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 19,
+      "dispatches_blocked": 18,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 20,
+    "elapsed_sim_sec": 50.3,
+    "sim_time": 73.80000000000001,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 20,
+      "dispatches_blocked": 19,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 21,
+    "elapsed_sim_sec": 52.7,
+    "sim_time": 76.2,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 21,
+      "dispatches_blocked": 20,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 22,
+    "elapsed_sim_sec": 55.1,
+    "sim_time": 78.60000000000001,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 22,
+      "dispatches_blocked": 21,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 23,
+    "elapsed_sim_sec": 57.4,
+    "sim_time": 80.9,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 23,
+      "dispatches_blocked": 22,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 24,
+    "elapsed_sim_sec": 59.9,
+    "sim_time": 83.4,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 24,
+      "dispatches_blocked": 23,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 25,
+    "elapsed_sim_sec": 62.3,
+    "sim_time": 85.80000000000001,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 25,
+      "dispatches_blocked": 24,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 26,
+    "elapsed_sim_sec": 64.7,
+    "sim_time": 88.2,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 26,
+      "dispatches_blocked": 25,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 27,
+    "elapsed_sim_sec": 67.1,
+    "sim_time": 90.60000000000001,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 27,
+      "dispatches_blocked": 26,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 28,
+    "elapsed_sim_sec": 69.4,
+    "sim_time": 92.9,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 28,
+      "dispatches_blocked": 27,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 29,
+    "elapsed_sim_sec": 71.9,
+    "sim_time": 95.4,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 29,
+      "dispatches_blocked": 28,
+      "dispatches_permitted": 1
+    }
+  },
+  {
+    "observation_index": 30,
+    "elapsed_sim_sec": 74.3,
+    "sim_time": 97.80000000000001,
+    "event_type": "DISPATCH_GATE_CHECK",
+    "allowed": false,
+    "reason": "BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001)",
+    "blocked_by_memory_id": "mem_entry_0001",
+    "policy_state": {
+      "total_entries": 1,
+      "active_count": 1,
+      "invalidated_count": 0,
+      "recovery_verified_count": 0,
+      "entries": [
+        {
+          "memory_id": "mem_entry_0001",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "goal": [
+            1.8,
+            0.0,
+            0.0
+          ],
+          "failed_action_id": "M2_S2_ep1_nav_attempt1",
+          "failure_time": 6.3,
+          "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+          "failure_evidence": {
+            "doorway_state": "OCCUPIED",
+            "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+            "doorway_bbox": [
+              -0.3,
+              0.3,
+              -0.35,
+              0.35
+            ],
+            "hits_inside_count": 25,
+            "pass_through_count": 0,
+            "rays_intersecting_bbox_count": 25,
+            "sample_hits_inside": [
+              [
+                -0.2183,
+                -0.0161,
+                1.6696
+              ],
+              [
+                -0.2224,
+                0.0131,
+                1.6654
+              ],
+              [
+                -0.2278,
+                0.0421,
+                1.6603
+              ],
+              [
+                -0.2291,
+                0.0711,
+                1.6599
+              ],
+              [
+                -0.2129,
+                0.1011,
+                1.6775
+              ]
+            ],
+            "sample_pass_through": [],
+            "laser_origin_map": [
+              -1.8877,
+              0.0067
+            ],
+            "laser_yaw_map": -0.0137,
+            "costmap_status": "VALID",
+            "costmap_summary": {
+              "status": "VALID",
+              "error": null,
+              "grid_bounds_u": [
+                73,
+                85
+              ],
+              "grid_bounds_v": [
+                42,
+                56
+              ],
+              "total_cells": 195,
+              "unknown_cells": 0,
+              "occupied_cells": 16,
+              "free_cells": 179,
+              "max_cost": 100,
+              "costmap_cleared": false,
+              "stamp_sec": 28.6
+            },
+            "error": null,
+            "doorway_cleared": false,
+            "points_count": 25
+          },
+          "invalidation_criteria": {
+            "type": "DOORWAY_CLEARANCE",
+            "map_version": "chokepoint_world_v1",
+            "region_id": "room2_corridor_chokepoint",
+            "required_doorway_state": "FREE"
+          },
+          "state": "ACTIVE",
+          "invalidation_time": null,
+          "invalidation_evidence_id": null,
+          "invalidation_evidence": null,
+          "recovery_action_id": null,
+          "recovery_time": null,
+          "recovery_evidence": null,
+          "history": [
+            {
+              "from_state": null,
+              "to_state": "ACTIVE",
+              "sim_time": 6.3,
+              "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+              "evidence_id": "M2_S2_ep1_postfail_obs_1"
+            }
+          ],
+          "metadata": {},
+          "created_sim_time": 6.3,
+          "invalidation_sim_time": null,
+          "verification_sim_time": null
+        }
+      ],
+      "policy_name": "M2_CONDITIONAL_MEMORY",
+      "dispatches_attempted": 30,
+      "dispatches_blocked": 29,
+      "dispatches_permitted": 1
+    }
+  }
+]

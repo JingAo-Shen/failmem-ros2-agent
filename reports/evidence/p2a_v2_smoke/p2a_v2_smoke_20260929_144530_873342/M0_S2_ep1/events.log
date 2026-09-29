@@ -1,0 +1,30 @@
+[2026-09-29 14:47:19.807] === Starting Episode M0_S2_ep1 (M0_S2 #1) ===
+[2026-09-29 14:47:19.807] Policy: M0, Sequence: S2
+[2026-09-29 14:47:24.189] Sim clock advanced: 0.00s -> 1.10s
+[2026-09-29 14:47:25.869] Sensors streaming verified: odom=-1.8, scan=360 rays
+[2026-09-29 14:47:26.024] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-29 14:47:46.186] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-29 14:47:46.411] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-29 14:47:46.411] Obstacle spawn confirmed in Gazebo
+[2026-09-29 14:47:46.412] Readiness Complete. Defined episode_t0 = 23.400s. Starting concurrent EnvironmentTimelineController...
+[2026-09-29 14:47:46.772] AMCL nomotion update received: stamp 23.602s (seq=4)
+[2026-09-29 14:47:47.594] [Obs #1] elapsed=0.00s: doorway=OCCUPIED (pass_through=0, hits=24)
+[2026-09-29 14:47:47.594] [Nav Attempt #1] Dispatching action 'M0_S2_ep1_nav_attempt1' (timeout=18.0s, rem_budget=74.4s)...
+[2026-09-29 14:47:47.594] Dispatched action 'M0_S2_ep1_nav_attempt1': pipeline_status=DISPATCHED
+[2026-09-29 14:48:05.114] Simulation time budget exceeded (18.10s > 18.00s). Requesting cancel...
+[2026-09-29 14:48:08.132] Passive physical halt verified: stable for 3.00s sim time (lv=0.0000, av=0.0008)
+[2026-09-29 14:48:10.623] Stability window recording complete: 427 samples across 2.50s sim time
+[2026-09-29 14:48:10.631] [Nav Attempt #1 Result] outcome=BUDGET_DEADLINE_EXCEEDED, physical_arrival=False, gt_dist=3.0856m, amcl_dist=3.1015m
+[2026-09-29 14:48:10.714] AMCL nomotion update received: stamp 47.603s (seq=25)
+[2026-09-29 14:48:11.434] [Environment Timeline] Triggering S2 obstacle removal at elapsed_sim=25.000s (scheduling_error=+0.000s)
+[2026-09-29 14:48:11.678] [Environment Timeline] Obstacle 'corridor_blockage_box' deletion confirmed in Gazebo at elapsed_sim=25.200s
+[2026-09-29 14:48:11.723] AMCL nomotion update received: stamp 48.602s (seq=26)
+[2026-09-29 14:48:12.634] [Obs #2] elapsed=24.60s: doorway=OCCUPIED (pass_through=31, hits=0)
+[2026-09-29 14:48:12.634] [REDUNDANT RETRY #1] Policy M0 dispatched repeat navigation into OCCUPIED doorway!
+[2026-09-29 14:48:12.634] [Nav Attempt #2] Dispatching action 'M0_S2_ep1_nav_attempt2' (timeout=18.0s, rem_budget=49.4s)...
+[2026-09-29 14:48:12.637] Dispatched action 'M0_S2_ep1_nav_attempt2': pipeline_status=DISPATCHED
+[2026-09-29 14:48:28.805] Passive physical halt verified: stable for 3.00s sim time (lv=0.0006, av=0.0086)
+[2026-09-29 14:48:31.155] Stability window recording complete: 414 samples across 2.40s sim time
+[2026-09-29 14:48:31.166] [Nav Attempt #2 Result] outcome=BUDGET_SUCCESS, physical_arrival=True, gt_dist=0.1755m, amcl_dist=0.2728m
+[2026-09-29 14:48:31.166] Goal arrived and stable in Nav Attempt #2! Task Success confirmed.
+[2026-09-29 14:48:37.061] === Episode M0_S2_ep1 Complete: valid=True, task_success=True, mech_verified=True, attempts=2, suppressions=0, obs=2 ===

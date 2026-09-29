@@ -1,0 +1,32 @@
+[2026-09-29 14:54:00.638] === Starting Episode M2_S2_ep1 (M2_S2 #1) ===
+[2026-09-29 14:54:00.638] Policy: M2, Sequence: S2
+[2026-09-29 14:54:05.480] Sim clock advanced: 0.00s -> 1.20s
+[2026-09-29 14:54:07.156] Sensors streaming verified: odom=-1.8, scan=360 rays
+[2026-09-29 14:54:07.309] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-29 14:54:27.466] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-29 14:54:27.500] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-29 14:54:27.500] Obstacle spawn confirmed in Gazebo
+[2026-09-29 14:54:27.500] Readiness Complete. Defined episode_t0 = 23.200s. Starting concurrent EnvironmentTimelineController...
+[2026-09-29 14:54:27.587] AMCL nomotion update received: stamp 23.201s (seq=3)
+[2026-09-29 14:54:28.491] [Obs #1] elapsed=0.00s: doorway=OCCUPIED (pass_through=0, hits=24)
+[2026-09-29 14:54:28.491] [Nav Attempt #1] Dispatching action 'M2_S2_ep1_nav_attempt1' (timeout=18.0s, rem_budget=74.6s)...
+[2026-09-29 14:54:28.492] Dispatched action 'M2_S2_ep1_nav_attempt1': pipeline_status=DISPATCHED
+[2026-09-29 14:54:46.018] Simulation time budget exceeded (18.10s > 18.00s). Requesting cancel...
+[2026-09-29 14:54:49.064] Passive physical halt verified: stable for 3.00s sim time (lv=0.0000, av=0.0008)
+[2026-09-29 14:54:51.527] Stability window recording complete: 421 samples across 2.50s sim time
+[2026-09-29 14:54:51.540] [Nav Attempt #1 Result] outcome=BUDGET_DEADLINE_EXCEEDED, physical_arrival=False, gt_dist=3.5998m, amcl_dist=3.6758m
+[2026-09-29 14:54:51.628] AMCL nomotion update received: stamp 47.203s (seq=17)
+[2026-09-29 14:54:52.541] [Environment Timeline] Triggering S2 obstacle removal at elapsed_sim=25.000s (scheduling_error=+0.000s)
+[2026-09-29 14:54:52.619] AMCL nomotion update received: stamp 48.202s (seq=18)
+[2026-09-29 14:54:52.767] [Environment Timeline] Obstacle 'corridor_blockage_box' deletion confirmed in Gazebo at elapsed_sim=25.200s
+[2026-09-29 14:54:53.567] [Obs #2] elapsed=24.40s: doorway=OCCUPIED (pass_through=21, hits=0)
+[2026-09-29 14:54:53.568] [Gate Check #2] Dispatch SUPPRESSED by policy (BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001))
+[2026-09-29 14:54:55.234] AMCL nomotion update received: stamp 50.802s (seq=19)
+[2026-09-29 14:54:56.121] [Obs #3] elapsed=27.40s: doorway=FREE (pass_through=22, hits=0)
+[2026-09-29 14:54:56.123] [Nav Attempt #2] Dispatching action 'M2_S2_ep1_nav_attempt2' (timeout=18.0s, rem_budget=47.0s)...
+[2026-09-29 14:54:56.126] Dispatched action 'M2_S2_ep1_nav_attempt2': pipeline_status=DISPATCHED
+[2026-09-29 14:55:14.393] Passive physical halt verified: stable for 3.00s sim time (lv=0.0006, av=0.0047)
+[2026-09-29 14:55:16.767] Stability window recording complete: 416 samples across 2.40s sim time
+[2026-09-29 14:55:16.779] [Nav Attempt #2 Result] outcome=BUDGET_SUCCESS, physical_arrival=True, gt_dist=0.1946m, amcl_dist=0.2562m
+[2026-09-29 14:55:16.779] Goal arrived and stable in Nav Attempt #2! Task Success confirmed.
+[2026-09-29 14:55:22.712] === Episode M2_S2_ep1 Complete: valid=True, task_success=True, mech_verified=True, attempts=2, suppressions=1, obs=3 ===

@@ -1,0 +1,213 @@
+{
+  "episode_id": "M2_S2_ep1",
+  "condition_id": "M2_S2",
+  "policy_name": "M2",
+  "sequence_name": "S2",
+  "map_version": "chokepoint_world_v1",
+  "episode_valid": true,
+  "task_success": false,
+  "mechanism_verified": false,
+  "terminal_reason": "TOTAL_BUDGET_EXHAUSTED",
+  "observation_count": 30,
+  "suppression_count": 29,
+  "navigation_attempt_count": 1,
+  "retry_count": 0,
+  "redundant_retries_count": 0,
+  "invalidation_verified": false,
+  "policy_reported_recovery": false,
+  "evaluator_verified_recovery": false,
+  "timeline_summary": {
+    "sequence_name": "S2",
+    "planned_removal_elapsed_sec": 25.0,
+    "removal_requested": false,
+    "request_sim_time": null,
+    "request_elapsed_sim": null,
+    "scheduling_error_sec": null,
+    "deletion_success": false,
+    "deletion_confirmed_sim_time": null,
+    "deletion_confirmed_elapsed_sim": null
+  },
+  "policy_final_state": {
+    "total_entries": 1,
+    "active_count": 1,
+    "invalidated_count": 0,
+    "recovery_verified_count": 0,
+    "entries": [
+      {
+        "memory_id": "mem_entry_0001",
+        "map_version": "chokepoint_world_v1",
+        "region_id": "room2_corridor_chokepoint",
+        "goal": [
+          1.8,
+          0.0,
+          0.0
+        ],
+        "failed_action_id": "M2_S2_ep1_nav_attempt1",
+        "failure_time": 6.3,
+        "failure_evidence_id": "M2_S2_ep1_postfail_obs_1",
+        "failure_evidence": {
+          "doorway_state": "OCCUPIED",
+          "reason": "OBSTACLE_DETECTED (25 laser hits inside doorway bbox, costmap_occupied=16)",
+          "doorway_bbox": [
+            -0.3,
+            0.3,
+            -0.35,
+            0.35
+          ],
+          "hits_inside_count": 25,
+          "pass_through_count": 0,
+          "rays_intersecting_bbox_count": 25,
+          "sample_hits_inside": [
+            [
+              -0.2183,
+              -0.0161,
+              1.6696
+            ],
+            [
+              -0.2224,
+              0.0131,
+              1.6654
+            ],
+            [
+              -0.2278,
+              0.0421,
+              1.6603
+            ],
+            [
+              -0.2291,
+              0.0711,
+              1.6599
+            ],
+            [
+              -0.2129,
+              0.1011,
+              1.6775
+            ]
+          ],
+          "sample_pass_through": [],
+          "laser_origin_map": [
+            -1.8877,
+            0.0067
+          ],
+          "laser_yaw_map": -0.0137,
+          "costmap_status": "VALID",
+          "costmap_summary": {
+            "status": "VALID",
+            "error": null,
+            "grid_bounds_u": [
+              73,
+              85
+            ],
+            "grid_bounds_v": [
+              42,
+              56
+            ],
+            "total_cells": 195,
+            "unknown_cells": 0,
+            "occupied_cells": 16,
+            "free_cells": 179,
+            "max_cost": 100,
+            "costmap_cleared": false,
+            "stamp_sec": 28.6
+          },
+          "error": null,
+          "doorway_cleared": false,
+          "points_count": 25
+        },
+        "invalidation_criteria": {
+          "type": "DOORWAY_CLEARANCE",
+          "map_version": "chokepoint_world_v1",
+          "region_id": "room2_corridor_chokepoint",
+          "required_doorway_state": "FREE"
+        },
+        "state": "ACTIVE",
+        "invalidation_time": null,
+        "invalidation_evidence_id": null,
+        "invalidation_evidence": null,
+        "recovery_action_id": null,
+        "recovery_time": null,
+        "recovery_evidence": null,
+        "history": [
+          {
+            "from_state": null,
+            "to_state": "ACTIVE",
+            "sim_time": 6.3,
+            "reason": "FAILURE_RECORDED (EXECUTION_ERROR)",
+            "evidence_id": "M2_S2_ep1_postfail_obs_1"
+          }
+        ],
+        "metadata": {},
+        "created_sim_time": 6.3,
+        "invalidation_sim_time": null,
+        "verification_sim_time": null
+      }
+    ],
+    "policy_name": "M2_CONDITIONAL_MEMORY",
+    "dispatches_attempted": 30,
+    "dispatches_blocked": 29,
+    "dispatches_permitted": 1
+  },
+  "action_summaries": [
+    {
+      "dispatch": {
+        "pipeline_status": "FAILED",
+        "failure_stage": "SCHEMA_VALIDATION",
+        "error_type": "EXTRA_PARAMETERS",
+        "error_message": "navigate params contains unexpected keys: ['wall_watchdog_sec']",
+        "ros_dispatched": false
+      },
+      "execution_outcome": "EXECUTION_ERROR",
+      "terminal_status_name": "ERROR",
+      "status_code": null,
+      "deadline_exceeded": false,
+      "failure_reason": "GOAL_HANDLE_NONE",
+      "settled_ok": true,
+      "safety_intervention": false,
+      "evaluation": {
+        "nav2_action_status": "ERROR",
+        "execution_outcome": "EXECUTION_ERROR",
+        "deadline_exceeded": false,
+        "nav2_action_succeeded": false,
+        "failure_reason": "GOAL_HANDLE_NONE",
+        "final_geometric_errors": {
+          "gt_position_error_m": 3.5999,
+          "gt_yaw_error_rad": 0.0015,
+          "amcl_position_error_m": 3.6238,
+          "amcl_yaw_error_rad": 0.014,
+          "thresholds_applied": {
+            "position_tolerance_m": 0.3,
+            "yaw_tolerance_rad": 0.35
+          }
+        },
+        "window_evaluation": {
+          "window_valid": true,
+          "failure_reasons": [],
+          "sim_duration_covered": 2.3,
+          "odom_duration_covered": 2.686,
+          "gt_duration_covered": 2.4,
+          "unique_samples_count": 104,
+          "unique_odom_count": 79,
+          "unique_gt_count": 26,
+          "total_raw_samples_count": 401,
+          "max_sampling_interval_sec": 0.1,
+          "data_fresh": true,
+          "watchdog_triggered": false
+        },
+        "halt_evaluation": {
+          "all_samples_stopped": true,
+          "max_linear_v_seen": 0.0001,
+          "max_angular_v_seen": 0.0003,
+          "max_gt_displacement_m": 0.0001,
+          "cmd_vel_status": "NO_COMMANDS_RECEIVED",
+          "safety_intervention": false,
+          "halt_verified": true,
+          "halt_failure_reason": null
+        },
+        "all_window_pos_ok": false,
+        "all_window_yaw_ok": true,
+        "final_pose_arrived": false,
+        "strict_physical_arrival_and_stable": false
+      }
+    }
+  ]
+}
