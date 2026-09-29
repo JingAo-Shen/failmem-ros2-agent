@@ -69,6 +69,8 @@ class FailureMemoryEntry:
     invalidation_time: Optional[float] = None
     invalidation_evidence_id: Optional[str] = None
     invalidation_evidence: Optional[Dict[str, Any]] = None
+    pending_recovery_action_id: Optional[str] = None
+    recovery_dispatch_time: Optional[float] = None
     recovery_action_id: Optional[str] = None
     recovery_time: Optional[float] = None
     recovery_evidence: Optional[Dict[str, Any]] = None
@@ -184,21 +186,54 @@ class FailureMemoryStore:
     ) -> List[FailureMemoryEntry]:
         """Evaluate physical perception evidence against invalidation criteria of ACTIVE entries."""
         invalidated_entries = []
-        doorway_state = perception_evidence.get("doorway_state")
+        if not perception_evidence or not isinstance(perception_evidence, dict):
+            return []
 
+        doorway_state = perception_evidence.get("doorway_state")
         if doorway_state != "FREE":
             return []
+
+        # Extract evidence timestamp
+        if "timestamp_sim" in perception_evidence:
+            evidence_stamp = perception_evidence["timestamp_sim"]
+        elif "stamp_sec" in perception_evidence:
+            evidence_stamp = perception_evidence["stamp_sec"]
+        elif "scan_stamp_sec" in perception_evidence:
+            evidence_stamp = perception_evidence["scan_stamp_sec"]
+        elif "costmap_stamp_sec" in perception_evidence:
+            evidence_stamp = perception_evidence["costmap_stamp_sec"]
+        else:
+            evidence_stamp = sim_time
+
+        if evidence_stamp is None or not is_finite_number(evidence_stamp):
+            return []
+
+        evidence_stamp_f = float(evidence_stamp)
+
+        # Region/Map tags in evidence
+        ev_region = perception_evidence.get("region_id")
+        ev_map = perception_evidence.get("map_version")
 
         for entry in self.entries:
             if entry.state == MemoryState.ACTIVE:
                 # 1. Map version check
                 if entry.map_version != map_version:
                     continue
-                # 2. Region check (if specified)
+                if ev_map and ev_map != entry.map_version:
+                    continue
+
+                # 2. Region check
                 if region_id and entry.region_id != region_id:
                     continue
-                # 3. Temporal causality check: invalidation evidence must be strictly after failure time
-                if sim_time <= entry.failure_time:
+                if ev_region and ev_region != entry.region_id:
+                    continue
+
+                # 3. Temporal causality check: evidence stamp MUST be strictly after failure time
+                if evidence_stamp_f <= entry.failure_time:
+                    continue
+
+                # 4. Freshness check: evidence cannot be older than 5.0s relative to evaluation sim_time
+                if (sim_time - evidence_stamp_f) > 5.0:
                     continue
 
                 criteria = entry.invalidation_criteria
@@ -206,19 +241,49 @@ class FailureMemoryStore:
                     req_state = criteria.get("required_doorway_state", "FREE")
                     if doorway_state == req_state:
                         entry.state = MemoryState.INVALIDATED
-                        entry.invalidation_time = round(float(sim_time), 4)
+                        entry.invalidation_time = round(float(evidence_stamp_f), 4)
                         entry.invalidation_evidence_id = str(evidence_id)
                         entry.invalidation_evidence = copy.deepcopy(perception_evidence)
                         entry.history.append({
                             "from_state": MemoryState.ACTIVE.value,
                             "to_state": MemoryState.INVALIDATED.value,
                             "sim_time": round(float(sim_time), 4),
+                            "evidence_stamp": round(float(evidence_stamp_f), 4),
                             "reason": "DOORWAY_CLEARANCE_OBSERVED_FREE",
                             "evidence_id": str(evidence_id),
                         })
                         invalidated_entries.append(entry)
 
         return invalidated_entries
+
+    def bind_recovery_action(
+        self,
+        target_goal: List[float],
+        target_region: str,
+        recovery_action_id: str,
+        sim_time: float,
+        map_version: str = "chokepoint_world_v1",
+    ) -> Optional[str]:
+        """Explicitly bind an INVALIDATED memory entry to a dispatched recovery action ID."""
+        for entry in self.entries:
+            if entry.state == MemoryState.INVALIDATED:
+                if entry.map_version != map_version:
+                    continue
+                if target_region and entry.region_id != target_region:
+                    continue
+                dist = math.hypot(target_goal[0] - entry.goal[0], target_goal[1] - entry.goal[1])
+                if dist <= self.region_matching_tolerance_m:
+                    entry.pending_recovery_action_id = str(recovery_action_id)
+                    entry.recovery_dispatch_time = round(float(sim_time), 4)
+                    entry.history.append({
+                        "from_state": MemoryState.INVALIDATED.value,
+                        "to_state": MemoryState.INVALIDATED.value,
+                        "sim_time": round(float(sim_time), 4),
+                        "reason": f"RECOVERY_ACTION_DISPATCHED ({recovery_action_id})",
+                        "evidence_id": str(recovery_action_id),
+                    })
+                    return entry.memory_id
+        return None
 
     def verify_recovery(
         self,
@@ -243,10 +308,19 @@ class FailureMemoryStore:
             if d_amcl > (goal_tolerance_m + 0.15):  # allow mild AMCL uncertainty
                 return False
 
+        # Online halt velocity check if present
+        halt_vel = online_feedback.get("halt_velocity")
+        if halt_vel and is_finite_number(halt_vel.get("linear_v")) and is_finite_number(halt_vel.get("angular_v")):
+            if abs(float(halt_vel["linear_v"])) > 0.05 or abs(float(halt_vel["angular_v"])) > 0.05:
+                return False
+
         verified_any = False
         for entry in self.entries:
             if entry.state == MemoryState.INVALIDATED:
                 if memory_id and entry.memory_id != memory_id:
+                    continue
+                # If a specific recovery action was bound, verify it matches
+                if entry.pending_recovery_action_id and entry.pending_recovery_action_id != recovery_action_id:
                     continue
                 if entry.map_version != map_version:
                     continue
@@ -333,6 +407,16 @@ class FailureMemoryPolicy:
         memory_id: Optional[str] = None,
     ):
         pass
+
+    def bind_recovery_action(
+        self,
+        target_goal: List[float],
+        target_region: str,
+        recovery_action_id: str,
+        sim_time: float,
+        map_version: str = "chokepoint_world_v1",
+    ) -> Optional[str]:
+        return None
 
     def export_state(self) -> Dict[str, Any]:
         return {"policy_name": self.policy_name}
@@ -570,6 +654,22 @@ class M2ConditionalMemoryPolicy(FailureMemoryPolicy):
             memory_id=memory_id,
         )
 
+    def bind_recovery_action(
+        self,
+        target_goal: List[float],
+        target_region: str,
+        recovery_action_id: str,
+        sim_time: float,
+        map_version: str = "chokepoint_world_v1",
+    ) -> Optional[str]:
+        return self.store.bind_recovery_action(
+            target_goal=target_goal,
+            target_region=target_region,
+            recovery_action_id=recovery_action_id,
+            sim_time=sim_time,
+            map_version=map_version,
+        )
+
     def export_state(self) -> Dict[str, Any]:
         res = self.store.get_summary()
         res.update({
@@ -579,3 +679,4 @@ class M2ConditionalMemoryPolicy(FailureMemoryPolicy):
             "dispatches_permitted": self.dispatches_permitted,
         })
         return res
+

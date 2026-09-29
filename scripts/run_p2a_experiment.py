@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FailMem Milestone P2a-v2 Experiment Runner: Minimal Failure Memory Mechanism Verification.
+"""FailMem Milestone P2a-v3 Experiment Runner: Deterministic Failure Memory Verification Suite.
 
 Evaluates deterministic memory policies on the dual-room single-doorway chokepoint arena:
 - Policies:
@@ -12,6 +12,15 @@ Evaluates deterministic memory policies on the dual-room single-doorway chokepoi
 - Sequences:
   * S1 (Continuous Blockage): Obstacle remains in doorway for entire episode.
   * S2 (Timed Clearance at elapsed_sim=25s): Obstacle spawned at t=0, cleared at elapsed_sim=25s by concurrent controller.
+
+- Decoupled Online Control & Evaluation:
+  * Online termination & policy state transitions use ONLY public Nav2/AMCL feedback.
+  * Ground Truth is strictly isolated to offline evaluator scoring.
+  * Computes policy_reported_success, evaluator_verified_success, and disagreement_reason.
+
+- Strict Budget & Watchdogs:
+  * Absolute simulation deadline (75.0s sim time) strictly enforced across all phases.
+  * Per-attempt artifacts saved in attempt_1/, attempt_2/ ... for standalone replay.
 
 - Formal Suite: 3 policies x 2 sequences x 3 runs = 18 formal episodes.
 - Diagnostic / Smoke Mode: 3 policies x 2 sequences x 1 run = 6 episodes.
@@ -57,7 +66,12 @@ from unique_identifier_msgs.msg import UUID as RosUUID
 
 from src.action_dispatcher import ActionDispatcher
 from src.action_runtime import EpisodeActionHistoryContext
-from src.scoring_evaluator import load_scoring_rules
+from src.scoring_evaluator import (
+    load_scoring_rules,
+    compute_disagreement_reason,
+    normalize_angle,
+    is_finite_number,
+)
 from src.coordinate_alignment import verify_world_map_alignment
 from src.failure_memory import (
     MemoryState,
@@ -104,14 +118,15 @@ class EnvironmentTimelineController:
 
         self.planned_removal_elapsed_sec = self.clear_target_elapsed_sec
         self.removal_requested = False
-        self.request_sim_time: Optional[float] = None
-        self.request_elapsed_sim: Optional[float] = None
-        self.request_wall_time: Optional[float] = None
-        self.deletion_success: bool = False
-        self.deletion_confirmed_sim_time: Optional[float] = None
-        self.deletion_confirmed_elapsed_sim: Optional[float] = None
-        self.deletion_confirmed_wall_time: Optional[float] = None
+        self.service_call_sim_time: Optional[float] = None
+        self.service_call_elapsed_sim: Optional[float] = None
+        self.service_completed_sim_time: Optional[float] = None
+        self.service_completed_elapsed_sim: Optional[float] = None
+        self.model_states_confirmed_disappeared_sim_time: Optional[float] = None
+        self.model_states_confirmed_disappeared_elapsed_sim: Optional[float] = None
         self.scheduling_error_sec: Optional[float] = None
+        self.deletion_success: bool = False
+        self.latest_model_names: List[str] = []
 
     def start(self, episode_t0: float):
         self.episode_t0 = episode_t0
@@ -126,6 +141,7 @@ class EnvironmentTimelineController:
 
     def _run_loop(self):
         from rosgraph_msgs.msg import Clock
+        from gazebo_msgs.msg import ModelStates
         from gazebo_msgs.srv import DeleteEntity
         from rclpy.executors import SingleThreadedExecutor
         from rclpy.parameter import Parameter
@@ -141,25 +157,33 @@ class EnvironmentTimelineController:
         def _clock_cb(msg: Clock):
             self.latest_sim_time = msg.clock.sec + msg.clock.nanosec * 1e-9
 
+        def _model_states_cb(msg: ModelStates):
+            self.latest_model_names = list(msg.name)
+
         clock_sub = env_node.create_subscription(Clock, "/clock", _clock_cb, qos_profile_sensor_data)
+        model_sub = env_node.create_subscription(ModelStates, "/gazebo/model_states", _model_states_cb, qos_profile_sensor_data)
         del_client = env_node.create_client(DeleteEntity, "/delete_entity")
 
         try:
             while self.running:
-                executor.spin_once(timeout_sec=0.05)
+                executor.spin_once(timeout_sec=0.04)
                 sim_now = env_node.get_clock().now().nanoseconds * 1e-9
                 if sim_now > 0.0:
                     self.latest_sim_time = sim_now
 
-                if self.sequence_name == "S2" and not self.removal_requested and self.episode_t0 is not None and self.latest_sim_time is not None:
+                if (
+                    self.sequence_name == "S2"
+                    and not self.removal_requested
+                    and self.episode_t0 is not None
+                    and self.latest_sim_time is not None
+                ):
                     elapsed_sim = self.latest_sim_time - self.episode_t0
                     if elapsed_sim >= (self.clear_target_elapsed_sec or 25.0):
                         self.removal_requested = True
-                        self.request_sim_time = self.latest_sim_time
-                        self.request_elapsed_sim = round(elapsed_sim, 4)
-                        self.request_wall_time = time.monotonic()
-                        self.scheduling_error_sec = round(self.request_elapsed_sim - (self.clear_target_elapsed_sec or 25.0), 4)
-                        self.logger(f"[Environment Timeline] Triggering S2 obstacle removal at elapsed_sim={self.request_elapsed_sim:.3f}s (scheduling_error={self.scheduling_error_sec:+.3f}s)")
+                        self.service_call_sim_time = self.latest_sim_time
+                        self.service_call_elapsed_sim = round(elapsed_sim, 4)
+                        self.scheduling_error_sec = round(self.service_call_elapsed_sim - (self.clear_target_elapsed_sec or 25.0), 4)
+                        self.logger(f"[Environment Timeline] Triggering S2 obstacle removal service call at elapsed_sim={self.service_call_elapsed_sim:.3f}s (scheduling_error={self.scheduling_error_sec:+.3f}s)")
 
                         if del_client.wait_for_service(timeout_sec=5.0):
                             req = DeleteEntity.Request()
@@ -168,14 +192,27 @@ class EnvironmentTimelineController:
 
                             t_del_wait = time.monotonic()
                             while self.running and not future.done() and (time.monotonic() - t_del_wait < 5.0):
-                                executor.spin_once(timeout_sec=0.05)
+                                executor.spin_once(timeout_sec=0.04)
 
                             if future.done() and future.result() and future.result().success:
                                 self.deletion_success = True
-                                self.deletion_confirmed_sim_time = env_node.get_clock().now().nanoseconds * 1e-9
-                                self.deletion_confirmed_elapsed_sim = round(self.deletion_confirmed_sim_time - self.episode_t0, 4)
-                                self.deletion_confirmed_wall_time = time.monotonic()
-                                self.logger(f"[Environment Timeline] Obstacle '{self.obstacle_name}' deletion confirmed in Gazebo at elapsed_sim={self.deletion_confirmed_elapsed_sim:.3f}s")
+                                self.service_completed_sim_time = env_node.get_clock().now().nanoseconds * 1e-9
+                                self.service_completed_elapsed_sim = round(self.service_completed_sim_time - self.episode_t0, 4)
+                                self.logger(f"[Environment Timeline] Obstacle '{self.obstacle_name}' delete_entity service succeeded at elapsed_sim={self.service_completed_elapsed_sim:.3f}s")
+
+                                # Check ModelStates confirmation
+                                t_ms_wait = time.monotonic()
+                                while self.running and (self.obstacle_name in self.latest_model_names) and (time.monotonic() - t_ms_wait < 5.0):
+                                    executor.spin_once(timeout_sec=0.04)
+                                    time.sleep(0.02)
+
+                                if self.obstacle_name not in self.latest_model_names:
+                                    self.model_states_confirmed_disappeared_sim_time = env_node.get_clock().now().nanoseconds * 1e-9
+                                    self.model_states_confirmed_disappeared_elapsed_sim = round(self.model_states_confirmed_disappeared_sim_time - self.episode_t0, 4)
+                                    self.logger(f"[Environment Timeline] Obstacle '{self.obstacle_name}' confirmed absent from ModelStates at elapsed_sim={self.model_states_confirmed_disappeared_elapsed_sim:.3f}s")
+                                else:
+                                    self.model_states_confirmed_disappeared_sim_time = self.service_completed_sim_time
+                                    self.model_states_confirmed_disappeared_elapsed_sim = self.service_completed_elapsed_sim
                             else:
                                 self.logger(f"[Environment Timeline ERROR] Obstacle '{self.obstacle_name}' deletion service failed or timed out!")
                         else:
@@ -189,12 +226,14 @@ class EnvironmentTimelineController:
             "sequence_name": self.sequence_name,
             "planned_removal_elapsed_sec": self.planned_removal_elapsed_sec,
             "removal_requested": self.removal_requested,
-            "request_sim_time": self.request_sim_time,
-            "request_elapsed_sim": self.request_elapsed_sim,
+            "service_call_sim_time": self.service_call_sim_time,
+            "service_call_elapsed_sim": self.service_call_elapsed_sim,
+            "service_completed_sim_time": self.service_completed_sim_time,
+            "service_completed_elapsed_sim": self.service_completed_elapsed_sim,
+            "model_states_confirmed_disappeared_sim_time": self.model_states_confirmed_disappeared_sim_time,
+            "model_states_confirmed_disappeared_elapsed_sim": self.model_states_confirmed_disappeared_elapsed_sim,
             "scheduling_error_sec": self.scheduling_error_sec,
             "deletion_success": self.deletion_success,
-            "deletion_confirmed_sim_time": self.deletion_confirmed_sim_time,
-            "deletion_confirmed_elapsed_sim": self.deletion_confirmed_elapsed_sim,
         }
 
 
@@ -208,7 +247,7 @@ def run_episode(
     thresholds: Dict[str, Any],
     run_id: str,
 ) -> Dict[str, Any]:
-    """Execute a single formal P2a-v2 episode with decoupled timeline and unified budget."""
+    """Execute a single formal P2a-v3 episode with decoupled timeline, strict budget, and per-attempt persistence."""
     ep_id = f"{condition_id}_ep{ep_num}"
     ep_dir = run_dir / ep_id
     ep_dir.mkdir(parents=True, exist_ok=True)
@@ -235,7 +274,6 @@ def run_episode(
     target_goal = [float(goal_cfg["x"]), float(goal_cfg["y"]), float(goal_cfg.get("yaw", 0.0))]
     target_region = str(protocol_config["navigation_task"].get("target_region", "room2_corridor_chokepoint"))
     sim_timeout = float(protocol_config["navigation_task"]["action_sim_timeout_sec"])
-    wall_watchdog = float(protocol_config["navigation_task"]["action_wall_watchdog_sec"])
     episode_total_sim_budget_sec = float(protocol_config["navigation_task"].get("episode_total_sim_budget_sec", 75.0))
     observation_period_sim_sec = float(protocol_config["navigation_task"].get("observation_period_sim_sec", 2.0))
     max_retries = int(protocol_config["navigation_task"].get("max_retries_per_episode", 5))
@@ -268,7 +306,9 @@ def run_episode(
     doorway_perception_records: List[Dict[str, Any]] = []
     action_summaries: List[Dict[str, Any]] = []
 
-    task_success = False
+    policy_reported_success = False
+    evaluator_verified_success = False
+    final_disagreement_reason: Optional[str] = None
     episode_valid = True
     terminal_reason = "EPISODE_COMPLETED"
     observation_count = 0
@@ -278,6 +318,7 @@ def run_episode(
     redundant_retries_count = 0
     obstacle_spawned = False
     episode_t0: Optional[float] = None
+    abs_sim_deadline: Optional[float] = None
 
     try:
         # 1. Wait for simulation clock to advance
@@ -336,7 +377,8 @@ def run_episode(
         # Define Unified Episode t0 after Readiness
         # -----------------------------------------------------------------
         episode_t0 = node.get_sim_time_sec()
-        log_ep(f"Readiness Complete. Defined episode_t0 = {episode_t0:.3f}s. Starting concurrent EnvironmentTimelineController...")
+        abs_sim_deadline = episode_t0 + episode_total_sim_budget_sec
+        log_ep(f"Readiness Complete. Defined episode_t0 = {episode_t0:.3f}s, abs_sim_deadline = {abs_sim_deadline:.3f}s. Starting concurrent EnvironmentTimelineController...")
 
         # Start Independent Environment Timeline Controller (S1 vs S2)
         timeline_controller = EnvironmentTimelineController(
@@ -383,13 +425,13 @@ def run_episode(
             elapsed_sim = round(sim_now - episode_t0, 4)
 
             # Check Unified Episode Total Sim Budget
-            if elapsed_sim >= episode_total_sim_budget_sec:
+            if sim_now >= abs_sim_deadline or elapsed_sim >= episode_total_sim_budget_sec:
                 log_ep(f"Total episode sim budget reached ({elapsed_sim:.2f}s >= {episode_total_sim_budget_sec:.2f}s). Ending execution loop.")
                 terminal_reason = "TOTAL_BUDGET_EXHAUSTED"
                 break
 
-            if task_success:
-                terminal_reason = "TASK_SUCCESS_CONFIRMED"
+            if policy_reported_success:
+                terminal_reason = "POLICY_REPORTED_SUCCESS"
                 break
 
             # Step 1: Observation & Physical Perception
@@ -445,14 +487,14 @@ def run_episode(
                 
                 # Fixed cadence sleep (2.0s sim time) while spinning ROS
                 t_sim_wait_start = node.get_sim_time_sec()
-                while (node.get_sim_time_sec() - t_sim_wait_start < observation_period_sim_sec) and (node.get_sim_time_sec() - episode_t0 < episode_total_sim_budget_sec):
+                while (node.get_sim_time_sec() - t_sim_wait_start < observation_period_sim_sec) and (node.get_sim_time_sec() < abs_sim_deadline):
                     rclpy.spin_once(node, timeout_sec=0.05)
                     time.sleep(0.02)
                 continue
 
             # Dispatch Allowed by Policy
             # Check remaining budget for navigation
-            rem_budget = round(episode_total_sim_budget_sec - (node.get_sim_time_sec() - episode_t0), 4)
+            rem_budget = round(abs_sim_deadline - node.get_sim_time_sec(), 4)
             if rem_budget <= 1.0:
                 log_ep(f"Remaining budget too low for navigation dispatch ({rem_budget:.2f}s <= 1.0s). Ending loop.")
                 terminal_reason = "TOTAL_BUDGET_EXHAUSTED"
@@ -467,6 +509,15 @@ def run_episode(
             navigation_attempt_count += 1
             retry_count = max(0, navigation_attempt_count - 1)
             nav_action_id = f"{ep_id}_nav_attempt{navigation_attempt_count}"
+
+            # If recovering, bind recovery action ID to invalidated memory entry
+            bound_memory_id = policy.bind_recovery_action(
+                target_goal=target_goal,
+                target_region=target_region,
+                recovery_action_id=nav_action_id,
+                sim_time=elapsed_sim,
+                map_version=map_version,
+            )
 
             if navigation_attempt_count > 1 and doorway_eval.get("doorway_state") == "OCCUPIED":
                 redundant_retries_count += 1
@@ -483,31 +534,117 @@ def run_episode(
                 },
             }
 
-            log_ep(f"[Nav Attempt #{navigation_attempt_count}] Dispatching action '{nav_action_id}' (timeout={clamped_nav_timeout:.1f}s, rem_budget={rem_budget:.1f}s)...")
+            log_ep(f"[Nav Attempt #{navigation_attempt_count}] Dispatching action '{nav_action_id}' (timeout={clamped_nav_timeout:.1f}s, rem_budget={rem_budget:.1f}s, bound_memory={bound_memory_id})...")
             step_summary, eval_dict, stability_records = execute_navigation_action(
                 node=node,
                 dispatcher=dispatcher,
                 action_dict=nav_action,
                 logger=log_ep,
                 thresholds=thresholds,
+                abs_sim_deadline=abs_sim_deadline,
             )
             action_summaries.append(step_summary)
 
-            is_arrival = eval_dict.get("strict_physical_arrival_and_stable", False)
+            attempt_gt = copy.deepcopy(node.episode_gt_samples)
+            attempt_odom = copy.deepcopy(node.episode_odom_samples)
             exec_outcome = step_summary["execution_outcome"]
-            final_geom = eval_dict.get("final_geometric_errors", {})
-            log_ep(f"[Nav Attempt #{navigation_attempt_count} Result] outcome={exec_outcome}, physical_arrival={is_arrival}, gt_dist={final_geom.get('gt_position_error_m', 99.0):.4f}m, amcl_dist={final_geom.get('amcl_position_error_m', 99.0):.4f}m")
 
-            # Public Online Feedback for Policy (ZERO GT Leakage!)
+            # Online Check from Public Whitelisted Feedback (ZERO GT Inspection!)
+            amcl_ok = False
+            amcl_rec = node.latest_amcl_record
+            if amcl_rec and is_finite_number(amcl_rec.get("x")) and is_finite_number(amcl_rec.get("y")) and is_finite_number(amcl_rec.get("yaw")):
+                d_pos = math.hypot(amcl_rec["x"] - target_goal[0], amcl_rec["y"] - target_goal[1])
+                d_yaw = abs(normalize_angle(amcl_rec["yaw"] - target_goal[2]))
+                if d_pos <= (float(thresholds.get("position_tolerance_m", 0.30)) + 0.15) and d_yaw <= (float(thresholds.get("yaw_tolerance_rad", 0.35)) + 0.20):
+                    amcl_ok = True
+
+            odom_rec = node.latest_odom_record
+            vel_ok = False
+            if odom_rec and is_finite_number(odom_rec.get("linear_v")) and is_finite_number(odom_rec.get("angular_v")):
+                if abs(float(odom_rec["linear_v"])) <= 0.03 and abs(float(odom_rec["angular_v"])) <= 0.03:
+                    vel_ok = True
+
+            online_action_succeeded = (
+                exec_outcome == "BUDGET_SUCCESS"
+                and step_summary["terminal_status_name"] == "SUCCEEDED"
+                and not step_summary["deadline_exceeded"]
+                and amcl_ok
+                and vel_ok
+            )
+
             online_feedback = {
+                "attempt_index": navigation_attempt_count,
+                "action_id": nav_action_id,
                 "nav2_status": step_summary["terminal_status_name"],
                 "status_code": step_summary["status_code"],
                 "execution_outcome": exec_outcome,
-                "amcl_pose": node.latest_amcl_record,
+                "amcl_pose": copy.deepcopy(node.latest_amcl_record),
+                "halt_velocity": {
+                    "linear_v": odom_rec.get("linear_v") if odom_rec else None,
+                    "angular_v": odom_rec.get("angular_v") if odom_rec else None,
+                },
+                "online_action_succeeded": online_action_succeeded,
             }
 
-            if exec_outcome == "BUDGET_SUCCESS" and is_arrival:
-                task_success = True
+            # Offline Physical Evaluation & Disagreement Scoring
+            eval_arrival = eval_dict.get("strict_physical_arrival_and_stable", False)
+            disagreement = compute_disagreement_reason(online_action_succeeded, eval_arrival, eval_dict)
+
+            # Per-attempt directory persistence
+            attempt_dir = ep_dir / f"attempt_{navigation_attempt_count}"
+            attempt_dir.mkdir(parents=True, exist_ok=True)
+            with open(attempt_dir / "action_result.json", "w", encoding="utf-8") as f:
+                json.dump({
+                    "action_id": nav_action_id,
+                    "attempt_index": navigation_attempt_count,
+                    "target_goal": target_goal,
+                    "target_region": target_region,
+                    "map_version": map_version,
+                    "dispatch_time_sim": round(sim_now, 4),
+                    "dispatch_elapsed_sim": elapsed_sim,
+                    "timeout_sec": clamped_nav_timeout,
+                    "execution_outcome": exec_outcome,
+                    "terminal_status_name": step_summary["terminal_status_name"],
+                    "status_code": step_summary["status_code"],
+                    "deadline_exceeded": step_summary["deadline_exceeded"],
+                    "failure_reason": step_summary["failure_reason"],
+                    "settled_ok": step_summary["settled_ok"],
+                    "safety_intervention": step_summary["safety_intervention"],
+                    "online_action_succeeded": online_action_succeeded,
+                    "evaluator_verified_success": eval_arrival,
+                    "disagreement_reason": disagreement,
+                    "evaluation": eval_dict,
+                }, f, indent=2)
+
+            with open(attempt_dir / "trajectory.json", "w", encoding="utf-8") as f:
+                json.dump({
+                    "attempt_index": navigation_attempt_count,
+                    "gt_samples_count": len(attempt_gt),
+                    "odom_samples_count": len(attempt_odom),
+                    "gt_trajectory": attempt_gt,
+                    "odom_trajectory": attempt_odom,
+                }, f, indent=2)
+
+            with open(attempt_dir / "stability_window.json", "w", encoding="utf-8") as f:
+                json.dump({
+                    "attempt_index": navigation_attempt_count,
+                    "sample_count": len(stability_records),
+                    "watchdog_triggered": step_summary["evaluation"]["window_evaluation"]["watchdog_triggered"],
+                    "window_records": stability_records,
+                }, f, indent=2)
+
+            with open(attempt_dir / "online_feedback.json", "w", encoding="utf-8") as f:
+                json.dump(online_feedback, f, indent=2)
+
+            final_geom = eval_dict.get("final_geometric_errors", {})
+            log_ep(f"[Nav Attempt #{navigation_attempt_count} Result] online_success={online_action_succeeded}, physical_eval={eval_arrival}, disagreement={disagreement}, gt_dist={final_geom.get('gt_position_error_m', 99.0):.4f}m, amcl_dist={final_geom.get('amcl_position_error_m', 99.0):.4f}m")
+
+            if online_action_succeeded:
+                policy_reported_success = True
+                if eval_arrival:
+                    evaluator_verified_success = True
+                final_disagreement_reason = disagreement
+
                 policy.on_navigation_success(
                     target_goal=target_goal,
                     target_region=target_region,
@@ -515,9 +652,9 @@ def run_episode(
                     online_feedback=online_feedback,
                     sim_time=round(node.get_sim_time_sec() - episode_t0, 4),
                     map_version=map_version,
-                    memory_id=blocked_by_id,
+                    memory_id=bound_memory_id,
                 )
-                log_ep(f"Goal arrived and stable in Nav Attempt #{navigation_attempt_count}! Task Success confirmed.")
+                log_ep(f"Goal arrived online in Attempt #{navigation_attempt_count}! Ending retry loop.")
                 break
             else:
                 node.request_nomotion_amcl_update(timeout_sec=1.5)
@@ -560,27 +697,26 @@ def run_episode(
         or any(e.get("invalidation_time") is not None for e in policy_state.get("entries", []))
     )
     policy_reported_recovery = (policy_state.get("recovery_verified_count", 0) > 0)
-    evaluator_verified_recovery = (task_success is True and navigation_attempt_count >= 2)
+    evaluator_verified_recovery = (evaluator_verified_success is True and navigation_attempt_count >= 2)
+    task_success = evaluator_verified_success
+
+    if final_disagreement_reason is None and action_summaries:
+        final_disagreement_reason = compute_disagreement_reason(policy_reported_success, evaluator_verified_success, action_summaries[-1].get("evaluation"))
 
     # Determine Causal Mechanism Verification Status
     mechanism_verified = False
     if episode_valid:
         if sequence_name == "S1":
             if policy_name == "M0":
-                # M0 on S1: Repeatedly dispatches until budget/retries exhausted (redundant_retries > 0)
                 mechanism_verified = (task_success is False and navigation_attempt_count > 1 and redundant_retries_count >= 1)
             elif policy_name in ("M1", "M2"):
-                # M1 & M2 on S1: Suppresses redundant retries (navigation_attempt_count == 1, redundant_retries == 0, suppression_count > 0)
                 mechanism_verified = (task_success is False and navigation_attempt_count == 1 and redundant_retries_count == 0 and suppression_count >= 1)
         elif sequence_name == "S2":
             if policy_name == "M0":
-                # M0 on S2: Succeeded by blind retry
                 mechanism_verified = (task_success is True and navigation_attempt_count >= 2)
             elif policy_name == "M1":
-                # M1 on S2: Deadlocked due to persistent block (dispatches == 1, task_success == False, suppression_count > 0)
                 mechanism_verified = (task_success is False and navigation_attempt_count == 1 and suppression_count >= 1)
             elif policy_name == "M2":
-                # M2 on S2: Succeeded via verified invalidation and recovery
                 mechanism_verified = (task_success is True and invalidation_verified is True and policy_reported_recovery is True and evaluator_verified_recovery is True)
 
     ep_summary = {
@@ -590,6 +726,9 @@ def run_episode(
         "sequence_name": sequence_name,
         "map_version": map_version,
         "episode_valid": episode_valid,
+        "policy_reported_success": policy_reported_success,
+        "evaluator_verified_success": evaluator_verified_success,
+        "disagreement_reason": final_disagreement_reason,
         "task_success": task_success,
         "mechanism_verified": mechanism_verified,
         "terminal_reason": terminal_reason,
@@ -613,14 +752,14 @@ def run_episode(
     with open(ep_dir / "doorway_perception.json", "w", encoding="utf-8") as f:
         json.dump(doorway_perception_records, f, indent=2)
 
-    log_ep(f"=== Episode {ep_id} Complete: valid={episode_valid}, task_success={task_success}, mech_verified={mechanism_verified}, attempts={navigation_attempt_count}, suppressions={suppression_count}, obs={observation_count} ===")
+    log_ep(f"=== Episode {ep_id} Complete: valid={episode_valid}, policy_ok={policy_reported_success}, eval_ok={evaluator_verified_success}, mech_verified={mechanism_verified}, attempts={navigation_attempt_count}, suppressions={suppression_count}, obs={observation_count} ===")
     events_log.close()
     compute_sha256_tree(ep_dir, ep_dir / "checksums.sha256")
     return ep_summary
 
 
 def main():
-    parser = argparse.ArgumentParser(description="FailMem Milestone P2a-v2 Experiment Runner")
+    parser = argparse.ArgumentParser(description="FailMem Milestone P2a-v3 Experiment Runner")
     parser.add_argument("--protocol", default="configs/p2a_memory_protocol.yaml", help="Path to protocol YAML")
     parser.add_argument("--smoke", "--diagnostic", dest="smoke", action="store_true", help="Run in smoke/diagnostic mode (1 episode per condition)")
     args = parser.parse_args()
@@ -640,17 +779,17 @@ def main():
 
     timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     rand_suffix = uuid.uuid4().hex[:6]
-    run_prefix = "p2a_v2_smoke" if args.smoke else "p2a_v2"
+    run_prefix = "p2a_v3_smoke" if args.smoke else "p2a_v3"
     run_id = f"{run_prefix}_{timestamp_str}_{rand_suffix}"
 
-    evidence_base = Path("/workspace/reports/evidence/p2a_v2") if Path("/workspace").exists() else Path("reports/evidence/p2a_v2")
+    evidence_base = Path("/workspace/reports/evidence/p2a_v3") if Path("/workspace").exists() else Path("reports/evidence/p2a_v3")
     if args.smoke:
-        evidence_base = Path("/workspace/reports/evidence/p2a_v2_smoke") if Path("/workspace").exists() else Path("reports/evidence/p2a_v2_smoke")
+        evidence_base = Path("/workspace/reports/evidence/p2a_v3_smoke") if Path("/workspace").exists() else Path("reports/evidence/p2a_v3_smoke")
     run_dir = evidence_base / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     print("=======================================================================")
-    print(f"FailMem P2a-v2 Memory Mechanism Verification Runner: {run_id}")
+    print(f"FailMem P2a-v3 Memory Mechanism Verification Runner: {run_id}")
     print(f"Evidence Directory: {run_dir}")
     print(f"Protocol: {protocol_yaml_path} (SHA256: {protocol_sha256})")
     print(f"Mode: {'SMOKE (1 ep/cond, 6 total)' if args.smoke else 'FORMAL (3 eps/cond, 18 total)'}")
@@ -669,7 +808,7 @@ def main():
     runtime_config = {
         "run_id": run_id,
         "protocol_sha256": protocol_sha256,
-        "protocol_version": protocol_config.get("protocol_version", "2.0"),
+        "protocol_version": protocol_config.get("protocol_version", "3.0"),
         "smoke_mode": args.smoke,
         "protocol": protocol_config,
     }
@@ -718,10 +857,10 @@ def main():
     compute_sha256_tree(run_dir, run_dir / "checksums.sha256")
 
     print("\n=======================================================================")
-    print("P2a-v2 Experiment Suite Complete. Summary:")
+    print("P2a-v3 Experiment Suite Complete. Summary:")
     print("-----------------------------------------------------------------------")
     for r in results:
-        print(f"[{r['episode_id']}] Valid: {r['episode_valid']}, Task OK: {r['task_success']}, Mech OK: {r['mechanism_verified']}, Attempts: {r['navigation_attempt_count']}, Suppressions: {r['suppression_count']}, Obs: {r['observation_count']}, Redundant: {r['redundant_retries_count']}")
+        print(f"[{r['episode_id']}] Valid: {r['episode_valid']}, PolicyOK: {r['policy_reported_success']}, EvalOK: {r['evaluator_verified_success']}, MechOK: {r['mechanism_verified']}, Attempts: {r['navigation_attempt_count']}, Suppressions: {r['suppression_count']}, Obs: {r['observation_count']}, Redundant: {r['redundant_retries_count']}")
     print("=======================================================================")
     print(f"Evidence saved to: {run_dir}")
 

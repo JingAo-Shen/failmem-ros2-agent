@@ -1,0 +1,31 @@
+[2026-09-29 17:00:34.042] === Starting Episode M0_S2_ep1 (M0_S2 #1) ===
+[2026-09-29 17:00:34.042] Policy: M0, Sequence: S2
+[2026-09-29 17:00:38.357] Sim clock advanced: 0.00s -> 1.20s
+[2026-09-29 17:00:40.295] Sensors streaming verified: odom=-1.8, scan=360 rays
+[2026-09-29 17:00:40.450] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-29 17:01:00.620] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-29 17:01:00.755] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-29 17:01:00.755] Obstacle spawn confirmed in Gazebo
+[2026-09-29 17:01:00.755] Readiness Complete. Defined episode_t0 = 23.500s, abs_sim_deadline = 98.500s. Starting concurrent EnvironmentTimelineController...
+[2026-09-29 17:01:00.865] AMCL nomotion update received: stamp 23.574s (seq=3)
+[2026-09-29 17:01:01.779] [Obs #1] elapsed=0.00s: doorway=OCCUPIED (pass_through=0, hits=25)
+[2026-09-29 17:01:01.779] [Nav Attempt #1] Dispatching action 'M0_S2_ep1_nav_attempt1' (timeout=18.0s, rem_budget=74.5s, bound_memory=None)...
+[2026-09-29 17:01:01.782] Dispatched action 'M0_S2_ep1_nav_attempt1': pipeline_status=DISPATCHED
+[2026-09-29 17:01:19.347] Simulation time budget exceeded (18.10s > 18.00s, sim_now=42.10s, abs_deadline=98.5). Requesting cancel...
+[2026-09-29 17:01:22.369] Passive physical halt verified: stable for 3.00s sim time (lv=0.0000, av=0.0008)
+[2026-09-29 17:01:24.863] Stability window recording complete: 416 samples across 2.50s sim time
+[2026-09-29 17:01:24.891] [Nav Attempt #1 Result] online_success=False, physical_eval=False, disagreement=None, gt_dist=3.3221m, amcl_dist=3.3501m
+[2026-09-29 17:01:25.141] AMCL nomotion update received: stamp 47.775s (seq=22)
+[2026-09-29 17:01:25.789] [Environment Timeline] Triggering S2 obstacle removal service call at elapsed_sim=25.000s (scheduling_error=+0.000s)
+[2026-09-29 17:01:25.896] AMCL nomotion update received: stamp 48.574s (seq=23)
+[2026-09-29 17:01:26.026] [Environment Timeline] Obstacle 'corridor_blockage_box' delete_entity service succeeded at elapsed_sim=25.200s
+[2026-09-29 17:01:26.130] [Environment Timeline] Obstacle 'corridor_blockage_box' confirmed absent from ModelStates at elapsed_sim=25.300s
+[2026-09-29 17:01:26.804] [Obs #2] elapsed=24.40s: doorway=OCCUPIED (pass_through=28, hits=0)
+[2026-09-29 17:01:26.805] [REDUNDANT RETRY #1] Policy M0 dispatched repeat navigation into OCCUPIED doorway!
+[2026-09-29 17:01:26.805] [Nav Attempt #2] Dispatching action 'M0_S2_ep1_nav_attempt2' (timeout=18.0s, rem_budget=49.6s, bound_memory=None)...
+[2026-09-29 17:01:26.808] Dispatched action 'M0_S2_ep1_nav_attempt2': pipeline_status=DISPATCHED
+[2026-09-29 17:01:43.943] Passive physical halt verified: stable for 3.00s sim time (lv=0.0008, av=0.0098)
+[2026-09-29 17:01:46.435] Stability window recording complete: 424 samples across 2.50s sim time
+[2026-09-29 17:01:46.471] [Nav Attempt #2 Result] online_success=True, physical_eval=True, disagreement=None, gt_dist=0.2038m, amcl_dist=0.2721m
+[2026-09-29 17:01:46.471] Goal arrived online in Attempt #2! Ending retry loop.
+[2026-09-29 17:01:52.385] === Episode M0_S2_ep1 Complete: valid=True, policy_ok=True, eval_ok=True, mech_verified=True, attempts=2, suppressions=0, obs=2 ===

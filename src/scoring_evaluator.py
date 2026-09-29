@@ -612,3 +612,48 @@ def audit_localization_discrepancy(
         "synchronization_disclaimer": "ModelStates has no header; timestamp is ROS sim time at callback receipt (RECEIPT_ROS_SIM_TIME_APPROX). AMCL uses header.stamp.",
         "aligned_samples": aligned,
     }
+
+
+def compute_disagreement_reason(
+    policy_reported_success: bool,
+    evaluator_verified_success: bool,
+    physical_scoring: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """Compute explicit reason when online policy reported outcome disagrees with offline physical scoring."""
+    if policy_reported_success == evaluator_verified_success:
+        return None
+
+    if policy_reported_success and not evaluator_verified_success:
+        if not physical_scoring or not isinstance(physical_scoring, dict):
+            return "EVALUATOR_SCORING_MISSING_OR_INVALID"
+
+        if not physical_scoring.get("nav2_action_succeeded", False):
+            outcome = physical_scoring.get("execution_outcome", "UNKNOWN")
+            return f"EVALUATOR_NAV2_STATUS_OR_BUDGET_FAILED_{outcome}"
+
+        if not physical_scoring.get("final_pose_arrived", False):
+            geom = physical_scoring.get("final_geometric_errors", {})
+            gt_pos = geom.get("gt_position_error_m")
+            gt_yaw = geom.get("gt_yaw_error_rad")
+            return f"EVALUATOR_GT_ARRIVAL_TOLERANCE_EXCEEDED (gt_pos_err={gt_pos}m, gt_yaw_err={gt_yaw}rad)"
+
+        if not physical_scoring.get("all_window_pos_ok", True) or not physical_scoring.get("all_window_yaw_ok", True):
+            return "EVALUATOR_GT_STABILITY_WINDOW_DEVIATION"
+
+        win_eval = physical_scoring.get("window_evaluation", {})
+        if not win_eval.get("window_valid", False):
+            reasons = win_eval.get("failure_reasons", [])
+            return f"EVALUATOR_WINDOW_INVALID_{':'.join(reasons)}"
+
+        halt_eval = physical_scoring.get("halt_evaluation", {})
+        if not halt_eval.get("halt_verified", False):
+            reason = halt_eval.get("halt_failure_reason", "HALT_UNVERIFIED")
+            return f"EVALUATOR_HALT_FAILED_{reason}"
+
+        return "EVALUATOR_PHYSICAL_ARRIVAL_UNVERIFIED"
+
+    if not policy_reported_success and evaluator_verified_success:
+        return "POLICY_REPORTED_FAILURE_DESPITE_PHYSICAL_ARRIVAL"
+
+    return None
+

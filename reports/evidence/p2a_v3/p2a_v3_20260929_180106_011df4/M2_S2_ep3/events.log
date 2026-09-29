@@ -1,0 +1,33 @@
+[2026-09-29 18:29:27.699] === Starting Episode M2_S2_ep3 (M2_S2 #3) ===
+[2026-09-29 18:29:27.699] Policy: M2, Sequence: S2
+[2026-09-29 18:29:32.075] Sim clock advanced: 0.00s -> 1.20s
+[2026-09-29 18:29:34.006] Sensors streaming verified: odom=-1.8, scan=360 rays
+[2026-09-29 18:29:34.162] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-29 18:29:54.336] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-29 18:29:54.457] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-29 18:29:54.457] Obstacle spawn confirmed in Gazebo
+[2026-09-29 18:29:54.457] Readiness Complete. Defined episode_t0 = 23.500s, abs_sim_deadline = 98.500s. Starting concurrent EnvironmentTimelineController...
+[2026-09-29 18:29:54.568] AMCL nomotion update received: stamp 23.570s (seq=4)
+[2026-09-29 18:29:55.479] [Obs #1] elapsed=0.00s: doorway=OCCUPIED (pass_through=0, hits=24)
+[2026-09-29 18:29:55.480] [Nav Attempt #1] Dispatching action 'M2_S2_ep3_nav_attempt1' (timeout=18.0s, rem_budget=74.5s, bound_memory=None)...
+[2026-09-29 18:29:55.482] Dispatched action 'M2_S2_ep3_nav_attempt1': pipeline_status=DISPATCHED
+[2026-09-29 18:30:13.058] Simulation time budget exceeded (18.10s > 18.00s, sim_now=42.10s, abs_deadline=98.5). Requesting cancel...
+[2026-09-29 18:30:16.070] Passive physical halt verified: stable for 3.00s sim time (lv=0.0000, av=0.0008)
+[2026-09-29 18:30:18.571] Stability window recording complete: 420 samples across 2.50s sim time
+[2026-09-29 18:30:18.616] [Nav Attempt #1 Result] online_success=False, physical_eval=False, disagreement=None, gt_dist=3.5998m, amcl_dist=3.6863m
+[2026-09-29 18:30:18.867] AMCL nomotion update received: stamp 47.771s (seq=18)
+[2026-09-29 18:30:19.496] [Environment Timeline] Triggering S2 obstacle removal service call at elapsed_sim=25.000s (scheduling_error=+0.000s)
+[2026-09-29 18:30:19.723] [Environment Timeline] Obstacle 'corridor_blockage_box' delete_entity service succeeded at elapsed_sim=25.200s
+[2026-09-29 18:30:19.838] [Environment Timeline] Obstacle 'corridor_blockage_box' confirmed absent from ModelStates at elapsed_sim=25.300s
+[2026-09-29 18:30:19.919] AMCL nomotion update received: stamp 48.770s (seq=19)
+[2026-09-29 18:30:20.725] [Obs #2] elapsed=24.50s: doorway=OCCUPIED (pass_through=22, hits=0)
+[2026-09-29 18:30:20.725] [Gate Check #2] Dispatch SUPPRESSED by policy (BLOCKED_BY_ACTIVE_MEMORY_REGION (mem_entry_0001))
+[2026-09-29 18:30:22.336] AMCL nomotion update received: stamp 51.171s (seq=20)
+[2026-09-29 18:30:23.123] [Obs #3] elapsed=27.60s: doorway=FREE (pass_through=21, hits=0)
+[2026-09-29 18:30:23.125] [Nav Attempt #2] Dispatching action 'M2_S2_ep3_nav_attempt2' (timeout=18.0s, rem_budget=47.0s, bound_memory=mem_entry_0001)...
+[2026-09-29 18:30:23.130] Dispatched action 'M2_S2_ep3_nav_attempt2': pipeline_status=DISPATCHED
+[2026-09-29 18:30:41.353] Passive physical halt verified: stable for 3.00s sim time (lv=0.0007, av=0.0099)
+[2026-09-29 18:30:43.849] Stability window recording complete: 421 samples across 2.50s sim time
+[2026-09-29 18:30:43.880] [Nav Attempt #2 Result] online_success=True, physical_eval=True, disagreement=None, gt_dist=0.2007m, amcl_dist=0.2537m
+[2026-09-29 18:30:43.880] Goal arrived online in Attempt #2! Ending retry loop.
+[2026-09-29 18:30:49.828] === Episode M2_S2_ep3 Complete: valid=True, policy_ok=True, eval_ok=True, mech_verified=True, attempts=2, suppressions=1, obs=3 ===

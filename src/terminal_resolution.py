@@ -36,6 +36,7 @@ def await_nav_goal_terminal_result(
     wall_watchdog_sec: Optional[float] = None,
     logger: Optional[Callable[[str], None]] = None,
     spin_once_fn: Optional[Callable[[Any, float], None]] = None,
+    abs_sim_deadline: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Awaits navigation goal completion with strict simulation deadline, wall watchdog,
     and structured outcome taxonomy.
@@ -91,14 +92,15 @@ def await_nav_goal_terminal_result(
 
     while not get_res_future.done():
         _spin(0.04)
-        sim_elapsed = _get_sim_time() - t_sim_start
+        now_sim = _get_sim_time()
+        sim_elapsed = now_sim - t_sim_start
         wall_elapsed = time.monotonic() - t_wall_start
 
-        if sim_elapsed > sim_timeout_sec:
+        if sim_elapsed > sim_timeout_sec or (abs_sim_deadline is not None and now_sim >= abs_sim_deadline):
             deadline_exceeded = True
             sim_deadline_exceeded = True
             if logger:
-                logger(f"Simulation time budget exceeded ({sim_elapsed:.2f}s > {sim_timeout_sec:.2f}s). Requesting cancel...")
+                logger(f"Simulation time budget exceeded ({sim_elapsed:.2f}s > {sim_timeout_sec:.2f}s, sim_now={now_sim:.2f}s, abs_deadline={abs_sim_deadline}). Requesting cancel...")
             break
 
         if wall_elapsed > wall_watchdog_sec:

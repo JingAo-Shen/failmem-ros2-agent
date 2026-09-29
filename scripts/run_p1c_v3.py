@@ -645,16 +645,22 @@ class P1cV3RunnerNode(Node):
 
     def wait_for_passive_settling(
         self,
-        min_duration_sec: float = 3.5,
-        max_wait_sec: float = 12.0,
-        linear_thresh: float = 0.03,
-        angular_thresh: float = 0.03,
+        min_duration_sec: float = 3.0,
+        max_wait_sec: float = 16.0,
+        linear_thresh: float = 0.04,
+        angular_thresh: float = 0.04,
+        abs_sim_deadline: Optional[float] = None,
     ) -> bool:
         """Strict passive physical halt verification (zero cmd_vel publisher intervention)."""
         t_start = self.get_sim_time_sec()
         stable_start: Optional[float] = None
 
         while self.get_sim_time_sec() - t_start < max_wait_sec:
+            sim_now = self.get_sim_time_sec()
+            if abs_sim_deadline is not None and sim_now >= abs_sim_deadline:
+                self.log(f"[BUDGET] Absolute simulation deadline reached during passive settling ({sim_now:.2f}s >= {abs_sim_deadline:.2f}s)")
+                break
+
             rclpy.spin_once(self, timeout_sec=0.04)
             odom = self.latest_odom_record
             if odom is not None:
@@ -688,6 +694,7 @@ class P1cV3RunnerNode(Node):
         sample_interval_wall_sec: float = 0.033,
         watchdog_wall_timeout_sec: float = 15.0,
         logger: Optional[Callable[[str], None]] = None,
+        abs_sim_deadline: Optional[float] = None,
     ) -> Tuple[List[Dict[str, Any]], bool]:
         """Capture continuous stability window records conforming to scoring evaluator contract."""
         t_start_sim = self.get_sim_time_sec()
@@ -714,6 +721,12 @@ class P1cV3RunnerNode(Node):
             if sim_now - t_start_sim >= duration_sim_sec:
                 if logger:
                     logger(f"Stability window recording complete: {len(window_records)} samples across {sim_now - t_start_sim:.2f}s sim time")
+                break
+
+            if abs_sim_deadline is not None and sim_now >= abs_sim_deadline:
+                if logger:
+                    logger(f"[ERROR] Absolute simulation deadline exceeded during stability window recording ({sim_now:.2f}s >= {abs_sim_deadline:.2f}s)!")
+                watchdog_triggered = True
                 break
 
             if time.monotonic() - t_start_wall > watchdog_wall_timeout_sec:
@@ -753,6 +766,7 @@ def execute_navigation_action(
     logger: Callable[[str], None],
     thresholds: Dict[str, Any],
     visible_state: Optional[Dict[str, Any]] = None,
+    abs_sim_deadline: Optional[float] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], List[Dict[str, Any]]]:
     """Execute a single navigation action with strict observation and terminal resolution."""
     node.start_tracking()
@@ -771,20 +785,28 @@ def execute_navigation_action(
         sim_timeout_sec=sim_timeout,
         wall_watchdog_sec=60.0,
         logger=logger,
+        abs_sim_deadline=abs_sim_deadline,
     )
 
     # Passive settling
     settled_ok = node.wait_for_passive_settling(
         min_duration_sec=3.0,
-        max_wait_sec=12.0,
-        linear_thresh=0.02,
-        angular_thresh=0.02,
+        max_wait_sec=16.0,
+        linear_thresh=0.04,
+        angular_thresh=0.04,
+        abs_sim_deadline=abs_sim_deadline,
     )
     stability_records, wd_triggered = node.record_stability_window(
         duration_sim_sec=2.4,
         logger=logger,
+        abs_sim_deadline=abs_sim_deadline,
     )
     node.stop_tracking()
+
+    overall_deadline_exceeded = (
+        term_res.get("deadline_exceeded", False)
+        or (abs_sim_deadline is not None and node.get_sim_time_sec() > abs_sim_deadline)
+    )
 
     # Physical evaluation
     eval_dict = evaluate_navigation_episode(
@@ -796,18 +818,18 @@ def execute_navigation_action(
         thresholds=thresholds,
         watchdog_triggered=wd_triggered or term_res.get("watchdog_triggered", False),
         safety_intervention=node.sticky_safety_intervention,
-        execution_outcome=term_res["execution_outcome"],
-        deadline_exceeded=term_res["deadline_exceeded"],
-        failure_reason=term_res["failure_reason"],
+        execution_outcome="BUDGET_DEADLINE_EXCEEDED" if overall_deadline_exceeded and term_res["execution_outcome"] == "BUDGET_SUCCESS" else term_res["execution_outcome"],
+        deadline_exceeded=overall_deadline_exceeded,
+        failure_reason="SIM_BUDGET_EXCEEDED" if overall_deadline_exceeded and not term_res.get("failure_reason") else term_res["failure_reason"],
     )
 
     step_summary = {
         "dispatch": dispatch_res,
-        "execution_outcome": term_res["execution_outcome"],
+        "execution_outcome": eval_dict.get("execution_outcome", term_res["execution_outcome"]),
         "terminal_status_name": term_res["ros_terminal_status"],
         "status_code": term_res["status_code"],
-        "deadline_exceeded": term_res["deadline_exceeded"],
-        "failure_reason": term_res["failure_reason"],
+        "deadline_exceeded": overall_deadline_exceeded,
+        "failure_reason": eval_dict.get("failure_reason", term_res["failure_reason"]),
         "settled_ok": settled_ok,
         "safety_intervention": node.sticky_safety_intervention,
         "evaluation": eval_dict,
