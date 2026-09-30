@@ -64,15 +64,14 @@ from src.scoring_evaluator import (
 )
 from src.online_verifier import verify_online_arrival
 from src.coordinate_alignment import verify_world_map_alignment
+from src.doorway_evaluator import (
+    extract_costmap_doorway_subgrid,
+    evaluate_doorway_clearance,
+)
 from src.failure_memory import (
     MemoryState,
     FailureMemoryEntry,
     FailureMemoryStore,
-    FailureMemoryPolicy,
-    M0NoMemoryPolicy,
-    M1PersistentMemoryPolicy,
-    M2ConditionalMemoryPolicy,
-    M3CurrentPerceptionPolicy,
 )
 from scripts.run_p1c_v3 import (
     P1cV3RunnerNode,
@@ -119,8 +118,20 @@ def spawn_simulation_p2c(episode_dir: Path, spawn_pose: List[float]) -> Tuple[su
     return proc, env
 
 
+def compute_polyline_length(waypoints: List[List[float]]) -> float:
+    """Compute nominal polyline length from waypoints list."""
+    if not waypoints or len(waypoints) < 2:
+        return 0.0
+    total = 0.0
+    for i in range(1, len(waypoints)):
+        dx = float(waypoints[i][0]) - float(waypoints[i - 1][0])
+        dy = float(waypoints[i][1]) - float(waypoints[i - 1][1])
+        total += math.hypot(dx, dy)
+    return round(total, 3)
+
+
 def integrate_trajectory_distance(samples: List[Dict[str, Any]]) -> float:
-    """Compute path length by integrating continuous position samples."""
+    """Compute path length by integrating continuous position samples with spike filtering."""
     if not samples or len(samples) < 2:
         return 0.0
     dist = 0.0
@@ -130,93 +141,94 @@ def integrate_trajectory_distance(samples: List[Dict[str, Any]]) -> float:
         x1 = float(samples[i]["x"])
         y1 = float(samples[i]["y"])
         d = math.hypot(x1 - x0, y1 - y0)
-        # Reject abnormal teleport spikes (> 2.0m between consecutive 50Hz samples)
+        # Reject abnormal teleport spikes (> 2.0m between consecutive samples)
         if d < 2.0:
             dist += d
     return round(dist, 3)
 
 
-def inspect_chokepoint_costmap_occupancy(
-    costmap_msg: Optional[OccupancyGrid],
-    doorway_bbox: Tuple[float, float, float, float],
+def capture_costmap_snapshot(
+    node: P1cV3RunnerNode,
+    stage: str,
+    sim_time: float,
+    doorway_bbox: Tuple[float, float, float, float] = (-0.20, 0.20, 0.90, 1.50),
+    opening_bbox: Tuple[float, float, float, float] = (-0.15, 0.15, 0.95, 1.45),
 ) -> Dict[str, Any]:
-    """Inspect cell occupancy inside Chokepoint A bounding box."""
-    if costmap_msg is None:
-        return {"costmap_available": False, "occupied_cell_count": 0, "free_cell_count": 0, "unknown_cell_count": 0}
+    """Extract and analyze costmap subgrid cells within doorway ROI and opening center."""
+    cm = node._latest_raw_costmap
+    if cm is None:
+        return {
+            "stage": stage,
+            "sim_time_sec": round(sim_time, 3),
+            "costmap_available": False,
+            "cell_counts": {"unknown": 0, "free": 0, "inflated": 0, "lethal": 0, "opening_lethal": 0},
+            "subgrid_matrix": [],
+        }
 
-    info = costmap_msg.info
+    info = cm.info
     res = float(info.resolution)
-    origin_x = float(info.origin.position.x)
-    origin_y = float(info.origin.position.y)
+    ox = float(info.origin.position.x)
+    oy = float(info.origin.position.y)
     w = int(info.width)
     h = int(info.height)
-    data = list(costmap_msg.data)
+    data = list(cm.data)
 
-    x_min, x_max, y_min, y_max = doorway_bbox
+    xmin, xmax, ymin, ymax = doorway_bbox
+    u_min = max(0, int((xmin - ox) / res))
+    u_max = min(w - 1, int((xmax - ox) / res))
+    v_min = max(0, int((ymin - oy) / res))
+    v_max = min(h - 1, int((ymax - oy) / res))
 
-    c_min = max(0, int((x_min - origin_x) / res))
-    c_max = min(w - 1, int((x_max - origin_x) / res))
-    r_min = max(0, int((y_min - origin_y) / res))
-    r_max = min(h - 1, int((y_max - origin_y) / res))
+    op_xmin, op_xmax, op_ymin, op_ymax = opening_bbox
+    op_umin = max(0, int((op_xmin - ox) / res))
+    op_umax = min(w - 1, int((op_xmax - ox) / res))
+    op_vmin = max(0, int((op_ymin - oy) / res))
+    op_vmax = min(h - 1, int((op_ymax - oy) / res))
 
-    occ_cnt = 0
+    unknown_cnt = 0
     free_cnt = 0
-    unk_cnt = 0
+    inflated_cnt = 0
+    lethal_cnt = 0
+    opening_lethal_cnt = 0
+    subgrid_matrix = []
 
-    for r in range(r_min, r_max + 1):
-        for c in range(c_min, c_max + 1):
-            idx = r * w + c
-            if 0 <= idx < len(data):
-                val = data[idx]
-                if val >= 50:
-                    occ_cnt += 1
-                elif val == 0:
-                    free_cnt += 1
-                else:
-                    unk_cnt += 1
+    for v in range(v_min, v_max + 1):
+        row = []
+        for u in range(u_min, u_max + 1):
+            idx = v * w + u
+            val = data[idx] if 0 <= idx < len(data) else -1
+            row.append(val)
+            if val < 0:
+                unknown_cnt += 1
+            elif val == 0:
+                free_cnt += 1
+            elif 1 <= val < 100:
+                inflated_cnt += 1
+            elif val >= 100:
+                lethal_cnt += 1
+                if op_umin <= u <= op_umax and op_vmin <= v <= op_vmax:
+                    opening_lethal_cnt += 1
+        subgrid_matrix.append(row)
 
     return {
+        "stage": stage,
+        "sim_time_sec": round(sim_time, 3),
         "costmap_available": True,
         "resolution_m": res,
-        "width": w,
-        "height": h,
-        "origin_xy": [origin_x, origin_y],
+        "origin_xy": [ox, oy],
+        "grid_bounds_u": [u_min, u_max],
+        "grid_bounds_v": [v_min, v_max],
         "doorway_bbox": list(doorway_bbox),
-        "occupied_cell_count": occ_cnt,
-        "free_cell_count": free_cnt,
-        "unknown_cell_count": unk_cnt,
-        "has_blockage": (occ_cnt > 0),
-    }
-
-
-def check_lidar_chokepoint_visibility(
-    node: P1cV3RunnerNode,
-    robot_pose: List[float],
-    doorway_bbox: Tuple[float, float, float, float],
-) -> Dict[str, Any]:
-    """Check if any laser ray endpoints from robot_pose fall inside doorway_bbox."""
-    scan_msg = node._latest_raw_scan
-    if scan_msg is None:
-        return {"visibility": "UNKNOWN", "ray_hits_in_doorway": 0, "min_distance_to_doorway": None}
-
-    rx, ry, ryaw = robot_pose[0], robot_pose[1], robot_pose[2] if len(robot_pose) > 2 else 0.0
-    x_min, x_max, y_min, y_max = doorway_bbox
-
-    hits = 0
-    angle = scan_msg.angle_min
-    for r in scan_msg.ranges:
-        if math.isfinite(r) and scan_msg.range_min <= r <= scan_msg.range_max:
-            beam_yaw = ryaw + angle
-            gx = rx + r * math.cos(beam_yaw)
-            gy = ry + r * math.sin(beam_yaw)
-            if x_min <= gx <= x_max and y_min <= gy <= y_max:
-                hits += 1
-        angle += scan_msg.angle_increment
-
-    return {
-        "visibility": "OCCUPIED" if hits > 5 else "FREE_OR_OCCLUDED",
-        "ray_hits_in_doorway": hits,
-        "doorway_bbox": list(doorway_bbox),
+        "opening_bbox": list(opening_bbox),
+        "cell_counts": {
+            "unknown": unknown_cnt,
+            "free": free_cnt,
+            "inflated": inflated_cnt,
+            "lethal": lethal_cnt,
+            "opening_lethal": opening_lethal_cnt,
+        },
+        "has_blockage": (opening_lethal_cnt > 0),
+        "subgrid_matrix": subgrid_matrix,
     }
 
 
@@ -251,18 +263,23 @@ def run_physical_episode(
 
     spawn_cfg = protocol_config["environment"]["spawn_pose"]
     spawn_coords = [float(spawn_cfg["x"]), float(spawn_cfg["y"]), float(spawn_cfg.get("yaw", 0.0))]
-    junc_pose = [float(protocol_config["decision_junction"]["pose"]["x"]), float(protocol_config["decision_junction"]["pose"]["y"]), float(protocol_config["decision_junction"]["pose"].get("yaw", 0.0))]
+    junc_pose = [
+        float(protocol_config["decision_junction"]["pose"]["x"]),
+        float(protocol_config["decision_junction"]["pose"]["y"]),
+        float(protocol_config["decision_junction"]["pose"].get("yaw", 0.0)),
+    ]
     goal_cfg = protocol_config["navigation_task"]["goal_pose"]
     target_goal = [float(goal_cfg["x"]), float(goal_cfg["y"]), float(goal_cfg.get("yaw", 0.0))]
     chokepoint_region = "north_corridor_chokepoint"
 
-    doorway_bbox_dict = protocol_config["obstacle_channel"].get("doorway_bbox", {"x_min": -0.30, "x_max": 0.30, "y_min": 0.80, "y_max": 1.60})
+    doorway_bbox_dict = protocol_config["obstacle_channel"].get("doorway_bbox", {"x_min": -0.20, "x_max": 0.20, "y_min": 0.90, "y_max": 1.50})
     doorway_bbox = (
         float(doorway_bbox_dict["x_min"]),
         float(doorway_bbox_dict["x_max"]),
         float(doorway_bbox_dict["y_min"]),
         float(doorway_bbox_dict["y_max"]),
     )
+    opening_bbox = (-0.15, 0.15, 0.95, 1.45)
 
     obs_cfg = protocol_config["obstacle_channel"]
     obs_name = str(obs_cfg.get("entity_name", "chokepoint_blockage_box"))
@@ -270,6 +287,12 @@ def run_physical_episode(
     obs_x = float(obs_cfg["pose"]["x"])
     obs_y = float(obs_cfg["pose"]["y"])
     obs_z = float(obs_cfg["pose"].get("z", 0.30))
+
+    # Calculate nominal lengths
+    path_a_wps = protocol_config["routes"]["path_a"]["waypoints"]
+    path_b_wps = protocol_config["routes"]["path_b"]["waypoints"]
+    nom_len_a = compute_polyline_length(path_a_wps)
+    nom_len_b = compute_polyline_length(path_b_wps)
 
     # Spawn isolated simulation
     sim_proc, sim_env = spawn_simulation_p2c(ep_dir, spawn_coords)
@@ -292,6 +315,7 @@ def run_physical_episode(
     decision_sim_time = 0.0
     dead_end_traversals = 0
     decision_dispatches = 0
+    route_attempt_count = 1
     chosen_route = "UNKNOWN"
     decision_rationales: List[str] = []
 
@@ -301,6 +325,10 @@ def run_physical_episode(
     last_eval_dict: Optional[Dict[str, Any]] = None
     last_summary_dict: Optional[Dict[str, Any]] = None
     final_stability: List[Dict[str, Any]] = []
+
+    history_valid = True
+    route_valid = True
+    episode_valid = False
 
     try:
         # 1. Wait for clock to advance
@@ -342,15 +370,13 @@ def run_physical_episode(
             time.sleep(0.5)
 
         # Baseline Costmap Snapshot at J0
-        cm_base = inspect_chokepoint_costmap_occupancy(node._latest_raw_costmap, doorway_bbox)
-        cm_base["stage"] = "COSTMAP_BASELINE_J0"
-        cm_base["sim_time_sec"] = round(node.get_sim_time_sec(), 3)
+        cm_base = capture_costmap_snapshot(node, "COSTMAP_BASELINE_J0", node.get_sim_time_sec(), doorway_bbox, opening_bbox)
         costmap_snapshots.append(cm_base)
 
         # Observability Verification from J0
-        lidar_j0 = check_lidar_chokepoint_visibility(node, spawn_coords, doorway_bbox)
+        obs_j0 = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
         sightline_j0 = verify_sightline_occlusion((spawn_coords[0], spawn_coords[1]), (obs_x, obs_y))
-        log_ep(f"J0 Observability: Sightline Occluded={sightline_j0['line_of_sight_occluded']}, LiDAR Hits in Doorway={lidar_j0['ray_hits_in_doorway']} (Local Obs={sightline_j0['junction_local_observation']})")
+        log_ep(f"J0 Observability: Sightline Occluded={sightline_j0['line_of_sight_occluded']}, Local Doorway State={obs_j0['doorway_state']} (Reason: {obs_j0['reason']})")
 
         action_history_ctx = EpisodeActionHistoryContext(max_retries=10, max_retries_per_state=5)
         dispatcher = ActionDispatcher(context=action_history_ctx, run_id=run_id, episode_id=ep_id)
@@ -391,6 +417,7 @@ def run_physical_episode(
             log_ep("[History Phase D0] Fresh untried scenario. Zero historical traversal.")
             history_distance = 0.0
             history_sim_time = 0.0
+            history_valid = True
 
         elif scenario_name in ["D1", "D2"]:
             # 1. Spawn Obstacle
@@ -399,55 +426,80 @@ def run_physical_episode(
             time.sleep(1.0)
             rclpy.spin_once(node, timeout_sec=0.1)
 
-            # 2. Physically Probe Path A towards Chokepoint A entrance (-0.50, 1.20)
-            log_ep(f"[History Phase {scenario_name}] Probing Path A towards entrance (-0.50, 1.20)...")
+            # 2. Action 1: Reach Observation Vantage Point (-0.50, 1.20)
+            log_ep(f"[History Phase {scenario_name}] Step 1: Navigating to observation vantage point (-0.50, 1.20)...")
             node.start_tracking()
-            probe_act = {
-                "action_id": "hist_probe_1",
+            vantage_act = {
+                "action_id": "hist_reach_obs_vantage",
                 "action": "navigate",
                 "params": {"goal": [-0.50, 1.20, 0.0], "frame_id": "map", "timeout_sec": 25.0},
             }
-            summary_p1, eval_p1, _ = execute_navigation_action(node, dispatcher, probe_act, log_ep, thresholds)
-            action_summaries.append(summary_p1)
+            summary_v1, eval_v1, _ = execute_navigation_action(node, dispatcher, vantage_act, log_ep, thresholds)
+            action_summaries.append(summary_v1)
             hist_odom_samples.extend(node.episode_odom_samples)
             all_gt_samples.extend(node.episode_gt_samples)
             all_odom_samples.extend(node.episode_odom_samples)
 
-            # Record OCCUPIED observation
-            sim_now = node.get_sim_time_sec()
-            occ_obs = {
-                "doorway_state": "OCCUPIED",
-                "reason": "PHYSICAL_OBSTACLE_DETECTED (laser hits inside doorway bbox)",
-                "doorway_bbox": list(doorway_bbox),
-                "stamp_sec": round(sim_now, 3),
-                "region_id": chokepoint_region,
-                "map_version": "p2c_dualpath_world_v1",
-            }
-            cache.update_observation(chokepoint_region, "OCCUPIED", sim_now, occ_obs)
-            fail_store.record_failure(
-                goal=target_goal,
-                region_id=chokepoint_region,
-                failure_reason="BUDGET_DEADLINE_EXCEEDED",
-                sim_time=sim_now,
-                failed_action_id="hist_probe_1",
-                failure_evidence_id="probe1_occ_obs",
-                failure_evidence=occ_obs,
-                map_version="p2c_dualpath_world_v1",
-            )
-            m1_suppressed = True
+            vantage1_ok = (summary_v1.get("terminal_status_name") == "SUCCEEDED" and summary_v1.get("execution_outcome") == "BUDGET_SUCCESS")
+            log_ep(f"[History Phase {scenario_name}] Step 1 Vantage arrival result: SUCCEEDED={vantage1_ok}")
 
-            # Snapshot at Chokepoint
-            cm_probe1 = inspect_chokepoint_costmap_occupancy(node._latest_raw_costmap, doorway_bbox)
-            cm_probe1["stage"] = "COSTMAP_PROBE_BLOCKED_AT_CHOKEPOINT"
-            cm_probe1["sim_time_sec"] = round(sim_now, 3)
+            # Sample Live Perception from Vantage Point
+            sim_now_v1 = node.get_sim_time_sec()
+            occ_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+            occ_obs["region_id"] = chokepoint_region
+            occ_obs["map_version"] = "p2c_dualpath_world_v1"
+            occ_obs["stamp_sec"] = round(sim_now_v1, 3)
+            log_ep(f"[History Phase {scenario_name}] Step 1 Live Perception: State={occ_obs.get('doorway_state')} (Hits={occ_obs.get('hits_inside_count')}, Reason: {occ_obs.get('reason')})")
+
+            # Update cache with live observation
+            if occ_obs.get("doorway_state") == "OCCUPIED":
+                cache.update_observation(chokepoint_region, "OCCUPIED", sim_now_v1, occ_obs)
+
+            # Snapshot Costmap after probe at chokepoint
+            cm_probe1 = capture_costmap_snapshot(node, "COSTMAP_PROBE_BLOCKED_AT_CHOKEPOINT", sim_now_v1, doorway_bbox, opening_bbox)
             costmap_snapshots.append(cm_probe1)
-            log_ep(f"[History Phase {scenario_name}] Recorded OCCUPIED at Chokepoint A. Costmap occupied cells={cm_probe1['occupied_cell_count']}")
 
-            # 3. Retreat back to J0 (-2.50, 0.00)
-            log_ep(f"[History Phase {scenario_name}] Retreating back to Decision Junction J0 (-2.50, 0.00)...")
+            # 3. Action 2: Attempt Chokepoint Traversal through Doorway (1.50, 1.20)
+            log_ep(f"[History Phase {scenario_name}] Step 2: Attempting chokepoint traversal through doorway to (1.50, 1.20)...")
+            node.start_tracking()
+            trav_act = {
+                "action_id": "hist_attempt_chokepoint_traversal",
+                "action": "navigate",
+                "params": {"goal": [1.50, 1.20, 0.0], "frame_id": "map", "timeout_sec": 20.0},
+            }
+            summary_tr1, eval_tr1, _ = execute_navigation_action(node, dispatcher, trav_act, log_ep, thresholds)
+            action_summaries.append(summary_tr1)
+            hist_odom_samples.extend(node.episode_odom_samples)
+            all_gt_samples.extend(node.episode_gt_samples)
+            all_odom_samples.extend(node.episode_odom_samples)
+
+            trav1_outcome = summary_tr1.get("execution_outcome")
+            trav1_failed = (trav1_outcome in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"])
+            log_ep(f"[History Phase {scenario_name}] Step 2 Traversal attempt outcome: {trav1_outcome} (Failed as expected={trav1_failed})")
+
+            # Only genuine failed action with linked OCCUPIED evidence creates failure memory
+            if trav1_failed and occ_obs.get("doorway_state") == "OCCUPIED":
+                fail_store.record_failure(
+                    goal=target_goal,
+                    region_id=chokepoint_region,
+                    failure_reason=trav1_outcome or "BUDGET_DEADLINE_EXCEEDED",
+                    sim_time=node.get_sim_time_sec(),
+                    failed_action_id="hist_attempt_chokepoint_traversal",
+                    failure_evidence_id="probe1_occ_obs",
+                    failure_evidence=occ_obs,
+                    map_version="p2c_dualpath_world_v1",
+                    metadata={"goal_uuid": summary_tr1.get("dispatch", {}).get("goal_uuid")},
+                )
+                m1_suppressed = True
+                log_ep(f"[History Phase {scenario_name}] Successfully created Failure Memory bound to action 'hist_attempt_chokepoint_traversal'.")
+            else:
+                log_ep(f"[History Phase {scenario_name}] WARNING: Traversal did not fail with OCCUPIED evidence! Failure memory not created.")
+
+            # 4. Action 3: Retreat Back to Decision Junction J0 (-2.50, 0.00)
+            log_ep(f"[History Phase {scenario_name}] Step 3: Retreating back to Decision Junction J0 (-2.50, 0.00)...")
             node.start_tracking()
             retreat1_act = {
-                "action_id": "hist_retreat_1",
+                "action_id": "hist_retreat_to_j0",
                 "action": "navigate",
                 "params": {"goal": [-2.50, 0.00, 0.0], "frame_id": "map", "timeout_sec": 25.0},
             }
@@ -457,10 +509,18 @@ def run_physical_episode(
             all_gt_samples.extend(node.episode_gt_samples)
             all_odom_samples.extend(node.episode_odom_samples)
 
-            cm_ret1 = inspect_chokepoint_costmap_occupancy(node._latest_raw_costmap, doorway_bbox)
-            cm_ret1["stage"] = "COSTMAP_AFTER_RETREAT_TO_J0"
-            cm_ret1["sim_time_sec"] = round(node.get_sim_time_sec(), 3)
+            ret1_ok = (summary_r1.get("terminal_status_name") == "SUCCEEDED" and summary_r1.get("execution_outcome") == "BUDGET_SUCCESS")
+            log_ep(f"[History Phase {scenario_name}] Step 3 Retreat result: SUCCEEDED={ret1_ok}")
+
+            # Resample perception after returning to J0 (verifying UNKNOWN)
+            obs_at_j0 = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+            log_ep(f"[History Phase {scenario_name}] Resampled perception at J0: State={obs_at_j0.get('doorway_state')} (Reason: {obs_at_j0.get('reason')})")
+
+            cm_ret1 = capture_costmap_snapshot(node, "COSTMAP_AFTER_RETREAT_TO_J0", node.get_sim_time_sec(), doorway_bbox, opening_bbox)
             costmap_snapshots.append(cm_ret1)
+
+            d1_valid = bool(vantage1_ok and trav1_failed and ret1_ok and occ_obs.get("doorway_state") == "OCCUPIED")
+            history_valid = d1_valid
 
             if scenario_name == "D2":
                 # Clearance & Probe 2
@@ -469,10 +529,11 @@ def run_physical_episode(
                 time.sleep(1.0)
                 rclpy.spin_once(node, timeout_sec=0.1)
 
-                log_ep("[History Phase D2] Probing Path A again to observe clearance...")
+                # Action 4: Probe clearance vantage point (-0.50, 1.20)
+                log_ep("[History Phase D2] Step 4: Probing Path A again to observe clearance (-0.50, 1.20)...")
                 node.start_tracking()
                 probe2_act = {
-                    "action_id": "hist_probe_2",
+                    "action_id": "hist_probe_clearance_vantage",
                     "action": "navigate",
                     "params": {"goal": [-0.50, 1.20, 0.0], "frame_id": "map", "timeout_sec": 25.0},
                 }
@@ -482,36 +543,36 @@ def run_physical_episode(
                 all_gt_samples.extend(node.episode_gt_samples)
                 all_odom_samples.extend(node.episode_odom_samples)
 
+                vantage2_ok = (summary_p2.get("terminal_status_name") == "SUCCEEDED" and summary_p2.get("execution_outcome") == "BUDGET_SUCCESS")
+
                 sim_now_clear = node.get_sim_time_sec()
-                free_obs = {
-                    "doorway_state": "FREE",
-                    "reason": "PHYSICAL_CLEARANCE_VERIFIED (rays traversing corridor)",
-                    "doorway_bbox": list(doorway_bbox),
-                    "stamp_sec": round(sim_now_clear, 3),
-                    "region_id": chokepoint_region,
-                    "map_version": "p2c_dualpath_world_v1",
-                }
-                cache.update_observation(chokepoint_region, "FREE", sim_now_clear, free_obs)
-                ev_to_check = dict(free_obs)
-                ev_to_check["timestamp_sim"] = sim_now_clear
-                fail_store.evaluate_perception_for_invalidation(
-                    perception_evidence=ev_to_check,
-                    sim_time=sim_now_clear,
-                    evidence_id="probe2_obs_clear",
-                    map_version="p2c_dualpath_world_v1",
-                    region_id=chokepoint_region,
-                )
+                free_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+                free_obs["region_id"] = chokepoint_region
+                free_obs["map_version"] = "p2c_dualpath_world_v1"
+                free_obs["stamp_sec"] = round(sim_now_clear, 3)
+                log_ep(f"[History Phase D2] Step 4 Live Perception: State={free_obs.get('doorway_state')} (Pass-through={free_obs.get('pass_through_count')}, Reason: {free_obs.get('reason')})")
 
-                cm_probe2 = inspect_chokepoint_costmap_occupancy(node._latest_raw_costmap, doorway_bbox)
-                cm_probe2["stage"] = "COSTMAP_PROBE_CLEARED_AT_CHOKEPOINT"
-                cm_probe2["sim_time_sec"] = round(sim_now_clear, 3)
+                if free_obs.get("doorway_state") == "FREE":
+                    cache.update_observation(chokepoint_region, "FREE", sim_now_clear, free_obs)
+                    ev_to_check = dict(free_obs)
+                    ev_to_check["timestamp_sim"] = sim_now_clear
+                    fail_store.evaluate_perception_for_invalidation(
+                        perception_evidence=ev_to_check,
+                        sim_time=sim_now_clear,
+                        evidence_id="probe2_obs_clear",
+                        map_version="p2c_dualpath_world_v1",
+                        region_id=chokepoint_region,
+                    )
+                    log_ep("[History Phase D2] Evaluated FREE perception -> Failure Memory INVALIDATED.")
+
+                cm_probe2 = capture_costmap_snapshot(node, "COSTMAP_PROBE_CLEARED_AT_CHOKEPOINT", sim_now_clear, doorway_bbox, opening_bbox)
                 costmap_snapshots.append(cm_probe2)
-                log_ep(f"[History Phase D2] Recorded FREE at Chokepoint A. Costmap occupied cells={cm_probe2['occupied_cell_count']}")
 
-                log_ep("[History Phase D2] Retreating back to Decision Junction J0...")
+                # Action 5: Retreat back to J0 after clearance observation
+                log_ep("[History Phase D2] Step 5: Retreating back to Decision Junction J0 after clearance...")
                 node.start_tracking()
                 retreat2_act = {
-                    "action_id": "hist_retreat_2",
+                    "action_id": "hist_retreat_to_j0_clear",
                     "action": "navigate",
                     "params": {"goal": [-2.50, 0.00, 0.0], "frame_id": "map", "timeout_sec": 25.0},
                 }
@@ -521,166 +582,208 @@ def run_physical_episode(
                 all_gt_samples.extend(node.episode_gt_samples)
                 all_odom_samples.extend(node.episode_odom_samples)
 
-                cm_ret2 = inspect_chokepoint_costmap_occupancy(node._latest_raw_costmap, doorway_bbox)
-                cm_ret2["stage"] = "COSTMAP_AFTER_CLEARANCE_RETREAT_TO_J0"
-                cm_ret2["sim_time_sec"] = round(node.get_sim_time_sec(), 3)
+                ret2_ok = (summary_r2.get("terminal_status_name") == "SUCCEEDED" and summary_r2.get("execution_outcome") == "BUDGET_SUCCESS")
+
+                # Resample perception after clearance retreat
+                obs_at_j0_clear = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+                log_ep(f"[History Phase D2] Resampled perception at J0 after clearance: State={obs_at_j0_clear.get('doorway_state')}")
+
+                cm_ret2 = capture_costmap_snapshot(node, "COSTMAP_AFTER_CLEARANCE_RETREAT_TO_J0", node.get_sim_time_sec(), doorway_bbox, opening_bbox)
                 costmap_snapshots.append(cm_ret2)
+
+                d2_valid = bool(d1_valid and vantage2_ok and ret2_ok and free_obs.get("doorway_state") == "FREE")
+                history_valid = d2_valid
 
             history_distance = integrate_trajectory_distance(hist_odom_samples)
             history_sim_time = round(node.get_sim_time_sec() - t_hist_start_sim, 3)
-            log_ep(f"[History Phase Complete] Traversed {history_distance:.2f}m in {history_sim_time:.2f}s sim time.")
+            log_ep(f"[History Phase Complete] Traversed {history_distance:.2f}m in {history_sim_time:.2f}s sim time. History Valid: {history_valid}")
 
         # =========================================================================
-        # PHASE 2: POLICY DECISION & EXECUTION FROM JUNCTION J0
+        # PHASE 2: POLICY DECISION & UNIFIED ROUTE EXECUTION FROM JUNCTION J0
         # =========================================================================
         log_ep(f"\n--- [Decision Phase] Method '{method_name}' evaluating route from J0 (-2.50, 0.00) ---")
         t_dec_start_sim = node.get_sim_time_sec()
         dec_odom_samples: List[Dict[str, Any]] = []
 
-        # Policy Route Selection Logic
-        route_to_take = "Path_A"
+        # Policy Route Selection Logic (strictly state/observation driven)
+        initial_route = "Path_A"
         if method_name == "R":
-            route_to_take = "Path_A"
+            initial_route = "Path_A"
             decision_rationales.append("Local sensor UNKNOWN -> explore nominal short Path A")
 
         elif method_name == "O":
             cached_st = cache.get_latest_state(chokepoint_region)
             if cached_st == "OCCUPIED":
-                route_to_take = "Path_B"
-                decision_rationales.append("Spatial observation cache OCCUPIED -> bypass via Path B immediately (0 dead-ends)")
+                initial_route = "Path_B"
+                decision_rationales.append("Spatial observation cache OCCUPIED -> bypass via Path B immediately")
             else:
-                route_to_take = "Path_A"
+                initial_route = "Path_A"
                 decision_rationales.append(f"Spatial observation cache {cached_st} -> route via Path A")
 
         elif method_name == "F":
             is_blocked, blocked_entry, block_reason = fail_store.is_dispatch_blocked(target_goal, chokepoint_region, "p2c_dualpath_world_v1")
             if is_blocked:
-                route_to_take = "Path_B"
-                decision_rationales.append(f"FailMem active memory {blocked_entry.memory_id} -> bypass via Path B immediately (0 dead-ends)")
+                initial_route = "Path_B"
+                decision_rationales.append(f"FailMem active memory {blocked_entry.memory_id} -> bypass via Path B immediately")
             else:
-                route_to_take = "Path_A"
+                initial_route = "Path_A"
                 inv_note = " (invalidation verified)" if scenario_name == "D2" else ""
                 decision_rationales.append(f"FailMem un-suppressed{inv_note} -> route via Path A")
 
         elif method_name == "M1":
             if m1_suppressed:
-                route_to_take = "Path_B"
+                initial_route = "Path_B"
                 decision_rationales.append("Persistent memory permanently suppresses Path A -> route via Path B detour")
             else:
-                route_to_take = "Path_A"
+                initial_route = "Path_A"
                 decision_rationales.append("No prior suppression -> route via Path A")
 
-        log_ep(f"Method '{method_name}' selected initial route: {route_to_take}")
+        log_ep(f"Method '{method_name}' selected initial route: {initial_route}")
 
-        # Route Execution
-        if route_to_take == "Path_A":
-            if scenario_name == "D1" and method_name == "R":
-                chosen_route = "Path_A_then_Path_B"
-                dead_end_traversals = 1
-                decision_dispatches = 2
+        # Unified Route Execution State Machine (all methods execute identical logic)
+        if initial_route == "Path_A":
+            decision_dispatches += 1
+            # Leg 1: Approach Corridor (-1.50, 1.20)
+            log_ep("[Route Execution] Leg 1: Approaching Path A corridor entrance (-1.50, 1.20)...")
+            node.start_tracking()
+            leg1_act = {
+                "action_id": "dec_path_a_approach",
+                "action": "navigate",
+                "params": {"goal": [-1.50, 1.20, 0.0], "frame_id": "map", "timeout_sec": 25.0},
+            }
+            sum_l1, eval_l1, _ = execute_navigation_action(node, dispatcher, leg1_act, log_ep, thresholds)
+            action_summaries.append(sum_l1)
+            dec_odom_samples.extend(node.episode_odom_samples)
+            all_gt_samples.extend(node.episode_gt_samples)
+            all_odom_samples.extend(node.episode_odom_samples)
 
-                log_ep("[Decision Execution] Dispatching Path A attempt (will hit blockage)...")
+            # Leg 2: Chokepoint Traversal through Doorway (1.50, 1.20)
+            decision_dispatches += 1
+            log_ep("[Route Execution] Leg 2: Attempting traversal through doorway to (1.50, 1.20)...")
+            node.start_tracking()
+            leg2_act = {
+                "action_id": "dec_path_a_traversal",
+                "action": "navigate",
+                "params": {"goal": [1.50, 1.20, 0.0], "frame_id": "map", "timeout_sec": 20.0},
+            }
+            sum_l2, eval_l2, _ = execute_navigation_action(node, dispatcher, leg2_act, log_ep, thresholds)
+            action_summaries.append(sum_l2)
+            dec_odom_samples.extend(node.episode_odom_samples)
+            all_gt_samples.extend(node.episode_gt_samples)
+            all_odom_samples.extend(node.episode_odom_samples)
+
+            leg2_ok = (sum_l2.get("terminal_status_name") == "SUCCEEDED" and sum_l2.get("execution_outcome") == "BUDGET_SUCCESS")
+
+            if leg2_ok:
+                # Leg 3: Reach Final Goal (2.50, 0.00) directly
+                decision_dispatches += 1
+                log_ep("[Route Execution] Leg 3: Traversal clear! Proceeding to final goal (2.50, 0.00)...")
                 node.start_tracking()
-                act_a = {
-                    "action_id": "dec_path_a_blocked",
+                leg3_act = {
+                    "action_id": "dec_path_a_reach_goal",
                     "action": "navigate",
-                    "params": {"goal": target_goal, "frame_id": "map", "timeout_sec": 20.0},
+                    "params": {"goal": target_goal, "frame_id": "map", "timeout_sec": 25.0},
                 }
-                summary_a, eval_a, _ = execute_navigation_action(node, dispatcher, act_a, log_ep, thresholds)
-                action_summaries.append(summary_a)
+                sum_l3, eval_l3, final_stability = execute_navigation_action(node, dispatcher, leg3_act, log_ep, thresholds)
+                action_summaries.append(sum_l3)
                 dec_odom_samples.extend(node.episode_odom_samples)
                 all_gt_samples.extend(node.episode_gt_samples)
                 all_odom_samples.extend(node.episode_odom_samples)
+                last_eval_dict = eval_l3
+                last_summary_dict = sum_l3
+                chosen_route = "Path_A"
+                dead_end_traversals = 0
+                route_attempt_count = 1
 
-                log_ep("[Decision Execution] Blocked at Chokepoint A. Retreating to J0...")
+            else:
+                # Fallback State Machine: Chokepoint is blocked!
+                log_ep("[Route Execution] Leg 2 Blocked! Triggering Fallback State Machine (retreat to J0 -> detour Path B)...")
+                dead_end_traversals = 1
+                route_attempt_count = 2
+
+                # Fallback Step 1: Retreat to J0 (-2.50, 0.00)
+                decision_dispatches += 1
                 node.start_tracking()
-                act_ret = {
-                    "action_id": "dec_retreat_after_fail",
+                fb_ret_act = {
+                    "action_id": "dec_fallback_retreat_to_j0",
                     "action": "navigate",
                     "params": {"goal": [-2.50, 0.00, 0.0], "frame_id": "map", "timeout_sec": 25.0},
                 }
-                summary_ret, eval_ret, _ = execute_navigation_action(node, dispatcher, act_ret, log_ep, thresholds)
-                action_summaries.append(summary_ret)
+                sum_fbr, eval_fbr, _ = execute_navigation_action(node, dispatcher, fb_ret_act, log_ep, thresholds)
+                action_summaries.append(sum_fbr)
                 dec_odom_samples.extend(node.episode_odom_samples)
                 all_gt_samples.extend(node.episode_gt_samples)
                 all_odom_samples.extend(node.episode_odom_samples)
 
-                log_ep("[Decision Execution] Executing fallback Path B detour via (0.00, -2.40)...")
+                # Fallback Step 2: Detour via South Waypoint (0.00, -2.40)
+                decision_dispatches += 1
+                log_ep("[Route Execution] Fallback Step 2: Detouring via South Path B (0.00, -2.40)...")
                 node.start_tracking()
-                act_b1 = {
+                fb_b_mid_act = {
                     "action_id": "dec_fallback_path_b_mid",
                     "action": "navigate",
                     "params": {"goal": [0.00, -2.40, 0.0], "frame_id": "map", "timeout_sec": 35.0},
                 }
-                summary_b1, eval_b1, _ = execute_navigation_action(node, dispatcher, act_b1, log_ep, thresholds)
-                action_summaries.append(summary_b1)
+                sum_fb1, eval_fb1, _ = execute_navigation_action(node, dispatcher, fb_b_mid_act, log_ep, thresholds)
+                action_summaries.append(sum_fb1)
                 dec_odom_samples.extend(node.episode_odom_samples)
                 all_gt_samples.extend(node.episode_gt_samples)
                 all_odom_samples.extend(node.episode_odom_samples)
 
-                act_b2 = {
+                # Fallback Step 3: Final Goal (2.50, 0.00)
+                decision_dispatches += 1
+                log_ep("[Route Execution] Fallback Step 3: Proceeding to final goal (2.50, 0.00)...")
+                node.start_tracking()
+                fb_b_goal_act = {
                     "action_id": "dec_fallback_path_b_goal",
                     "action": "navigate",
                     "params": {"goal": target_goal, "frame_id": "map", "timeout_sec": 35.0},
                 }
-                summary_b2, eval_b2, final_stability = execute_navigation_action(node, dispatcher, act_b2, log_ep, thresholds)
-                action_summaries.append(summary_b2)
+                sum_fb2, eval_fb2, final_stability = execute_navigation_action(node, dispatcher, fb_b_goal_act, log_ep, thresholds)
+                action_summaries.append(sum_fb2)
                 dec_odom_samples.extend(node.episode_odom_samples)
                 all_gt_samples.extend(node.episode_gt_samples)
                 all_odom_samples.extend(node.episode_odom_samples)
-                last_eval_dict = eval_b2
-                last_summary_dict = summary_b2
+                last_eval_dict = eval_fb2
+                last_summary_dict = sum_fb2
+                chosen_route = "Path_A_then_Path_B"
 
-            else:
-                chosen_route = "Path_A"
-                dead_end_traversals = 0
-                decision_dispatches = 1
-
-                log_ep("[Decision Execution] Dispatching direct navigation to goal via Path A...")
-                node.start_tracking()
-                act_a_direct = {
-                    "action_id": "dec_path_a_direct",
-                    "action": "navigate",
-                    "params": {"goal": target_goal, "frame_id": "map", "timeout_sec": 45.0},
-                }
-                summary_a, eval_a, final_stability = execute_navigation_action(node, dispatcher, act_a_direct, log_ep, thresholds)
-                action_summaries.append(summary_a)
-                dec_odom_samples.extend(node.episode_odom_samples)
-                all_gt_samples.extend(node.episode_gt_samples)
-                all_odom_samples.extend(node.episode_odom_samples)
-                last_eval_dict = eval_a
-                last_summary_dict = summary_a
-
-        elif route_to_take == "Path_B":
+        elif initial_route == "Path_B":
             chosen_route = "Path_B"
             dead_end_traversals = 0
-            decision_dispatches = 1
+            route_attempt_count = 1
 
-            log_ep("[Decision Execution] Dispatching Path B detour via (0.00, -2.40) to Target Goal...")
+            # Leg 1: South Corridor Waypoint (0.00, -2.40)
+            decision_dispatches += 1
+            log_ep("[Route Execution] Leg 1: Detouring via South Path B waypoint (0.00, -2.40)...")
             node.start_tracking()
             act_b_mid = {
                 "action_id": "dec_path_b_mid",
                 "action": "navigate",
                 "params": {"goal": [0.00, -2.40, 0.0], "frame_id": "map", "timeout_sec": 35.0},
             }
-            summary_bm, eval_bm, _ = execute_navigation_action(node, dispatcher, act_b_mid, log_ep, thresholds)
-            action_summaries.append(summary_bm)
+            sum_bm, eval_bm, _ = execute_navigation_action(node, dispatcher, act_b_mid, log_ep, thresholds)
+            action_summaries.append(sum_bm)
             dec_odom_samples.extend(node.episode_odom_samples)
             all_gt_samples.extend(node.episode_gt_samples)
             all_odom_samples.extend(node.episode_odom_samples)
 
+            # Leg 2: Final Goal (2.50, 0.00)
+            decision_dispatches += 1
+            log_ep("[Route Execution] Leg 2: Proceeding to final goal (2.50, 0.00)...")
+            node.start_tracking()
             act_b_goal = {
                 "action_id": "dec_path_b_goal",
                 "action": "navigate",
                 "params": {"goal": target_goal, "frame_id": "map", "timeout_sec": 35.0},
             }
-            summary_bg, eval_bg, final_stability = execute_navigation_action(node, dispatcher, act_b_goal, log_ep, thresholds)
-            action_summaries.append(summary_bg)
+            sum_bg, eval_bg, final_stability = execute_navigation_action(node, dispatcher, act_b_goal, log_ep, thresholds)
+            action_summaries.append(sum_bg)
             dec_odom_samples.extend(node.episode_odom_samples)
             all_gt_samples.extend(node.episode_gt_samples)
             all_odom_samples.extend(node.episode_odom_samples)
             last_eval_dict = eval_bg
-            last_summary_dict = summary_bg
+            last_summary_dict = sum_bg
 
         # Online Verification & Offline Physical Scoring
         if last_eval_dict and last_summary_dict:
@@ -710,8 +813,11 @@ def run_physical_episode(
         total_distance = round(history_distance + decision_distance, 3)
         total_sim_time = round(node.get_sim_time_sec() - episode_t0, 3)
 
+        route_valid = bool(len(action_summaries) > 0 and len(all_odom_samples) > 10 and decision_distance > 0.0)
+        episode_valid = bool(evaluator_verified_success and history_valid and route_valid)
+
         log_ep(f"=== Episode {ep_id} Finished ===")
-        log_ep(f"Route: {chosen_route}, Dead-Ends: {dead_end_traversals}, Decision Dist: {decision_distance:.2f}m, Decision Time: {decision_sim_time:.2f}s, Total Dist: {total_distance:.2f}m, Total Time: {total_sim_time:.2f}s, Success: {evaluator_verified_success}")
+        log_ep(f"Route: {chosen_route}, Dead-Ends: {dead_end_traversals}, Dispatches: {decision_dispatches}, Decision Dist: {decision_distance:.2f}m, Decision Time: {decision_sim_time:.2f}s, Total Dist: {total_distance:.2f}m, Success: {evaluator_verified_success}, Ep Valid: {episode_valid}")
 
         # Save Episode Artifacts
         with open(ep_dir / "action_result.json", "w", encoding="utf-8") as f:
@@ -721,8 +827,11 @@ def run_physical_episode(
                 "scenario": scenario_name,
                 "method": method_name,
                 "chosen_route": chosen_route,
+                "route_attempt_count": route_attempt_count,
                 "dead_end_traversals": dead_end_traversals,
                 "decision_dispatches": decision_dispatches,
+                "nominal_length_path_a_m": nom_len_a,
+                "nominal_length_path_b_m": nom_len_b,
                 "history_distance_m": history_distance,
                 "history_sim_time_sec": history_sim_time,
                 "decision_distance_m": decision_distance,
@@ -731,6 +840,10 @@ def run_physical_episode(
                 "total_sim_time_sec": total_sim_time,
                 "policy_reported_success": policy_reported_success,
                 "evaluator_verified_success": evaluator_verified_success,
+                "final_goal_success": evaluator_verified_success,
+                "history_valid": history_valid,
+                "route_valid": route_valid,
+                "episode_valid": episode_valid,
                 "disagreement_reason": final_disagreement_reason,
                 "decision_rationales": decision_rationales,
                 "actions": action_summaries,
@@ -760,7 +873,9 @@ def run_physical_episode(
             "method": method_name,
             "evidence_type": "physical_ros_gazebo",
             "chosen_route": chosen_route,
+            "route_attempt_count": route_attempt_count,
             "dead_end_traversals": dead_end_traversals,
+            "decision_dispatches": decision_dispatches,
             "history_distance_m": history_distance,
             "history_sim_time_sec": history_sim_time,
             "decision_distance_m": decision_distance,
@@ -769,6 +884,10 @@ def run_physical_episode(
             "total_sim_time_sec": total_sim_time,
             "policy_reported_success": policy_reported_success,
             "evaluator_verified_success": evaluator_verified_success,
+            "final_goal_success": evaluator_verified_success,
+            "history_valid": history_valid,
+            "route_valid": route_valid,
+            "episode_valid": episode_valid,
             "disagreement_reason": final_disagreement_reason,
         }
 
@@ -794,6 +913,9 @@ def main():
     args = parser.parse_args()
 
     protocol_yaml_path = Path(args.protocol)
+    if not protocol_yaml_path.exists() and Path(f"/workspace/{args.protocol}").exists():
+        protocol_yaml_path = Path(f"/workspace/{args.protocol}")
+
     with open(protocol_yaml_path, "r", encoding="utf-8") as f:
         protocol_config = yaml.safe_load(f)
 
@@ -803,7 +925,10 @@ def main():
             h_proto.update(chunk)
     protocol_sha256 = h_proto.hexdigest()
 
-    scoring_rules = load_scoring_rules("configs/scoring_rules.yaml")
+    scoring_rules_path = Path("configs/scoring_rules.yaml")
+    if not scoring_rules_path.exists() and Path("/workspace/configs/scoring_rules.yaml").exists():
+        scoring_rules_path = Path("/workspace/configs/scoring_rules.yaml")
+    scoring_rules = load_scoring_rules(str(scoring_rules_path))
     thresholds = protocol_config.get("scoring_thresholds", scoring_rules.get("thresholds", {}))
 
     timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -873,10 +998,10 @@ def main():
     print("\n=======================================================================")
     print("FailMem Milestone P2c Real ROS Physical Experiment Complete. Summary:")
     print("-----------------------------------------------------------------------")
-    print("| Scenario | Method | Route | Dead-End | Decision Dist | Decision Time | Total Dist | Total Time | Success |")
+    print("| Scenario | Method | Route | Dead-End | Decision Dist | Decision Time | Total Dist | Success | Valid |")
     print("| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |")
     for r in results:
-        print(f"| {r['scenario']:8s} | {r['method']:6s} | {r['chosen_route']:22s} | {r['dead_end_traversals']:8d} | {r['decision_distance_m']:11.2f}m | {r['decision_sim_time_sec']:11.2f}s | {r['total_distance_m']:8.2f}m | {r['total_sim_time_sec']:8.2f}s | {str(r['evaluator_verified_success']):7s} |")
+        print(f"| {r['scenario']:8s} | {r['method']:6s} | {r['chosen_route']:22s} | {r['dead_end_traversals']:8d} | {r['decision_distance_m']:11.2f}m | {r['decision_sim_time_sec']:11.2f}s | {r['total_distance_m']:8.2f}m | {str(r['evaluator_verified_success']):7s} | {str(r['episode_valid']):5s} |")
     print("=======================================================================")
     print(f"Evidence saved to: {run_dir}")
 
