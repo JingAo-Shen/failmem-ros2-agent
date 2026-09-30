@@ -356,3 +356,286 @@ def test_recovery_action_binding_and_mismatch():
     assert verified_correct
     assert entry.state == MemoryState.RECOVERY_VERIFIED
     assert entry.recovery_action_id == "nav_attempt_2"
+
+
+def test_online_verifier_edge_cases():
+    """Verify online_verifier rejects stale AMCL, future AMCL, invalid frames, non-finite coords, and high covariance."""
+    from src.online_verifier import verify_online_arrival
+
+    target_goal = [1.80, 0.0, 0.0]
+    thresh = {
+        "online_position_tolerance_m": 0.45,
+        "online_yaw_tolerance_rad": 0.55,
+        "online_max_linear_velocity_mps": 0.03,
+        "online_max_angular_velocity_radps": 0.05,
+        "max_amcl_staleness_sec": 30.0,
+        "max_sensor_staleness_sim_sec": 0.50,
+        "max_amcl_covariance_variance": 0.50,
+    }
+
+    base_feedback = {
+        "nav2_status": "SUCCEEDED",
+        "execution_outcome": "BUDGET_SUCCESS",
+        "deadline_exceeded": False,
+        "amcl_pose": {
+            "x": 1.82,
+            "y": 0.01,
+            "yaw": 0.02,
+            "msg_stamp_sec": 35.0,
+            "frame_id": "map",
+            "covariance": [0.01] * 36,
+        },
+        "halt_velocity": {
+            "linear_v": 0.001,
+            "angular_v": 0.002,
+        },
+    }
+
+    # 1. Baseline Valid Case
+    ok, reasons, details = verify_online_arrival(target_goal, base_feedback, thresh, sim_time=35.2)
+    assert ok is True
+    assert len(reasons) == 0
+
+    # 2. Stale AMCL (> 30s old relative to sim_time)
+    ok, reasons, _ = verify_online_arrival(target_goal, base_feedback, thresh, sim_time=70.0)
+    assert ok is False
+    assert any("EXPIRED_AMCL_STAMP" in r for r in reasons)
+
+    # 3. Future AMCL (> sim_time + 0.15s)
+    ok, reasons, _ = verify_online_arrival(target_goal, base_feedback, thresh, sim_time=20.0)
+    assert ok is False
+    assert any("FUTURE_AMCL_STAMP" in r for r in reasons)
+
+    # 4. Invalid Frame ID
+    bad_frame = copy.deepcopy(base_feedback)
+    bad_frame["amcl_pose"]["frame_id"] = "odom"
+    ok, reasons, _ = verify_online_arrival(target_goal, bad_frame, thresh, sim_time=35.2)
+    assert ok is False
+    assert any("INVALID_AMCL_FRAME_ID" in r for r in reasons)
+
+    # 5. Non-finite Coordinates
+    nan_coords = copy.deepcopy(base_feedback)
+    nan_coords["amcl_pose"]["x"] = float("nan")
+    ok, reasons, _ = verify_online_arrival(target_goal, nan_coords, thresh, sim_time=35.2)
+    assert ok is False
+    assert any("NON_FINITE_AMCL_COORDINATES" in r for r in reasons)
+
+    # 6. Excessive Covariance (> 0.50)
+    high_cov = copy.deepcopy(base_feedback)
+    cov_list = [0.01] * 36
+    cov_list[0] = 0.85  # var_x
+    high_cov["amcl_pose"]["covariance"] = cov_list
+    ok, reasons, _ = verify_online_arrival(target_goal, high_cov, thresh, sim_time=35.2)
+    assert ok is False
+    assert any("AMCL_COVARIANCE_TOO_LARGE" in r for r in reasons)
+
+
+def test_counterfactual_online_fail_physical_pass():
+    """Verify combination (False, True): online check fails due to AMCL covariance/stale pose,
+    while physical GT arrives and evaluator records success. Disagreement reason must match.
+    """
+    from src.online_verifier import verify_online_arrival
+
+    target_goal = [1.80, 0.0, 0.0]
+    thresh = {
+        "position_tolerance_m": 0.30,
+        "yaw_tolerance_rad": 0.35,
+        "stability_window_duration_sim_sec": 2.0,
+        "max_sensor_staleness_sim_sec": 0.5,
+        "max_halt_velocity_linear_mps": 0.05,
+        "max_halt_velocity_angular_radps": 0.05,
+        "max_gt_displacement_m": 0.05,
+        "online_position_tolerance_m": 0.45,
+        "online_yaw_tolerance_rad": 0.55,
+        "online_max_linear_velocity_mps": 0.03,
+        "online_max_angular_velocity_radps": 0.05,
+        "max_amcl_staleness_sec": 30.0,
+        "max_amcl_covariance_variance": 0.50,
+    }
+
+    # AMCL localization has high covariance / poor estimate
+    corrupted_online_feedback = {
+        "nav2_status": "SUCCEEDED",
+        "execution_outcome": "BUDGET_SUCCESS",
+        "deadline_exceeded": False,
+        "amcl_pose": {
+            "x": 3.50,  # 1.7m error
+            "y": 0.0,
+            "yaw": 0.0,
+            "msg_stamp_sec": 35.0,
+            "frame_id": "map",
+            "covariance": [0.01] * 36,
+        },
+        "halt_velocity": {
+            "linear_v": 0.001,
+            "angular_v": 0.002,
+        },
+    }
+
+    # Physical GT is perfectly at goal
+    perfect_gt = {"x": 1.81, "y": 0.01, "yaw": 0.02, "recv_sim_time_sec": 35.0, "seq": 500}
+    perfect_window = [
+        {
+            "sim_time": 35.0 + i * 0.1,
+            "gt": {"x": 1.81, "y": 0.01, "yaw": 0.02, "recv_sim_time_sec": 35.0 + i * 0.1, "seq": 500 + i},
+            "odom": {"x": 1.81, "y": 0.01, "yaw": 0.02, "msg_stamp_sec": 35.0 + i * 0.1, "linear_v": 0.001, "angular_v": 0.001, "seq": 500 + i},
+            "cmd_vel": {"linear_x": 0.0, "angular_z": 0.0},
+        }
+        for i in range(25)
+    ]
+
+    online_ok, reasons, _ = verify_online_arrival(target_goal, corrupted_online_feedback, thresh, sim_time=35.2)
+    assert online_ok is False
+
+    eval_result = evaluate_navigation_episode(
+        target_goal=target_goal,
+        nav2_status="SUCCEEDED",
+        final_gt=perfect_gt,
+        final_amcl=corrupted_online_feedback["amcl_pose"],
+        stability_samples=perfect_window,
+        thresholds=thresh,
+    )
+    assert eval_result["strict_physical_arrival_and_stable"] is True
+
+    # (False, True) Disagreement
+    disagreement = compute_disagreement_reason(online_ok, eval_result["strict_physical_arrival_and_stable"], eval_result)
+    assert disagreement == "POLICY_REPORTED_FAILURE_DESPITE_PHYSICAL_ARRIVAL"
+
+
+def test_m3_reactive_gating_policy():
+    """Verify M3CurrentPerceptionPolicy reactive gating and zero failure memory entries."""
+    from src.failure_memory import M3CurrentPerceptionPolicy
+
+    policy = M3CurrentPerceptionPolicy()
+    target_goal = [1.80, 0.0, 0.0]
+    target_region = "room2"
+
+    # Initial state: UNKNOWN -> blocked
+    allowed, reason, blocked_id = policy.check_dispatch_allowed(target_goal, target_region, sim_time=1.0)
+    assert allowed is False
+    assert "BLOCKED" in reason
+    assert blocked_id is None
+
+    # Update observation: OCCUPIED -> blocked
+    policy.on_observation_update(
+        perception_evidence={"doorway_state": "OCCUPIED"},
+        sim_time=2.0,
+    )
+    allowed, reason, _ = policy.check_dispatch_allowed(target_goal, target_region, sim_time=2.0)
+    assert allowed is False
+    assert reason == "M3_PERCEPTION_OCCUPIED_BLOCKED"
+
+    # Navigation failure notification: records failure count but zero memory entries
+    policy.on_navigation_failure(
+        target_goal=target_goal,
+        target_region=target_region,
+        failure_reason="BUDGET_DEADLINE_EXCEEDED",
+        sim_time=3.0,
+        failed_action_id="nav_1",
+        failure_evidence_id="postfail_1",
+        perception_evidence={"doorway_state": "OCCUPIED"},
+    )
+    state = policy.export_state()
+    assert state["failures_recorded"] == 1
+    assert len(state["memory_entries"]) == 0
+
+    # Update observation: FREE -> allowed
+    policy.on_observation_update(
+        perception_evidence={"doorway_state": "FREE"},
+        sim_time=26.0,
+    )
+    allowed, reason, _ = policy.check_dispatch_allowed(target_goal, target_region, sim_time=26.0)
+    assert allowed is True
+    assert reason == "M3_PERCEPTION_FREE_ALLOWED"
+
+
+def test_replay_tamper_detection_and_unverifiable(tmp_path):
+    """Verify replay_and_score_p2a detects tampered episode_summary and flags missing artifacts as UNVERIFIABLE."""
+    import json
+    from scripts.replay_and_score_p2a import replay_and_score_episode
+
+    thresh = {
+        "position_tolerance_m": 0.30,
+        "yaw_tolerance_rad": 0.35,
+        "stability_window_duration_sim_sec": 2.0,
+        "max_sensor_staleness_sim_sec": 0.5,
+        "max_halt_velocity_linear_mps": 0.05,
+        "max_halt_velocity_angular_radps": 0.05,
+        "max_gt_displacement_m": 0.05,
+        "online_position_tolerance_m": 0.45,
+        "online_yaw_tolerance_rad": 0.55,
+        "online_max_linear_velocity_mps": 0.03,
+        "online_max_angular_velocity_radps": 0.05,
+        "max_amcl_staleness_sec": 30.0,
+        "max_amcl_covariance_variance": 0.50,
+    }
+
+    ep_dir = tmp_path / "M2_S2_ep1"
+    ep_dir.mkdir()
+
+    # Case 1: Missing doorway_perception.json -> UNVERIFIABLE
+    res_unv = replay_and_score_episode(ep_dir, thresh)
+    assert res_unv["status"] == "UNVERIFIABLE"
+
+    # Create doorway_perception.json & memory_events.json
+    with open(ep_dir / "doorway_perception.json", "w") as f:
+        json.dump([
+            {"sim_time": 0.0, "evaluation": {"doorway_state": "OCCUPIED"}},
+            {"sim_time": 27.6, "evaluation": {"doorway_state": "FREE"}},
+        ], f)
+
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump([
+            {"event_type": "DISPATCH_GATE_CHECK", "allowed": True, "policy_state": {}},
+            {"event_type": "DISPATCH_GATE_CHECK", "allowed": False, "policy_state": {}},
+        ], f)
+
+    # Create attempt_1 (failure)
+    att1_dir = ep_dir / "attempt_1"
+    att1_dir.mkdir()
+    with open(att1_dir / "action_result.json", "w") as f:
+        json.dump({"attempt_index": 1, "target_goal": [1.8, 0.0, 0.0], "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_FAILURE", "dispatch_time_sim": 0.0}, f)
+    with open(att1_dir / "online_feedback.json", "w") as f:
+        json.dump({"nav2_status": "ABORTED", "execution_outcome": "BUDGET_FAILURE", "online_action_succeeded": False}, f)
+    with open(att1_dir / "stability_window.json", "w") as f:
+        json.dump({"window_records": []}, f)
+    with open(att1_dir / "trajectory.json", "w") as f:
+        json.dump({"gt_trajectory": [], "odom_trajectory": []}, f)
+
+    # Create attempt_2 (success)
+    att2_dir = ep_dir / "attempt_2"
+    att2_dir.mkdir()
+    with open(att2_dir / "action_result.json", "w") as f:
+        json.dump({"attempt_index": 2, "target_goal": [1.8, 0.0, 0.0], "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "dispatch_time_sim": 28.0}, f)
+    with open(att2_dir / "online_feedback.json", "w") as f:
+        json.dump({"nav2_status": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "amcl_pose": {"x": 1.81, "y": 0.0, "yaw": 0.0, "msg_stamp_sec": 40.0}, "halt_velocity": {"linear_v": 0.0, "angular_v": 0.0}, "online_action_succeeded": True}, f)
+    with open(att2_dir / "stability_window.json", "w") as f:
+        samples = [
+            {"sim_time": 40.0 + i * 0.1, "gt": {"x": 1.81, "y": 0.0, "yaw": 0.0, "recv_sim_time_sec": 40.0 + i * 0.1, "seq": 100 + i}, "odom": {"x": 1.81, "y": 0.0, "yaw": 0.0, "msg_stamp_sec": 40.0 + i * 0.1, "linear_v": 0.0, "angular_v": 0.0, "seq": 100 + i}, "cmd_vel": {"linear_x": 0.0, "angular_z": 0.0}}
+            for i in range(25)
+        ]
+        json.dump({"window_records": samples, "watchdog_triggered": False}, f)
+    with open(att2_dir / "trajectory.json", "w") as f:
+        json.dump({"gt_trajectory": [], "odom_trajectory": []}, f)
+
+    # Create tampered episode_summary.json (falsely claiming task_success = False)
+    with open(ep_dir / "episode_summary.json", "w") as f:
+        json.dump({
+            "task_success": False,  # Tampered! True value is True
+            "mechanism_verified": False,
+            "policy_reported_success": True,
+            "evaluator_verified_success": True,
+            "navigation_attempt_count": 2,
+            "suppression_count": 1,
+            "redundant_retries_count": 0,
+            "invalidation_verified": True,
+            "policy_reported_recovery": True,
+            "evaluator_verified_recovery": True,
+        }, f)
+
+    res_tamper = replay_and_score_episode(ep_dir, thresh)
+    assert res_tamper["status"] == "VERIFIED"
+    assert res_tamper["task_success"] is True  # Recomputed true value
+    assert res_tamper["tamper_detected"] is True
+    assert any(d["field"] == "task_success" for d in res_tamper["discrepancies"])
+

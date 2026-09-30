@@ -1,9 +1,10 @@
-"""FailMem Milestone P2a Deterministic Failure Memory Module (v2.0).
+"""FailMem Milestone P2a/P2b Deterministic Failure Memory Module (v3.0).
 
 Provides deterministic, rule-based failure memory policies:
 - M0: No Memory (Blind repeat dispatches until budget exhaustion)
 - M1: Persistent Memory (Permanent suppression of failed targets/regions without invalidation)
 - M2: Conditional Memory (Invalidated only by verified physical perception evidence, verified on arrival)
+- M3: Current Perception Only (Zero memory entries, reactive gating purely on instant doorway state)
 
 Strict Architecture Rules:
 1. Zero LLM reliance, zero privileged oracle sensors, strict auditability.
@@ -18,6 +19,9 @@ import math
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
+
+from src.online_verifier import verify_online_arrival
+
 
 
 class MemoryState(str, Enum):
@@ -295,24 +299,32 @@ class FailureMemoryStore:
         map_version: str = "chokepoint_world_v1",
         memory_id: Optional[str] = None,
         goal_tolerance_m: float = 0.30,
+        thresholds: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Verify recovery online using non-GT public feedback (Nav2 success + AMCL pose)."""
-        nav2_status = online_feedback.get("nav2_status", online_feedback.get("ros_terminal_status"))
-        if nav2_status != "SUCCEEDED":
+        if online_feedback.get("online_action_succeeded") is True:
+            valid_arrival = True
+        else:
+            active_thresh = thresholds or {
+                "online_position_tolerance_m": float(goal_tolerance_m + 0.15 if goal_tolerance_m == 0.30 else goal_tolerance_m),
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_sensor_staleness_sim_sec": 0.50,
+                "max_amcl_covariance_variance": 0.50,
+            }
+            eval_sim_time = online_feedback.get("amcl_pose", {}).get("msg_stamp_sec", sim_time)
+            valid_arrival, failure_reasons, details = verify_online_arrival(
+                target_goal=target_goal,
+                online_feedback=online_feedback,
+                thresholds=active_thresh,
+                sim_time=eval_sim_time,
+                target_region=target_region,
+                map_version=map_version,
+            )
+        if not valid_arrival:
             return False
-
-        # Online AMCL check if present
-        amcl_pose = online_feedback.get("amcl_pose")
-        if amcl_pose and is_finite_number(amcl_pose.get("x")) and is_finite_number(amcl_pose.get("y")):
-            d_amcl = math.hypot(amcl_pose["x"] - target_goal[0], amcl_pose["y"] - target_goal[1])
-            if d_amcl > (goal_tolerance_m + 0.15):  # allow mild AMCL uncertainty
-                return False
-
-        # Online halt velocity check if present
-        halt_vel = online_feedback.get("halt_velocity")
-        if halt_vel and is_finite_number(halt_vel.get("linear_v")) and is_finite_number(halt_vel.get("angular_v")):
-            if abs(float(halt_vel["linear_v"])) > 0.05 or abs(float(halt_vel["angular_v"])) > 0.05:
-                return False
 
         verified_any = False
         for entry in self.entries:
@@ -405,6 +417,7 @@ class FailureMemoryPolicy:
         sim_time: float,
         map_version: str = "chokepoint_world_v1",
         memory_id: Optional[str] = None,
+        **kwargs,
     ):
         pass
 
@@ -466,6 +479,7 @@ class M0NoMemoryPolicy(FailureMemoryPolicy):
         sim_time: float,
         map_version: str = "chokepoint_world_v1",
         memory_id: Optional[str] = None,
+        **kwargs,
     ):
         self.successes_recorded += 1
 
@@ -643,6 +657,7 @@ class M2ConditionalMemoryPolicy(FailureMemoryPolicy):
         sim_time: float,
         map_version: str = "chokepoint_world_v1",
         memory_id: Optional[str] = None,
+        thresholds: Optional[Dict[str, Any]] = None,
     ):
         self.store.verify_recovery(
             target_goal=target_goal,
@@ -652,6 +667,7 @@ class M2ConditionalMemoryPolicy(FailureMemoryPolicy):
             target_region=target_region,
             map_version=map_version,
             memory_id=memory_id,
+            thresholds=thresholds,
         )
 
     def bind_recovery_action(
@@ -679,4 +695,96 @@ class M2ConditionalMemoryPolicy(FailureMemoryPolicy):
             "dispatches_permitted": self.dispatches_permitted,
         })
         return res
+
+
+class M3CurrentPerceptionPolicy(FailureMemoryPolicy):
+    """M3: Current Perception Only Baseline (Reactive Dispatch Gating).
+    
+    Zero failure memory entries recorded.
+    Gates navigation dispatch purely on the instantaneous state of the doorway:
+    - If latest doorway_state == 'FREE': DISPATCH ALLOWED
+    - If latest doorway_state in ('OCCUPIED', 'UNKNOWN', None): DISPATCH SUPPRESSED
+    """
+    policy_name = "M3_CURRENT_PERCEPTION"
+
+    def __init__(self):
+        self.latest_perception: Optional[Dict[str, Any]] = None
+        self.latest_doorway_state: str = "UNKNOWN"
+        self.dispatches_attempted = 0
+        self.dispatches_blocked = 0
+        self.dispatches_permitted = 0
+        self.failures_recorded = 0
+        self.successes_recorded = 0
+
+    def on_navigation_failure(
+        self,
+        target_goal: List[float],
+        target_region: str,
+        failure_reason: str,
+        sim_time: float,
+        failed_action_id: str,
+        failure_evidence_id: str,
+        perception_evidence: Optional[Dict[str, Any]] = None,
+        map_version: str = "chokepoint_world_v1",
+    ):
+        # M3 does NOT record failure memories into any store
+        self.failures_recorded += 1
+
+    def on_observation_update(
+        self,
+        perception_evidence: Dict[str, Any],
+        sim_time: float,
+        evidence_id: str = "obs_update",
+        map_version: str = "chokepoint_world_v1",
+        region_id: Optional[str] = None,
+    ):
+        self.latest_perception = copy.deepcopy(perception_evidence)
+        if perception_evidence and isinstance(perception_evidence, dict):
+            self.latest_doorway_state = str(perception_evidence.get("doorway_state", "UNKNOWN"))
+        else:
+            self.latest_doorway_state = "UNKNOWN"
+
+    def check_dispatch_allowed(
+        self,
+        target_goal: List[float],
+        target_region: str,
+        sim_time: float,
+        map_version: str = "chokepoint_world_v1",
+    ) -> Tuple[bool, str, Optional[str]]:
+        self.dispatches_attempted += 1
+        if self.latest_doorway_state == "FREE":
+            self.dispatches_permitted += 1
+            return True, "M3_PERCEPTION_FREE_ALLOWED", None
+        elif self.latest_doorway_state == "OCCUPIED":
+            self.dispatches_blocked += 1
+            return False, "M3_PERCEPTION_OCCUPIED_BLOCKED", None
+        else:
+            self.dispatches_blocked += 1
+            return False, f"M3_PERCEPTION_{self.latest_doorway_state}_BLOCKED", None
+
+    def on_navigation_success(
+        self,
+        target_goal: List[float],
+        target_region: str,
+        action_id: str,
+        online_feedback: Dict[str, Any],
+        sim_time: float,
+        map_version: str = "chokepoint_world_v1",
+        memory_id: Optional[str] = None,
+        thresholds: Optional[Dict[str, Any]] = None,
+    ):
+        self.successes_recorded += 1
+
+    def export_state(self) -> Dict[str, Any]:
+        return {
+            "policy_name": self.policy_name,
+            "latest_doorway_state": self.latest_doorway_state,
+            "dispatches_attempted": self.dispatches_attempted,
+            "dispatches_blocked": self.dispatches_blocked,
+            "dispatches_permitted": self.dispatches_permitted,
+            "failures_recorded": self.failures_recorded,
+            "successes_recorded": self.successes_recorded,
+            "memory_entries": [],
+        }
+
 

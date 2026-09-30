@@ -20,6 +20,16 @@ thresholds:
   # Max time difference between AMCL estimate and Gazebo ground truth for localization comparison
   max_time_alignment_delta_sim_sec: 0.1
 
+  # Explicit Online Verification Thresholds (Non-GT, Whitelisted Feedback)
+  # AMCL filter estimation exhibits noise/filter-lag relative to ground truth.
+  # Online acceptance uses an explicitly documented tolerance margin (0.45m / 0.55rad).
+  online_position_tolerance_m: 0.45
+  online_yaw_tolerance_rad: 0.55
+  online_max_linear_velocity_mps: 0.03
+  online_max_angular_velocity_radps: 0.05
+  max_stationary_amcl_staleness_sec: 30.0
+  max_amcl_covariance_variance: 0.50
+
 coordinate_frames:
   map_frame: "map"
   odom_frame: "odom"

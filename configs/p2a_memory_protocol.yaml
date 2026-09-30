@@ -75,6 +75,7 @@ formal_suite:
   total_episodes: 18
 
 scoring_thresholds:
+  # Strict Physical Ground-Truth Contract Scoring (Evaluator Only)
   position_tolerance_m: 0.30
   yaw_tolerance_rad: 0.35
   max_linear_velocity_mps: 0.05
@@ -84,3 +85,12 @@ scoring_thresholds:
   max_sensor_staleness_sim_sec: 0.50
   max_costmap_staleness_sec: 3.00
   max_stationary_amcl_staleness_sec: 30.0
+
+  # Explicit Online Verification Thresholds (Whitelisted Public Feedback / AMCL)
+  # Rationale: AMCL localization has particle filter discretization uncertainty.
+  # Explicit online bounds allow robust acceptance (0.45m / 0.55rad) without corrupting physical scoring.
+  online_position_tolerance_m: 0.45
+  online_yaw_tolerance_rad: 0.55
+  online_max_linear_velocity_mps: 0.03
+  online_max_angular_velocity_radps: 0.05
+  max_amcl_covariance_variance: 0.50

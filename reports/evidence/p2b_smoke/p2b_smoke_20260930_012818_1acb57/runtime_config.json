@@ -1,0 +1,111 @@
+{
+  "run_id": "p2b_smoke_20260930_012818_1acb57",
+  "protocol_sha256": "a2973c7b07adede8cb3c6cc5fe64ee3e1ea92e6ee6a4a06eae0cb41263516eef",
+  "protocol_version": "3.1",
+  "smoke_mode": true,
+  "protocol": {
+    "protocol_version": "3.1",
+    "benchmark_phase": "P2b_reactive_control_evaluation",
+    "created_date": "2026-09-30",
+    "environment": {
+      "world_model": "configs/chokepoint_world.model",
+      "map_yaml": "configs/chokepoint_world.yaml",
+      "map_pgm": "configs/chokepoint_world.pgm",
+      "map_version": "chokepoint_world_v1",
+      "params_file": "configs/nav2_params.yaml",
+      "spawn_pose": {
+        "x": -1.8,
+        "y": 0.0,
+        "z": 0.01,
+        "yaw": 0.0,
+        "frame_id": "map"
+      }
+    },
+    "obstacle_channel": {
+      "entity_name": "corridor_blockage_box",
+      "obstacle_sdf": "configs/chokepoint_box.sdf",
+      "pose": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.3
+      },
+      "doorway_bbox": {
+        "x_min": -0.3,
+        "x_max": 0.3,
+        "y_min": -0.35,
+        "y_max": 0.35
+      }
+    },
+    "navigation_task": {
+      "goal_pose": {
+        "x": 1.8,
+        "y": 0.0,
+        "yaw": 0.0,
+        "frame_id": "map"
+      },
+      "target_region": "room2_corridor_chokepoint",
+      "action_sim_timeout_sec": 18.0,
+      "action_wall_watchdog_sec": 45.0,
+      "episode_total_sim_budget_sec": 75.0,
+      "max_retries_per_episode": 5,
+      "observation_period_sim_sec": 2.0
+    },
+    "environment_sequences": {
+      "S1": {
+        "name": "continuous_blockage",
+        "description": "Obstacle spawned at t=0 and remains in doorway for entire episode (no clearance).",
+        "obstacle_spawn_sim_time_sec": 0.0,
+        "obstacle_clear_elapsed_sim_sec": null
+      },
+      "S2": {
+        "name": "timed_clearance_t25",
+        "description": "Obstacle spawned at t=0 and deleted by independent environment timeline controller at elapsed_sim=25.0s.",
+        "obstacle_spawn_sim_time_sec": 0.0,
+        "obstacle_clear_elapsed_sim_sec": 25.0
+      }
+    },
+    "memory_policies": {
+      "M0": {
+        "name": "no_memory",
+        "description": "Zero memory; repeatedly attempts failed target until episode budget exhaustion.",
+        "class": "M0NoMemoryPolicy"
+      },
+      "M1": {
+        "name": "persistent_memory",
+        "description": "Persistent failure memory; permanently suppresses repeat dispatch to failed target/region without invalidation.",
+        "class": "M1PersistentMemoryPolicy"
+      },
+      "M2": {
+        "name": "conditional_memory",
+        "description": "FailMem conditional failure memory; suppresses repeats while precondition unmet, invalidates on verified perception (doorway FREE), verifies recovery on physical arrival.",
+        "class": "M2ConditionalMemoryPolicy"
+      },
+      "M3": {
+        "name": "current_perception_only",
+        "description": "Zero failure memory entries; reactive dispatch gating purely on instantaneous doorway state (FREE -> permit, OCCUPIED/UNKNOWN -> suppress).",
+        "class": "M3CurrentPerceptionPolicy"
+      }
+    },
+    "formal_suite": {
+      "episodes_per_condition": 3,
+      "total_conditions": 8,
+      "total_episodes": 24
+    },
+    "scoring_thresholds": {
+      "position_tolerance_m": 0.3,
+      "yaw_tolerance_rad": 0.35,
+      "max_linear_velocity_mps": 0.05,
+      "max_angular_velocity_radps": 0.08,
+      "stability_window_duration_sim_sec": 2.0,
+      "max_gt_displacement_m": 0.03,
+      "max_sensor_staleness_sim_sec": 0.5,
+      "max_costmap_staleness_sec": 3.0,
+      "max_stationary_amcl_staleness_sec": 30.0,
+      "online_position_tolerance_m": 0.45,
+      "online_yaw_tolerance_rad": 0.55,
+      "online_max_linear_velocity_mps": 0.03,
+      "online_max_angular_velocity_radps": 0.05,
+      "max_amcl_covariance_variance": 0.5
+    }
+  }
+}

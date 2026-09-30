@@ -1,0 +1,36 @@
+[2026-09-30 01:41:45.965] === Starting Episode M0_S2_ep2 (M0_S2 #2) ===
+[2026-09-30 01:41:45.965] Policy: M0, Sequence: S2
+[2026-09-30 01:41:50.138] Sim clock advanced: 0.00s -> 1.00s
+[2026-09-30 01:41:52.326] Sensors streaming verified: odom=-1.8, scan=360 rays
+[2026-09-30 01:41:52.478] AMCL pose converged at x=-1.80, y=0.00 (delta=0.00m)
+[2026-09-30 01:42:12.621] Spawning obstacle 'corridor_blockage_box' at (0.0, 0.0, 0.3)...
+[2026-09-30 01:42:12.722] Successfully spawned obstacle 'corridor_blockage_box' at (0.00, 0.00, 0.30)
+[2026-09-30 01:42:12.723] Obstacle spawn confirmed in Gazebo
+[2026-09-30 01:42:12.723] Readiness Complete. Defined episode_t0 = 23.500s, abs_sim_deadline = 98.500s. Starting concurrent EnvironmentTimelineController...
+[2026-09-30 01:42:12.833] AMCL nomotion update received: stamp 23.558s (seq=3)
+[2026-09-30 01:42:13.739] [Obs #1] elapsed=0.00s: doorway=OCCUPIED (pass_through=0, hits=24)
+[2026-09-30 01:42:13.739] [Nav Attempt #1] Dispatching action 'M0_S2_ep2_nav_attempt1' (timeout=18.0s, rem_budget=74.5s, bound_memory=None)...
+[2026-09-30 01:42:13.740] Dispatched action 'M0_S2_ep2_nav_attempt1': pipeline_status=DISPATCHED
+[2026-09-30 01:42:31.320] Simulation time budget exceeded (18.10s > 18.00s, sim_now=42.10s, abs_deadline=98.5). Requesting cancel...
+[2026-09-30 01:42:34.363] Passive physical halt verified: stable for 3.00s sim time (lv=0.0000, av=0.0008)
+[2026-09-30 01:42:36.834] Stability window recording complete: 418 samples across 2.50s sim time
+[2026-09-30 01:42:36.865] [Nav Attempt #1 Result] online_success=False, physical_eval=False, disagreement=None, gt_dist=3.5998m, amcl_dist=3.6424m
+[2026-09-30 01:42:37.116] AMCL nomotion update received: stamp 47.759s (seq=18)
+[2026-09-30 01:42:37.759] [Environment Timeline] Triggering S2 obstacle removal service call at elapsed_sim=25.000s (scheduling_error=+0.000s)
+[2026-09-30 01:42:37.996] [Environment Timeline] Obstacle 'corridor_blockage_box' delete_entity service succeeded at elapsed_sim=25.200s
+[2026-09-30 01:42:38.098] [Environment Timeline] Obstacle 'corridor_blockage_box' confirmed absent from ModelStates at elapsed_sim=25.300s
+[2026-09-30 01:42:38.161] AMCL nomotion update received: stamp 48.758s (seq=19)
+[2026-09-30 01:42:38.984] [Obs #2] elapsed=24.50s: doorway=OCCUPIED (pass_through=23, hits=0)
+[2026-09-30 01:42:38.984] [REDUNDANT RETRY #1] Policy M0 dispatched repeat navigation into OCCUPIED doorway!
+[2026-09-30 01:42:38.984] [Nav Attempt #2] Dispatching action 'M0_S2_ep2_nav_attempt2' (timeout=18.0s, rem_budget=49.4s, bound_memory=None)...
+[2026-09-30 01:42:38.986] Dispatched action 'M0_S2_ep2_nav_attempt2': pipeline_status=DISPATCHED
+[2026-09-30 01:42:58.846] Passive physical halt verified: stable for 3.00s sim time (lv=0.0037, av=0.0103)
+[2026-09-30 01:43:01.200] Stability window recording complete: 403 samples across 2.40s sim time
+[2026-09-30 01:43:01.232] [Nav Attempt #2 Result] online_success=True, physical_eval=True, disagreement=None, gt_dist=0.2090m, amcl_dist=0.2768m
+[2026-09-30 01:43:01.232] [ERROR] Exception during episode execution: M0NoMemoryPolicy.on_navigation_success() got an unexpected keyword argument 'thresholds'
+[2026-09-30 01:43:01.233] Traceback (most recent call last):
+  File "/workspace/scripts/run_p2a_experiment.py", line 644, in run_episode
+    policy.on_navigation_success(
+TypeError: M0NoMemoryPolicy.on_navigation_success() got an unexpected keyword argument 'thresholds'
+
+[2026-09-30 01:43:07.186] === Episode M0_S2_ep2 Complete: valid=False, policy_ok=True, eval_ok=True, mech_verified=False, attempts=2, suppressions=0, obs=2 ===

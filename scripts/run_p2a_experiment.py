@@ -72,6 +72,7 @@ from src.scoring_evaluator import (
     normalize_angle,
     is_finite_number,
 )
+from src.online_verifier import verify_online_arrival
 from src.coordinate_alignment import verify_world_map_alignment
 from src.failure_memory import (
     MemoryState,
@@ -81,6 +82,7 @@ from src.failure_memory import (
     M0NoMemoryPolicy,
     M1PersistentMemoryPolicy,
     M2ConditionalMemoryPolicy,
+    M3CurrentPerceptionPolicy,
 )
 from scripts.run_p1c_v3 import (
     P1cV3RunnerNode,
@@ -298,6 +300,8 @@ def run_episode(
         policy = M1PersistentMemoryPolicy(tolerance_m=float(thresholds.get("position_tolerance_m", 0.30)) + 0.20)
     elif policy_name == "M2":
         policy = M2ConditionalMemoryPolicy(tolerance_m=float(thresholds.get("position_tolerance_m", 0.30)) + 0.20)
+    elif policy_name == "M3":
+        policy = M3CurrentPerceptionPolicy()
     else:
         raise ValueError(f"Unknown policy: {policy_name}")
 
@@ -550,45 +554,41 @@ def run_episode(
             exec_outcome = step_summary["execution_outcome"]
 
             # Online Check from Public Whitelisted Feedback (ZERO GT Inspection!)
-            amcl_ok = False
-            amcl_rec = node.latest_amcl_record
-            if amcl_rec and is_finite_number(amcl_rec.get("x")) and is_finite_number(amcl_rec.get("y")) and is_finite_number(amcl_rec.get("yaw")):
-                d_pos = math.hypot(amcl_rec["x"] - target_goal[0], amcl_rec["y"] - target_goal[1])
-                d_yaw = abs(normalize_angle(amcl_rec["yaw"] - target_goal[2]))
-                if d_pos <= (float(thresholds.get("position_tolerance_m", 0.30)) + 0.15) and d_yaw <= (float(thresholds.get("yaw_tolerance_rad", 0.35)) + 0.20):
-                    amcl_ok = True
-
             odom_rec = node.latest_odom_record
-            vel_ok = False
-            if odom_rec and is_finite_number(odom_rec.get("linear_v")) and is_finite_number(odom_rec.get("angular_v")):
-                if abs(float(odom_rec["linear_v"])) <= 0.03 and abs(float(odom_rec["angular_v"])) <= 0.03:
-                    vel_ok = True
-
-            online_action_succeeded = (
-                exec_outcome == "BUDGET_SUCCESS"
-                and step_summary["terminal_status_name"] == "SUCCEEDED"
-                and not step_summary["deadline_exceeded"]
-                and amcl_ok
-                and vel_ok
-            )
-
-            online_feedback = {
+            raw_online_feedback = {
                 "attempt_index": navigation_attempt_count,
                 "action_id": nav_action_id,
                 "nav2_status": step_summary["terminal_status_name"],
                 "status_code": step_summary["status_code"],
                 "execution_outcome": exec_outcome,
+                "deadline_exceeded": step_summary["deadline_exceeded"],
                 "amcl_pose": copy.deepcopy(node.latest_amcl_record),
                 "halt_velocity": {
                     "linear_v": odom_rec.get("linear_v") if odom_rec else None,
                     "angular_v": odom_rec.get("angular_v") if odom_rec else None,
                 },
+            }
+            online_action_succeeded, online_reasons, online_details = verify_online_arrival(
+                target_goal=target_goal,
+                online_feedback=raw_online_feedback,
+                thresholds=thresholds,
+                sim_time=node.get_sim_time_sec(),
+                target_region=target_region,
+                map_version=map_version,
+            )
+            online_feedback = {
+                **raw_online_feedback,
                 "online_action_succeeded": online_action_succeeded,
+                "online_verification_details": online_details,
+                "online_failure_reasons": online_reasons,
             }
 
-            # Offline Physical Evaluation & Disagreement Scoring
+            # Offline Physical Evaluation & Disagreement Scoring (Evaluator Independent)
             eval_arrival = eval_dict.get("strict_physical_arrival_and_stable", False)
+            if eval_arrival:
+                evaluator_verified_success = True
             disagreement = compute_disagreement_reason(online_action_succeeded, eval_arrival, eval_dict)
+            final_disagreement_reason = disagreement
 
             # Per-attempt directory persistence
             attempt_dir = ep_dir / f"attempt_{navigation_attempt_count}"
@@ -641,10 +641,6 @@ def run_episode(
 
             if online_action_succeeded:
                 policy_reported_success = True
-                if eval_arrival:
-                    evaluator_verified_success = True
-                final_disagreement_reason = disagreement
-
                 policy.on_navigation_success(
                     target_goal=target_goal,
                     target_region=target_region,
@@ -653,6 +649,7 @@ def run_episode(
                     sim_time=round(node.get_sim_time_sec() - episode_t0, 4),
                     map_version=map_version,
                     memory_id=bound_memory_id,
+                    thresholds=thresholds,
                 )
                 log_ep(f"Goal arrived online in Attempt #{navigation_attempt_count}! Ending retry loop.")
                 break
@@ -711,6 +708,8 @@ def run_episode(
                 mechanism_verified = (task_success is False and navigation_attempt_count > 1 and redundant_retries_count >= 1)
             elif policy_name in ("M1", "M2"):
                 mechanism_verified = (task_success is False and navigation_attempt_count == 1 and redundant_retries_count == 0 and suppression_count >= 1)
+            elif policy_name == "M3":
+                mechanism_verified = (task_success is False and navigation_attempt_count == 0 and suppression_count >= 1)
         elif sequence_name == "S2":
             if policy_name == "M0":
                 mechanism_verified = (task_success is True and navigation_attempt_count >= 2)
@@ -718,6 +717,8 @@ def run_episode(
                 mechanism_verified = (task_success is False and navigation_attempt_count == 1 and suppression_count >= 1)
             elif policy_name == "M2":
                 mechanism_verified = (task_success is True and invalidation_verified is True and policy_reported_recovery is True and evaluator_verified_recovery is True)
+            elif policy_name == "M3":
+                mechanism_verified = (task_success is True and navigation_attempt_count == 1 and suppression_count >= 1)
 
     ep_summary = {
         "episode_id": ep_id,
