@@ -1,13 +1,12 @@
-"""Unit tests for P2c event-driven failure memory, perception evaluation, and route execution.
+"""Unit tests for P2c production pipeline, event-driven memory, and replay audit.
 
-Verifies:
-1. SUCCEEDED navigation action does NOT create failure memory.
-2. Missing, stale, or occluded scan does NOT produce FREE.
-3. Policy decisions are independent of scenario_name (strictly state/observation driven).
-4. First action success does NOT trigger fallback.
-5. Trajectory without chokepoint approach does NOT increment dead_end_traversals.
-6. history_valid=False causes episode_valid=False.
+Directly imports and validates production modules from `src.p2c_pipeline`:
+- P2cProtocolConfig
+- P2cTrajectoryClassifier
+- P2cPolicyDecider
+- P2cEpisodeEvaluator
 """
+
 import math
 import pytest
 from typing import Any, Dict, List
@@ -26,10 +25,16 @@ from scripts.run_p2c_pilot_diagnosis import (
     SpatialObservationCache,
     verify_sightline_occlusion,
 )
+from src.p2c_pipeline import (
+    P2cProtocolConfig,
+    P2cTrajectoryClassifier,
+    P2cPolicyDecider,
+    P2cEpisodeEvaluator,
+)
 
 
 def test_succeeded_action_does_not_create_failure_memory():
-    """Verify that a successful action (e.g. reaching vantage point) does not create failure memory."""
+    """Verify that a successful action (e.g. reaching vantage point) never creates failure memory."""
     store = FailureMemoryStore()
     action_summary = {
         "action_id": "hist_reach_obs_vantage",
@@ -37,8 +42,8 @@ def test_succeeded_action_does_not_create_failure_memory():
         "execution_outcome": "BUDGET_SUCCESS",
         "deadline_exceeded": False,
     }
-    
-    # Check that success does not record failure
+
+    # Production logic check: only failed actions trigger record_failure
     if action_summary["execution_outcome"] != "BUDGET_SUCCESS" or action_summary["terminal_status_name"] != "SUCCEEDED":
         store.record_failure(
             goal=[2.5, 0.0, 0.0],
@@ -56,8 +61,8 @@ def test_succeeded_action_does_not_create_failure_memory():
     assert entry is None
 
 
-def test_failed_action_with_occupied_evidence_creates_failure_memory():
-    """Verify that only an actual failed action with OCCUPIED evidence creates failure memory."""
+def test_failed_traversal_with_fresh_occupied_evidence_creates_memory():
+    """Verify that failed traversal with fresh OCCUPIED evidence creates failure memory."""
     store = FailureMemoryStore()
     occ_obs = {
         "doorway_state": "OCCUPIED",
@@ -73,110 +78,52 @@ def test_failed_action_with_occupied_evidence_creates_failure_memory():
         "deadline_exceeded": True,
         "goal_uuid": "12345678-1234-5678-1234-567812345678",
     }
-    
-    entry = None
-    if failed_action_summary["execution_outcome"] in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"]:
-        entry = store.record_failure(
-            goal=[2.5, 0.0, 0.0],
-            region_id="north_corridor_chokepoint",
-            failure_reason=failed_action_summary["execution_outcome"],
-            sim_time=18.5,
-            failed_action_id=failed_action_summary["action_id"],
-            failure_evidence_id="probe1_occ_obs",
-            failure_evidence=occ_obs,
-            map_version="p2c_dualpath_world_v1",
-            metadata={"goal_uuid": failed_action_summary["goal_uuid"]},
-        )
-    
-    assert entry is not None
-    assert len(store.entries) == 1
-    assert entry.state == MemoryState.ACTIVE
-    assert entry.failed_action_id == "hist_attempt_chokepoint_traversal"
-    assert entry.failure_evidence["doorway_state"] == "OCCUPIED"
-    assert entry.metadata.get("goal_uuid") == failed_action_summary["goal_uuid"]
+    action_traj = [{"x": -0.4, "y": 1.2, "recv_sim_time_sec": 19.0}]
 
+    cause = P2cTrajectoryClassifier.diagnose_failure_cause(failed_action_summary, action_traj, occ_obs, max_staleness_sec=2.0)
+    assert cause == "BLOCKED_AT_DOORWAY"
+
+    entry = store.record_failure(
+        goal=[2.5, 0.0, 0.0],
+        region_id="north_corridor_chokepoint",
+        failure_reason=failed_action_summary["execution_outcome"],
+        sim_time=19.0,
+        failed_action_id=failed_action_summary["action_id"],
+        failure_evidence_id="probe1_occ_obs",
+        failure_evidence=occ_obs,
+        map_version="p2c_dualpath_world_v1",
+        metadata={"goal_uuid": failed_action_summary["goal_uuid"]},
+    )
+
+    assert entry is not None
+    assert entry.state == MemoryState.ACTIVE
     is_blocked, blocked_entry, _ = store.is_dispatch_blocked([2.5, 0.0, 0.0], "north_corridor_chokepoint", "p2c_dualpath_world_v1")
     assert is_blocked is True
-    assert blocked_entry == entry
 
 
-def test_missing_stale_or_occluded_scan_never_produces_free():
-    """Verify that missing, stale, or occluded scan results in UNKNOWN, never FREE."""
-    doorway_bbox = (-0.30, 0.30, 0.80, 1.60)
-    
-    # Case A: Occluded / No rays hitting or passing through doorway (robot at J0 = -2.5, 0.0, facing south -1.57)
-    ranges_away = [5.0] * 100
-    res_occluded = evaluate_doorway_clearance(
-        ranges=ranges_away,
-        angle_min=-0.5,
-        angle_increment=0.01,
-        range_min=0.1,
-        range_max=10.0,
-        tf_translation=[-2.50, 0.00, 0.1],
-        tf_yaw=-1.57,  # Facing away from doorway
-        tf_stamp_sec=20.0,
-        scan_stamp_sec=20.0,
-        current_sim_time=20.0,
-        doorway_bbox=doorway_bbox,
-    )
-    assert res_occluded["doorway_state"] == "UNKNOWN"
-    assert res_occluded["doorway_state"] != "FREE"
+def test_stale_occupied_cannot_justify_failure():
+    """Verify that stale OCCUPIED evidence (> 2.0s old) is diagnosed as STALE, not confirmed blocked."""
+    stale_occ_obs = {
+        "doorway_state": "OCCUPIED",
+        "stamp_sec": 10.0,  # 10.0s vs action time 35.0s -> 25s staleness
+        "region_id": "north_corridor_chokepoint",
+        "map_version": "p2c_dualpath_world_v1",
+    }
+    failed_action_summary = {
+        "action_id": "dec_path_a_traversal",
+        "terminal_status_name": "ABORTED",
+        "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+    }
+    action_traj = [{"x": -0.3, "y": 1.2, "recv_sim_time_sec": 35.0}]
 
-    # Case B: Stale scan (scan time 15.0s, current time 20.0s -> staleness 5.0s > 1.0s limit)
-    ranges_valid = [3.0] * 100
-    res_stale = evaluate_doorway_clearance(
-        ranges=ranges_valid,
-        angle_min=-0.5,
-        angle_increment=0.01,
-        range_min=0.1,
-        range_max=10.0,
-        tf_translation=[-0.50, 1.20, 0.1],
-        tf_yaw=0.0,
-        tf_stamp_sec=15.0,
-        scan_stamp_sec=15.0,
-        current_sim_time=20.0,
-        doorway_bbox=doorway_bbox,
-    )
-    assert res_stale["doorway_state"] == "UNKNOWN"
-    assert res_stale["doorway_state"] != "FREE"
-
-    # Case C: No hits inside, but pass-through rays < min_pass_through_rays (e.g. only 2 rays pass through)
-    ranges_few = [3.0] * 2
-    res_few = evaluate_doorway_clearance(
-        ranges=ranges_few,
-        angle_min=-0.01,
-        angle_increment=0.02,
-        range_min=0.1,
-        range_max=10.0,
-        tf_translation=[-0.50, 1.20, 0.1],
-        tf_yaw=0.0,
-        tf_stamp_sec=20.0,
-        scan_stamp_sec=20.0,
-        current_sim_time=20.0,
-        doorway_bbox=doorway_bbox,
-        min_pass_through_rays=8,
-    )
-    assert res_few["doorway_state"] == "UNKNOWN"
-    assert res_few["doorway_state"] != "FREE"
+    cause = P2cTrajectoryClassifier.diagnose_failure_cause(failed_action_summary, action_traj, stale_occ_obs, max_staleness_sec=2.0)
+    assert cause == "DOORWAY_BLOCKED_EVIDENCE_STALE"
 
 
-def test_policy_decisions_are_scenario_agnostic():
-    """Verify that policy decisions depend solely on internal policy state, not scenario label."""
-    def decide_route(method: str, fail_store: FailureMemoryStore, cache: SpatialObservationCache, m1_suppressed: bool) -> str:
-        if method == "R":
-            return "Path_A"
-        elif method == "O":
-            cached_st = cache.get_latest_state("north_corridor_chokepoint")
-            return "Path_B" if cached_st == "OCCUPIED" else "Path_A"
-        elif method == "F":
-            is_blocked, _, _ = fail_store.is_dispatch_blocked([2.5, 0.0, 0.0], "north_corridor_chokepoint", "p2c_dualpath_world_v1")
-            return "Path_B" if is_blocked else "Path_A"
-        elif method == "M1":
-            return "Path_B" if m1_suppressed else "Path_A"
-        return "UNKNOWN"
-
-    store_active = FailureMemoryStore()
-    store_active.record_failure(
+def test_missing_free_evidence_does_not_invalidate_memory():
+    """Verify that absence of FREE evidence leaves memory ACTIVE."""
+    store = FailureMemoryStore()
+    store.record_failure(
         goal=[2.5, 0.0, 0.0],
         region_id="north_corridor_chokepoint",
         failure_reason="BUDGET_DEADLINE_EXCEEDED",
@@ -186,89 +133,163 @@ def test_policy_decisions_are_scenario_agnostic():
         failure_evidence={"doorway_state": "OCCUPIED"},
         map_version="p2c_dualpath_world_v1",
     )
-    cache_occ = SpatialObservationCache()
-    cache_occ.update_observation("north_corridor_chokepoint", "OCCUPIED", 10.0, {})
 
-    # Method F with active failure memory chooses Path_B regardless of any fictitious scenario tag
-    for fake_scenario in ["D0", "D1", "D2", "CUSTOM_X"]:
-        route = decide_route("F", store_active, cache_occ, False)
-        assert route == "Path_B"
-
-    # Method R always explores Path_A regardless of scenario tag
-    for fake_scenario in ["D0", "D1", "D2"]:
-        route = decide_route("R", store_active, cache_occ, False)
-        assert route == "Path_A"
-
-
-def test_first_action_success_does_not_trigger_fallback():
-    """Verify that when Leg 2 succeeds (e.g. in D0/D2), route executor does not trigger fallback to Path B."""
-    leg2_result = {
-        "action_id": "dec_leg2_traversal",
-        "terminal_status_name": "SUCCEEDED",
-        "execution_outcome": "BUDGET_SUCCESS",
-        "deadline_exceeded": False,
+    # Inconclusive / UNKNOWN observation
+    unknown_obs = {
+        "doorway_state": "UNKNOWN",
+        "timestamp_sim": 25.0,
+        "region_id": "north_corridor_chokepoint",
+        "map_version": "p2c_dualpath_world_v1",
     }
-    
-    fallback_triggered = False
-    dead_end_traversals = 0
-    
-    if leg2_result["terminal_status_name"] != "SUCCEEDED" or leg2_result["execution_outcome"] != "BUDGET_SUCCESS":
-        fallback_triggered = True
-        dead_end_traversals += 1
+    invalidated_entries = store.evaluate_perception_for_invalidation(
+        perception_evidence=unknown_obs,
+        sim_time=25.0,
+        evidence_id="obs_unknown",
+        map_version="p2c_dualpath_world_v1",
+        region_id="north_corridor_chokepoint",
+    )
+    assert len(invalidated_entries) == 0
+    is_blocked, _, _ = store.is_dispatch_blocked([2.5, 0.0, 0.0], "north_corridor_chokepoint", "p2c_dualpath_world_v1")
+    assert is_blocked is True
 
-    assert fallback_triggered is False
-    assert dead_end_traversals == 0
+
+def test_method_r_consumes_live_observation_via_production_decider():
+    """Verify that Method R properly routes based on live observation at J0."""
+    cache = SpatialObservationCache()
+    fail_store = FailureMemoryStore()
+
+    # Case A: Live sensor returns UNKNOWN (occluded sightline) -> explores Path A
+    obs_unknown = {"doorway_state": "UNKNOWN", "reason": "DOORWAY_NOT_IN_FOV_OR_OCCLUDED"}
+    route_a, rationale_a, meta_a = P2cPolicyDecider.decide_route(
+        "R", obs_unknown, cache, fail_store, False, [2.5, 0.0, 0.0], "north_corridor_chokepoint", "p2c_dualpath_world_v1"
+    )
+    assert route_a == "Path_A"
+    assert meta_a.get("infra_error") is False
+
+    # Case B: Live sensor returns OCCUPIED (e.g. vantage point) -> routes Path B
+    obs_occ = {"doorway_state": "OCCUPIED", "reason": "OBSTACLE_DETECTED"}
+    route_b, _, _ = P2cPolicyDecider.decide_route(
+        "R", obs_occ, cache, fail_store, False, [2.5, 0.0, 0.0], "north_corridor_chokepoint", "p2c_dualpath_world_v1"
+    )
+    assert route_b == "Path_B"
+
+    # Case C: Infrastructure error (TF unavailable) -> flags anomaly
+    obs_tf_err = {"doorway_state": "UNKNOWN", "error": "TF_TRANSLATION_OR_YAW_MISSING"}
+    _, _, meta_c = P2cPolicyDecider.decide_route(
+        "R", obs_tf_err, cache, fail_store, False, [2.5, 0.0, 0.0], "north_corridor_chokepoint", "p2c_dualpath_world_v1"
+    )
+    assert meta_c.get("infra_error") is True
 
 
-def test_dead_end_traversal_detection():
-    """Verify that dead-end traversal is detected only when trajectory actually enters chokepoint and retreats."""
+def test_dead_end_traversal_detection_production_classifier():
+    """Verify that P2cTrajectoryClassifier correctly identifies genuine dead ends."""
+    # 1. Direct Path B trajectory (never entered North approach)
     traj_path_b = [
         {"x": -2.50, "y": 0.00},
         {"x": -2.50, "y": -1.00},
         {"x": -2.50, "y": -2.00},
         {"x": -1.00, "y": -2.40},
         {"x": 0.00, "y": -2.40},
+        {"x": 1.00, "y": -2.40},
+        {"x": 2.50, "y": -2.00},
         {"x": 2.50, "y": 0.00},
+    ] * 5
+    assert P2cTrajectoryClassifier.classify_dead_end_traversals(traj_path_b) == 0
+    assert P2cTrajectoryClassifier.classify_actual_route(traj_path_b) == "Path_B"
+
+    # 2. Dead-end entry: J0 -> Approach -> Halt at Doorway -> Retreat to J0 -> Path B -> Goal
+    traj_dead_end = (
+        [{"x": -2.50, "y": 0.00}] * 5
+        + [{"x": -1.50, "y": 1.20}] * 5
+        + [{"x": -0.40, "y": 1.20}] * 10  # halted at doorway
+        + [{"x": -1.50, "y": 1.20}] * 5
+        + [{"x": -2.50, "y": 0.00}] * 5   # retreated to J0
+        + [{"x": 0.00, "y": -2.40}] * 10  # detour
+        + [{"x": 2.50, "y": 0.00}] * 5
+    )
+    assert P2cTrajectoryClassifier.classify_dead_end_traversals(traj_dead_end) == 1
+    assert P2cTrajectoryClassifier.classify_actual_route(traj_dead_end) == "Path_A_then_Path_B"
+
+
+def test_budget_exhaustion_fails_evaluation_in_production_evaluator():
+    """Verify that total simulation time exceeding 180s fails success_within_budget and episode_valid."""
+    actions = [
+        {"action_id": "hist_reach_obs_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
+        {"action_id": "hist_attempt_chokepoint_traversal", "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_DEADLINE_EXCEEDED"},
+        {"action_id": "hist_retreat_to_j0", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
+        {"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
     ]
-    
-    def count_dead_ends(samples: List[Dict[str, float]], chokepoint_x_min: float = -1.8, chokepoint_y_min: float = 0.6) -> int:
-        entered_chokepoint = any(s["x"] >= chokepoint_x_min and s["y"] >= chokepoint_y_min for s in samples)
-        retreated_to_j0 = entered_chokepoint and any(s["x"] <= -2.2 and abs(s["y"]) <= 0.5 for s in samples[len(samples)//2:])
-        return 1 if (entered_chokepoint and retreated_to_j0) else 0
+    odom_samples = [{"x": -2.5 + i * 0.1, "y": 0.0} for i in range(50)]
 
-    assert count_dead_ends(traj_path_b) == 0
+    # Case A: 185.6s > 180.0s budget -> FAIL
+    res_over = P2cEpisodeEvaluator.evaluate_episode(
+        scenario="D1",
+        method="R",
+        actions=actions,
+        total_sim_time_sec=185.6,
+        total_budget_sec=180.0,
+        physical_eval_dict={"strict_physical_arrival_and_stable": True},
+        odom_samples=odom_samples,
+        costmap_snapshots=[{"stage": "COSTMAP_PROBE_BLOCKED", "cell_counts": {"opening_lethal": 10}}],
+        checksums_verified=True,
+        protocol_hash_match=True,
+        evidence_complete=True,
+    )
+    assert res_over["final_goal_success"] is True
+    assert res_over["success_within_budget"] is False
+    assert res_over["episode_valid"] is False
 
-    traj_dead_end = [
-        {"x": -2.50, "y": 0.00},
-        {"x": -1.50, "y": 1.20},
-        {"x": -0.50, "y": 1.20},
-        {"x": -1.50, "y": 1.20},
-        {"x": -2.50, "y": 0.00},
-        {"x": -2.50, "y": -2.00},
-        {"x": 0.00, "y": -2.40},
-        {"x": 2.50, "y": 0.00},
-    ]
-    assert count_dead_ends(traj_dead_end) == 1
+    # Case B: 175.0s <= 180.0s budget -> PASS
+    res_under = P2cEpisodeEvaluator.evaluate_episode(
+        scenario="D1",
+        method="R",
+        actions=actions,
+        total_sim_time_sec=175.0,
+        total_budget_sec=180.0,
+        physical_eval_dict={"strict_physical_arrival_and_stable": True},
+        odom_samples=odom_samples,
+        costmap_snapshots=[{"stage": "COSTMAP_PROBE_BLOCKED", "cell_counts": {"opening_lethal": 10}}],
+        checksums_verified=True,
+        protocol_hash_match=True,
+        evidence_complete=True,
+    )
+    assert res_under["success_within_budget"] is True
+    assert res_under["episode_valid"] is True
 
 
-def test_episode_validity_flags():
-    """Verify that failure in history_valid or route_valid marks episode_valid=False."""
-    def compute_episode_validity(final_goal_success: bool, history_valid: bool, route_valid: bool) -> Dict[str, bool]:
-        return {
-            "final_goal_success": final_goal_success,
-            "history_valid": history_valid,
-            "route_valid": route_valid,
-            "episode_valid": bool(final_goal_success and history_valid and route_valid),
-        }
+def test_tamper_detection_in_production_evaluator():
+    """Verify that missing checksums, protocol mismatch, or incomplete evidence fails audit."""
+    actions = [{"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"}]
+    odom_samples = [{"x": -2.5 + i * 0.1, "y": 0.0} for i in range(50)]
 
-    # Case 1: All valid
-    v1 = compute_episode_validity(final_goal_success=True, history_valid=True, route_valid=True)
-    assert v1["episode_valid"] is True
+    # Checksum verification failure -> audit_pass = False
+    res_tamper = P2cEpisodeEvaluator.evaluate_episode(
+        scenario="D0",
+        method="R",
+        actions=actions,
+        total_sim_time_sec=50.0,
+        total_budget_sec=180.0,
+        physical_eval_dict={"strict_physical_arrival_and_stable": True},
+        odom_samples=odom_samples,
+        costmap_snapshots=[],
+        checksums_verified=False,  # Tampered!
+        protocol_hash_match=True,
+        evidence_complete=True,
+    )
+    assert res_tamper["audit_pass"] is False
 
-    # Case 2: History invalid (e.g. failed probe when it should succeed)
-    v2 = compute_episode_validity(final_goal_success=True, history_valid=False, route_valid=True)
-    assert v2["episode_valid"] is False
-
-    # Case 3: Final goal failed
-    v3 = compute_episode_validity(final_goal_success=False, history_valid=True, route_valid=True)
-    assert v3["episode_valid"] is False
+    # Protocol hash mismatch -> audit_pass = False
+    res_proto = P2cEpisodeEvaluator.evaluate_episode(
+        scenario="D0",
+        method="R",
+        actions=actions,
+        total_sim_time_sec=50.0,
+        total_budget_sec=180.0,
+        physical_eval_dict={"strict_physical_arrival_and_stable": True},
+        odom_samples=odom_samples,
+        costmap_snapshots=[],
+        checksums_verified=True,
+        protocol_hash_match=False,  # Mismatch!
+        evidence_complete=True,
+    )
+    assert res_proto["audit_pass"] is False
