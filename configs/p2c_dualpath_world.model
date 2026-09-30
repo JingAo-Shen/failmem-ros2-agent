@@ -1,0 +1,132 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <world name="default">
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/gazebo</namespace>
+        <remapping>model_states:=model_states</remapping>
+        <remapping>link_states:=link_states</remapping>
+      </ros>
+      <update_rate>10.0</update_rate>
+    </plugin>
+
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <scene>
+      <shadows>false</shadows>
+    </scene>
+
+    <gui fullscreen='0'>
+      <camera name='user_camera'>
+        <pose frame=''>0 0 10 0 1.570796 0</pose>
+        <view_controller>orbit</view_controller>
+        <projection_type>perspective</projection_type>
+      </camera>
+    </gui>
+
+    <physics type="ode">
+      <real_time_update_rate>1000.0</real_time_update_rate>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <ode>
+        <solver>
+          <type>quick</type>
+          <iters>150</iters>
+          <sor>1.4</sor>
+        </solver>
+      </ode>
+    </physics>
+
+    <!-- Dual-Path Fork Arena -->
+    <model name="dualpath_walls">
+      <static>true</static>
+      <link name="walls_link">
+        
+        <!-- North Wall: center (0, 1.8, 0.5), size (6.8, 0.2, 1.0) -->
+        <collision name="north_wall_col">
+          <pose>0.0 1.8 0.5 0 0 0</pose>
+          <geometry><box><size>6.8 0.2 1.0</size></box></geometry>
+        </collision>
+        <visual name="north_wall_vis">
+          <pose>0.0 1.8 0.5 0 0 0</pose>
+          <geometry><box><size>6.8 0.2 1.0</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+
+        <!-- South Wall: center (0, -1.8, 0.5), size (6.8, 0.2, 1.0) -->
+        <collision name="south_wall_col">
+          <pose>0.0 -1.8 0.5 0 0 0</pose>
+          <geometry><box><size>6.8 0.2 1.0</size></box></geometry>
+        </collision>
+        <visual name="south_wall_vis">
+          <pose>0.0 -1.8 0.5 0 0 0</pose>
+          <geometry><box><size>6.8 0.2 1.0</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+
+        <!-- West Wall: center (-3.3, 0, 0.5), size (0.2, 3.8, 1.0) -->
+        <collision name="west_wall_col">
+          <pose>-3.3 0.0 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 3.8 1.0</size></box></geometry>
+        </collision>
+        <visual name="west_wall_vis">
+          <pose>-3.3 0.0 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 3.8 1.0</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+
+        <!-- East Wall: center (3.3, 0, 0.5), size (0.2, 3.8, 1.0) -->
+        <collision name="east_wall_col">
+          <pose>3.3 0.0 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 3.8 1.0</size></box></geometry>
+        </collision>
+        <visual name="east_wall_vis">
+          <pose>3.3 0.0 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 3.8 1.0</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+
+        <!-- Central Island: center (0, 0, 0.5), size (3.2, 0.8, 1.0) -> covers x in [-1.6, 1.6], y in [-0.4, 0.4] -->
+        <collision name="central_island_col">
+          <pose>0.0 0.0 0.5 0 0 0</pose>
+          <geometry><box><size>3.2 0.8 1.0</size></box></geometry>
+        </collision>
+        <visual name="central_island_vis">
+          <pose>0.0 0.0 0.5 0 0 0</pose>
+          <geometry><box><size>3.2 0.8 1.0</size></box></geometry>
+          <material><ambient>0.5 0.5 0.7 1</ambient><diffuse>0.5 0.5 0.7 1</diffuse></material>
+        </visual>
+
+        <!-- Chokepoint A Dividing Wall Lower: (0.0, 0.525, 0.5), size (0.2, 0.25, 1.0) -->
+        <collision name="chokepoint_lower_col">
+          <pose>0.0 0.525 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 0.25 1.0</size></box></geometry>
+        </collision>
+        <visual name="chokepoint_lower_vis">
+          <pose>0.0 0.525 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 0.25 1.0</size></box></geometry>
+          <material><ambient>0.7 0.3 0.3 1</ambient><diffuse>0.7 0.3 0.3 1</diffuse></material>
+        </visual>
+
+        <!-- Chokepoint A Dividing Wall Upper: (0.0, 1.525, 0.5), size (0.2, 0.35, 1.0) -->
+        <collision name="chokepoint_upper_col">
+          <pose>0.0 1.525 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 0.35 1.0</size></box></geometry>
+        </collision>
+        <visual name="chokepoint_upper_vis">
+          <pose>0.0 1.525 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 0.35 1.0</size></box></geometry>
+          <material><ambient>0.7 0.3 0.3 1</ambient><diffuse>0.7 0.3 0.3 1</diffuse></material>
+        </visual>
+
+      </link>
+    </model>
+
+  </world>
+</sdf>

@@ -1,111 +1,122 @@
-# FailMem Milestone P2c Research Protocol (Draft): Non-Line-of-Sight & Multi-Route Failure Memory Evaluation
+# FailMem Milestone P2c Research Protocol: Non-Line-of-Sight & Multi-Route Failure Memory Evaluation
 
-**Protocol Version**: 4.0-draft  
-**Target Milestone**: P2c  
+**Protocol Version**: 4.1 (Revised)  
+**Target Milestone**: Milestone P2c  
 **Date**: 2026-09-30  
-**Research Focus**: Non-Line-of-Sight (NLOS) Information Gaps, Multi-Route Decision Bounding, and Causal Failure Memory
+**Research Focus**: Empirical Evaluation of Failure Memory vs. Spatial Observation Caching under Non-Line-of-Sight Multi-Route Conditions  
 
 ---
 
-## 1. Core Scientific Question & Theoretical Formulation
+## 1. Core Scientific Questions & Hypotheses
 
-### 1.1 The Fundamental Question
-> **"Under what information conditions does execution failure history provide causal utility that cannot be substituted by instantaneous local perception?"**
+Milestone P2c investigates the concrete empirical utility of execution failure memory in robotic navigation when chokepoints are non-line-of-sight (NLOS) and alternative routes are available.
 
-### 1.2 Mathematical Formulation of the Information Gap
+Rather than asserting theoretical necessity formulas or predetermining victory conditions, this protocol formulates three testable empirical questions:
 
-Let the environment state at time $t$ be $s_t \in \mathcal{S}$, and let the robot be positioned at a decision junction $s_{\text{junc}}$.  
-The environment contains a set of potential routes $\mathcal{R} = \{R_A, R_B\}$ to a target goal $g \in \mathcal{G}$. Route $R_A$ passes through a chokepoint $C_A$.
-
-1. **Local Observation Operator $\mathcal{O}(s_t)$**:
-   - In Line-of-Sight (LOS) conditions (Milestone P2b), the distance $d(s_t, C_A) \le r_{\text{sensor}}$ and the line of sight is unoccluded:
-     $$I(C_A = \text{BLOCKED}; \mathcal{O}(s_t)) > 0$$
-     Instantaneous perception can fully determine the chokepoint state prior to navigation dispatch.
-   - In Non-Line-of-Sight (NLOS) / Occluded conditions (Milestone P2c), $C_A$ is occluded by geometry (walls, turns) or beyond sensor range:
-     $$I(C_A = \text{BLOCKED}; \mathcal{O}(s_{\text{junc}})) = 0 \iff \mathcal{O}(s_{\text{junc}}) = \text{UNKNOWN}$$
-
-2. **Execution History $\mathcal{H}_t = \{(a_1, o_1, r_1), \dots, (a_t, o_t, r_t)\}$**:
-   - If an action $a \in \mathcal{A}$ traversing route $R_A$ failed at time $\tau < t$ with failure reason $\phi_A$, the execution history retains mutual information:
-     $$I(C_A = \text{BLOCKED}; \mathcal{H}_t) > 0$$
-   - Therefore, at the decision point $s_{\text{junc}}$, the information gap is strictly positive:
-     $$\Delta I = I(C_A = \text{BLOCKED}; \mathcal{H}_t) - I(C_A = \text{BLOCKED}; \mathcal{O}(s_{\text{junc}})) > 0$$
-
-Failure memory is causally necessary if and only if $\Delta I > 0$ and the cost of physically reducing $\Delta I$ via exploration exceeds the routing overhead of alternative paths.
+- **H1 (Utility of Historical Information)**:  
+  *Does retaining past environmental state information reduce repeated exploratory traversal costs compared to purely reactive execution?*
+- **H2 (Independent Value of Failure Memory vs. Observation Caching)**:  
+  *Does an explicit execution failure record (associating action goals, failure preconditions, and recovery bindings) provide measurable decision advantages over a general spatial observation cache with identical evidence access?*
+- **H3 (Value of Conditional Invalidation)**:  
+  *Does verified invalidation of failure memory reduce unnecessary bypass detour costs when a previously blocked path is restored to a passable state?*
 
 ---
 
-## 2. Paired Experimental Environment Design
+## 2. Benchmark Methods & Controlled Comparisons
 
-### 2.1 Bifurcation World Topology ("Fork-Corridor Arena")
+To ensure strict scientific fairness, we evaluate three primary architectural paradigms (plus a non-decaying cache baseline) operating with **identical sensors, actuators, maps, exploration policies, and execution budgets**:
 
-The benchmark arena features two topologically distinct paths connecting Room 1 (Spawn: $x=-2.0, y=0.0$) and Room 2 (Goal: $x=+2.0, y=0.0$):
+1. **Method R (Reactive Only / No Memory)**:
+   - Evaluates only instantaneous sensor observations at the current robot pose.
+   - When the state of a chokepoint is `UNKNOWN` from the current vantage point, R follows the standard uniform exploration rule (attempting the nominal shortest route).
+
+2. **Method O (Spatial Observation Cache)**:
+   - Maintains a spatial cache of verified environmental observations (`OCCUPIED` / `FREE`, spatial coordinates/region, timestamp, validity).
+   - Operates without artificial short TTL decay within the episode.
+   - When choosing routes at a decision junction, queries the spatial cache:
+     * If Chokepoint A is cached as `OCCUPIED` (and not superseded by a newer `FREE` observation), routes via Path B.
+     * If Chokepoint A is cached as `FREE`, routes via Path A.
+     * If Chokepoint A is unobserved (`UNKNOWN`), follows the standard exploration rule (Path A).
+
+3. **Method F (FailMem Failure Memory)**:
+   - In addition to holding the spatial observations in O, explicitly records the **action execution failure**, the causal attribution link, and the recovery binding contract.
+   - Suppresses dispatch to goals/regions guarded by active failure preconditions.
+   - When verified clearance occurs (`FREE`), transitions the failure memory to `INVALIDATED` and binds subsequent dispatches to a recovery lifecycle.
+
+4. **Method M1 (Persistent Suppression Baseline - for H3 Detour Comparison)**:
+   - Records failure upon initial blockage and permanently suppresses Path A.
+   - When Path A is subsequently cleared in Sequence S2, M1 continues taking the detour (Path B).
+   - **Important Protocol Rule**: M1 is NOT treated as a task failure when Path B is open. Its performance is evaluated purely by the **additional trajectory distance, execution time, and route selection overhead** relative to M2/F.
+
+### Uniform Control Principles:
+- All methods share the exact same underlying Nav2 stack, costmap configurations, controller parameters, and robot kinematics.
+- Condition updates and evidence freshness requirements (e.g. valid scan coverage, laser ray intersection) are identical across O and F.
+- If Method F exhibits identical routing decisions and execution costs as Method O across all conditions, we will accept the empirical finding that **general historical observation caching is sufficient for this task domain**, without inventing ad-hoc rules to artificially favor F.
+
+---
+
+## 3. Dual-Path Arena Design & Information Properties
+
+### 3.1 Topology & Geometry
+
+The arena connects Room 1 (Spawn / Decision Junction $J_0: x=-2.0, y=0.0$) to Room 2 (Goal: $x=+2.0, y=0.0$) via two distinct routes:
 
 ```
-                        [ Path A: Nominal Short Path (4.0m) ]
-                        +------------- [ Chokepoint A ] ------------+
-                        |                 (Occluded Box)            |
-                        | (90 deg turn)              (90 deg turn)  |
-   [ Spawn: (-2.0, 0.0) ]                                           [ Goal: (+2.0, 0.0) ]
-   [ Junction J0        ]                                           [ Room 2            ]
-                        |                                           |
-                        | (Bypass corridor)                         |
-                        +-------------------------------------------+
-                        [ Path B: Alternative Bypass Path (7.5m)    ]
+                        [ Path A: Nominal Short Route (Length: ~4.5m) ]
+                        +------------- [ Chokepoint A ] ---------------+
+                        |                (Occluded Doorway)            |
+                        | (90 deg wall)                  (90 deg wall) |
+   [ Decision Junction  ]                                              [ Goal Target        ]
+   [ J0: (-2.0, 0.0)    ]                                              [ Room 2: (2.0, 0.0) ]
+                        |                                              |
+                        | (Open Bypass Corridor)                       |
+                        +----------------------------------------------+
+                        [ Path B: Alternative Detour Route (Length: ~8.0m) ]
 ```
 
-- **Junction $J_0$**: Robot start pose $(-2.0, 0.0)$. From $J_0$, both Path A and Path B enter separate corridors.
-- **Path A (Nominal Short Path)**: Length $4.0\,\text{m}$. Contains an occluding $90^\circ$ turn before Chokepoint A ($x=0.0, y=+1.0$).
-  - At $J_0$, Chokepoint A is completely occluded by the interior wall ($\mathcal{O}(J_0) = \text{UNKNOWN}$).
-- **Path B (Detour / Bypass Path)**: Length $7.5\,\text{m}$. Completely clear of obstacles.
+1. **Path A (Nominal Short Route)**:
+   - Shorter nominal traversal distance ($\approx 4.5\,\text{m}$).
+   - Passes through Chokepoint A at $(0.0, +1.2)$, which is occluded from Junction $J_0$ by an interior wall and a $90^\circ$ turn.
+   - At $J_0$, the LiDAR cannot penetrate the wall to observe Chokepoint A $\implies \mathcal{O}(J_0) = \text{UNKNOWN}$.
+2. **Path B (Detour Route)**:
+   - Longer nominal traversal distance ($\approx 8.0\,\text{m}$).
+   - Completely free of obstacles and always passable.
 
-### 2.2 Paired Evaluation Conditions
-
-To rigorously test whether failure memory is non-substitutable, we evaluate paired conditions with **identical instantaneous observations $\mathcal{O}(J_0) = \text{UNKNOWN}$** but different execution histories $\mathcal{H}_t$:
-
-1. **Condition C1 (Fresh / Untried)**: Path A has not been attempted. Both paths are unobserved from $J_0$.
-2. **Condition C2 (Prior Failure Un-cleared)**: Path A was attempted and failed due to blockage at Chokepoint A. The robot has returned / retreated to $J_0$. Current local perception at $J_0$ is $\mathcal{O}(J_0) = \text{UNKNOWN}$.
-3. **Condition C3 (Prior Failure Cleared & Witnessed)**: Path A failed earlier; subsequent observation at Chokepoint A verified clearance (`doorway_state == FREE`). Robot is at $J_0$.
-
----
-
-## 3. Strict, Uniform Unknown & Exploration Rules
-
-To prevent synthetic handicapping of any baseline, all policies operate under identical exploration rules for $\text{UNKNOWN}$ states:
-
-1. **Nominal Preference**: When all viable routes have status $\text{UNKNOWN}$ and are un-suppressed, the default planner dispatches the shortest nominal route (Path A).
-2. **Suppression Routing**: When a route is suppressed (by failure memory), the planner automatically dispatches the next shortest un-suppressed route (Path B).
-3. **Observation Cadence**: Observations are evaluated at $0.5\,\text{Hz}$ ($2.0\,\text{s}$ sim time) across all policies.
+### 3.2 Nav2 Global Costmap Integrity & Shared Memory Verification
+- A critical audit requirement is verifying whether the Nav2 global costmap retains previously detected obstacle markers after the robot returns to $J_0$.
+- If the global costmap retains historical obstacle cells, it represents a shared source of spatial memory. The costmap state must be explicitly tracked and documented as an input to all policies, avoiding false claims that "all inputs are identical" if one policy has costmap retention while another does not.
+- Global costmap settings will be identical across all methods (R, O, F).
 
 ---
 
-## 4. Evaluated Policy Architectures
+## 4. Paired Historical Diagnostic Sequences (D0, D1, D2)
 
-| Policy ID | Architecture | Policy Mechanism | Expected Behavior in Condition C2 ($\mathcal{O}(J_0) = \text{UNKNOWN}$, Prior Failure on Path A) |
-| :--- | :--- | :--- | :--- |
-| **M0** | No Memory Baseline | Naive re-attempt of nominal route | Traverses into Path A, hits blockage, retreats/fails repeatedly (High dead-end cost). |
-| **M1** | Persistent Memory | Permanent suppression of Path A upon failure | Routes to Path B immediately (0 dead-end traversals, but fails if Path A clears in S2). |
-| **M2** | FailMem Conditional Memory | Precondition-guarded suppression + invalidation | Routes to Path B in C2; invalidates and re-enables Path A upon verified clearance. |
-| **M3** | Instantaneous Reactive Perception | Pure reactive dispatch gating ($\text{FREE} \to \text{allow}$, $\text{OCCUPIED} \to \text{suppress}$, $\text{UNKNOWN} \to \text{explore}$) | Sees $\text{UNKNOWN}$ at $J_0 \to$ cannot differentiate C1 from C2 $\to$ must re-traverse Path A to inspect. |
-| **M4** | Observation Cache / Sliding Window ($\tau$) | Short-term spatial observation buffer with timeout $\tau$ | Evaluates if short-term sensory cache is sufficient or if semantic failure memory is required. |
+To evaluate H1, H2, and H3 without robot teleportation or artificial history injection, we define three physical diagnostic scenarios starting and deciding at Junction $J_0$:
+
+- **Diagnostic D0 (Untried Baseline / Fresh State)**:
+  * Robot is at Junction $J_0$ with no prior traversal history.
+  * Chokepoint A state is `UNKNOWN` to local sensors.
+  * *Test*: Does the policy dispatch Path A under nominal exploration?
+
+- **Diagnostic D1 (Prior Failure Confirmed Blocked)**:
+  * Robot physically traverses Path A from $J_0$, detects blockage at Chokepoint A (action aborts/fails and records `OCCUPIED` scan), and physically retreats back to $J_0$.
+  * At $J_0$, local sensors currently observe `UNKNOWN` for Chokepoint A, but the event history contains the blockage.
+  * *Test*: Does the policy dispatch Path B immediately (O / F), or does it re-traverse into Path A (R)?
+
+- **Diagnostic D2 (Prior Failure Followed by Verified Clearance)**:
+  * Following D1, the obstacle at Chokepoint A is cleared. The robot physically probes/observes Chokepoint A `FREE`, and returns to $J_0$.
+  * At $J_0$, local sensors observe `UNKNOWN`.
+  * *Test*: Does the policy revert to the shorter Path A (O / F), or does it persist on the detour Path B (M1)?
 
 ---
 
-## 5. Quantitative Evaluation Metrics & Falsification Criteria
+## 5. Quantitative Metrics
 
-### 5.1 Primary Orthogonal Metrics
+For all trials, we report separate metrics for the **History Acquisition Phase** (if applicable), the **Subsequent Decision Phase**, and the **End-to-End Total**:
 
-1. **Dead-End Traversal Count ($N_{\text{dead}}$)**: Number of times the robot enters the blocked corridor (Path A) when Chokepoint A is blocked.
-2. **Total Traversed Distance ($D_{\text{total}}$ in meters)**: Integrated odometry distance from episode start to goal arrival.
-3. **Mission Completion Sim Time ($T_{\text{mission}}$ in seconds)**.
-4. **Redundant Dispatch Count ($N_{\text{redundant}}$)**.
-5. **False Negative Permanent Suppression Rate ($R_{\text{false\_neg}}$)**: Fraction of episodes where clearance occurred but policy permanently failed to reach goal.
-
-### 5.2 Falsification Criteria (Scientific Hypotheses)
-
-- **Falsification Criterion 1 (Hypothesis of Memory Utility)**:
-  - If in Condition C2, M3 (instantaneous perception) or M4 (sliding window cache) achieves dead-end traversal count $N_{\text{dead}} = 0$ without execution history, **the utility of failure memory is falsified**.
-  - Conversely, if M2 achieves $N_{\text{dead}} = 0$ while M3 incurs $N_{\text{dead}} \ge 1$ (statistically significant $p < 0.01$), **the non-substitutable necessity of failure memory under NLOS is confirmed**.
-
-- **Falsification Criterion 2 (Conditional Invalidation vs. Persistent Memory)**:
-  - If in Sequence S2 (clearance after failure), M1 achieves task success rate equal to M2 ($100\%$), **conditional invalidation is falsified as redundant**.
-  - Conversely, if M1 exhibits $0\%$ success (permanent suppression) while M2 achieves $100\%$ recovery, **conditional invalidation is confirmed necessary**.
+1. **Dead-End Traversal Count ($N_{\text{dead}}$)**: Number of times the robot enters the blocked corridor of Path A while Chokepoint A is blocked.
+2. **Post-Decision Trajectory Distance ($D_{\text{decision}}$ in meters)**: Integrated distance from decision at $J_0$ to final arrival.
+3. **Post-Decision Sim Time ($T_{\text{decision}}$ in seconds)**: Sim time from decision at $J_0$ to final arrival.
+4. **End-to-End Total Trajectory Distance ($D_{\text{total}}$)** and **Total Sim Time ($T_{\text{total}}$)**.
+5. **Route Selection**: Path A vs. Path B.
+6. **Navigation Action Dispatches & Suppressions**.

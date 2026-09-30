@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""FailMem P2a/P2b Offline Replay & Objective Scoring Suite (v3.2).
+"""FailMem P2a/P2b Offline Replay & Objective Scoring Suite (v3.3).
 
 Strict Replay Architecture:
 1. Mandatory Frozen Configuration:
    - Replay strictly loads `runtime_config.json` from the target run/episode directory.
    - If missing or unverified, explicitly marks the run/episode as UNVERIFIABLE.
-2. Pure Raw Event Reconstruction:
-   - Reconstructs failure memory state, invalidation, and recovery lifecycle purely
-     from raw perception records (doorway_perception.json) and attempt results (attempt_*/action_result.json, etc.).
-   - Does NOT read `policy_state` snapshots from memory_events.json or episode_summary.json.
-3. Decoupled Multi-Layer Anti-Tamper Verification:
-   - Verifies raw artifact checksums against `checksums.sha256` -> `raw_checksum_tamper_detected`.
-   - Cross-checks recomputed metrics against `episode_summary.json` -> `summary_discrepancy_detected`.
-   - Cross-checks recomputed memory transitions against `memory_events.json` `policy_state` -> `policy_state_discrepancy_detected`.
+2. Pure Raw Event Reconstruction with Strict Causal Tracing:
+   - Reconstructs failure memory state, invalidation, and recovery lifecycle by
+     instantiating a clean `FailureMemoryStore` and feeding raw perception records
+     (doorway_perception.json) and attempt results (attempt_*/action_result.json).
+   - Only qualifies blockage failure when action actually failed AND has fresh OCCUPIED evidence.
+   - Eliminates backward time tolerances (strictly > and >=).
+   - Enforces exact map_version, region_id, and recovery_action_id binding checks.
+3. Multi-Layer Anti-Tamper & Validity Evaluation:
+   - `episode_valid` computed from config integrity, artifact existence, timeline monotonicity,
+     budget adherence, and absence of infrastructure anomalies.
+   - `raw_checksum_tamper_detected`: Hashes against `checksums.sha256`.
+   - `summary_discrepancy_detected`: Cross-checks recomputed metrics against `episode_summary.json`.
+   - `policy_state_discrepancy_detected`: Cross-checks memory states against `memory_events.json`.
 4. Sensitivity Re-scoring:
    - Supports --sensitivity-003 to evaluate impact of strict 0.03 m/s / 0.03 rad/s physical halt thresholds.
-   - Saves results into a separate `sensitivity_report_003.json` without overwriting the original frozen report.
+   - Saves results into a separate `sensitivity_report_003.json` without overwriting frozen baseline.
 """
 
 from __future__ import annotations
@@ -42,6 +47,11 @@ from src.scoring_evaluator import (
     is_finite_number,
 )
 from src.online_verifier import verify_online_arrival
+from src.failure_memory import (
+    FailureMemoryStore,
+    MemoryState,
+    is_failure_eligible_for_doorway_memory,
+)
 
 
 def compute_file_sha256(file_path: Path) -> str:
@@ -127,6 +137,17 @@ def replay_and_score_attempt(
     if completion_sim_time is None and final_amcl:
         completion_sim_time = final_amcl.get("msg_stamp_sec", final_amcl.get("recv_sim_time_sec"))
 
+    # Categorize failure type
+    is_infra_failure = (
+        exec_outcome in ["INFRASTRUCTURE_FAILURE", "ROS_COMM_FAILURE", "CRASH"]
+        or (watchdog_triggered and not window_records)
+    )
+    is_action_failure = (
+        nav2_status in ["ABORTED", "CANCELED", "TIMEOUT"]
+        or exec_outcome in ["BUDGET_FAILURE", "BUDGET_DEADLINE_EXCEEDED"]
+        or deadline_exceeded
+    ) and not is_infra_failure
+
     # 1. Recompute physical evaluation (GT only)
     recomputed_eval = evaluate_navigation_episode(
         target_goal=target_goal,
@@ -164,10 +185,15 @@ def replay_and_score_attempt(
         "dispatch_elapsed_sim": action_result.get("dispatch_elapsed_sim"),
         "completion_sim_time": completion_sim_time,
         "target_goal": target_goal,
+        "target_region": target_region,
+        "map_version": map_version,
         "nav2_status": nav2_status,
         "execution_outcome": exec_outcome,
+        "is_action_failure": is_action_failure,
+        "is_infra_failure": is_infra_failure,
         "online_action_succeeded": recomputed_online_success,
         "online_failure_reasons": online_reasons,
+        "online_feedback": online_feedback,
         "evaluator_verified_success": eval_arrival,
         "disagreement_reason": disagreement,
         "recomputed_evaluation": recomputed_eval,
@@ -183,6 +209,7 @@ def replay_and_score_episode(
     """Replay and re-score an entire episode strictly from raw artifacts with pure state reconstruction."""
     ep_id = ep_dir.name
     missing_artifacts: List[str] = []
+    unverifiable_reasons: List[str] = []
 
     # Check raw event logs
     perception_path = ep_dir / "doorway_perception.json"
@@ -199,7 +226,6 @@ def replay_and_score_episode(
         key=lambda d: int(d.name.split("_")[-1]) if d.name.split("_")[-1].isdigit() else 999,
     )
 
-    # If missing artifacts at root, mark UNVERIFIABLE
     if missing_artifacts:
         return {
             "episode_id": ep_id,
@@ -231,11 +257,27 @@ def replay_and_score_episode(
                         })
 
     # Load raw event logs
-    with open(perception_path, "r", encoding="utf-8") as f:
-        doorway_perceptions = json.load(f)
+    try:
+        with open(perception_path, "r", encoding="utf-8") as f:
+            doorway_perceptions = json.load(f)
+    except Exception as e:
+        return {
+            "episode_id": ep_id,
+            "status": "UNVERIFIABLE",
+            "unverifiable_reasons": [f"Corrupted doorway_perception.json: {e}"],
+            "episode_valid": False,
+        }
 
-    with open(memory_events_path, "r", encoding="utf-8") as f:
-        memory_events = json.load(f)
+    try:
+        with open(memory_events_path, "r", encoding="utf-8") as f:
+            memory_events = json.load(f)
+    except Exception as e:
+        return {
+            "episode_id": ep_id,
+            "status": "UNVERIFIABLE",
+            "unverifiable_reasons": [f"Corrupted memory_events.json: {e}"],
+            "episode_valid": False,
+        }
 
     # Parse condition/policy/sequence from directory name
     parts = ep_id.split("_")
@@ -256,6 +298,25 @@ def replay_and_score_episode(
             }
         attempt_results.append(att_res)
 
+    # Validate timeline health and timestamps monotonicity
+    prev_sim = -1.0
+    for obs in doorway_perceptions:
+        s_time = obs.get("sim_time")
+        if not is_finite_number(s_time):
+            unverifiable_reasons.append("Non-finite sim_time in doorway_perception")
+            break
+        if s_time < prev_sim:
+            unverifiable_reasons.append(f"Retrograde sim_time in doorway_perception: {s_time} < {prev_sim}")
+            break
+        prev_sim = s_time
+
+    # Validate budget limit
+    max_budget = float(runtime_config.get("protocol", {}).get("navigation_task", {}).get("episode_total_sim_budget_sec", 75.0)) if runtime_config else 75.0
+    if attempt_results:
+        last_disp = attempt_results[-1].get("dispatch_elapsed_sim")
+        if last_disp is not None and last_disp > (max_budget + 5.0):
+            unverifiable_reasons.append(f"Episode execution exceeded total budget: elapsed={last_disp}s > {max_budget}s")
+
     # Independent Metric Reconstruction (Pure Raw Data)
     navigation_attempt_count = len(attempt_results)
     observation_count = len(doorway_perceptions)
@@ -272,10 +333,9 @@ def replay_and_score_episode(
         att_idx = att.get("attempt_index", 1)
         if att_idx > 1:
             att_dispatch_sim = att.get("dispatch_time_sim", 0.0)
-            # Find latest raw perception before or at dispatch
             preceding_obs = [
                 obs for obs in doorway_perceptions
-                if obs.get("sim_time", 0.0) <= (att_dispatch_sim + 0.1)
+                if round(obs.get("sim_time", 0.0), 4) <= round(att_dispatch_sim, 4)
             ]
             if preceding_obs:
                 latest_state = preceding_obs[-1].get("evaluation", {}).get("doorway_state")
@@ -295,10 +355,12 @@ def replay_and_score_episode(
 
     task_success = evaluator_verified_success
 
-    # 4. Pure Raw Memory Lifecycle Reconstruction (Zero policy_state inspection)
-    invalidation_verified = False
-    policy_reported_recovery = False
-    evaluator_verified_recovery = (evaluator_verified_success is True and navigation_attempt_count >= 2)
+    # 4. Pure Deterministic Memory Lifecycle Reconstruction per memory_id
+    # We instantiate FailureMemoryStore and evaluate lifecycle strictly from raw events
+    store = FailureMemoryStore(region_matching_tolerance_m=0.50)
+    target_goal = attempt_results[0].get("target_goal", [1.8, 0.0, 0.0]) if attempt_results else [1.8, 0.0, 0.0]
+    target_region = attempt_results[0].get("target_region", "room2_corridor_chokepoint") if attempt_results else "room2_corridor_chokepoint"
+    map_version = attempt_results[0].get("map_version", "chokepoint_world_v1") if attempt_results else "chokepoint_world_v1"
 
     exact_timestamps: Dict[str, Any] = {
         "failure_times": [],
@@ -308,43 +370,98 @@ def replay_and_score_episode(
         "observation_stamps": [obs.get("sim_time") for obs in doorway_perceptions if obs.get("sim_time") is not None],
     }
 
-    # Extract failure times from failed attempts
-    for att in attempt_results:
-        att_succ = att.get("online_action_succeeded", False)
-        if not att_succ:
-            f_time = att.get("completion_sim_time") or att.get("dispatch_time_sim")
-            if f_time is not None and f_time not in exact_timestamps["failure_times"]:
-                exact_timestamps["failure_times"].append(f_time)
+    # Step 4a: Process Attempt 1 failure (if policy records failure memory: M1 or M2)
+    if policy_name in ["M1", "M2"] and attempt_results:
+        att1 = attempt_results[0]
+        if att1["is_action_failure"] and not att1["is_infra_failure"]:
+            att1_fail_time = att1["completion_sim_time"] or att1["dispatch_time_sim"]
+            exact_timestamps["failure_times"].append(att1_fail_time)
 
-    # For M2 (Conditional Memory): Reconstruct invalidation from raw FREE perception after failure
-    if policy_name == "M2" and exact_timestamps["failure_times"]:
-        first_fail_time = exact_timestamps["failure_times"][0]
-        # Find raw perception observation that witnessed doorway FREE after failure
-        valid_free_obs = [
-            obs for obs in doorway_perceptions
-            if obs.get("sim_time", 0.0) > (first_fail_time - 0.5)
-            and obs.get("evaluation", {}).get("doorway_state") == "FREE"
-        ]
-        if valid_free_obs:
-            invalidation_verified = True
-            inval_time = valid_free_obs[0].get("sim_time")
-            exact_timestamps["invalidation_times"].append(inval_time)
+            # Find fresh OCCUPIED observation matching failure
+            fresh_occ_obs = [
+                obs for obs in doorway_perceptions
+                if abs(obs.get("sim_time", 0.0) - att1_fail_time) <= 5.0
+                and obs.get("evaluation", {}).get("doorway_state") == "OCCUPIED"
+            ]
+            if fresh_occ_obs:
+                chosen_obs = fresh_occ_obs[-1]
+                store.record_failure(
+                    goal=target_goal,
+                    region_id=target_region,
+                    failure_reason=str(att1.get("execution_outcome", "BUDGET_FAILURE")),
+                    sim_time=att1_fail_time,
+                    failed_action_id=str(att1.get("action_id", "attempt_1")),
+                    failure_evidence_id=str(chosen_obs.get("action_id", "obs_fail")),
+                    failure_evidence=chosen_obs.get("evaluation", {}),
+                    map_version=map_version,
+                )
 
-            # Check subsequent recovery attempts dispatched after invalidation
-            for att in attempt_results:
-                if att.get("attempt_index", 1) >= 2:
-                    disp_sim = att.get("dispatch_time_sim")
-                    if disp_sim is not None and disp_sim >= (inval_time - 0.5):
-                        if disp_sim not in exact_timestamps["recovery_dispatch_times"]:
-                            exact_timestamps["recovery_dispatch_times"].append(disp_sim)
-                        if att.get("online_action_succeeded"):
-                            policy_reported_recovery = True
-                            rec_time = att.get("completion_sim_time")
-                            if rec_time and rec_time not in exact_timestamps["recovery_success_times"]:
-                                exact_timestamps["recovery_success_times"].append(rec_time)
+    # Step 4b: Process observations for invalidation (M2 only)
+    if policy_name == "M2" and store.entries:
+        for obs in doorway_perceptions:
+            obs_eval = obs.get("evaluation", {})
+            obs_sim = obs.get("sim_time", 0.0)
+            # Invalidation strictly requires doorway FREE
+            if obs_eval.get("doorway_state") == "FREE":
+                # Ensure region/map match
+                ev_to_check = dict(obs_eval)
+                ev_to_check["timestamp_sim"] = obs_sim
+                invalidated = store.evaluate_perception_for_invalidation(
+                    perception_evidence=ev_to_check,
+                    sim_time=obs_sim,
+                    evidence_id=str(obs.get("action_id", f"obs_{obs.get('observation_index')}")),
+                    map_version=map_version,
+                    region_id=target_region,
+                )
+                if invalidated:
+                    for inv_e in invalidated:
+                        if inv_e.invalidation_time and inv_e.invalidation_time not in exact_timestamps["invalidation_times"]:
+                            exact_timestamps["invalidation_times"].append(inv_e.invalidation_time)
+
+    # Step 4c: Process recovery action dispatch & arrival verification (M2 only)
+    if policy_name == "M2" and store.entries:
+        for att in attempt_results[1:]:
+            att_disp_sim = att.get("dispatch_time_sim", 0.0)
+            att_action_id = att.get("action_id")
+            # Bind recovery action if memory was invalidated strictly at or before dispatch
+            bound_mem_id = store.bind_recovery_action(
+                target_goal=target_goal,
+                target_region=target_region,
+                recovery_action_id=str(att_action_id),
+                sim_time=att_disp_sim,
+                map_version=map_version,
+            )
+            if bound_mem_id:
+                exact_timestamps["recovery_dispatch_times"].append(att_disp_sim)
+                # Verify recovery online feedback upon completion
+                att_comp_sim = att.get("completion_sim_time", att_disp_sim)
+                verified = store.verify_recovery(
+                    target_goal=target_goal,
+                    recovery_action_id=str(att_action_id),
+                    online_feedback=att.get("online_feedback", {}),
+                    sim_time=att_comp_sim,
+                    target_region=target_region,
+                    map_version=map_version,
+                    thresholds=thresholds,
+                )
+                if verified:
+                    exact_timestamps["recovery_success_times"].append(att_comp_sim)
+
+    # Extract memory lifecycle states from store
+    invalidation_verified = any(
+        e.state in (MemoryState.INVALIDATED, MemoryState.RECOVERY_VERIFIED)
+        for e in store.entries
+    )
+    policy_reported_recovery = any(
+        e.state == MemoryState.RECOVERY_VERIFIED
+        for e in store.entries
+    )
+    evaluator_verified_recovery = (
+        policy_reported_recovery and any(att["evaluator_verified_success"] for att in attempt_results[1:])
+    )
 
     # 5. Causal Mechanism Verification
-    episode_valid = True
+    episode_valid = (len(unverifiable_reasons) == 0) and not raw_checksum_tamper_detected
     mechanism_verified = False
 
     if sequence_name == "S1":
@@ -369,7 +486,8 @@ def replay_and_score_episode(
         "condition_id": condition_id,
         "policy_name": policy_name,
         "sequence_name": sequence_name,
-        "status": "VERIFIED",
+        "status": "VERIFIED" if episode_valid else "UNVERIFIABLE",
+        "unverifiable_reasons": unverifiable_reasons,
         "episode_valid": episode_valid,
         "policy_reported_success": policy_reported_success,
         "evaluator_verified_success": evaluator_verified_success,
@@ -445,7 +563,6 @@ def replay_and_score_episode(
     recomputed_result["summary_discrepancies"] = summary_discrepancies
     recomputed_result["policy_state_discrepancy_detected"] = policy_state_discrepancy_detected
     recomputed_result["policy_state_discrepancies"] = policy_state_discrepancies
-    # Overall tamper detected flag
     recomputed_result["tamper_detected"] = (
         raw_checksum_tamper_detected or summary_discrepancy_detected or policy_state_discrepancy_detected
     )
@@ -465,12 +582,10 @@ def find_target_episodes_and_config(
     if not target.exists():
         return [], None, None, f"Target path does not exist: {target}"
 
-    # Determine run_dir and config path
     run_dir: Optional[Path] = None
     config_path: Optional[Path] = None
 
     if (target / "doorway_perception.json").exists() or (target / "attempt_1").exists():
-        # Single episode directory
         ep_dirs = [target]
         candidate_run_dir = target.parent
         if (candidate_run_dir / "runtime_config.json").exists():
@@ -480,7 +595,6 @@ def find_target_episodes_and_config(
             run_dir = target
             config_path = target / "runtime_config.json"
     else:
-        # Run directory containing multiple episodes
         run_dir = target
         if (target / "runtime_config.json").exists():
             config_path = target / "runtime_config.json"
@@ -526,7 +640,6 @@ def main():
 
     if error_msg and not runtime_config:
         print(f"[ERROR] UNVERIFIABLE: {error_msg}")
-        # Emit UNVERIFIABLE report
         replay_report = {
             "target_path": str(target),
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -547,7 +660,6 @@ def main():
         print(f"Report written to: {report_file}")
         sys.exit(0)
 
-    # Extract thresholds from runtime_config
     base_thresholds = (
         runtime_config.get("scoring_thresholds")
         or runtime_config.get("protocol", {}).get("scoring_thresholds")

@@ -796,3 +796,138 @@ def test_replay_policy_state_injection_ignored(tmp_path):
     # Discrepancy detected because fake policy_state had recovery_verified_count = 1
     assert res["policy_state_discrepancy_detected"] is True
 
+
+def test_replay_negative_free_before_failure(tmp_path):
+    """Verify that a FREE observation occurring BEFORE failure time does NOT invalidate memory."""
+    import json
+    from scripts.replay_and_score_p2a import replay_and_score_episode
+
+    ep_dir = tmp_path / "M2_S2_ep1"
+    ep_dir.mkdir()
+
+    # FREE obs at t=10.0s (BEFORE failure at t=20.0s), OCCUPIED at t=20.0s
+    with open(ep_dir / "doorway_perception.json", "w") as f:
+        json.dump([
+            {"sim_time": 10.0, "action_id": "obs_1", "evaluation": {"doorway_state": "FREE", "region_id": "room2_corridor_chokepoint"}},
+            {"sim_time": 20.0, "action_id": "obs_2", "evaluation": {"doorway_state": "OCCUPIED", "region_id": "room2_corridor_chokepoint"}},
+        ], f)
+
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump([{"event_type": "DISPATCH_GATE_CHECK", "allowed": False}], f)
+
+    att1_dir = ep_dir / "attempt_1"
+    att1_dir.mkdir()
+    with open(att1_dir / "action_result.json", "w") as f:
+        json.dump({"attempt_index": 1, "target_goal": [1.8, 0.0, 0.0], "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_FAILURE", "dispatch_time_sim": 0.0, "completion_sim_time": 20.0}, f)
+    with open(att1_dir / "online_feedback.json", "w") as f:
+        json.dump({"nav2_status": "ABORTED", "execution_outcome": "BUDGET_FAILURE", "online_action_succeeded": False}, f)
+    with open(att1_dir / "stability_window.json", "w") as f:
+        json.dump({"window_records": []}, f)
+    with open(att1_dir / "trajectory.json", "w") as f:
+        json.dump({"gt_trajectory": [], "odom_trajectory": []}, f)
+
+    thresh = {"position_tolerance_m": 0.30, "yaw_tolerance_rad": 0.35, "max_linear_velocity_mps": 0.05, "max_angular_velocity_radps": 0.08}
+    res = replay_and_score_episode(ep_dir, thresh)
+    assert res["invalidation_verified"] is False
+    assert res["policy_reported_recovery"] is False
+
+
+def test_replay_negative_other_region_free(tmp_path):
+    """Verify that a FREE observation for a DIFFERENT region does NOT invalidate memory."""
+    import json
+    from scripts.replay_and_score_p2a import replay_and_score_episode
+
+    ep_dir = tmp_path / "M2_S2_ep1"
+    ep_dir.mkdir()
+
+    with open(ep_dir / "doorway_perception.json", "w") as f:
+        json.dump([
+            {"sim_time": 20.0, "action_id": "obs_1", "evaluation": {"doorway_state": "OCCUPIED", "region_id": "room2_corridor_chokepoint"}},
+            # FREE observation is for room1_corner, NOT room2_corridor_chokepoint!
+            {"sim_time": 25.0, "action_id": "obs_2", "evaluation": {"doorway_state": "FREE", "region_id": "room1_corner"}},
+        ], f)
+
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump([{"event_type": "DISPATCH_GATE_CHECK", "allowed": False}], f)
+
+    att1_dir = ep_dir / "attempt_1"
+    att1_dir.mkdir()
+    with open(att1_dir / "action_result.json", "w") as f:
+        json.dump({"attempt_index": 1, "target_goal": [1.8, 0.0, 0.0], "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_FAILURE", "dispatch_time_sim": 0.0, "completion_sim_time": 20.0}, f)
+    with open(att1_dir / "online_feedback.json", "w") as f:
+        json.dump({"nav2_status": "ABORTED", "execution_outcome": "BUDGET_FAILURE", "online_action_succeeded": False}, f)
+    with open(att1_dir / "stability_window.json", "w") as f:
+        json.dump({"window_records": []}, f)
+    with open(att1_dir / "trajectory.json", "w") as f:
+        json.dump({"gt_trajectory": [], "odom_trajectory": []}, f)
+
+    thresh = {"position_tolerance_m": 0.30, "yaw_tolerance_rad": 0.35, "max_linear_velocity_mps": 0.05, "max_angular_velocity_radps": 0.08}
+    res = replay_and_score_episode(ep_dir, thresh)
+    assert res["invalidation_verified"] is False
+
+
+def test_replay_negative_infrastructure_failure_not_memory_eligible(tmp_path):
+    """Verify that infrastructure failures do NOT qualify as doorway blockage memories."""
+    import json
+    from scripts.replay_and_score_p2a import replay_and_score_episode
+
+    ep_dir = tmp_path / "M2_S2_ep1"
+    ep_dir.mkdir()
+
+    with open(ep_dir / "doorway_perception.json", "w") as f:
+        json.dump([{"sim_time": 0.0, "evaluation": {"doorway_state": "OCCUPIED"}}], f)
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump([], f)
+
+    att1_dir = ep_dir / "attempt_1"
+    att1_dir.mkdir()
+    # Infrastructure crash
+    with open(att1_dir / "action_result.json", "w") as f:
+        json.dump({"attempt_index": 1, "target_goal": [1.8, 0.0, 0.0], "terminal_status_name": "UNKNOWN", "execution_outcome": "INFRASTRUCTURE_FAILURE", "dispatch_time_sim": 0.0}, f)
+    with open(att1_dir / "online_feedback.json", "w") as f:
+        json.dump({"nav2_status": "UNKNOWN", "execution_outcome": "INFRASTRUCTURE_FAILURE", "online_action_succeeded": False}, f)
+    with open(att1_dir / "stability_window.json", "w") as f:
+        json.dump({"window_records": [], "watchdog_triggered": True}, f)
+    with open(att1_dir / "trajectory.json", "w") as f:
+        json.dump({"gt_trajectory": [], "odom_trajectory": []}, f)
+
+    thresh = {"position_tolerance_m": 0.30, "yaw_tolerance_rad": 0.35, "max_linear_velocity_mps": 0.05, "max_angular_velocity_radps": 0.08}
+    res = replay_and_score_episode(ep_dir, thresh)
+    assert len(res["exact_timestamps"]["failure_times"]) == 0
+
+
+def test_replay_negative_retrograde_timestamps_unverifiable(tmp_path):
+    """Verify that retrograde/non-monotonic timestamps in perception mark episode UNVERIFIABLE."""
+    import json
+    from scripts.replay_and_score_p2a import replay_and_score_episode
+
+    ep_dir = tmp_path / "M2_S2_ep1"
+    ep_dir.mkdir()
+
+    # Retrograde timestamp: 25.0s then 20.0s
+    with open(ep_dir / "doorway_perception.json", "w") as f:
+        json.dump([
+            {"sim_time": 25.0, "evaluation": {"doorway_state": "OCCUPIED"}},
+            {"sim_time": 20.0, "evaluation": {"doorway_state": "OCCUPIED"}},
+        ], f)
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump([], f)
+
+    att1_dir = ep_dir / "attempt_1"
+    att1_dir.mkdir()
+    with open(att1_dir / "action_result.json", "w") as f:
+        json.dump({"attempt_index": 1, "target_goal": [1.8, 0.0, 0.0], "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_FAILURE", "dispatch_time_sim": 0.0}, f)
+    with open(att1_dir / "online_feedback.json", "w") as f:
+        json.dump({"nav2_status": "ABORTED", "execution_outcome": "BUDGET_FAILURE", "online_action_succeeded": False}, f)
+    with open(att1_dir / "stability_window.json", "w") as f:
+        json.dump({"window_records": []}, f)
+    with open(att1_dir / "trajectory.json", "w") as f:
+        json.dump({"gt_trajectory": [], "odom_trajectory": []}, f)
+
+    thresh = {"position_tolerance_m": 0.30, "yaw_tolerance_rad": 0.35, "max_linear_velocity_mps": 0.05, "max_angular_velocity_radps": 0.08}
+    res = replay_and_score_episode(ep_dir, thresh)
+    assert res["status"] == "UNVERIFIABLE"
+    assert res["episode_valid"] is False
+    assert any("Retrograde sim_time" in r for r in res["unverifiable_reasons"])
+
+

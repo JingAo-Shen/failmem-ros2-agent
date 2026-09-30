@@ -1,6 +1,6 @@
 {
   "target_path": "reports/evidence/p2b/p2b_20260930_023426_385655",
-  "timestamp_utc": "2026-09-30T03:36:05.708037+00:00",
+  "timestamp_utc": "2026-09-30T03:45:07.692530+00:00",
   "mode": "frozen_baseline",
   "applied_thresholds": {
     "position_tolerance_m": 0.3,
@@ -22,9 +22,9 @@
   "total_episodes_replayed": 24,
   "verified_episodes": 24,
   "unverifiable_episodes": 0,
-  "tamper_detected_episodes": 3,
+  "tamper_detected_episodes": 5,
   "raw_checksum_tamper_episodes": 0,
-  "summary_discrepancy_episodes": 0,
+  "summary_discrepancy_episodes": 2,
   "mechanism_verified_episodes": 23,
   "episodes": [
     {
@@ -33,6 +33,7 @@
       "policy_name": "M0",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -47,11 +48,7 @@
       "policy_reported_recovery": false,
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
-        "failure_times": [
-          47.6,
-          72.8,
-          97.9
-        ],
+        "failure_times": [],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
@@ -75,8 +72,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -85,6 +86,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3373m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.5987rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M0_S1_ep1_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 23,
+              "msg_stamp_sec": 41.171,
+              "recv_sim_time_sec": 41.2,
+              "x": -1.5199,
+              "y": -0.34,
+              "yaw": 1.5987,
+              "covariance_diagonal": [
+                0.013086,
+                0.011422,
+                0.019675
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.3373,
+              "amcl_yaw_error_rad": 1.5987,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 41.171,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3373m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.5987rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3373m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.5987rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -145,8 +210,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -155,6 +224,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0320m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (3.0389rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M0_S1_ep1_nav_attempt2",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 39,
+              "msg_stamp_sec": 66.576,
+              "recv_sim_time_sec": 66.6,
+              "x": -1.2128,
+              "y": -0.3409,
+              "yaw": -3.0389,
+              "covariance_diagonal": [
+                0.016054,
+                0.011164,
+                0.018462
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0001,
+              "angular_v": -0.0007
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.032,
+              "amcl_yaw_error_rad": 3.0389,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 66.576,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0001,
+              "halt_angular_velocity_radps": -0.0007,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0320m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (3.0389rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0320m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (3.0389rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -215,8 +348,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -225,6 +362,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0334m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.4682rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 3,
+            "action_id": "M0_S1_ep1_nav_attempt3",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 55,
+              "msg_stamp_sec": 91.376,
+              "recv_sim_time_sec": 91.4,
+              "x": -1.233,
+              "y": -0.0461,
+              "yaw": -1.4682,
+              "covariance_diagonal": [
+                0.009738,
+                0.01275,
+                0.0207
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": -0.0,
+              "angular_v": -0.001
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.0334,
+              "amcl_yaw_error_rad": 1.4682,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 91.376,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": -0.0,
+              "halt_angular_velocity_radps": -0.001,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0334m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.4682rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0334m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.4682rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -288,6 +489,7 @@
       "policy_name": "M0",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -302,11 +504,7 @@
       "policy_reported_recovery": false,
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
-        "failure_times": [
-          47.6,
-          72.6,
-          97.6
-        ],
+        "failure_times": [],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
@@ -330,8 +528,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -340,6 +542,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6975m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6127rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M0_S1_ep2_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 18,
+              "msg_stamp_sec": 40.569,
+              "recv_sim_time_sec": 40.5,
+              "x": -1.8834,
+              "y": -0.3226,
+              "yaw": 1.6127,
+              "covariance_diagonal": [
+                0.010949,
+                0.013194,
+                0.023599
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6975,
+              "amcl_yaw_error_rad": 1.6127,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.569,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6975m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6127rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6975m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6127rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -400,8 +666,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -410,6 +680,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3835m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (3.0271rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M0_S1_ep2_nav_attempt2",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 34,
+              "msg_stamp_sec": 64.57,
+              "recv_sim_time_sec": 64.5,
+              "x": -1.5686,
+              "y": -0.3174,
+              "yaw": -3.0271,
+              "covariance_diagonal": [
+                0.016535,
+                0.00783,
+                0.020333
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0001,
+              "angular_v": -0.0007
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.3835,
+              "amcl_yaw_error_rad": 3.0271,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 64.57,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0001,
+              "halt_angular_velocity_radps": -0.0007,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3835m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (3.0271rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3835m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (3.0271rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -470,8 +804,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -480,6 +818,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3720m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.4225rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 3,
+            "action_id": "M0_S1_ep2_nav_attempt3",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 50,
+              "msg_stamp_sec": 89.37,
+              "recv_sim_time_sec": 89.3,
+              "x": -1.5718,
+              "y": -0.0329,
+              "yaw": -1.4225,
+              "covariance_diagonal": [
+                0.011516,
+                0.012527,
+                0.020461
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": -0.0,
+              "angular_v": -0.001
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.372,
+              "amcl_yaw_error_rad": 1.4225,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 89.37,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": -0.0,
+              "halt_angular_velocity_radps": -0.001,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3720m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.4225rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3720m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.4225rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -543,6 +945,7 @@
       "policy_name": "M0",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -557,11 +960,7 @@
       "policy_reported_recovery": false,
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
-        "failure_times": [
-          47.2,
-          72.3,
-          97.6
-        ],
+        "failure_times": [],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
@@ -585,8 +984,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -595,6 +998,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6639m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6347rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M0_S1_ep3_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.37,
+              "recv_sim_time_sec": 40.3,
+              "x": -1.8512,
+              "y": -0.305,
+              "yaw": 1.6347,
+              "covariance_diagonal": [
+                0.01585,
+                0.01401,
+                0.026358
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6639,
+              "amcl_yaw_error_rad": 1.6347,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.37,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6639m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6347rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6639m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6347rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -655,8 +1122,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -665,6 +1136,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3492m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (2.9607rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M0_S1_ep3_nav_attempt2",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 34,
+              "msg_stamp_sec": 66.773,
+              "recv_sim_time_sec": 66.9,
+              "x": -1.5337,
+              "y": -0.322,
+              "yaw": -2.9607,
+              "covariance_diagonal": [
+                0.01547,
+                0.008555,
+                0.017342
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0006
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.3492,
+              "amcl_yaw_error_rad": 2.9607,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 66.773,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0006,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3492m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (2.9607rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3492m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (2.9607rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -725,8 +1260,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -735,6 +1274,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3696m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.3572rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 3,
+            "action_id": "M0_S1_ep3_nav_attempt3",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 50,
+              "msg_stamp_sec": 91.373,
+              "recv_sim_time_sec": 91.3,
+              "x": -1.5696,
+              "y": -0.0037,
+              "yaw": -1.3572,
+              "covariance_diagonal": [
+                0.011044,
+                0.012219,
+                0.019534
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": -0.0,
+              "angular_v": -0.0011
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.3696,
+              "amcl_yaw_error_rad": 1.3572,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 91.373,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": -0.0,
+              "halt_angular_velocity_radps": -0.0011,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3696m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.3572rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3696m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.3572rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -798,6 +1401,7 @@
       "policy_name": "M0",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": false,
@@ -812,9 +1416,7 @@
       "policy_reported_recovery": false,
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
-        "failure_times": [
-          47.6
-        ],
+        "failure_times": [],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
@@ -836,8 +1438,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -846,6 +1452,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6924m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6074rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M0_S2_ep1_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 18,
+              "msg_stamp_sec": 40.367,
+              "recv_sim_time_sec": 40.3,
+              "x": -1.8811,
+              "y": -0.2885,
+              "yaw": 1.6074,
+              "covariance_diagonal": [
+                0.011494,
+                0.016459,
+                0.022331
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6924,
+              "amcl_yaw_error_rad": 1.6074,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.367,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6924m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6074rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6924m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6074rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -906,10 +1576,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M0_S2_ep1_nav_attempt2",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 75,
+              "msg_stamp_sec": 69.368,
+              "recv_sim_time_sec": 69.3,
+              "x": 1.5689,
+              "y": -0.0449,
+              "yaw": -0.0329,
+              "covariance_diagonal": [
+                0.007463,
+                0.00302,
+                0.011608
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0022,
+              "angular_v": 0.0101
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.2354,
+              "amcl_yaw_error_rad": 0.0329,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 69.368,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": 0.0022,
+              "halt_angular_velocity_radps": 0.0101,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": "EVALUATOR_HALT_FAILED_EXCESS_VELOCITY (max lv=0.0133 > 0.05 or max av=0.0893 > 0.08)",
           "recomputed_evaluation": {
@@ -973,6 +1699,7 @@
       "policy_name": "M0",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": true,
@@ -985,11 +1712,9 @@
       "redundant_retries_count": 1,
       "invalidation_verified": false,
       "policy_reported_recovery": false,
-      "evaluator_verified_recovery": true,
+      "evaluator_verified_recovery": false,
       "exact_timestamps": {
-        "failure_times": [
-          47.3
-        ],
+        "failure_times": [],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
@@ -1011,8 +1736,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -1021,6 +1750,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6713m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6195rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M0_S2_ep2_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.403,
+              "recv_sim_time_sec": 40.4,
+              "x": -1.8557,
+              "y": -0.3383,
+              "yaw": 1.6195,
+              "covariance_diagonal": [
+                0.010913,
+                0.014573,
+                0.024481
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0007
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6713,
+              "amcl_yaw_error_rad": 1.6195,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.403,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0007,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6713m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6195rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6713m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6195rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1081,10 +1874,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M0_S2_ep2_nav_attempt2",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 75,
+              "msg_stamp_sec": 64.403,
+              "recv_sim_time_sec": 64.4,
+              "x": 1.5533,
+              "y": -0.0294,
+              "yaw": 0.0188,
+              "covariance_diagonal": [
+                0.011441,
+                0.005648,
+                0.014555
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0036,
+              "angular_v": 0.0077
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.2484,
+              "amcl_yaw_error_rad": 0.0188,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 64.403,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": 0.0036,
+              "halt_angular_velocity_radps": 0.0077,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": true,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1136,11 +1985,17 @@
       ],
       "raw_checksum_tamper_detected": false,
       "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
+      "summary_discrepancy_detected": true,
+      "summary_discrepancies": [
+        {
+          "field": "evaluator_verified_recovery",
+          "stored_value": true,
+          "recomputed_value": false
+        }
+      ],
       "policy_state_discrepancy_detected": false,
       "policy_state_discrepancies": [],
-      "tamper_detected": false
+      "tamper_detected": true
     },
     {
       "episode_id": "M0_S2_ep3",
@@ -1148,6 +2003,7 @@
       "policy_name": "M0",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": true,
@@ -1160,11 +2016,9 @@
       "redundant_retries_count": 1,
       "invalidation_verified": false,
       "policy_reported_recovery": false,
-      "evaluator_verified_recovery": true,
+      "evaluator_verified_recovery": false,
       "exact_timestamps": {
-        "failure_times": [
-          47.2
-        ],
+        "failure_times": [],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
@@ -1186,8 +2040,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -1196,6 +2054,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6596m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6108rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M0_S2_ep3_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 16,
+              "msg_stamp_sec": 40.201,
+              "recv_sim_time_sec": 40.2,
+              "x": -1.8457,
+              "y": -0.3183,
+              "yaw": 1.6108,
+              "covariance_diagonal": [
+                0.017712,
+                0.016072,
+                0.02834
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6596,
+              "amcl_yaw_error_rad": 1.6108,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.201,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6596m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6108rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6596m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6108rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1256,10 +2178,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M0_S2_ep3_nav_attempt2",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 76,
+              "msg_stamp_sec": 64.401,
+              "recv_sim_time_sec": 64.5,
+              "x": 1.5726,
+              "y": -0.0594,
+              "yaw": 0.1648,
+              "covariance_diagonal": [
+                0.010222,
+                0.004948,
+                0.015411
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0017,
+              "angular_v": 0.008
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.235,
+              "amcl_yaw_error_rad": 0.1648,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 64.401,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": 0.0017,
+              "halt_angular_velocity_radps": 0.008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": true,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1311,11 +2289,17 @@
       ],
       "raw_checksum_tamper_detected": false,
       "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
+      "summary_discrepancy_detected": true,
+      "summary_discrepancies": [
+        {
+          "field": "evaluator_verified_recovery",
+          "stored_value": true,
+          "recomputed_value": false
+        }
+      ],
       "policy_state_discrepancy_detected": false,
       "policy_state_discrepancies": [],
-      "tamper_detected": false
+      "tamper_detected": true
     },
     {
       "episode_id": "M1_S1_ep1",
@@ -1323,6 +2307,7 @@
       "policy_name": "M1",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -1380,8 +2365,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -1390,6 +2379,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6481m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6278rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M1_S1_ep1_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.57,
+              "recv_sim_time_sec": 40.5,
+              "x": -1.8313,
+              "y": -0.3502,
+              "yaw": 1.6278,
+              "covariance_diagonal": [
+                0.014054,
+                0.017142,
+                0.019768
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6481,
+              "amcl_yaw_error_rad": 1.6278,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.57,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6481m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6278rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6481m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6278rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1453,6 +2506,7 @@
       "policy_name": "M1",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -1510,8 +2564,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -1520,6 +2578,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6393m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6115rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M1_S1_ep2_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.559,
+              "recv_sim_time_sec": 40.5,
+              "x": -1.8231,
+              "y": -0.3425,
+              "yaw": 1.6115,
+              "covariance_diagonal": [
+                0.017581,
+                0.016566,
+                0.025175
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6393,
+              "amcl_yaw_error_rad": 1.6115,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.559,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6393m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6115rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6393m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6115rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1583,6 +2705,7 @@
       "policy_name": "M1",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -1640,8 +2763,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -1650,6 +2777,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6722m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.5934rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M1_S1_ep3_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 16,
+              "msg_stamp_sec": 40.402,
+              "recv_sim_time_sec": 40.4,
+              "x": -1.8605,
+              "y": -0.293,
+              "yaw": 1.5934,
+              "covariance_diagonal": [
+                0.011963,
+                0.013968,
+                0.023515
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6722,
+              "amcl_yaw_error_rad": 1.5934,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.402,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6722m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.5934rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6722m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.5934rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1713,6 +2904,7 @@
       "policy_name": "M1",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -1770,8 +2962,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -1780,6 +2976,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6516m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6317rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M1_S2_ep1_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 41.161,
+              "recv_sim_time_sec": 41.1,
+              "x": -1.8376,
+              "y": -0.3191,
+              "yaw": 1.6317,
+              "covariance_diagonal": [
+                0.017234,
+                0.014111,
+                0.024881
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": -0.0,
+              "angular_v": -0.0007
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6516,
+              "amcl_yaw_error_rad": 1.6317,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 41.161,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": -0.0,
+              "halt_angular_velocity_radps": -0.0007,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6516m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6317rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6516m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6317rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1843,6 +3103,7 @@
       "policy_name": "M1",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -1900,8 +3161,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -1910,6 +3175,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6778m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6198rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M1_S2_ep2_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.562,
+              "recv_sim_time_sec": 40.5,
+              "x": -1.8635,
+              "y": -0.3241,
+              "yaw": 1.6198,
+              "covariance_diagonal": [
+                0.012691,
+                0.015719,
+                0.019371
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6778,
+              "amcl_yaw_error_rad": 1.6198,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.562,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6778m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6198rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6778m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6198rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -1973,6 +3302,7 @@
       "policy_name": "M1",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -2030,8 +3360,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -2040,6 +3374,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6351m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6029rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M1_S2_ep3_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.562,
+              "recv_sim_time_sec": 40.5,
+              "x": -1.8198,
+              "y": -0.3327,
+              "yaw": 1.6029,
+              "covariance_diagonal": [
+                0.007917,
+                0.011217,
+                0.023892
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6351,
+              "amcl_yaw_error_rad": 1.6029,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.562,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6351m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6029rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6351m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6029rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2103,6 +3501,7 @@
       "policy_name": "M2",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -2160,8 +3559,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -2170,6 +3573,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6828m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6273rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M2_S1_ep1_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.572,
+              "recv_sim_time_sec": 40.6,
+              "x": -1.8673,
+              "y": -0.3372,
+              "yaw": 1.6273,
+              "covariance_diagonal": [
+                0.013458,
+                0.017281,
+                0.027092
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6828,
+              "amcl_yaw_error_rad": 1.6273,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.572,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6828m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6273rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6828m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6273rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2233,6 +3700,7 @@
       "policy_name": "M2",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -2290,8 +3758,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -2300,6 +3772,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6680m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.5867rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M2_S1_ep2_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.402,
+              "recv_sim_time_sec": 40.4,
+              "x": -1.852,
+              "y": -0.3422,
+              "yaw": 1.5867,
+              "covariance_diagonal": [
+                0.008614,
+                0.013913,
+                0.018343
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.668,
+              "amcl_yaw_error_rad": 1.5867,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.402,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6680m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.5867rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6680m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.5867rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2363,6 +3899,7 @@
       "policy_name": "M2",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -2420,8 +3957,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -2430,6 +3971,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6654m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6283rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M2_S1_ep3_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.368,
+              "recv_sim_time_sec": 40.3,
+              "x": -1.8522,
+              "y": -0.3113,
+              "yaw": 1.6283,
+              "covariance_diagonal": [
+                0.009888,
+                0.014937,
+                0.019093
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6654,
+              "amcl_yaw_error_rad": 1.6283,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.368,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6654m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6283rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6654m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6283rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2493,6 +4098,7 @@
       "policy_name": "M2",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": true,
@@ -2539,8 +4145,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -2549,6 +4159,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6795m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.5967rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M2_S2_ep1_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 18,
+              "msg_stamp_sec": 40.771,
+              "recv_sim_time_sec": 40.8,
+              "x": -1.8662,
+              "y": -0.3127,
+              "yaw": 1.5967,
+              "covariance_diagonal": [
+                0.01563,
+                0.01391,
+                0.022338
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6795,
+              "amcl_yaw_error_rad": 1.5967,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.771,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6795m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.5967rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6795m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.5967rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2609,10 +4283,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M2_S2_ep1_nav_attempt2",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 78,
+              "msg_stamp_sec": 77.174,
+              "recv_sim_time_sec": 77.1,
+              "x": 1.576,
+              "y": -0.0297,
+              "yaw": -0.0586,
+              "covariance_diagonal": [
+                0.01134,
+                0.005121,
+                0.014831
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.001,
+              "angular_v": 0.0107
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.226,
+              "amcl_yaw_error_rad": 0.0586,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 77.174,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": 0.001,
+              "halt_angular_velocity_radps": 0.0107,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": true,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2682,6 +4412,7 @@
       "policy_name": "M2",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": true,
@@ -2727,8 +4458,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -2737,6 +4472,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6854m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6501rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M2_S2_ep2_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 18,
+              "msg_stamp_sec": 41.368,
+              "recv_sim_time_sec": 41.3,
+              "x": -1.8703,
+              "y": -0.3334,
+              "yaw": 1.6501,
+              "covariance_diagonal": [
+                0.013115,
+                0.016753,
+                0.023457
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6854,
+              "amcl_yaw_error_rad": 1.6501,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 41.368,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6854m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6501rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6854m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6501rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2797,10 +4596,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M2_S2_ep2_nav_attempt2",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 75,
+              "msg_stamp_sec": 67.169,
+              "recv_sim_time_sec": 67.1,
+              "x": 1.5743,
+              "y": -0.0725,
+              "yaw": 0.12,
+              "covariance_diagonal": [
+                0.009008,
+                0.006995,
+                0.013798
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": -0.0005,
+              "angular_v": 0.01
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.2371,
+              "amcl_yaw_error_rad": 0.12,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 67.169,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": -0.0005,
+              "halt_angular_velocity_radps": 0.01,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": true,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2870,6 +4725,7 @@
       "policy_name": "M2",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": true,
@@ -2888,7 +4744,7 @@
           47.8
         ],
         "invalidation_times": [
-          51.400000000000006
+          51.4
         ],
         "recovery_dispatch_times": [
           51.4
@@ -2915,8 +4771,12 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "CANCELED",
           "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+          "is_action_failure": true,
+          "is_infra_failure": false,
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
@@ -2925,6 +4785,70 @@
             "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6502m > 0.4500m)",
             "AMCL_YAW_TOLERANCE_EXCEEDED (1.6211rad > 0.5500rad)"
           ],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M2_S2_ep3_nav_attempt1",
+            "nav2_status": "CANCELED",
+            "status_code": 5,
+            "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+            "deadline_exceeded": true,
+            "amcl_pose": {
+              "seq": 17,
+              "msg_stamp_sec": 40.205,
+              "recv_sim_time_sec": 40.2,
+              "x": -1.8366,
+              "y": -0.3147,
+              "yaw": 1.6211,
+              "covariance_diagonal": [
+                0.011321,
+                0.013845,
+                0.021664
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0008
+            },
+            "online_action_succeeded": false,
+            "online_verification_details": {
+              "online_success": false,
+              "nav2_action_status": "CANCELED",
+              "status_code": 5,
+              "execution_outcome": "BUDGET_DEADLINE_EXCEEDED",
+              "deadline_exceeded": true,
+              "amcl_position_error_m": 3.6502,
+              "amcl_yaw_error_rad": 1.6211,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 40.205,
+              "amcl_valid": false,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0008,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": [
+                "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+                "DEADLINE_EXCEEDED",
+                "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+                "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6502m > 0.4500m)",
+                "AMCL_YAW_TOLERANCE_EXCEEDED (1.6211rad > 0.5500rad)"
+              ]
+            },
+            "online_failure_reasons": [
+              "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
+              "DEADLINE_EXCEEDED",
+              "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
+              "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6502m > 0.4500m)",
+              "AMCL_YAW_TOLERANCE_EXCEEDED (1.6211rad > 0.5500rad)"
+            ]
+          },
           "evaluator_verified_success": false,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -2985,10 +4909,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 2,
+            "action_id": "M2_S2_ep3_nav_attempt2",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 76,
+              "msg_stamp_sec": 67.205,
+              "recv_sim_time_sec": 67.2,
+              "x": 1.5409,
+              "y": -0.0617,
+              "yaw": 0.1172,
+              "covariance_diagonal": [
+                0.010974,
+                0.0078,
+                0.01694
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": -0.0003,
+              "angular_v": 0.0086
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.2663,
+              "amcl_yaw_error_rad": 0.1172,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 67.205,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": -0.0003,
+              "halt_angular_velocity_radps": 0.0086,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": true,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -3058,6 +5038,7 @@
       "policy_name": "M3",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -3124,6 +5105,7 @@
       "policy_name": "M3",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -3190,6 +5172,7 @@
       "policy_name": "M3",
       "sequence_name": "S1",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": false,
       "evaluator_verified_success": false,
@@ -3256,6 +5239,7 @@
       "policy_name": "M3",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": true,
@@ -3308,10 +5292,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M3_S2_ep1_nav_attempt1",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 72,
+              "msg_stamp_sec": 81.967,
+              "recv_sim_time_sec": 82.0,
+              "x": 1.5475,
+              "y": -0.0449,
+              "yaw": 0.0783,
+              "covariance_diagonal": [
+                0.012502,
+                0.006904,
+                0.01691
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0001,
+              "angular_v": -0.0003
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.2565,
+              "amcl_yaw_error_rad": 0.0783,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 81.967,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": 0.0001,
+              "halt_angular_velocity_radps": -0.0003,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": true,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -3375,6 +5415,7 @@
       "policy_name": "M3",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": true,
@@ -3421,10 +5462,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M3_S2_ep2_nav_attempt1",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 63,
+              "msg_stamp_sec": 66.801,
+              "recv_sim_time_sec": 66.8,
+              "x": 1.5645,
+              "y": -0.0458,
+              "yaw": 0.0951,
+              "covariance_diagonal": [
+                0.011433,
+                0.005592,
+                0.016402
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0001,
+              "angular_v": -0.0003
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.2399,
+              "amcl_yaw_error_rad": 0.0951,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 66.801,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": 0.0001,
+              "halt_angular_velocity_radps": -0.0003,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": true,
           "disagreement_reason": null,
           "recomputed_evaluation": {
@@ -3488,6 +5585,7 @@
       "policy_name": "M3",
       "sequence_name": "S2",
       "status": "VERIFIED",
+      "unverifiable_reasons": [],
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": true,
@@ -3534,10 +5632,66 @@
             0.0,
             0.0
           ],
+          "target_region": "room2_corridor_chokepoint",
+          "map_version": "chokepoint_world_v1",
           "nav2_status": "SUCCEEDED",
           "execution_outcome": "BUDGET_SUCCESS",
+          "is_action_failure": false,
+          "is_infra_failure": false,
           "online_action_succeeded": true,
           "online_failure_reasons": [],
+          "online_feedback": {
+            "attempt_index": 1,
+            "action_id": "M3_S2_ep3_nav_attempt1",
+            "nav2_status": "SUCCEEDED",
+            "status_code": 4,
+            "execution_outcome": "BUDGET_SUCCESS",
+            "deadline_exceeded": false,
+            "amcl_pose": {
+              "seq": 64,
+              "msg_stamp_sec": 66.57,
+              "recv_sim_time_sec": 66.5,
+              "x": 1.5541,
+              "y": -0.0509,
+              "yaw": 0.1445,
+              "covariance_diagonal": [
+                0.011873,
+                0.006614,
+                0.013929
+              ],
+              "frame_id": "map"
+            },
+            "halt_velocity": {
+              "linear_v": 0.0,
+              "angular_v": -0.0004
+            },
+            "online_action_succeeded": true,
+            "online_verification_details": {
+              "online_success": true,
+              "nav2_action_status": "SUCCEEDED",
+              "status_code": 4,
+              "execution_outcome": "BUDGET_SUCCESS",
+              "deadline_exceeded": false,
+              "amcl_position_error_m": 0.2511,
+              "amcl_yaw_error_rad": 0.1445,
+              "amcl_frame_id": "map",
+              "amcl_stamp_sec": 66.57,
+              "amcl_valid": true,
+              "halt_linear_velocity_mps": 0.0,
+              "halt_angular_velocity_radps": -0.0004,
+              "velocity_halt_valid": true,
+              "thresholds_applied": {
+                "online_position_tolerance_m": 0.45,
+                "online_yaw_tolerance_rad": 0.55,
+                "online_max_linear_velocity_mps": 0.03,
+                "online_max_angular_velocity_radps": 0.05,
+                "max_amcl_staleness_sec": 30.0,
+                "max_odom_staleness_sec": 0.5
+              },
+              "failure_reasons": []
+            },
+            "online_failure_reasons": []
+          },
           "evaluator_verified_success": true,
           "disagreement_reason": null,
           "recomputed_evaluation": {

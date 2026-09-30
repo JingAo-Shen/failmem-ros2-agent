@@ -1,0 +1,456 @@
+{
+  "timestamp_utc": "2026-09-30T03:47:41.912655+00:00",
+  "protocol_version": "4.1",
+  "sightline_occlusion_proof": {
+    "junction_xy": [
+      -2.2,
+      0.0
+    ],
+    "doorway_xy": [
+      0.0,
+      0.95
+    ],
+    "ray_distance_m": 2.396,
+    "line_of_sight_occluded": true,
+    "occluding_geometry": "central_island_box [-1.6, 1.6] x [-0.4, 0.4]",
+    "intersection_point": [
+      -1.599,
+      0.259
+    ],
+    "junction_local_observation": "UNKNOWN"
+  },
+  "diagnostic_trials": [
+    {
+      "scenario": "D0",
+      "method": "R",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": false,
+      "history_phase": {
+        "distance_m": 0.0,
+        "sim_time_sec": 0.0,
+        "events": []
+      },
+      "decision_phase": {
+        "chosen_route": "Path_A",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 4.8,
+        "sim_time_sec": 21.2,
+        "rationales": [
+          "Local obs UNKNOWN -> explore nominal Path A -> SUCCESS"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 4.8,
+        "total_sim_time_sec": 21.2,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D0",
+      "method": "O",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": false,
+      "history_phase": {
+        "distance_m": 0.0,
+        "sim_time_sec": 0.0,
+        "events": []
+      },
+      "decision_phase": {
+        "chosen_route": "Path_A",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 4.8,
+        "sim_time_sec": 21.2,
+        "rationales": [
+          "Chokepoint A cached UNKNOWN -> route via Path A -> SUCCESS"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 4.8,
+        "total_sim_time_sec": 21.2,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D0",
+      "method": "F",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": false,
+      "history_phase": {
+        "distance_m": 0.0,
+        "sim_time_sec": 0.0,
+        "events": []
+      },
+      "decision_phase": {
+        "chosen_route": "Path_A",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 4.8,
+        "sim_time_sec": 21.2,
+        "rationales": [
+          "Path A un-suppressed -> route via Path A -> SUCCESS"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 4.8,
+        "total_sim_time_sec": 21.2,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D0",
+      "method": "M1",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": false,
+      "history_phase": {
+        "distance_m": 0.0,
+        "sim_time_sec": 0.0,
+        "events": []
+      },
+      "decision_phase": {
+        "chosen_route": "Path_A",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 4.8,
+        "sim_time_sec": 21.2,
+        "rationales": [
+          "Nominal Path A -> SUCCESS"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 4.8,
+        "total_sim_time_sec": 21.2,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D1",
+      "method": "R",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": true,
+      "history_phase": {
+        "distance_m": 5.2,
+        "sim_time_sec": 27.8,
+        "events": [
+          {
+            "phase": "HISTORY_PROBE_BLOCKED",
+            "probe_distance_m": 2.6,
+            "retreat_distance_m": 2.6,
+            "obstacle_detected_at_sim": 13.4,
+            "retreat_arrival_at_sim": 27.8
+          }
+        ]
+      },
+      "decision_phase": {
+        "chosen_route": "Path_A_then_Path_B",
+        "dead_end_traversals": 1,
+        "dispatches_count": 2,
+        "distance_m": 13.0,
+        "sim_time_sec": 58.0,
+        "rationales": [
+          "Local obs UNKNOWN -> naive Path A re-entry -> BLOCKED at chokepoint -> retreat to J0 -> fallback Path B -> SUCCESS"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 18.2,
+        "total_sim_time_sec": 85.8,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D1",
+      "method": "O",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": true,
+      "history_phase": {
+        "distance_m": 5.2,
+        "sim_time_sec": 27.8,
+        "events": [
+          {
+            "phase": "HISTORY_PROBE_BLOCKED",
+            "probe_distance_m": 2.6,
+            "retreat_distance_m": 2.6,
+            "obstacle_detected_at_sim": 13.4,
+            "retreat_arrival_at_sim": 27.8
+          }
+        ]
+      },
+      "decision_phase": {
+        "chosen_route": "Path_B",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 7.8,
+        "sim_time_sec": 33.2,
+        "rationales": [
+          "Chokepoint A cached OCCUPIED -> bypass via Path B immediately -> SUCCESS (0 dead-end traversals)"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 13.0,
+        "total_sim_time_sec": 61.0,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D1",
+      "method": "F",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": true,
+      "history_phase": {
+        "distance_m": 5.2,
+        "sim_time_sec": 27.8,
+        "events": [
+          {
+            "phase": "HISTORY_PROBE_BLOCKED",
+            "probe_distance_m": 2.6,
+            "retreat_distance_m": 2.6,
+            "obstacle_detected_at_sim": 13.4,
+            "retreat_arrival_at_sim": 27.8
+          }
+        ]
+      },
+      "decision_phase": {
+        "chosen_route": "Path_B",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 7.8,
+        "sim_time_sec": 33.2,
+        "rationales": [
+          "Path A blocked by mem_entry_0001 -> route via Path B immediately -> SUCCESS (0 dead-end traversals)"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 13.0,
+        "total_sim_time_sec": 61.0,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D1",
+      "method": "M1",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": true,
+      "history_phase": {
+        "distance_m": 5.2,
+        "sim_time_sec": 27.8,
+        "events": [
+          {
+            "phase": "HISTORY_PROBE_BLOCKED",
+            "probe_distance_m": 2.6,
+            "retreat_distance_m": 2.6,
+            "obstacle_detected_at_sim": 13.4,
+            "retreat_arrival_at_sim": 27.8
+          }
+        ]
+      },
+      "decision_phase": {
+        "chosen_route": "Path_B",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 7.8,
+        "sim_time_sec": 33.2,
+        "rationales": [
+          "Path A permanently suppressed -> route via Path B (detour penalty incurred in D2)"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 13.0,
+        "total_sim_time_sec": 61.0,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D2",
+      "method": "R",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": false,
+      "history_phase": {
+        "distance_m": 10.4,
+        "sim_time_sec": 53.6,
+        "events": [
+          {
+            "phase": "HISTORY_PROBE_CLEARED",
+            "blocked_probe_sim": 15.4,
+            "cleared_probe_sim": 41.2,
+            "retreat_arrival_at_sim": 53.6
+          }
+        ]
+      },
+      "decision_phase": {
+        "chosen_route": "Path_A",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 4.8,
+        "sim_time_sec": 21.2,
+        "rationales": [
+          "Local obs UNKNOWN -> explore nominal Path A -> SUCCESS"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 15.2,
+        "total_sim_time_sec": 74.8,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D2",
+      "method": "O",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": false,
+      "history_phase": {
+        "distance_m": 10.4,
+        "sim_time_sec": 53.6,
+        "events": [
+          {
+            "phase": "HISTORY_PROBE_CLEARED",
+            "blocked_probe_sim": 15.4,
+            "cleared_probe_sim": 41.2,
+            "retreat_arrival_at_sim": 53.6
+          }
+        ]
+      },
+      "decision_phase": {
+        "chosen_route": "Path_A",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 4.8,
+        "sim_time_sec": 21.2,
+        "rationales": [
+          "Chokepoint A cached FREE -> route via Path A -> SUCCESS"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 15.2,
+        "total_sim_time_sec": 74.8,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D2",
+      "method": "F",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": false,
+      "history_phase": {
+        "distance_m": 10.4,
+        "sim_time_sec": 53.6,
+        "events": [
+          {
+            "phase": "HISTORY_PROBE_CLEARED",
+            "blocked_probe_sim": 15.4,
+            "cleared_probe_sim": 41.2,
+            "retreat_arrival_at_sim": 53.6
+          }
+        ]
+      },
+      "decision_phase": {
+        "chosen_route": "Path_A",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 4.8,
+        "sim_time_sec": 21.2,
+        "rationales": [
+          "Path A un-suppressed (recovery verified) -> route via Path A -> SUCCESS"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 15.2,
+        "total_sim_time_sec": 74.8,
+        "task_success": true
+      }
+    },
+    {
+      "scenario": "D2",
+      "method": "M1",
+      "junction_pose": [
+        -2.2,
+        0.0,
+        0.0
+      ],
+      "local_sensor_observation_at_junction": "UNKNOWN",
+      "global_costmap_retains_obstacle": false,
+      "history_phase": {
+        "distance_m": 10.4,
+        "sim_time_sec": 53.6,
+        "events": [
+          {
+            "phase": "HISTORY_PROBE_CLEARED",
+            "blocked_probe_sim": 15.4,
+            "cleared_probe_sim": 41.2,
+            "retreat_arrival_at_sim": 53.6
+          }
+        ]
+      },
+      "decision_phase": {
+        "chosen_route": "Path_B",
+        "dead_end_traversals": 0,
+        "dispatches_count": 1,
+        "distance_m": 7.8,
+        "sim_time_sec": 33.2,
+        "rationales": [
+          "Path A permanently suppressed -> route via Path B (detour penalty incurred in D2)"
+        ]
+      },
+      "end_to_end_total": {
+        "total_distance_m": 18.2,
+        "total_sim_time_sec": 86.8,
+        "task_success": true
+      }
+    }
+  ]
+}
