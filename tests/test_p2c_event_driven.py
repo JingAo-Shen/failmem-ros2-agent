@@ -7,6 +7,7 @@ Directly imports and validates production modules from `src.p2c_pipeline`:
 - P2cEpisodeEvaluator
 """
 
+import json
 import math
 import pytest
 from typing import Any, Dict, List
@@ -22,7 +23,6 @@ from src.doorway_evaluator import (
     project_laser_scan_rays_tf,
 )
 from scripts.run_p2c_pilot_diagnosis import (
-    SpatialObservationCache,
     verify_sightline_occlusion,
 )
 from src.p2c_pipeline import (
@@ -30,6 +30,7 @@ from src.p2c_pipeline import (
     P2cTrajectoryClassifier,
     P2cPolicyDecider,
     P2cEpisodeEvaluator,
+    SpatialObservationCache,
 )
 
 
@@ -293,3 +294,220 @@ def test_tamper_detection_in_production_evaluator():
         evidence_complete=True,
     )
     assert res_proto["audit_pass"] is False
+
+
+def test_negative_probe_without_real_terminal_evidence():
+    """Verify that a probe claiming failure without genuine obstacle evidence cannot justify memory."""
+    store = FailureMemoryStore()
+    fake_probe_action = {
+        "action_id": "hist_attempt_chokepoint_traversal",
+        "terminal_status_name": "ABORTED",
+        "execution_outcome": "BUDGET_ABORTED",
+    }
+    # Trajectory stopped far before doorway
+    traj_stopped_early = [{"x": -2.0, "y": 0.5, "recv_sim_time_sec": 10.0}]
+    obs_none = None
+
+    cause = P2cTrajectoryClassifier.diagnose_failure_cause(
+        fake_probe_action, traj_stopped_early, obs_none, max_staleness_sec=2.0
+    )
+    assert cause != "BLOCKED_AT_DOORWAY"
+    assert cause == "NAVIGATION_ABORTED_OR_FAILED"
+
+    # Memory must NOT be created without confirmed BLOCKED_AT_DOORWAY / OCCUPIED evidence
+    if cause == "BLOCKED_AT_DOORWAY":
+        store.record_failure(
+            goal=[2.5, 0.0, 0.0],
+            region_id="north_corridor_chokepoint",
+            failure_reason=cause,
+            sim_time=10.0,
+            failed_action_id="hist_attempt_chokepoint_traversal",
+            failure_evidence_id="none",
+            failure_evidence={},
+        )
+    assert len(store.entries) == 0
+
+
+def test_negative_invalid_history_runner_hard_stop_zero_dispatches():
+    """Verify that an invalid history marks history_aborted=True, 0 dispatches, and fails task_success."""
+    actions = [
+        {"action_id": "hist_reach_obs_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
+        {"action_id": "hist_attempt_chokepoint_traversal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},  # Traversal unexpectedly succeeded in D1!
+    ]
+    odom_samples = [{"x": -2.5 + i * 0.1, "y": 0.0} for i in range(20)]
+
+    res_aborted = P2cEpisodeEvaluator.evaluate_episode(
+        scenario="D1",
+        method="F",
+        actions=actions,
+        total_sim_time_sec=40.0,
+        total_budget_sec=180.0,
+        physical_eval_dict={"strict_physical_arrival_and_stable": False},
+        odom_samples=odom_samples,
+        costmap_snapshots=[],
+        checksums_verified=True,
+        protocol_hash_match=True,
+        evidence_complete=True,
+        history_aborted=True,
+    )
+    assert res_aborted["history_valid"] is False
+    assert res_aborted["task_success"] is False
+    assert res_aborted["final_goal_success"] is False
+    assert res_aborted["episode_valid"] is False
+    assert "HISTORY_ABORTED_DUE_TO_INCOMPLETE_OR_INVALID_EVIDENCE" in res_aborted["history_reasons"]
+
+
+def test_negative_spatial_cache_unified_observation_update():
+    """Verify that SpatialObservationCache updates on OCCUPIED and FREE, but ignores UNKNOWN without dropping state."""
+    cache = SpatialObservationCache()
+    fail_store = FailureMemoryStore()
+
+    # Initial state is UNKNOWN
+    assert cache.get_latest_state("north_corridor_chokepoint") == "UNKNOWN"
+
+    # Step 1: Observes OCCUPIED
+    cache.update_observation("north_corridor_chokepoint", "OCCUPIED", 10.0, {"hits": 5})
+    assert cache.get_latest_state("north_corridor_chokepoint") == "OCCUPIED"
+
+    # Step 2: Observes UNKNOWN (e.g. at J0) -> must NOT overwrite OCCUPIED
+    cache.update_observation("north_corridor_chokepoint", "UNKNOWN", 15.0, {"reason": "OCCLUDED"})
+    assert cache.get_latest_state("north_corridor_chokepoint") == "OCCUPIED"
+
+    # Step 3: Observes FREE (after clearance in D2) -> updates to FREE
+    cache.update_observation("north_corridor_chokepoint", "FREE", 20.0, {"hits": 0})
+    assert cache.get_latest_state("north_corridor_chokepoint") == "FREE"
+
+    # Step 4: Observes UNKNOWN again at J0 -> must NOT overwrite FREE
+    cache.update_observation("north_corridor_chokepoint", "UNKNOWN", 25.0, {"reason": "OCCLUDED"})
+    assert cache.get_latest_state("north_corridor_chokepoint") == "FREE"
+
+    # Policy Method O must select Path A when cache is FREE
+    live_obs_j0 = {"doorway_state": "UNKNOWN", "reason": "OCCLUDED"}
+    chosen_route, rationale, meta = P2cPolicyDecider.decide_route(
+        method="O",
+        live_obs=live_obs_j0,
+        cache=cache,
+        fail_store=fail_store,
+        m1_suppressed=False,
+        target_goal=[2.5, 0.0, 0.0],
+        region_id="north_corridor_chokepoint",
+        map_version="p2c_dualpath_world_v1",
+    )
+    assert chosen_route == "Path_A"
+    assert meta.get("cache_state") == "FREE"
+
+
+def test_negative_replay_missing_raw_scan_or_tf_unverifiable(tmp_path):
+    """Verify that replay marks UNVERIFIABLE when raw scan or TF data is missing from scan_snapshots."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    ep_dir.mkdir(parents=True, exist_ok=True)
+
+    action_res = {
+        "scenario": "D1",
+        "method": "F",
+        "requested_route": "Path_B",
+        "total_distance_m": 12.0,
+        "total_sim_time_sec": 70.0,
+        "actions": [{"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"}],
+    }
+    with open(ep_dir / "action_result.json", "w") as f:
+        json.dump(action_res, f)
+
+    with open(ep_dir / "trajectory.json", "w") as f:
+        json.dump({"odom_trajectory": [{"x": -2.5 + i * 0.1, "y": 0.0} for i in range(50)]}, f)
+
+    with open(ep_dir / "costmap_snapshots.json", "w") as f:
+        json.dump([], f)
+
+    # Incomplete scan snapshot without TF or raw scan
+    with open(ep_dir / "scan_snapshots.json", "w") as f:
+        json.dump([{"stage": "BASELINE_J0", "has_raw_scan": False, "has_tf": False}], f)
+
+    with open(ep_dir / "stability_window.json", "w") as f:
+        json.dump({"sample_count": 5, "window_records": [{"odom": {"linear_v": 0.01, "angular_v": 0.01}}]}, f)
+
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump([], f)
+
+    with open(ep_dir / "runtime_protocol.json", "w") as f:
+        json.dump({"protocol_config": {}}, f)
+
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums={}, checksum_file_present=False)
+    assert res["raw_evidence_verified"] is False
+    assert res["audit_pass"] is False
+    assert any("MISSING_RAW_SCAN_OR_TF" in r for r in res["failure_reasons"])
+
+
+def test_negative_replay_deleted_free_obs_with_invalidation_fails(tmp_path):
+    """Verify that replay detects causal inconsistency if memory is invalidated without verified FREE perception."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D2_F_ep1"
+    ep_dir.mkdir(parents=True, exist_ok=True)
+
+    action_res = {
+        "scenario": "D2",
+        "method": "F",
+        "requested_route": "Path_A",
+        "total_distance_m": 14.0,
+        "total_sim_time_sec": 90.0,
+        "actions": [
+            {"action_id": "hist_reach_obs_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
+            {"action_id": "hist_attempt_chokepoint_traversal", "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_DEADLINE_EXCEEDED"},
+            {"action_id": "hist_retreat_to_j0", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
+            {"action_id": "hist_probe_clearance_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
+            {"action_id": "hist_retreat_to_j0_clear", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
+            {"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS"},
+        ],
+    }
+    with open(ep_dir / "action_result.json", "w") as f:
+        json.dump(action_res, f)
+
+    with open(ep_dir / "trajectory.json", "w") as f:
+        json.dump({"odom_trajectory": [{"x": -2.5 + i * 0.1, "y": 0.0} for i in range(50)]}, f)
+
+    with open(ep_dir / "costmap_snapshots.json", "w") as f:
+        json.dump([], f)
+
+    # Scan snapshot at clearance says OCCUPIED (or not FREE)
+    scan_snaps = [
+        {
+            "stage": "STEP2_POST_TRAVERSAL",
+            "has_raw_scan": True,
+            "has_tf": True,
+            "scan_data": {"ranges": [0.5] * 360, "angle_min": -3.14, "angle_max": 3.14, "angle_increment": 0.017, "range_min": 0.1, "range_max": 3.5},
+            "tf_transform": {"translation": [-0.5, 1.2, 0.0], "yaw": 0.0},
+            "perception_result": {"doorway_state": "OCCUPIED"},
+        },
+        {
+            "stage": "STEP4_CLEARANCE_VANTAGE",
+            "has_raw_scan": True,
+            "has_tf": True,
+            "scan_data": {"ranges": [0.5] * 360, "angle_min": -3.14, "angle_max": 3.14, "angle_increment": 0.017, "range_min": 0.1, "range_max": 3.5},
+            "tf_transform": {"translation": [-1.0, 1.2, 0.0], "yaw": 0.0},
+            "perception_result": {"doorway_state": "OCCUPIED"},  # Not FREE!
+        },
+    ]
+    with open(ep_dir / "scan_snapshots.json", "w") as f:
+        json.dump(scan_snaps, f)
+
+    with open(ep_dir / "stability_window.json", "w") as f:
+        json.dump({"sample_count": 5, "window_records": [{"odom": {"linear_v": 0.01, "angular_v": 0.01}}]}, f)
+
+    # Invalidation event recorded in memory_events without verified FREE perception!
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump([
+            {"event_type": "RECORD_FAILURE", "memory_id": "mem_1"},
+            {"event_type": "INVALIDATE_MEMORY", "memory_id": "mem_1"},
+        ], f)
+
+    with open(ep_dir / "runtime_protocol.json", "w") as f:
+        json.dump({"protocol_config": {}}, f)
+
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums={}, checksum_file_present=False)
+    assert res["memory_lifecycle_verified"] is False
+    assert res["audit_pass"] is False
+    assert any("INVALIDATION_EVENT_WITHOUT_VERIFIED_FREE_PERCEPTION" in r for r in res["failure_reasons"])
+

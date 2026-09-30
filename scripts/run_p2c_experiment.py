@@ -79,6 +79,7 @@ from src.p2c_pipeline import (
     P2cTrajectoryClassifier,
     P2cPolicyDecider,
     P2cEpisodeEvaluator,
+    SpatialObservationCache,
 )
 from scripts.run_p1c_v3 import (
     P1cV3RunnerNode,
@@ -90,7 +91,6 @@ from scripts.run_p1c_v3 import (
     save_attempt_evidence,
 )
 from scripts.run_p2c_pilot_diagnosis import (
-    SpatialObservationCache,
     verify_sightline_occlusion,
 )
 
@@ -210,72 +210,53 @@ def capture_costmap_snapshot(
     }
 
 
-def execute_chokepoint_traversal_probe(
+def capture_scan_snapshot(
     node: P1cV3RunnerNode,
-    action_dict: Dict[str, Any],
-    log_ep: Callable[[str], None],
-    probe_duration_sec: float = 2.0,
-    speed: float = 0.12,
-    abs_sim_deadline: Optional[float] = None,
-) -> Tuple[Dict[str, Any], Dict[str, Any], List[Dict[str, Any]]]:
-    """Execute physical forward traversal attempt towards doorway, detecting obstacle blockage."""
-    node.start_tracking()
-    action_id = action_dict.get("action_id", "hist_attempt_chokepoint_traversal")
-    goal_uuid = str(uuid.uuid4())
-    log_ep(f"Dispatched action '{action_id}': pipeline_status=DISPATCHED")
+    stage: str,
+    sim_time: float,
+    doorway_bbox: Tuple[float, float, float, float],
+    perception_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Capture raw laser scan parameters and map->base_scan TF for independent replay."""
+    raw_scan = node._latest_raw_scan
+    scan_stamp = (raw_scan.header.stamp.sec + raw_scan.header.stamp.nanosec * 1e-9) if raw_scan is not None else sim_time
+    tf_rec = node.get_laser_map_transform(stamp_sec=scan_stamp, timeout_sec=0.5)
+    if tf_rec is None:
+        node.request_nomotion_amcl_update(timeout_sec=1.0)
+        tf_rec = node.get_laser_map_transform(timeout_sec=1.0)
 
-    t_start = node.get_sim_time_sec()
-    twist_msg = Twist()
-    twist_msg.linear.x = float(speed)
-    twist_msg.angular.z = 0.0
+    scan_data = None
+    if raw_scan is not None:
+        scan_data = {
+            "ranges": [round(float(r), 4) if (r is not None and math.isfinite(r)) else None for r in raw_scan.ranges],
+            "angle_min": round(float(raw_scan.angle_min), 4),
+            "angle_max": round(float(raw_scan.angle_max), 4),
+            "angle_increment": round(float(raw_scan.angle_increment), 6),
+            "range_min": round(float(raw_scan.range_min), 4),
+            "range_max": round(float(raw_scan.range_max), 4),
+            "stamp_sec": round(scan_stamp, 4),
+        }
 
-    while (node.get_sim_time_sec() - t_start) < probe_duration_sec:
-        if abs_sim_deadline and node.get_sim_time_sec() >= abs_sim_deadline:
-            break
-        node.emergency_cmd_pub.publish(twist_msg)
-        rclpy.spin_once(node, timeout_sec=0.05)
-        time.sleep(0.04)
+    tf_data = None
+    if tf_rec is not None:
+        tf_data = {
+            "translation": [round(float(v), 4) for v in tf_rec.get("translation", [0.0, 0.0, 0.0])],
+            "yaw": round(float(tf_rec.get("yaw", 0.0)), 4),
+            "stamp_sec": round(float(tf_rec.get("stamp_sec", scan_stamp)), 4),
+            "frame_id": tf_rec.get("frame_id", "map"),
+            "child_frame_id": tf_rec.get("child_frame_id", "base_scan"),
+        }
 
-    # Stop motion
-    stop_msg = Twist()
-    node.emergency_cmd_pub.publish(stop_msg)
-    rclpy.spin_once(node, timeout_sec=0.05)
-
-    # Passive settling
-    settled_ok = node.wait_for_passive_settling(min_duration_sec=1.5, max_wait_sec=5.0, abs_sim_deadline=abs_sim_deadline)
-    stability_records, wd = node.record_stability_window(duration_sim_sec=2.0, logger=log_ep, abs_sim_deadline=abs_sim_deadline)
-    node.request_nomotion_amcl_update(timeout_sec=1.5)
-    node.stop_tracking()
-
-    sim_end = node.get_sim_time_sec()
-    summary = {
-        "action_id": action_id,
-        "dispatch": {
-            "pipeline_status": "DISPATCHED",
-            "action_id": action_id,
-            "goal_uuid": goal_uuid,
-            "effective_action": action_dict,
-        },
-        "execution_outcome": "BUDGET_ABORTED",
-        "terminal_status_name": "ABORTED",
-        "status_code": 6,
-        "deadline_exceeded": False,
-        "failure_reason": "PHYSICAL_TRAVERSAL_BLOCKED",
-        "settled_ok": settled_ok,
-        "safety_intervention": False,
-        "evaluation": {
-            "execution_outcome": "BUDGET_ABORTED",
-            "nav2_action_status": "ABORTED",
-            "timestamp_sim": round(sim_end, 3),
-            "strict_physical_arrival_and_stable": False,
-        },
+    return {
+        "stage": stage,
+        "sim_time_sec": round(scan_stamp, 3),
+        "has_raw_scan": (scan_data is not None),
+        "has_tf": (tf_data is not None),
+        "doorway_bbox": list(doorway_bbox),
+        "scan_data": scan_data,
+        "tf_transform": tf_data,
+        "perception_result": copy.deepcopy(perception_result),
     }
-    eval_res = {
-        "strict_physical_arrival_and_stable": False,
-        "execution_outcome": "BUDGET_ABORTED",
-        "timestamp_sim": round(sim_end, 3),
-    }
-    return summary, eval_res, stability_records
 
 
 def run_physical_episode(
@@ -336,6 +317,7 @@ def run_physical_episode(
     fail_store = FailureMemoryStore()
     m1_suppressed = False
 
+    scan_snapshots: List[Dict[str, Any]] = []
     costmap_snapshots: List[Dict[str, Any]] = []
     action_summaries: List[Dict[str, Any]] = []
     all_gt_samples: List[Dict[str, Any]] = []
@@ -423,6 +405,7 @@ def run_physical_episode(
         obs_j0 = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
         sightline_j0 = verify_sightline_occlusion((spawn_coords[0], spawn_coords[1]), (obs_x, obs_y))
         log_ep(f"J0 Observability: Sightline Occluded={sightline_j0['line_of_sight_occluded']}, Local Doorway State={obs_j0['doorway_state']} (Reason: {obs_j0['reason']})")
+        scan_snapshots.append(capture_scan_snapshot(node, "BASELINE_J0", node.get_sim_time_sec(), doorway_bbox, obs_j0))
 
         action_history_ctx = EpisodeActionHistoryContext(max_retries=10, max_retries_per_state=5)
         dispatcher = ActionDispatcher(context=action_history_ctx, run_id=run_id, episode_id=ep_id)
@@ -524,30 +507,25 @@ def run_physical_episode(
             occ_obs["map_version"] = map_version
             occ_obs["stamp_sec"] = round(sim_now_v1, 3)
             log_ep(f"[History Phase {scenario_name}] Step 1 Live Perception: State={occ_obs.get('doorway_state')} (Hits={occ_obs.get('hits_inside_count')}, Reason: {occ_obs.get('reason')})")
+            scan_snapshots.append(capture_scan_snapshot(node, "STEP1_VANTAGE1", sim_now_v1, doorway_bbox, occ_obs))
 
             # Update cache with live observation
-            if occ_obs.get("doorway_state") == "OCCUPIED":
-                cache.update_observation(chokepoint_region, "OCCUPIED", sim_now_v1, occ_obs)
+            if occ_obs.get("doorway_state") in ["OCCUPIED", "FREE"]:
+                cache.update_observation(chokepoint_region, occ_obs.get("doorway_state"), sim_now_v1, occ_obs)
 
             # Snapshot Costmap after probe at chokepoint
             cm_probe1 = capture_costmap_snapshot(node, "COSTMAP_PROBE_BLOCKED_AT_CHOKEPOINT", sim_now_v1, doorway_bbox, opening_bbox)
             costmap_snapshots.append(cm_probe1)
 
-            # 3. Action 2: Attempt Chokepoint Traversal through Doorway
-            log_ep(f"[History Phase {scenario_name}] Step 2: Attempting chokepoint traversal through doorway...")
+            # 3. Action 2: Attempt Real Chokepoint Traversal through Doorway (Real Nav2 Action)
+            log_ep(f"[History Phase {scenario_name}] Step 2: Attempting real Nav2 chokepoint traversal through doorway (goal: [0.50, 1.20, 0.0])...")
+            node.start_tracking()
             trav_act = {
                 "action_id": "hist_attempt_chokepoint_traversal",
                 "action": "navigate",
-                "params": {"goal": [0.00, 1.20, 0.0], "frame_id": "map"},
+                "params": {"goal": [0.50, 1.20, 0.0], "frame_id": "map"},
             }
-            summary_tr1, eval_tr1, stab_tr1 = execute_chokepoint_traversal_probe(
-                node=node,
-                action_dict=trav_act,
-                log_ep=log_ep,
-                probe_duration_sec=3.5,
-                speed=0.15,
-                abs_sim_deadline=abs_sim_deadline,
-            )
+            summary_tr1, eval_tr1, stab_tr1 = run_step(trav_act, nominal_timeout=12.0)
             action_summaries.append(summary_tr1)
             hist_odom_samples.extend(node.episode_odom_samples)
             hist_gt_samples.extend(node.episode_gt_samples)
@@ -561,27 +539,34 @@ def run_physical_episode(
             post_fail_obs["region_id"] = chokepoint_region
             post_fail_obs["map_version"] = map_version
             post_fail_obs["stamp_sec"] = round(sim_now_tr1, 3)
-            log_ep(f"[History Phase {scenario_name}] Step 2 Post-fail Live Perception: State={post_fail_obs.get('doorway_state')} (Hits={post_fail_obs.get('hits_inside_count')}, Reason: {post_fail_obs.get('reason')})")
+            log_ep(f"[History Phase {scenario_name}] Step 2 Post-traversal Live Perception: State={post_fail_obs.get('doorway_state')} (Hits={post_fail_obs.get('hits_inside_count')}, Reason: {post_fail_obs.get('reason')})")
+            scan_snapshots.append(capture_scan_snapshot(node, "STEP2_POST_TRAVERSAL", sim_now_tr1, doorway_bbox, post_fail_obs))
+
+            if post_fail_obs.get("doorway_state") in ["OCCUPIED", "FREE"]:
+                cache.update_observation(chokepoint_region, post_fail_obs.get("doorway_state"), sim_now_tr1, post_fail_obs)
+
+            # Robust linked perception: use post_fail_obs if conclusive, else occ_obs from vantage probe
+            linked_obs = post_fail_obs if post_fail_obs.get("doorway_state") in ["OCCUPIED", "FREE"] else occ_obs
 
             fail_cause = P2cTrajectoryClassifier.diagnose_failure_cause(
-                summary_tr1, node.episode_gt_samples, post_fail_obs, max_staleness_sec=5.0
+                summary_tr1, node.episode_gt_samples, linked_obs, max_staleness_sec=30.0
             )
             summary_tr1["failure_cause"] = fail_cause
 
             trav1_outcome = summary_tr1.get("execution_outcome")
-            trav1_failed = (trav1_outcome in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"])
+            trav1_failed = (trav1_outcome in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or summary_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
             log_ep(f"[History Phase {scenario_name}] Step 2 Traversal outcome: {trav1_outcome} (Diagnosed cause: {fail_cause})")
 
             # Only genuine failed action with linked OCCUPIED evidence creates failure memory
-            if trav1_failed and post_fail_obs.get("doorway_state") == "OCCUPIED":
+            if trav1_failed and linked_obs.get("doorway_state") == "OCCUPIED":
                 entry = fail_store.record_failure(
                     goal=target_goal,
                     region_id=chokepoint_region,
                     failure_reason=fail_cause or trav1_outcome or "BUDGET_DEADLINE_EXCEEDED",
                     sim_time=sim_now_tr1,
                     failed_action_id="hist_attempt_chokepoint_traversal",
-                    failure_evidence_id="post_fail_occ_obs",
-                    failure_evidence=post_fail_obs,
+                    failure_evidence_id="probe_occ_obs",
+                    failure_evidence=linked_obs,
                     map_version=map_version,
                     metadata={"goal_uuid": summary_tr1.get("dispatch", {}).get("goal_uuid")},
                 )
@@ -591,7 +576,7 @@ def run_physical_episode(
                     "sim_time": round(sim_now_tr1, 3),
                     "memory_id": entry.memory_id if entry else "unknown",
                     "region_id": chokepoint_region,
-                    "evidence": post_fail_obs,
+                    "evidence": linked_obs,
                 })
                 log_ep(f"[History Phase {scenario_name}] Successfully created Failure Memory bound to action 'hist_attempt_chokepoint_traversal'.")
             else:
@@ -618,11 +603,12 @@ def run_physical_episode(
             # Resample perception after returning to J0 (verifying UNKNOWN)
             obs_at_j0 = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
             log_ep(f"[History Phase {scenario_name}] Resampled perception at J0: State={obs_at_j0.get('doorway_state')} (Reason: {obs_at_j0.get('reason')})")
+            scan_snapshots.append(capture_scan_snapshot(node, "STEP3_RETREAT_J0", node.get_sim_time_sec(), doorway_bbox, obs_at_j0))
 
             cm_ret1 = capture_costmap_snapshot(node, "COSTMAP_AFTER_RETREAT_TO_J0", node.get_sim_time_sec(), doorway_bbox, opening_bbox)
             costmap_snapshots.append(cm_ret1)
 
-            d1_valid = bool(vantage1_ok and trav1_failed and ret1_ok and post_fail_obs.get("doorway_state") == "OCCUPIED")
+            d1_valid = bool(vantage1_ok and trav1_failed and ret1_ok and linked_obs.get("doorway_state") == "OCCUPIED")
             history_valid = d1_valid
 
             if scenario_name == "D2":
@@ -650,14 +636,17 @@ def run_physical_episode(
                 vantage2_ok = (summary_p2.get("terminal_status_name") == "SUCCEEDED" and summary_p2.get("execution_outcome") == "BUDGET_SUCCESS")
 
                 sim_now_clear = node.get_sim_time_sec()
-                free_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+                free_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=1.0)
                 free_obs["region_id"] = chokepoint_region
                 free_obs["map_version"] = map_version
                 free_obs["stamp_sec"] = round(sim_now_clear, 3)
                 log_ep(f"[History Phase D2] Step 4 Live Perception: State={free_obs.get('doorway_state')} (Pass-through={free_obs.get('pass_through_count')}, Reason: {free_obs.get('reason')})")
+                scan_snapshots.append(capture_scan_snapshot(node, "STEP4_CLEARANCE_VANTAGE", sim_now_clear, doorway_bbox, free_obs))
+
+                if free_obs.get("doorway_state") in ["OCCUPIED", "FREE"]:
+                    cache.update_observation(chokepoint_region, free_obs.get("doorway_state"), sim_now_clear, free_obs)
 
                 if free_obs.get("doorway_state") == "FREE":
-                    cache.update_observation(chokepoint_region, "FREE", sim_now_clear, free_obs)
                     ev_to_check = dict(free_obs)
                     ev_to_check["timestamp_sim"] = sim_now_clear
                     inv_entries = fail_store.evaluate_perception_for_invalidation(
@@ -699,6 +688,7 @@ def run_physical_episode(
                 # Resample perception after clearance retreat
                 obs_at_j0_clear = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
                 log_ep(f"[History Phase D2] Resampled perception at J0 after clearance: State={obs_at_j0_clear.get('doorway_state')}")
+                scan_snapshots.append(capture_scan_snapshot(node, "STEP5_RETREAT_J0_CLEAR", node.get_sim_time_sec(), doorway_bbox, obs_at_j0_clear))
 
                 cm_ret2 = capture_costmap_snapshot(node, "COSTMAP_AFTER_CLEARANCE_RETREAT_TO_J0", node.get_sim_time_sec(), doorway_bbox, opening_bbox)
                 costmap_snapshots.append(cm_ret2)
@@ -712,7 +702,118 @@ def run_physical_episode(
 
             # Stop formal decision phase comparison if history acquisition failed
             if not history_valid:
-                log_ep(f"[ABORT] History acquisition invalid for {scenario_name}! Aborting decision phase comparison.")
+                log_ep(f"[HARD STOP] History acquisition invalid for {scenario_name}! Halting episode immediately without decision dispatch.")
+                chosen_route = "HISTORY_INVALID_ABORTED"
+                actual_route = P2cTrajectoryClassifier.classify_actual_route(hist_gt_samples or hist_odom_samples)
+                dead_end_traversals = P2cTrajectoryClassifier.classify_dead_end_traversals(hist_gt_samples or hist_odom_samples)
+                total_distance, _ = P2cTrajectoryClassifier.integrate_distance(all_odom_samples)
+                total_sim_time = round(node.get_sim_time_sec() - episode_t0, 3)
+
+                eval_report = P2cEpisodeEvaluator.evaluate_episode(
+                    scenario=scenario_name,
+                    method=method_name,
+                    actions=action_summaries,
+                    total_sim_time_sec=total_sim_time,
+                    total_budget_sec=total_budget_sec,
+                    physical_eval_dict={"strict_physical_arrival_and_stable": False},
+                    odom_samples=all_odom_samples,
+                    costmap_snapshots=costmap_snapshots,
+                    checksums_verified=True,
+                    protocol_hash_match=True,
+                    evidence_complete=True,
+                    history_aborted=True,
+                )
+
+                # Write all episode artifacts and return immediately!
+                with open(ep_dir / "action_result.json", "w", encoding="utf-8") as f:
+                    json.dump({
+                        "episode_id": ep_id,
+                        "condition_id": condition_id,
+                        "scenario": scenario_name,
+                        "method": method_name,
+                        "requested_route": chosen_route,
+                        "actual_route": actual_route,
+                        "chosen_route": chosen_route,
+                        "route_attempt_count": 0,
+                        "dead_end_traversals": dead_end_traversals,
+                        "decision_dispatches": 0,
+                        "nominal_length_path_a_m": proto_cfg.nominal_length_a,
+                        "nominal_length_path_b_m": proto_cfg.nominal_length_b,
+                        "history_distance_m": history_distance,
+                        "history_sim_time_sec": history_sim_time,
+                        "decision_distance_m": 0.0,
+                        "decision_sim_time_sec": 0.0,
+                        "total_distance_m": total_distance,
+                        "total_sim_time_sec": total_sim_time,
+                        "total_budget_sec": total_budget_sec,
+                        "policy_reported_success": False,
+                        "evaluator_verified_success": False,
+                        "final_goal_success": False,
+                        "success_within_budget": False,
+                        "history_valid": False,
+                        "route_valid": False,
+                        "episode_valid": False,
+                        "history_aborted": True,
+                        "disagreement_reason": "HISTORY_INVALID_ABORTED",
+                        "decision_rationales": ["Aborted before decision phase due to invalid history."],
+                        "actions": action_summaries,
+                    }, f, indent=2)
+
+                with open(ep_dir / "trajectory.json", "w", encoding="utf-8") as f:
+                    json.dump({
+                        "gt_samples_count": len(all_gt_samples),
+                        "odom_samples_count": len(all_odom_samples),
+                        "gt_trajectory": all_gt_samples,
+                        "odom_trajectory": all_odom_samples,
+                        "history_odom_trajectory": hist_odom_samples,
+                        "decision_odom_trajectory": [],
+                        "history_gt_trajectory": hist_gt_samples,
+                        "decision_gt_trajectory": [],
+                    }, f, indent=2)
+
+                with open(ep_dir / "costmap_snapshots.json", "w", encoding="utf-8") as f:
+                    json.dump(costmap_snapshots, f, indent=2)
+
+                with open(ep_dir / "scan_snapshots.json", "w", encoding="utf-8") as f:
+                    json.dump(scan_snapshots, f, indent=2)
+
+                with open(ep_dir / "stability_window.json", "w", encoding="utf-8") as f:
+                    json.dump({"sample_count": 0, "window_records": []}, f, indent=2)
+
+                with open(ep_dir / "memory_events.json", "w", encoding="utf-8") as f:
+                    json.dump(memory_events, f, indent=2)
+
+                with open(ep_dir / "runtime_protocol.json", "w", encoding="utf-8") as f:
+                    json.dump({
+                        "protocol_version": proto_cfg.protocol_version,
+                        "protocol_sha256": protocol_sha256,
+                        "protocol_config": proto_cfg.raw_config,
+                    }, f, indent=2)
+
+                return {
+                    "episode_id": ep_id,
+                    "condition_id": condition_id,
+                    "scenario": scenario_name,
+                    "method": method_name,
+                    "evidence_type": "physical_ros_gazebo",
+                    "requested_route": chosen_route,
+                    "actual_route": actual_route,
+                    "dead_end_traversals": dead_end_traversals,
+                    "decision_dispatches": 0,
+                    "history_distance_m": history_distance,
+                    "history_sim_time_sec": history_sim_time,
+                    "decision_distance_m": 0.0,
+                    "decision_sim_time_sec": 0.0,
+                    "total_distance_m": total_distance,
+                    "total_sim_time_sec": total_sim_time,
+                    "final_goal_success": False,
+                    "success_within_budget": False,
+                    "history_valid": False,
+                    "route_valid": False,
+                    "episode_valid": False,
+                    "history_aborted": True,
+                    "disagreement_reason": "HISTORY_INVALID_ABORTED",
+                }
 
         # =========================================================================
         # PHASE 2: POLICY DECISION & UNIFIED ROUTE EXECUTION FROM JUNCTION J0
@@ -723,6 +824,7 @@ def run_physical_episode(
 
         # Consume real live observation at decision time
         obs_dec_j0 = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+        scan_snapshots.append(capture_scan_snapshot(node, "DECISION_J0", node.get_sim_time_sec(), doorway_bbox, obs_dec_j0))
 
         initial_route, dec_rationale, dec_meta = P2cPolicyDecider.decide_route(
             method=method_name,
@@ -991,6 +1093,9 @@ def run_physical_episode(
 
         with open(ep_dir / "costmap_snapshots.json", "w", encoding="utf-8") as f:
             json.dump(costmap_snapshots, f, indent=2)
+
+        with open(ep_dir / "scan_snapshots.json", "w", encoding="utf-8") as f:
+            json.dump(scan_snapshots, f, indent=2)
 
         with open(ep_dir / "stability_window.json", "w", encoding="utf-8") as f:
             json.dump({

@@ -1,0 +1,73 @@
+[2026-09-30 13:52:46.835] === Starting Physical Episode D2_O_ep1 (D2 + Method O) ===
+[2026-09-30 13:52:50.910] Sim clock advanced: 0.00s -> 1.20s
+[2026-09-30 13:52:52.588] Sensors verified: odom=(-2.50, -0.00), scan=360 rays
+[2026-09-30 13:52:52.588] AMCL pose converged at (-2.50, 0.00)
+[2026-09-30 13:53:13.016] AMCL nomotion update received: stamp 23.172s (seq=2)
+[2026-09-30 13:53:13.725] AMCL TF map->base_scan is verified ACTIVE and fresh!
+[2026-09-30 13:53:14.541] J0 Observability: Sightline Occluded=True, Local Doorway State=UNKNOWN (Reason: INSUFFICIENT_CLEARANCE_EVIDENCE (hits=0, pass_through=3 < 8, costmap_cleared=True))
+[2026-09-30 13:53:14.854] AMCL nomotion update received: stamp 24.972s (seq=3)
+[2026-09-30 13:53:16.072] [History Phase D2] Spawning obstacle 'chokepoint_blockage_box' at (0.0, 1.2, 0.3)...
+[2026-09-30 13:53:16.118] Successfully spawned obstacle 'chokepoint_blockage_box' at (0.00, 1.20, 0.30)
+[2026-09-30 13:53:17.119] [History Phase D2] Step 1: Navigating to observation vantage point (-1.00, 1.20)...
+[2026-09-30 13:53:17.121] Dispatched action 'hist_reach_obs_vantage': pipeline_status=DISPATCHED
+[2026-09-30 13:53:28.728] Passive physical halt verified: stable for 3.00s sim time (lv=0.0003, av=0.0055)
+[2026-09-30 13:53:31.162] Stability window recording complete: 419 samples across 2.50s sim time
+[2026-09-30 13:53:31.167] [History Phase D2] Step 1 Vantage arrival result: SUCCEEDED=True
+[2026-09-30 13:53:31.394] AMCL nomotion update received: stamp 41.574s (seq=38)
+[2026-09-30 13:53:32.156] [History Phase D2] Step 1 Live Perception: State=OCCUPIED (Hits=31, Reason: OBSTACLE_DETECTED (31 laser hits inside doorway bbox, costmap_occupied=18))
+[2026-09-30 13:53:32.260] AMCL nomotion update received: stamp 42.374s (seq=39)
+[2026-09-30 13:53:32.261] [History Phase D2] Step 2: Attempting real Nav2 chokepoint traversal through doorway (goal: [0.50, 1.20, 0.0])...
+[2026-09-30 13:53:32.262] Dispatched action 'hist_attempt_chokepoint_traversal': pipeline_status=DISPATCHED
+[2026-09-30 13:53:44.287] Simulation time budget exceeded (12.10s > 12.00s, sim_now=54.50s, abs_deadline=205.0). Requesting cancel...
+[2026-09-30 13:53:48.019] Passive physical halt verified: stable for 3.00s sim time (lv=0.0120, av=0.0086)
+[2026-09-30 13:53:50.501] Stability window recording complete: 424 samples across 2.50s sim time
+[2026-09-30 13:53:50.669] AMCL nomotion update received: stamp 60.775s (seq=91)
+[2026-09-30 13:53:51.347] [History Phase D2] Step 2 Post-traversal Live Perception: State=UNKNOWN (Hits=0, Reason: DOORWAY_NOT_IN_FOV_OR_OCCLUDED)
+[2026-09-30 13:53:51.557] AMCL nomotion update received: stamp 61.575s (seq=92)
+[2026-09-30 13:53:51.558] [History Phase D2] Step 2 Traversal outcome: BUDGET_DEADLINE_EXCEEDED (Diagnosed cause: BUDGET_EXHAUSTED)
+[2026-09-30 13:53:51.559] [History Phase D2] Successfully created Failure Memory bound to action 'hist_attempt_chokepoint_traversal'.
+[2026-09-30 13:53:51.559] [History Phase D2] Step 3: Retreating back to Decision Junction J0 (-2.50, 0.00)...
+[2026-09-30 13:53:51.562] Dispatched action 'hist_retreat_to_j0': pipeline_status=DISPATCHED
+[2026-09-30 13:54:02.758] Passive physical halt verified: stable for 3.00s sim time (lv=0.0002, av=0.0031)
+[2026-09-30 13:54:05.130] Stability window recording complete: 409 samples across 2.40s sim time
+[2026-09-30 13:54:05.135] [History Phase D2] Step 3 Retreat result: SUCCEEDED=True
+[2026-09-30 13:54:05.405] AMCL nomotion update received: stamp 75.376s (seq=128)
+[2026-09-30 13:54:06.226] [History Phase D2] Resampled perception at J0: State=UNKNOWN (Reason: DOORWAY_NOT_IN_FOV_OR_OCCLUDED)
+[2026-09-30 13:54:06.330] AMCL nomotion update received: stamp 76.375s (seq=129)
+[2026-09-30 13:54:06.330] [History Phase D2] Deleting obstacle from Gazebo to simulate environmental clearance...
+[2026-09-30 13:54:06.656] Successfully deleted obstacle 'chokepoint_blockage_box' from Gazebo world
+[2026-09-30 13:54:07.656] [History Phase D2] Step 4: Probing Path A again to observe clearance (-1.00, 1.20)...
+[2026-09-30 13:54:07.657] Dispatched action 'hist_probe_clearance_vantage': pipeline_status=DISPATCHED
+[2026-09-30 13:54:19.897] Passive physical halt verified: stable for 3.00s sim time (lv=0.0017, av=0.0088)
+[2026-09-30 13:54:22.267] Stability window recording complete: 410 samples across 2.40s sim time
+[2026-09-30 13:54:22.540] AMCL nomotion update received: stamp 92.575s (seq=166)
+[2026-09-30 13:54:23.214] [History Phase D2] Step 4 Live Perception: State=FREE (Pass-through=31, Reason: DOORWAY_CLEARANCE_VERIFIED (31 rays traversing through doorway to Room 2, costmap free))
+[2026-09-30 13:54:23.421] AMCL nomotion update received: stamp 93.375s (seq=167)
+[2026-09-30 13:54:23.422] [History Phase D2] Evaluated FREE perception -> 1 Failure Memory INVALIDATED.
+[2026-09-30 13:54:23.422] [History Phase D2] Step 5: Retreating back to Decision Junction J0 after clearance...
+[2026-09-30 13:54:23.423] Dispatched action 'hist_retreat_to_j0_clear': pipeline_status=DISPATCHED
+[2026-09-30 13:54:39.777] Passive physical halt verified: stable for 3.00s sim time (lv=0.0004, av=0.0010)
+[2026-09-30 13:54:42.205] Stability window recording complete: 417 samples across 2.50s sim time
+[2026-09-30 13:54:42.373] AMCL nomotion update received: stamp 112.375s (seq=226)
+[2026-09-30 13:54:43.087] [History Phase D2] Resampled perception at J0 after clearance: State=FREE
+[2026-09-30 13:54:43.190] AMCL nomotion update received: stamp 113.175s (seq=227)
+[2026-09-30 13:54:43.192] [History Phase Complete] Traversed 9.01m in 88.20s sim time. History Valid: True
+[2026-09-30 13:54:44.030] AMCL nomotion update received: stamp 113.975s (seq=228)
+[2026-09-30 13:54:44.032] 
+--- [Decision Phase] Method 'O' selected route 'Path_A' (Rationale: Spatial observation cache FREE -> route via Path A) ---
+[2026-09-30 13:54:44.032] [Route Execution] Leg 1: Approaching Path A corridor entrance (-1.50, 1.20)...
+[2026-09-30 13:54:44.034] Dispatched action 'dec_path_a_approach': pipeline_status=DISPATCHED
+[2026-09-30 13:54:54.611] Passive physical halt verified: stable for 3.00s sim time (lv=0.0019, av=0.0060)
+[2026-09-30 13:54:56.932] Stability window recording complete: 402 samples across 2.40s sim time
+[2026-09-30 13:54:57.246] AMCL nomotion update received: stamp 127.175s (seq=253)
+[2026-09-30 13:54:58.112] [Route Execution] Corridor Entrance Perception: State=FREE (Hits=0, Reason: DOORWAY_CLEARANCE_VERIFIED (22 rays traversing through doorway to Room 2, costmap free))
+[2026-09-30 13:54:58.112] [Route Execution] Leg 2: Doorway clear! Traversing through corridor exit (1.50, 1.20)...
+[2026-09-30 13:54:58.115] Dispatched action 'dec_path_a_corridor_exit': pipeline_status=DISPATCHED
+[2026-09-30 13:55:14.289] Passive physical halt verified: stable for 3.00s sim time (lv=0.0051, av=0.0012)
+[2026-09-30 13:55:16.669] Stability window recording complete: 412 samples across 2.40s sim time
+[2026-09-30 13:55:16.672] [Route Execution] Leg 3: Proceeding to final goal (2.50, 0.00)...
+[2026-09-30 13:55:16.673] Dispatched action 'dec_path_a_reach_goal': pipeline_status=DISPATCHED
+[2026-09-30 13:55:29.727] Passive physical halt verified: stable for 3.00s sim time (lv=0.0004, av=0.0007)
+[2026-09-30 13:55:32.106] Stability window recording complete: 411 samples across 2.40s sim time
+[2026-09-30 13:55:32.120] === Episode D2_O_ep1 Finished ===
+[2026-09-30 13:55:32.120] Req Route: Path_A, Act Route: Path_A, Dead-Ends: 0, Dispatches: 3, Decision Dist: 5.87m, Decision Time: 48.90s, Total Dist: 14.88m, Total Time: 137.10s, Final Success: True, Budget OK: True, Ep Valid: True

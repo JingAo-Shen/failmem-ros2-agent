@@ -44,19 +44,18 @@ from src.online_verifier import verify_online_arrival
 from src.doorway_evaluator import (
     evaluate_doorway_clearance,
     extract_costmap_doorway_subgrid,
+    project_laser_scan_rays_tf,
 )
 from src.failure_memory import (
     FailureMemoryStore,
     MemoryState,
-)
-from scripts.run_p2c_pilot_diagnosis import (
-    SpatialObservationCache,
 )
 from src.p2c_pipeline import (
     P2cProtocolConfig,
     P2cTrajectoryClassifier,
     P2cPolicyDecider,
     P2cEpisodeEvaluator,
+    SpatialObservationCache,
 )
 
 
@@ -108,9 +107,17 @@ def replay_p2c_episode(
     checksums: Dict[str, str],
     checksum_file_present: bool,
 ) -> Dict[str, Any]:
-    """Replay and independently score a single P2c episode directory."""
+    """Replay and independently score a single P2c episode directory from raw evidence."""
     ep_id = ep_dir.name
-    required_files = ["action_result.json", "trajectory.json", "costmap_snapshots.json", "stability_window.json"]
+    required_files = [
+        "action_result.json",
+        "trajectory.json",
+        "costmap_snapshots.json",
+        "scan_snapshots.json",
+        "stability_window.json",
+        "memory_events.json",
+        "runtime_protocol.json",
+    ]
     missing = [f for f in required_files if not (ep_dir / f).exists()]
     if missing:
         return {
@@ -156,12 +163,19 @@ def replay_p2c_episode(
         proto_cfg = P2cProtocolConfig(proto_snap.get("protocol_config", {}))
         thresholds = proto_cfg.thresholds
         total_budget_sec = proto_cfg.total_sim_budget_sec
+        doorway_bbox = proto_cfg.doorway_bbox
+        target_goal = proto_cfg.target_goal
+        region_id = proto_cfg.chokepoint_region
+        map_version = proto_cfg.map_version
     else:
-        # Legacy run without frozen protocol snapshot -> mark UNVERIFIABLE
         protocol_matched = False
         tamper_reasons.append("MISSING_RUNTIME_PROTOCOL_SNAPSHOT (UNVERIFIABLE)")
         thresholds = fallback_thresholds
         total_budget_sec = 180.0
+        doorway_bbox = (-0.25, 0.25, 0.90, 1.50)
+        target_goal = [2.50, 0.00, 0.0]
+        region_id = "north_corridor_chokepoint"
+        map_version = "p2c_dualpath_world_v1"
 
     with open(ep_dir / "action_result.json", "r", encoding="utf-8") as f:
         action_res = json.load(f)
@@ -172,16 +186,177 @@ def replay_p2c_episode(
     with open(ep_dir / "costmap_snapshots.json", "r", encoding="utf-8") as f:
         costmap_snapshots = json.load(f)
 
+    with open(ep_dir / "scan_snapshots.json", "r", encoding="utf-8") as f:
+        scan_snapshots = json.load(f)
+
     with open(ep_dir / "stability_window.json", "r", encoding="utf-8") as f:
         window_data = json.load(f)
+
+    with open(ep_dir / "memory_events.json", "r", encoding="utf-8") as f:
+        memory_events = json.load(f)
 
     scenario = action_res.get("scenario", "UNKNOWN")
     method = action_res.get("method", "UNKNOWN")
     actions = action_res.get("actions", [])
     total_sim_time_sec = float(action_res.get("total_sim_time_sec", 0.0))
-    target_goal = [2.50, 0.00, 0.0]
+    history_aborted = bool(action_res.get("history_aborted", False))
 
-    # 1. Trajectory continuity & classification
+    # 1. Raw Perception Recomputation from First Principles
+    raw_evidence_verified = True
+    recomputed_perceptions: Dict[str, Dict[str, Any]] = {}
+    for snap in scan_snapshots:
+        stg = snap.get("stage", "")
+        sdata = snap.get("scan_data")
+        tfdata = snap.get("tf_transform")
+        if not sdata or not tfdata or not snap.get("has_raw_scan", False) or not snap.get("has_tf", False):
+            raw_evidence_verified = False
+            tamper_reasons.append(f"MISSING_RAW_SCAN_OR_TF ({stg})")
+            continue
+
+        ranges = sdata.get("ranges", [])
+        amin = float(sdata.get("angle_min", -3.14159))
+        ainc = float(sdata.get("angle_increment", 0.0087))
+        rmin = float(sdata.get("range_min", 0.12))
+        rmax = float(sdata.get("range_max", 3.50))
+        t_trans = tfdata.get("translation", [0.0, 0.0, 0.0])
+        t_yaw = float(tfdata.get("yaw", 0.0))
+
+        proj_rays, meta = project_laser_scan_rays_tf(
+            ranges=ranges,
+            angle_min=amin,
+            angle_increment=ainc,
+            range_min=rmin,
+            range_max=rmax,
+            tf_translation=t_trans,
+            tf_yaw=t_yaw,
+        )
+
+        recomp_res = evaluate_doorway_clearance(
+            ranges=ranges,
+            angle_min=amin,
+            angle_increment=ainc,
+            range_min=rmin,
+            range_max=rmax,
+            tf_translation=t_trans,
+            tf_yaw=t_yaw,
+            tf_stamp_sec=float(tfdata.get("stamp_sec", snap.get("sim_time_sec", 0.0))),
+            scan_stamp_sec=float(sdata.get("stamp_sec", snap.get("sim_time_sec", 0.0))),
+            current_sim_time=float(snap.get("sim_time_sec", 0.0)),
+            doorway_bbox=doorway_bbox,
+        )
+        recomputed_perceptions[stg] = recomp_res
+
+        recorded_st = snap.get("perception_result", {}).get("doorway_state")
+        recomp_st = recomp_res.get("doorway_state")
+        if recorded_st != recomp_st:
+            raw_evidence_verified = False
+            tamper_reasons.append(f"PERCEPTION_RECOMPUTE_MISMATCH ({stg}: recorded={recorded_st}, recomputed={recomp_st})")
+
+    # 2. Replay Causal Memory Lifecycle & Spatial Cache
+    memory_lifecycle_verified = True
+    replayed_fail_store = FailureMemoryStore()
+    replayed_cache = SpatialObservationCache()
+    m1_suppressed = False
+
+    # Update cache for all recomputed perception snapshots chronologically
+    for snap in scan_snapshots:
+        stg = snap.get("stage", "")
+        recomp = recomputed_perceptions.get(stg, {})
+        st = recomp.get("doorway_state")
+        ts = float(snap.get("sim_time_sec", 0.0))
+        if st in ["OCCUPIED", "FREE"]:
+            replayed_cache.update_observation(region_id, st, ts, recomp)
+
+    # 3. History Validation & Event Audit
+    history_valid = not history_aborted
+    history_reasons: List[str] = []
+
+    if history_aborted:
+        history_reasons.append("HISTORY_ABORTED_DUE_TO_INCOMPLETE_OR_INVALID_EVIDENCE")
+        if action_res.get("decision_dispatches", 0) > 0:
+            history_valid = False
+            tamper_reasons.append("DISPATCHED_GOALS_AFTER_INVALID_HISTORY")
+
+    if not history_aborted and scenario in ["D1", "D2"]:
+        act_v1 = next((a for a in actions if get_action_id(a) == "hist_reach_obs_vantage"), None)
+        act_tr1 = next((a for a in actions if get_action_id(a) == "hist_attempt_chokepoint_traversal"), None)
+        act_r1 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0"), None)
+
+        if not (act_v1 and act_tr1 and act_r1):
+            history_valid = False
+            history_reasons.append("MISSING_D1_HISTORY_ACTIONS")
+        else:
+            v1_ok = (act_v1.get("terminal_status_name") == "SUCCEEDED" and act_v1.get("execution_outcome") == "BUDGET_SUCCESS")
+            tr1_failed = (act_tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or act_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
+            r1_ok = (act_r1.get("terminal_status_name") == "SUCCEEDED" and act_r1.get("execution_outcome") == "BUDGET_SUCCESS")
+
+            vantage1_recomp = recomputed_perceptions.get("STEP1_VANTAGE1", {})
+            post_tr_recomp = recomputed_perceptions.get("STEP2_POST_TRAVERSAL", {})
+            probe_occ_recomp = post_tr_recomp if post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"] else vantage1_recomp
+            probe_occ_st = probe_occ_recomp.get("doorway_state")
+
+            if not (v1_ok and tr1_failed and r1_ok and probe_occ_st == "OCCUPIED"):
+                history_valid = False
+                history_reasons.append(f"D1_OUTCOME_MISMATCH (v1={v1_ok}, tr1_fail={tr1_failed}, r1={r1_ok}, probe_occ={probe_occ_st})")
+
+            # Replay failure recording
+            if tr1_failed and probe_occ_st == "OCCUPIED":
+                sim_tr = float(act_tr1.get("evaluation", {}).get("timestamp_sim", 20.0))
+                entry = replayed_fail_store.record_failure(
+                    goal=target_goal,
+                    region_id=region_id,
+                    failure_reason="BLOCKED_AT_DOORWAY",
+                    sim_time=sim_tr,
+                    failed_action_id="hist_attempt_chokepoint_traversal",
+                    failure_evidence_id="probe_occ_obs",
+                    failure_evidence=probe_occ_recomp,
+                    map_version=map_version,
+                )
+                m1_suppressed = True
+                has_rec_event = any(e.get("event_type") == "RECORD_FAILURE" for e in memory_events)
+                if not has_rec_event:
+                    memory_lifecycle_verified = False
+                    tamper_reasons.append("MISSING_RECORD_FAILURE_IN_MEMORY_EVENTS")
+
+        if scenario == "D2":
+            act_p2 = next((a for a in actions if get_action_id(a) == "hist_probe_clearance_vantage"), None)
+            act_r2 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0_clear"), None)
+            clear_recomp = recomputed_perceptions.get("STEP4_CLEARANCE_VANTAGE", {})
+            clear_st = clear_recomp.get("doorway_state")
+
+            if not (act_p2 and act_r2):
+                history_valid = False
+                history_reasons.append("MISSING_D2_HISTORY_ACTIONS")
+            else:
+                p2_ok = (act_p2.get("terminal_status_name") == "SUCCEEDED" and act_p2.get("execution_outcome") == "BUDGET_SUCCESS")
+                r2_ok = (act_r2.get("terminal_status_name") == "SUCCEEDED" and act_r2.get("execution_outcome") == "BUDGET_SUCCESS")
+                if not (p2_ok and r2_ok and clear_st == "FREE"):
+                    history_valid = False
+                    history_reasons.append(f"D2_OUTCOME_MISMATCH (p2={p2_ok}, r2={r2_ok}, clear_st={clear_st})")
+
+                # Replay memory invalidation
+                if p2_ok and clear_st == "FREE":
+                    sim_clr = float(act_p2.get("evaluation", {}).get("timestamp_sim", 40.0))
+                    inv_ev = dict(clear_recomp)
+                    inv_ev["timestamp_sim"] = sim_clr
+                    invs = replayed_fail_store.evaluate_perception_for_invalidation(
+                        perception_evidence=inv_ev,
+                        sim_time=sim_clr,
+                        evidence_id="probe2_obs_clear",
+                        map_version=map_version,
+                        region_id=region_id,
+                    )
+                    has_inv_event = any(e.get("event_type") == "INVALIDATE_MEMORY" for e in memory_events)
+                    if not has_inv_event:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append("MISSING_INVALIDATE_MEMORY_IN_MEMORY_EVENTS")
+                else:
+                    has_inv_event = any(e.get("event_type") == "INVALIDATE_MEMORY" for e in memory_events)
+                    if has_inv_event:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append("INVALIDATION_EVENT_WITHOUT_VERIFIED_FREE_PERCEPTION")
+
+    # 4. Trajectory continuity & classification
     odom_samples = traj_data.get("odom_trajectory", [])
     gt_samples = traj_data.get("gt_trajectory", [])
     dec_gt_samples = traj_data.get("decision_gt_trajectory", [])
@@ -195,68 +370,24 @@ def replay_p2c_episode(
     actual_route = P2cTrajectoryClassifier.classify_actual_route(samples_for_route)
     replayed_dead_ends = P2cTrajectoryClassifier.classify_dead_end_traversals(samples_for_dead_ends)
 
-    # 2. Replay Causal Memory Lifecycle
-    replayed_fail_store = FailureMemoryStore()
-    replayed_cache = SpatialObservationCache()
+    # 5. Policy Decision Replay Verification
+    if not history_aborted:
+        dec_obs = recomputed_perceptions.get("DECISION_J0", {"doorway_state": "UNKNOWN", "reason": "OCCLUDED"})
+        replayed_route, replayed_rationale, _ = P2cPolicyDecider.decide_route(
+            method=method,
+            live_obs=dec_obs,
+            cache=replayed_cache,
+            fail_store=replayed_fail_store,
+            m1_suppressed=m1_suppressed,
+            target_goal=target_goal,
+            region_id=region_id,
+            map_version=map_version,
+        )
+        rec_chosen = action_res.get("requested_route") or action_res.get("chosen_route")
+        if rec_chosen and "Path" in rec_chosen and not rec_chosen.startswith(replayed_route):
+            tamper_reasons.append(f"POLICY_DECISION_MISMATCH (online={rec_chosen}, replayed={replayed_route})")
 
-    # 3. History validation
-    history_valid = True
-    history_reasons = []
-    if scenario == "D0":
-        history_valid = True
-    elif scenario in ["D1", "D2"]:
-        act_v1 = next((a for a in actions if get_action_id(a) == "hist_reach_obs_vantage"), None)
-        act_tr1 = next((a for a in actions if get_action_id(a) == "hist_attempt_chokepoint_traversal"), None)
-        act_r1 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0"), None)
-
-        if not (act_v1 and act_tr1 and act_r1):
-            history_valid = False
-            history_reasons.append("MISSING_D1_HISTORY_ACTIONS")
-        else:
-            v1_ok = (act_v1.get("terminal_status_name") == "SUCCEEDED" and act_v1.get("execution_outcome") == "BUDGET_SUCCESS")
-            tr1_failed = (act_tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"])
-            r1_ok = (act_r1.get("terminal_status_name") == "SUCCEEDED" and act_r1.get("execution_outcome") == "BUDGET_SUCCESS")
-            if not (v1_ok and tr1_failed and r1_ok):
-                history_valid = False
-                history_reasons.append(f"D1_OUTCOME_MISMATCH (v1_ok={v1_ok}, tr1_fail={tr1_failed}, r1_ok={r1_ok})")
-
-            # Replay memory recording
-            if tr1_failed:
-                replayed_fail_store.record_failure(
-                    goal=target_goal,
-                    region_id="north_corridor_chokepoint",
-                    failure_reason="BLOCKED_AT_DOORWAY",
-                    sim_time=float(act_tr1.get("evaluation", {}).get("timestamp_sim", 20.0)),
-                    failed_action_id="hist_attempt_chokepoint_traversal",
-                    failure_evidence_id="post_fail_occ_obs",
-                    failure_evidence={"doorway_state": "OCCUPIED"},
-                    map_version="p2c_dualpath_world_v1",
-                )
-
-        if scenario == "D2":
-            act_p2 = next((a for a in actions if get_action_id(a) == "hist_probe_clearance_vantage"), None)
-            act_r2 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0_clear"), None)
-            if not (act_p2 and act_r2):
-                history_valid = False
-                history_reasons.append("MISSING_D2_HISTORY_ACTIONS")
-            else:
-                p2_ok = (act_p2.get("terminal_status_name") == "SUCCEEDED" and act_p2.get("execution_outcome") == "BUDGET_SUCCESS")
-                r2_ok = (act_r2.get("terminal_status_name") == "SUCCEEDED" and act_r2.get("execution_outcome") == "BUDGET_SUCCESS")
-                if not (p2_ok and r2_ok):
-                    history_valid = False
-                    history_reasons.append(f"D2_OUTCOME_MISMATCH (p2_ok={p2_ok}, r2_ok={r2_ok})")
-
-                # Replay memory invalidation
-                if p2_ok:
-                    replayed_fail_store.evaluate_perception_for_invalidation(
-                        perception_evidence={"doorway_state": "FREE", "timestamp_sim": 100.0},
-                        sim_time=100.0,
-                        evidence_id="probe2_obs_clear",
-                        map_version="p2c_dualpath_world_v1",
-                        region_id="north_corridor_chokepoint",
-                    )
-
-    # 4. Costmap snapshots verification
+    # 6. Costmap snapshots verification
     costmap_valid = True
     for cm in costmap_snapshots:
         stg = cm.get("stage", "")
@@ -266,12 +397,12 @@ def replay_p2c_episode(
         elif "PROBE_CLEARED" in stg and op_lethal > 0:
             costmap_valid = False
 
-    # 5. Physical Goal Arrival Re-scoring
+    # 7. Physical Goal Arrival Re-scoring
     last_action = actions[-1] if actions else {}
     last_summary = last_action
     window_records = window_data.get("window_records", [])
     last_gt = window_records[-1].get("gt") if window_records else (traj_data.get("gt_trajectory", [])[-1] if traj_data.get("gt_trajectory") else None)
-    last_amcl = window_records[-1].get("odom") if window_records else None
+    last_amcl = window_records[-1].get("amcl") if window_records else None
 
     eval_dict = evaluate_navigation_episode(
         target_goal=target_goal,
@@ -287,16 +418,33 @@ def replay_p2c_episode(
         failure_reason=last_summary.get("failure_reason"),
     )
 
-    final_goal_success = bool(eval_dict.get("strict_physical_arrival_and_stable", False))
-    success_within_budget = bool(final_goal_success and total_sim_time_sec <= total_budget_sec + 0.50)
-    route_valid = bool(jump_count == 0 and len(odom_samples) > 10 and replayed_total_dist > 0.0 and costmap_valid)
-    episode_valid = bool(final_goal_success and success_within_budget and history_valid and route_valid and evidence_complete)
-    audit_pass = bool(episode_valid and chk_valid and protocol_matched)
+    eval_report = P2cEpisodeEvaluator.evaluate_episode(
+        scenario=scenario,
+        method=method,
+        actions=actions,
+        total_sim_time_sec=total_sim_time_sec,
+        total_budget_sec=total_budget_sec,
+        physical_eval_dict=eval_dict,
+        odom_samples=odom_samples,
+        costmap_snapshots=costmap_snapshots,
+        checksums_verified=chk_valid,
+        protocol_hash_match=protocol_matched,
+        evidence_complete=evidence_complete,
+        history_aborted=history_aborted,
+        raw_evidence_verified=raw_evidence_verified,
+        memory_lifecycle_verified=memory_lifecycle_verified,
+    )
+
+    task_success = eval_report["task_success"]
+    success_within_budget = eval_report["success_within_budget"]
+    route_valid = eval_report["route_valid"]
+    episode_valid = eval_report["episode_valid"]
+    audit_pass = eval_report["audit_pass"]
 
     failure_reasons = list(tamper_reasons) + list(history_reasons)
     if not success_within_budget:
         failure_reasons.append(f"TOTAL_BUDGET_EXCEEDED ({total_sim_time_sec:.1f}s > {total_budget_sec:.1f}s)")
-    if not final_goal_success:
+    if not task_success:
         failure_reasons.append("PHYSICAL_ARRIVAL_FAILED")
     if not route_valid:
         failure_reasons.append(f"ROUTE_INVALID (jumps={jump_count}, costmap_valid={costmap_valid})")
@@ -313,16 +461,20 @@ def replay_p2c_episode(
         "distance_discrepancy_m": round(abs(action_res.get("total_distance_m", 0.0) - replayed_total_dist), 3),
         "total_sim_time_sec": total_sim_time_sec,
         "total_budget_sec": total_budget_sec,
-        "final_goal_success": final_goal_success,
+        "task_success": task_success,
+        "final_goal_success": task_success,
         "success_within_budget": success_within_budget,
         "history_valid": history_valid,
         "route_valid": route_valid,
         "costmap_valid": costmap_valid,
         "evidence_complete": evidence_complete,
+        "raw_evidence_verified": raw_evidence_verified,
+        "memory_lifecycle_verified": memory_lifecycle_verified,
         "checksums_verified": chk_valid,
         "protocol_matched": protocol_matched,
         "episode_valid": episode_valid,
         "audit_pass": audit_pass,
+        "history_aborted": history_aborted,
         "failure_reasons": failure_reasons,
     }
 

@@ -1,19 +1,22 @@
 # FailMem Milestone P2c Feasibility Pilot Report: Non-Line-of-Sight Multi-Route Evaluation
 
 **Date**: 2026-09-30  
-**Phase**: Milestone P2c Event-Driven Feasibility Pilot & Minimal Dual-Path Physical Diagnosis  
-**Protocol Configuration**: `configs/p2c_pilot_protocol.yaml` (v4.1, SHA256: `92502bb4fb1c17629b346eeac2cd3d792aa95fba4f54e95bc2db4e0df3cdbe92`)  
+**Phase**: Milestone P2c Authenticity Audit, Event-Driven Failure Architecture & Minimal ROS 2 Verification  
+**Protocol Configuration**: `configs/p2c_pilot_protocol.yaml` (v4.1, SHA256: `3bb66e51fb7fd4e8184bc511a993842a35dabab0d8b8ea719ab67b7c87d9b775`)  
 **Evidence Artifacts**:
-- Real ROS Physical Pilot Suite (10 Episodes): `reports/evidence/p2c_pilot/p2c_pilot_20260930_102323_62b40e/`
-- Independent Replay & Audit Summary: `reports/evidence/p2c_pilot/p2c_pilot_20260930_102323_62b40e/p2c_replay_summary.json`
-- Analytical Model Demonstrations: `reports/evidence/p2c_analytical/p2c_pilot_diagnosis_results.json`
+- Verified Minimal Physical ROS 2 Runs:
+  - `D1_F_ep1`: `reports/evidence/p2c_pilot/p2c_pilot_20260930_134947_bef73e/`
+  - `D2_O_ep1`: `reports/evidence/p2c_pilot/p2c_pilot_20260930_135246_f759a3/`
+  - `D2_F_ep1`: `reports/evidence/p2c_pilot/p2c_pilot_20260930_142226_7b2d75/`
+- Open vs. Blocked Control Probe Verification: `reports/evidence/p2c_probe_control/probe_control_results.json`
+- Analytical Baseline Unit Demonstrations: `reports/evidence/p2c_analytical/p2c_pilot_diagnosis_results.json`
 - Map / Model / Protocol: `configs/p2c_dualpath_world.model`, `configs/p2c_dualpath_world.yaml`, `configs/p2c_dualpath_world.pgm`, `configs/p2c_pilot_protocol.yaml`
 
 ---
 
 ## 1. Scope, Positioning & Methodological Clarification
 
-This report presents the empirical findings of the Milestone P2c Feasibility Pilot on an asymmetric dual-path non-line-of-sight (NLOS) navigation environment.
+This report presents the empirical findings of Milestone P2c on an asymmetric dual-path non-line-of-sight (NLOS) navigation benchmark in ROS 2 Humble and Gazebo 11.
 
 ### 1.1 Separation of Evidence Types
 - **Analytical Model (`reports/evidence/p2c_analytical/`)**: Evaluates policy decision logic under idealized constant-velocity kinematic abstractions ($0.25\,\text{m/s}$ avg velocity, nominal segment geometry). Serves strictly as a deterministic unit baseline for policy logic demonstration.
@@ -26,113 +29,110 @@ This report presents the empirical findings of the Milestone P2c Feasibility Pil
 
 ---
 
-## 2. Environment Geometry, Observability & Costmap Audit
+## 2. Authenticity Audit & Legacy Dataset Status
 
-### 2.1 Calibrated Asymmetric Layout
-- **Decision Junction $J_0$**: $(-2.50, 0.00, \text{yaw}=0.00)$.
-- **Goal Target in Room 2**: $(+2.50, 0.00, \text{yaw}=0.00)$.
-- **Central Dividing Island**: $X \in [-1.80, +1.80], Y \in [-1.00, +0.40]$ (Thickness $1.40\,\text{m}$, Length $3.60\,\text{m}$).
-- **Path A (North Short Corridor)**: Nominal polyline length $6.124\,\text{m}$, passing through Chokepoint A at $(0.00, 1.20)$. Doorway opening width is $0.80\,\text{m}$ ($Y \in [0.80, 1.60]$).
-- **Path B (South Detour Corridor)**: Nominal polyline length $9.105\,\text{m}$, passing along $Y=-2.40$, completely open.
-- **Obstacle & Robot Dimensions**: TurtleBot3 Waffle footprint diameter $\approx 0.44\,\text{m}$, inflation radius $0.35\,\text{m}$. Blockage box size $0.40 \times 1.00 \times 0.60\,\text{m}$ at $(0.00, 1.20, 0.30)$ leaves $\le 0.10\,\text{m}$ clearance, guaranteeing physical and costmap blockage without leaks when present, and smooth passage when absent.
+A comprehensive methodological audit identified critical defects in earlier experimental runs, leading to the formal retraction of all 10-episode claims prior to this audit.
 
-### 2.2 Sightline Occlusion Proof
-From $J_0 (-2.50, 0.00)$ to Chokepoint A $(0.00, 1.20)$, the ray equation is $x(t) = -2.5 + 2.5t, y(t) = 1.2t$.  
-At $x = -1.80$ ($t = 0.28$), $y = 0.336\,\text{m} \in [-1.00, +0.40]$.  
-The ray strikes the solid central island wall, verifying $100\%$ physical line-of-sight occlusion.  
-In real ROS 2 simulation at $J_0$, LiDAR ray projection confirms instantaneous local sensor observation is strictly **`UNKNOWN`** (`DOORWAY_NOT_IN_FOV_OR_OCCLUDED`).
+### 2.1 Audit Defects Identified in Legacy Suites
+1. **Manufactured Traversal Failure**: `execute_chokepoint_traversal_probe` in previous scripts sent direct 2-second `cmd_vel` twists without dispatching a genuine ROS 2 `NavigateToPose` action goal, fabricating a `BUDGET_ABORTED` terminal status code rather than receiving an authentic Nav2 action server response.
+2. **Observation Stream Asymmetry**: Method O (Spatial Observation Cache) was overwritten by `UNKNOWN` observations upon retreating to junction $J_0$, whereas Method F retained failure memory across the same transition.
+3. **Replay Engine Short-Circuits**: The previous offline replay engine inserted synthetic fallback dictionaries for doorway perception and failure evidence rather than recomputing ray intersections and occupancy strictly from raw laser scan snapshots (`scan_snapshots.json`) and TF transforms (`map -> base_scan`).
 
-### 2.3 Nav2 Costmap Shared State Audit
-- In Scenario D1, when the robot probes Chokepoint A, the Nav2 global costmap registers lethal obstacle cells inside the doorway opening.
-- After retreating to $J_0$, the global costmap retains these lethal cells (`COSTMAP_AFTER_RETREAT_TO_J0`).
-- In Scenario D2, when the obstacle is removed and probed, opening center lethal cells drop to 0 and traversing rays reach Room 2 (`COSTMAP_PROBE_CLEARED_AT_CHOKEPOINT`).
+### 2.2 Legacy vs. Authentic Benchmark Status Comparison
 
----
-
-## 3. Legacy Audit vs. Final Physical Benchmark Comparison
-
-| Dataset ID | Execution Type | Protocol Frozen | Checksums SHA256 | Stopping Thresholds | Audit Outcome | Audit Verdict / Failure Reason |
+| Dataset ID | Execution Type | Protocol Frozen | Checksums SHA256 | Failure Authenticity | Audit Verdict | Audit Reason |
 | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| `p2c_pilot_20260930_051359_16dd42` | Physical ROS | ❌ Missing | ❌ Missing | Relaxed ($0.05/0.08$) | ❌ REJECTED | Missing frozen protocol snapshot & checksums (UNVERIFIABLE) |
-| `p2c_pilot_20260930_051709_dc4324` | Physical ROS | ❌ Missing | ❌ Missing | Relaxed ($0.05/0.08$) | ❌ REJECTED | Missing frozen protocol snapshot & checksums (UNVERIFIABLE) |
-| `p2c_pilot_20260930_052812_f14f2b` | Physical ROS | ⚠️ Incomplete | ⚠️ Incomplete | Strict ($0.05/0.08$) | ❌ REJECTED | Missing trajectory artifacts & checksum tree |
-| `p2c_pilot_20260930_102323_62b40e` | **Physical ROS** | **✅ Verified** | **✅ Verified** | **Strict ($0.05/0.08$)** | **✅ 10/10 PASS** | **100% Artifacts Complete, SHA256 Verified, All Episodes Valid** |
+| `p2c_pilot_20260930_051359_16dd42` | Physical ROS | ❌ Missing | ❌ Missing | ❌ Manufactured | ❌ REJECTED | Missing frozen protocol snapshot & checksums (UNVERIFIABLE) |
+| `p2c_pilot_20260930_051709_dc4324` | Physical ROS | ❌ Missing | ❌ Missing | ❌ Manufactured | ❌ REJECTED | Missing frozen protocol snapshot & checksums (UNVERIFIABLE) |
+| `p2c_pilot_20260930_052812_f14f2b` | Physical ROS | ⚠️ Incomplete | ⚠️ Incomplete | ❌ Manufactured | ❌ REJECTED | Missing trajectory artifacts & checksum tree |
+| `p2c_pilot_20260930_102323_62b40e` | Physical ROS | ✅ Verified | ✅ Verified | ❌ Manufactured | ❌ REJECTED | **Failed Authenticity Audit**: Traversal probe bypassed Nav2 action server; perception stream asymmetric |
+| `p2c_pilot_20260930_134947_bef73e` | **Physical ROS** | **✅ Verified** | **✅ Verified** | **✅ Authentic Nav2** | **✅ AUDIT PASS** | **D1_F Minimal Physical Verification: 100% Raw Replay Pass** |
+| `p2c_pilot_20260930_135246_f759a3` | **Physical ROS** | **✅ Verified** | **✅ Verified** | **✅ Authentic Nav2** | **✅ AUDIT PASS** | **D2_O Minimal Physical Verification: 100% Raw Replay Pass** |
+| `p2c_pilot_20260930_142226_7b2d75` | **Physical ROS** | **✅ Verified** | **✅ Verified** | **✅ Authentic Nav2** | **✅ AUDIT PASS** | **D2_F Minimal Physical Verification: 100% Raw Replay Pass** |
 
 ---
 
-## 4. Real ROS 2 Physical Execution Results (10-Episode Matrix)
+## 3. Authentic Event-Driven Failure Architecture
 
-All 10 episodes were executed inside Docker container `failmem_humble` (`run_id: p2c_pilot_20260930_102323_62b40e`). Real distances are integrated from continuous odometry, and real durations are measured via simulation `/clock`.
+### 3.1 Genuine Nav2 Action Server Traversal
+- Traversal probing (`hist_attempt_chokepoint_traversal`) is executed via the real ROS 2 `NavigateToPose` action client with unique goal UUIDs, action feedback monitoring, cancel requests, and genuine server terminal statuses (`SUCCEEDED`, `ABORTED`, `CANCELED`).
+- The open vs. blocked control probe test (`scripts/verify_p2c_probe_control.py`) establishes causal fidelity:
+  - **Open Condition**: Nav2 navigates towards `[1.50, 1.20, 0.0]` through the clear doorway; action succeeds (`SUCCEEDED`, physical arrival confirmed), and perception verifies `FREE` (30 pass-through rays).
+  - **Blocked Condition**: The identical navigation action is dispatched with the doorway obstacle spawned; Nav2 is physically blocked by lethal costmap cells, times out / cancels (`CANCELED`, `BUDGET_DEADLINE_EXCEEDED`), and perception verifies `OCCUPIED` (50 obstacle hits inside doorway bounding box).
 
-| Scenario | Method | Description | Decision Route | Dead-End Traversals | History Dist ($m$) | History Time ($s$) | Decision Dist ($m$) | Decision Time ($s$) | Total Dist ($m$) | Total Time ($s$) | Physical Arrival | Episode Valid |
-| :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **D0 (Fresh)** | **R** | Reactive Only | Path A | 0 | 0.00 | 0.00 | 6.18 | 50.60 | 6.18 | 50.60 | **True** | **True** |
-| **D0 (Fresh)** | **O** | Spatial Obs Cache | Path A | 0 | 0.00 | 0.00 | 6.17 | 49.30 | 6.17 | 49.30 | **True** | **True** |
-| **D0 (Fresh)** | **F** | FailMem Memory | Path A | 0 | 0.00 | 0.00 | 6.15 | 52.10 | 6.15 | 52.10 | **True** | **True** |
-| **D1 (Blocked)** | **R** | Reactive Only | Path B (Fallback) | 0 | 4.81 | 45.40 | 7.84 | 49.10 | 12.65 | 94.50 | **True** | **True** |
-| **D1 (Blocked)** | **O** | Spatial Obs Cache | Path B (Bypass) | 0 | 4.79 | 45.30 | 7.82 | 49.50 | 12.61 | 94.80 | **True** | **True** |
-| **D1 (Blocked)** | **F** | FailMem Memory | Path B (Bypass) | 0 | 4.82 | 49.80 | 7.86 | 52.10 | 12.68 | 101.90 | **True** | **True** |
-| **D2 (Cleared)** | **R** | Reactive Only | Path A | 0 | 8.35 | 80.20 | 5.88 | 49.00 | 14.23 | 129.20 | **True** | **True** |
-| **D2 (Cleared)** | **O** | Spatial Obs Cache | Path B (Detour) | 0 | 8.32 | 82.30 | 7.90 | 54.10 | 16.22 | 136.40 | **True** | **True** |
-| **D2 (Cleared)** | **F** | FailMem Memory | Path A (Restored) | 0 | 8.36 | 80.40 | 5.89 | 49.00 | 14.25 | 129.40 | **True** | **True** |
-| **D2 (Cleared)** | **M1**| Persistent Suppression| Path B (Detour) | 0 | 8.32 | 85.20 | 7.96 | 51.50 | 16.28 | 136.70 | **True** | **True** |
+### 3.2 Strict Invalid-History Hard-Stop
+- If history acquisition fails to produce protocol-compliant physical evidence (e.g. traversal does not fail with verified `OCCUPIED` perception, or clearance does not produce verified `FREE` perception), the episode **halts immediately**.
+- The runner logs `[HARD STOP] History acquisition invalid!`, dispatches **0 decision goals**, sets `chosen_route = "HISTORY_INVALID_ABORTED"`, serializes all 7 artifacts, and marks `episode_valid = False`.
+- In run `p2c_pilot_20260930_142008_3b1078`, when clearing the obstacle left 1 residual costmap cell (`OCCUPIED`), the pipeline halted immediately with 0 decision dispatches, demonstrating zero tolerance for invalid history.
+
+### 3.3 Symmetric Observation Stream
+- `SpatialObservationCache` and `FailureMemoryStore` consume the identical time-aligned perception stream.
+- In both models, instantaneous `UNKNOWN` observations (such as sightline occlusion from junction $J_0$) do **not** overwrite previously acquired known state (`OCCUPIED` or `FREE`).
+- In Scenario D2, upon observing `FREE` during the clearance probe, $O$ caches `FREE` and $F$ invalidates failure memory. When retreating to $J_0$, both methods retain the cleared state and select Path A during the decision phase.
 
 ---
 
-## 5. Offline Replay & Objective Scoring Summary
+## 4. Minimal Physical ROS 2 Execution Results
 
-The independent replay engine (`scripts/replay_and_score_p2c.py`) evaluated `reports/evidence/p2c_pilot/p2c_pilot_20260930_102323_62b40e/`:
+The minimal physical matrix (`D1_F`, `D2_O`, `D2_F`) was executed inside Docker container `failmem_humble`. Distances are integrated from continuous `/odom`, durations are measured from `/clock`, and perception is captured via raw `/scan` snapshots with synchronized AMCL TF.
+
+| Episode ID | Scenario | Method | Requested Route | Actual Route | Dead-End Traversals | History Dist ($m$) | History Time ($s$) | Decision Dist ($m$) | Decision Time ($s$) | Total Dist ($m$) | Total Time ($s$) | Final Success | Episode Valid | Audit Verdict |
+| :--- | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `D1_F_ep1` | **D1 (Blocked)** | **F (FailMem)** | Path B | Path B | 0 | 4.66 | 57.80 | 7.57 | 53.90 | 12.23 | 111.70 | **True** | **True** | **✅ AUDIT PASS** |
+| `D2_O_ep1` | **D2 (Cleared)** | **O (Spatial Cache)**| Path A | Path A | 0 | 9.01 | 88.20 | 5.87 | 48.90 | 14.88 | 137.10 | **True** | **True** | **✅ AUDIT PASS** |
+| `D2_F_ep1` | **D2 (Cleared)** | **F (FailMem)** | Path A | Path A | 0 | 8.39 | 94.00 | 5.97 | 51.20 | 14.36 | 145.20 | **True** | **True** | **✅ AUDIT PASS** |
+
+---
+
+## 5. Offline Replay & Objective Scoring Verification
+
+The independent replay engine (`scripts/replay_and_score_p2c.py`) evaluated the verified physical evidence runs without synthetic fallbacks:
+1. **Artifact Completeness**: Verified the presence of all 7 mandatory artifacts (`action_result.json`, `trajectory.json`, `costmap_snapshots.json`, `scan_snapshots.json`, `stability_window.json`, `memory_events.json`, `runtime_protocol.json`).
+2. **SHA256 Integrity**: Validated full SHA256 checksum tree against `checksums.sha256`.
+3. **Raw Perception Recomputation**: Recomputed doorway ray intersections and 3-valued occupancy directly from raw laser ranges and AMCL TF poses.
+4. **Memory Event Reconstruction**: Reconstructed `FailureMemoryStore` and `SpatialObservationCache` event lifecycles step-by-step from raw recomputed perception events, verifying perfect alignment with recorded memory events.
 
 ```
 =======================================================================
-Replaying P2c Run: p2c_pilot_20260930_102323_62b40e
+Replaying P2c Run: p2c_pilot_20260930_134947_bef73e (D1_F)
+Checksum File Present: True, All Valid: True, All Audit Pass: True
+| Episode  | Req Route | Act Route | Dead-End | Replayed Dist | Goal OK | Budget OK | Valid | Audit Pass |
+| D1_F_ep1 | Path_B    | Path_B    |        0 |        12.23m | True    | True      | True  | True       |
 =======================================================================
-Checksum File Present: True
-Episodes: 10, All Valid: True, All Audit Pass: True
--------------------------------------------------------------------------------------------------------------
-| Episode | Req Route | Act Route | Dead-End | Replayed Dist | Goal OK | Budget OK | Valid | Audit Pass |
-| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| D0_F_ep1   | Path_A             | Path_A             |        0 |        6.15m | True    | True      | True  | True       |
-| D0_O_ep1   | Path_A             | Path_A             |        0 |        6.17m | True    | True      | True  | True       |
-| D0_R_ep1   | Path_A             | Path_A             |        0 |        6.18m | True    | True      | True  | True       |
-| D1_F_ep1   | Path_B             | Path_B             |        0 |       12.68m | True    | True      | True  | True       |
-| D1_O_ep1   | Path_B             | Path_B             |        0 |       12.61m | True    | True      | True  | True       |
-| D1_R_ep1   | Path_B             | Path_B             |        0 |       12.65m | True    | True      | True  | True       |
-| D2_F_ep1   | Path_A             | Path_A             |        0 |       14.25m | True    | True      | True  | True       |
-| D2_M1_ep1  | Path_B             | Path_B             |        0 |       16.28m | True    | True      | True  | True       |
-| D2_O_ep1   | Path_B             | Path_B             |        0 |       16.22m | True    | True      | True  | True       |
-| D2_R_ep1   | Path_A             | Path_A             |        0 |       14.23m | True    | True      | True  | True       |
-=============================================================================================================
+Replaying P2c Run: p2c_pilot_20260930_135246_f759a3 (D2_O)
+Checksum File Present: True, All Valid: True, All Audit Pass: True
+| Episode  | Req Route | Act Route | Dead-End | Replayed Dist | Goal OK | Budget OK | Valid | Audit Pass |
+| D2_O_ep1 | Path_A    | Path_A    |        0 |        14.88m | True    | True      | True  | True       |
+=======================================================================
+Replaying P2c Run: p2c_pilot_20260930_142226_7b2d75 (D2_F)
+Checksum File Present: True, All Valid: True, All Audit Pass: True
+| Episode  | Req Route | Act Route | Dead-End | Replayed Dist | Goal OK | Budget OK | Valid | Audit Pass |
+| D2_F_ep1 | Path_A    | Path_A    |        0 |        14.36m | True    | True      | True  | True       |
+=======================================================================
 ```
 
 ---
 
 ## 6. Key Scientific Findings & Discussion
 
-1. **Avoidance of Dead-End Traversal via Prior History**:
-   - In Scenario D1, both spatial observation caching (Method O) and failure memory (Method F) successfully utilize historical evidence from the probe stage to route immediately via Path B ($7.82 \sim 7.86\,\text{m}$ decision phase), avoiding speculative entry into the blocked corridor.
-   - When purely reactive (Method R), the robot uses the entrance gating observation to trigger fallback at the corridor threshold, completing within the $180\,\text{s}$ budget ($94.5\,\text{s}$).
-
+1. **Dead-End Avoidance via Authentic Failure History**:
+   - In Scenario D1, FailMem ($F$) utilizes historical failure evidence bound to the failed traversal probe to select Path B immediately ($7.57\,\text{m}$ decision phase), avoiding speculative re-entry into the blocked corridor.
 2. **Empirical Equivalence of O and F in Static Spatial Routing**:
-   - In static single-robot environments where obstacles are purely geometric blockages, Method O (Spatial Observation Cache) and Method F (FailMem Failure Memory) demonstrate equivalent routing capability.
-   - Failures at static doorways reduce directly to spatial occupancy states. Spatial caching without action-semantic binding is empirically sufficient for optimal routing decisions under static conditions.
-
-3. **Restoration of Short Path via Memory Invalidation**:
-   - In Scenario D2, upon clearance of the doorway blockage, Method F invalidates the failure memory and safely restores the shorter Path A route ($14.25\,\text{m}$ total, $129.4\,\text{s}$ duration).
-   - In contrast, persistent suppression baseline (Method M1) cannot invalidate historical failure records, incurring permanent detour overhead ($16.28\,\text{m}$ total, $136.7\,\text{s}$ duration, $+2.03\,\text{m}$ detour penalty).
-
+   - In static environments where failures stem strictly from geometric blockage, spatial observation caching ($O$) and failure memory ($F$) demonstrate equivalent routing efficacy. Both restore the shorter Path A route in Scenario D2 ($14.88\,\text{m}$ vs. $14.36\,\text{m}$) once clearance is observed.
+3. **Restoration of Short Path via Event-Driven Invalidation**:
+   - Live perception returning `FREE` ($\ge 8$ traversing rays, 0 obstacle hits, cleared costmap) reliably invalidates failure memory entries in $F$, eliminating permanent detour suppression without manual state resets.
 4. **Unverified Hypotheses for Advanced Failure Memory Capabilities**:
-   - The theoretical advantage of causal failure memory (beyond spatial caching) remains an unverified hypothesis in static environments.
-   - Research extensions to test these hypotheses should target:
-     - Kinematic/dynamic failures where space is geometrically free (e.g. slope traction, payload limits, narrow turn radius).
-     - Capability asymmetries in heterogeneous multi-agent systems (e.g. small robot can traverse, large robot blocked).
+   - The specific advantage of causal failure memory (beyond spatial caching) remains an unverified hypothesis in static environments and requires domain extensions to:
+     - Kinematic/dynamic failures where space is geometrically free (e.g. slope traction loss, payload limits, turn radius limits).
+     - Capability asymmetries in heterogeneous multi-agent systems.
      - Prerequisite-bound actions requiring environmental manipulation prior to re-traversal.
 
 ---
 
 ## 7. Audit Conclusion
 
-- The Milestone P2c Validity Loop is fully closed.
-- Production code in `src/p2c_pipeline.py` is shared across live runner and regression tests (135 passing tests).
-- 10/10 physical episodes in `reports/evidence/p2c_pilot/p2c_pilot_20260930_102323_62b40e/` achieved verified physical arrival and $100\%$ audit pass status.
+- The authenticity audit has been fully executed and closed.
+- All manufactured failure mocks have been completely replaced by authentic Nav2 action server goals, feedback, and terminal status evaluation.
+- The open vs. blocked control probe confirms causal fidelity.
+- Minimal physical ROS 2 runs (`D1_F`, `D2_O`, `D2_F`) achieved 100% physical arrival, 100% valid execution, and 100% offline replay pass from first-principles raw LiDAR and TF recalculations.
 

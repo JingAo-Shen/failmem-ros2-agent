@@ -257,6 +257,35 @@ class P2cTrajectoryClassifier:
         return "NAVIGATION_ABORTED_OR_FAILED"
 
 
+
+class SpatialObservationCache:
+    """Non-decaying spatial observation cache storing environmental observations with coordinates/region.
+    
+    Rule: Every valid fresh OCCUPIED / FREE observation updates cache; UNKNOWN does NOT overwrite known state.
+    """
+
+    def __init__(self):
+        self.cache: Dict[str, List[Dict[str, Any]]] = {}
+
+    def update_observation(self, region_id: str, state: str, sim_time: float, evidence: Dict[str, Any]):
+        if state == "UNKNOWN":
+            # UNKNOWN does not overwrite known OCCUPIED/FREE state in spatial cache
+            return
+        if region_id not in self.cache:
+            self.cache[region_id] = []
+        self.cache[region_id].append({
+            "region_id": region_id,
+            "doorway_state": state,
+            "sim_time": round(float(sim_time), 4),
+            "evidence": copy.deepcopy(evidence),
+        })
+
+    def get_latest_state(self, region_id: str) -> str:
+        if region_id not in self.cache or not self.cache[region_id]:
+            return "UNKNOWN"
+        return self.cache[region_id][-1]["doorway_state"]
+
+
 class P2cPolicyDecider:
     """Consumes live observations and internal policy state to make route decisions."""
 
@@ -298,8 +327,10 @@ class P2cPolicyDecider:
             cached_st = cache.get_latest_state(region_id) if hasattr(cache, "get_latest_state") else "UNKNOWN"
             if cached_st == "OCCUPIED":
                 return "Path_B", "Spatial observation cache OCCUPIED -> bypass via Path B immediately", {"cache_state": cached_st}
+            elif cached_st == "FREE":
+                return "Path_A", "Spatial observation cache FREE -> route via Path A", {"cache_state": cached_st}
             else:
-                return "Path_A", f"Spatial observation cache {cached_st} -> route via Path A", {"cache_state": cached_st}
+                return "Path_A", f"Spatial observation cache {cached_st} -> explore nominal short Path A", {"cache_state": cached_st}
 
         elif method == "F":
             is_blocked, blocked_entry, block_reason = fail_store.is_dispatch_blocked(target_goal, region_id, map_version)
@@ -334,10 +365,16 @@ class P2cEpisodeEvaluator:
         checksums_verified: bool,
         protocol_hash_match: bool,
         evidence_complete: bool,
+        history_aborted: bool = False,
+        raw_evidence_verified: bool = True,
+        memory_lifecycle_verified: bool = True,
     ) -> Dict[str, Any]:
         """Compute full suite of objective validity flags."""
-        final_goal_success = bool(physical_eval_dict.get("strict_physical_arrival_and_stable", False))
-        success_within_budget = bool(final_goal_success and total_sim_time_sec <= total_budget_sec + 0.50)
+        task_success = bool(
+            not history_aborted
+            and physical_eval_dict.get("strict_physical_arrival_and_stable", False)
+        )
+        success_within_budget = bool(task_success and total_sim_time_sec <= total_budget_sec + 0.50)
 
         # 1. Trajectory & Route Validation
         dist, jumps = P2cTrajectoryClassifier.integrate_distance(odom_samples)
@@ -353,18 +390,22 @@ class P2cEpisodeEvaluator:
             elif "PROBE_CLEARED" in stg and op_lethal > 0:
                 costmap_valid = False
 
-        route_valid = bool(jumps == 0 and len(odom_samples) > 10 and dist > 0.0 and costmap_valid)
+        data_valid = bool(evidence_complete and len(odom_samples) > 10 and jumps == 0)
+        route_valid = bool(data_valid and dist > 0.0 and costmap_valid and not history_aborted)
 
         # 2. History Validation
-        history_valid = True
+        history_valid = not history_aborted
         history_reasons: List[str] = []
+
+        if history_aborted:
+            history_reasons.append("HISTORY_ABORTED_DUE_TO_INCOMPLETE_OR_INVALID_EVIDENCE")
 
         def get_aid(act):
             if "action_id" in act: return str(act["action_id"])
             d = act.get("dispatch", {})
             return str(d.get("action_id", d.get("effective_action", {}).get("action_id", "")))
 
-        if scenario in ["D1", "D2"]:
+        if not history_aborted and scenario in ["D1", "D2"]:
             v1 = next((a for a in actions if get_aid(a) == "hist_reach_obs_vantage"), None)
             tr1 = next((a for a in actions if get_aid(a) == "hist_attempt_chokepoint_traversal"), None)
             r1 = next((a for a in actions if get_aid(a) == "hist_retreat_to_j0"), None)
@@ -374,13 +415,13 @@ class P2cEpisodeEvaluator:
                 history_reasons.append("MISSING_D1_HISTORY_ACTIONS")
             else:
                 v1_ok = (v1.get("terminal_status_name") == "SUCCEEDED" and v1.get("execution_outcome") == "BUDGET_SUCCESS")
-                tr1_fail = (tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"])
+                tr1_fail = (tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or tr1.get("terminal_status_name") == "ABORTED")
                 r1_ok = (r1.get("terminal_status_name") == "SUCCEEDED" and r1.get("execution_outcome") == "BUDGET_SUCCESS")
                 if not (v1_ok and tr1_fail and r1_ok):
                     history_valid = False
                     history_reasons.append(f"D1_OUTCOME_MISMATCH (v1_ok={v1_ok}, tr1_fail={tr1_fail}, r1_ok={r1_ok})")
 
-            if scenario == "D2":
+            if not history_aborted and scenario == "D2":
                 p2 = next((a for a in actions if get_aid(a) == "hist_probe_clearance_vantage"), None)
                 r2 = next((a for a in actions if get_aid(a) == "hist_retreat_to_j0_clear"), None)
                 if not (p2 and r2):
@@ -394,12 +435,20 @@ class P2cEpisodeEvaluator:
                         history_reasons.append(f"D2_OUTCOME_MISMATCH (p2_ok={p2_ok}, r2_ok={r2_ok})")
 
         # 3. Comprehensive Validity & Audit
-        episode_valid = bool(final_goal_success and success_within_budget and history_valid and route_valid and evidence_complete)
-        audit_pass = bool(episode_valid and checksums_verified and protocol_hash_match)
+        episode_valid = bool(task_success and success_within_budget and history_valid and route_valid and evidence_complete)
+        audit_pass = bool(
+            episode_valid
+            and checksums_verified
+            and protocol_hash_match
+            and raw_evidence_verified
+            and memory_lifecycle_verified
+        )
 
         return {
-            "final_goal_success": final_goal_success,
+            "task_success": task_success,
+            "final_goal_success": task_success,
             "success_within_budget": success_within_budget,
+            "data_valid": data_valid,
             "history_valid": history_valid,
             "history_reasons": history_reasons,
             "route_valid": route_valid,

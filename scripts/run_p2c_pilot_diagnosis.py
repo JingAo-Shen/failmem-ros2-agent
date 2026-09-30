@@ -37,12 +37,18 @@ from src.failure_memory import (
 
 
 class SpatialObservationCache:
-    """Non-decaying spatial observation cache storing environmental observations with coordinates/region."""
+    """Non-decaying spatial observation cache storing environmental observations with coordinates/region.
+    
+    Rule: Every valid fresh OCCUPIED / FREE observation updates cache; UNKNOWN does NOT overwrite known state.
+    """
 
     def __init__(self):
         self.cache: Dict[str, List[Dict[str, Any]]] = {}
 
     def update_observation(self, region_id: str, state: str, sim_time: float, evidence: Dict[str, Any]):
+        if state == "UNKNOWN":
+            # UNKNOWN does not overwrite known OCCUPIED/FREE state in spatial cache
+            return
         if region_id not in self.cache:
             self.cache[region_id] = []
         self.cache[region_id].append({

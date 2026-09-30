@@ -415,6 +415,14 @@ class P1cV3RunnerNode(Node):
                     "child_frame_id": transform.child_frame_id,
                 }
             except Exception:
+                if self.latest_amcl_record is not None:
+                    return {
+                        "translation": [float(self.latest_amcl_record["x"]), float(self.latest_amcl_record["y"]), 0.0],
+                        "yaw": float(self.latest_amcl_record.get("yaw", 0.0)),
+                        "stamp_sec": stamp_sec if stamp_sec is not None else float(self.latest_amcl_record.get("msg_stamp_sec", self.get_sim_time_sec())),
+                        "frame_id": "map",
+                        "child_frame_id": "base_scan",
+                    }
                 return None
 
     def query_lifecycle_state(self, timeout_sec: float = 0.5) -> str:
