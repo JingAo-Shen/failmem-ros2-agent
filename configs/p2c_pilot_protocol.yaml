@@ -11,7 +11,7 @@ environment:
   map_version: "p2c_dualpath_world_v1"
   params_file: "configs/nav2_params.yaml"
   spawn_pose:
-    x: -2.20
+    x: -2.50
     y: 0.00
     z: 0.01
     yaw: 0.00
@@ -19,7 +19,7 @@ environment:
 
 decision_junction:
   pose:
-    x: -2.20
+    x: -2.50
     y: 0.00
     yaw: 0.00
     frame_id: "map"
@@ -30,47 +30,49 @@ obstacle_channel:
   obstacle_sdf: "configs/chokepoint_box.sdf"
   pose:
     x: 0.00
-    y: 0.95
+    y: 1.20
     z: 0.30
   doorway_bbox:
     x_min: -0.30
     x_max: 0.30
-    y_min: 0.65
-    y_max: 1.25
+    y_min: 0.80
+    y_max: 1.60
 
 navigation_task:
   goal_pose:
-    x: 2.20
+    x: 2.50
     y: 0.00
     yaw: 0.00
     frame_id: "map"
   target_region: "north_corridor_chokepoint"
-  action_sim_timeout_sec: 25.0
-  action_wall_watchdog_sec: 60.0
-  episode_total_sim_budget_sec: 120.0
+  action_sim_timeout_sec: 45.0
+  action_wall_watchdog_sec: 90.0
+  episode_total_sim_budget_sec: 180.0
   observation_period_sim_sec: 2.0
 
 routes:
   path_a:
     name: "north_short_path"
-    nominal_length_m: 4.8
+    nominal_length_m: 5.8
     via_region: "north_corridor_chokepoint"
     waypoints:
-      - [-2.20, 0.00, 0.0]
-      - [-1.80, 0.95, 0.0]
-      - [0.00, 0.95, 0.0]
-      - [1.80, 0.95, 0.0]
-      - [2.20, 0.00, 0.0]
+      - [-2.50, 0.00, 0.0]
+      - [-1.50, 1.20, 0.0]
+      - [0.00, 1.20, 0.0]
+      - [1.50, 1.20, 0.0]
+      - [2.50, 0.00, 0.0]
   path_b:
     name: "south_bypass_detour"
-    nominal_length_m: 7.8
+    nominal_length_m: 8.8
     via_region: "south_open_corridor"
     waypoints:
-      - [-2.20, 0.00, 0.0]
-      - [-1.80, -0.95, 0.0]
-      - [0.00, -0.95, 0.0]
-      - [1.80, -0.95, 0.0]
-      - [2.20, 0.00, 0.0]
+      - [-2.50, 0.00, 0.0]
+      - [-2.50, -2.00, 0.0]
+      - [-1.00, -2.40, 0.0]
+      - [0.00, -2.40, 0.0]
+      - [1.00, -2.40, 0.0]
+      - [2.50, -2.00, 0.0]
+      - [2.50, 0.00, 0.0]
 
 evaluation_methods:
   R:

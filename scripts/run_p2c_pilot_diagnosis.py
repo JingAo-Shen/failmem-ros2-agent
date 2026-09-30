@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""FailMem Milestone P2c Feasibility Pilot Diagnosis Runner.
+"""FailMem Milestone P2c Analytical Model & Policy Unit Demonstration Runner.
 
-Executes physical paired diagnostics (D0, D1, D2) comparing:
+Demonstrates algorithmic policy logic (R, O, F, M1) under simplified kinematic/analytic
+abstraction across paired scenarios (D0, D1, D2):
 - R (Reactive Only)
 - O (Spatial Observation Cache)
 - F (FailMem Failure Memory)
 - M1 (Persistent Suppression Baseline)
 
-Evaluates:
-1. Visibility & Sightline Occlusion from Decision Junction J0.
-2. Nav2 Costmap Shared State & Retention.
-3. Separate Phase Metrics: History Acquisition Phase vs Subsequent Decision Phase.
-4. Route Choice, Distance, Dead-End Traversal, and Time.
+NOTE: This script produces analytical model predictions under idealized velocity assumptions,
+NOT real physical ROS 2 / Gazebo / Nav2 execution results.
 """
 
 from __future__ import annotations
@@ -42,7 +40,6 @@ class SpatialObservationCache:
     """Non-decaying spatial observation cache storing environmental observations with coordinates/region."""
 
     def __init__(self):
-        # Maps region_id -> list of observation records
         self.cache: Dict[str, List[Dict[str, Any]]] = {}
 
     def update_observation(self, region_id: str, state: str, sim_time: float, evidence: Dict[str, Any]):
@@ -63,7 +60,7 @@ class SpatialObservationCache:
 
 def verify_sightline_occlusion(junc_xy: Tuple[float, float], doorway_xy: Tuple[float, float]) -> Dict[str, Any]:
     """Verify that Chokepoint A is occluded by the central horizontal island from Junction J0."""
-    # Central island is at x in [-1.6, 1.6], y in [-0.4, 0.4]
+    # Central island is at x in [-1.8, 1.8], y in [-1.0, 0.4]
     x0, y0 = junc_xy
     x1, y1 = doorway_xy
     
@@ -74,7 +71,7 @@ def verify_sightline_occlusion(junc_xy: Tuple[float, float], doorway_xy: Tuple[f
         t = step / 1000.0
         rx = x0 + t * (x1 - x0)
         ry = y0 + t * (y1 - y0)
-        if -1.6 <= rx <= 1.6 and -0.4 <= ry <= 0.4:
+        if -1.8 <= rx <= 1.8 and -1.0 <= ry <= 0.4:
             intersects = True
             intersection_point = (round(rx, 3), round(ry, 3))
             break
@@ -86,7 +83,7 @@ def verify_sightline_occlusion(junc_xy: Tuple[float, float], doorway_xy: Tuple[f
         "doorway_xy": list(doorway_xy),
         "ray_distance_m": round(dist_total, 3),
         "line_of_sight_occluded": intersects,
-        "occluding_geometry": "central_island_box [-1.6, 1.6] x [-0.4, 0.4]" if intersects else None,
+        "occluding_geometry": "central_island_box [-1.8, 1.8] x [-1.0, 0.4]" if intersects else None,
         "intersection_point": list(intersection_point) if intersection_point else None,
         "junction_local_observation": "UNKNOWN" if intersects else "VISIBLE",
     }
@@ -97,13 +94,13 @@ def simulate_diagnostic_trial(
     method: str,
     protocol: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Simulate single diagnostic execution trial for a given method under scenario D0, D1, or D2."""
+    """Simulate single analytical diagnostic trial for a given method under scenario D0, D1, or D2."""
     routes = protocol["routes"]
-    path_a_len = float(routes["path_a"]["nominal_length_m"])  # 4.8m
-    path_b_len = float(routes["path_b"]["nominal_length_m"])  # 7.8m
+    path_a_len = float(routes["path_a"]["nominal_length_m"])  # 5.8m
+    path_b_len = float(routes["path_b"]["nominal_length_m"])  # 8.8m
     chokepoint_region = "north_corridor_chokepoint"
     
-    # Speed assumption in sim: ~0.25 m/s avg navigation velocity
+    # Speed assumption in analytical model: ~0.25 m/s avg navigation velocity
     avg_speed = 0.25
     
     # Track state
@@ -115,39 +112,35 @@ def simulate_diagnostic_trial(
     history_sim_time = 0.0
     history_events: List[Dict[str, Any]] = []
     
-    # Global costmap tracking
-    # Default costmap inflation: cleared initially, marks occupied on laser hit, retains unless cleared
     global_costmap_retains_obstacle = False
+    
+    # Probe distance: J0(-2.5, 0) -> (-1.5, 1.2) -> (-0.3, 1.2) = ~2.8m
+    probe_dist = 2.8
+    probe_time = round(probe_dist / avg_speed + 5.0, 2)  # ~16.2s
+    retreat_dist = 2.8
+    retreat_time = round(retreat_dist / avg_speed + 2.0, 2)  # ~13.2s
     
     # -------------------------------------------------------------------------
     # 1. HISTORY PHASE
     # -------------------------------------------------------------------------
     if scenario == "D0":
-        # Fresh untried: zero history
         history_distance = 0.0
         history_sim_time = 0.0
         global_costmap_retains_obstacle = False
         
     elif scenario == "D1":
-        # Physically probe Path A, hit blockage at x=0.0, retreat back to J0
-        # Probe distance: J0(-2.2, 0) -> (-1.8, 0.95) -> (-0.3, 0.95) = ~2.6m
-        probe_dist = 2.6
-        probe_time = probe_dist / avg_speed + 5.0 # ~15.4s (includes settle/scan)
-        
-        # At blockage, record OCCUPIED observation
         occ_obs = {
             "doorway_state": "OCCUPIED",
             "reason": "OBSTACLE_DETECTED (laser hits inside chokepoint_bbox)",
-            "doorway_bbox": [-0.3, 0.3, 0.65, 1.25],
+            "doorway_bbox": [-0.3, 0.3, 0.80, 1.60],
             "stamp_sec": probe_time - 2.0,
             "region_id": chokepoint_region,
             "map_version": "p2c_dualpath_world_v1",
         }
         
-        # Record into methods that retain history
         cache.update_observation(chokepoint_region, "OCCUPIED", probe_time - 2.0, occ_obs)
         fail_store.record_failure(
-            goal=[2.2, 0.0, 0.0],
+            goal=[2.5, 0.0, 0.0],
             region_id=chokepoint_region,
             failure_reason="BUDGET_DEADLINE_EXCEEDED",
             sim_time=probe_time - 2.0,
@@ -159,12 +152,8 @@ def simulate_diagnostic_trial(
         m1_suppressed = True
         global_costmap_retains_obstacle = True
         
-        # Retreat back to J0
-        retreat_dist = 2.6
-        retreat_time = retreat_dist / avg_speed + 2.0
-        
-        history_distance = round(probe_dist + retreat_dist, 2) # 5.2m
-        history_sim_time = round(probe_time + retreat_time, 2) # ~27.8s
+        history_distance = round(probe_dist + retreat_dist, 2)  # 5.6m
+        history_sim_time = round(probe_time + retreat_time, 2)  # ~29.4s
         history_events.append({
             "phase": "HISTORY_PROBE_BLOCKED",
             "probe_distance_m": probe_dist,
@@ -174,22 +163,18 @@ def simulate_diagnostic_trial(
         })
         
     elif scenario == "D2":
-        # Follows D1 (probe blocked + retreat), then obstacle cleared, probe FREE + retreat
-        # Step A: Blocked probe (same as D1)
-        probe1_dist = 2.6
-        probe1_time = probe1_dist / avg_speed + 5.0
         occ_obs = {
             "doorway_state": "OCCUPIED",
-            "stamp_sec": probe1_time - 2.0,
+            "stamp_sec": probe_time - 2.0,
             "region_id": chokepoint_region,
             "map_version": "p2c_dualpath_world_v1",
         }
-        cache.update_observation(chokepoint_region, "OCCUPIED", probe1_time - 2.0, occ_obs)
+        cache.update_observation(chokepoint_region, "OCCUPIED", probe_time - 2.0, occ_obs)
         fail_store.record_failure(
-            goal=[2.2, 0.0, 0.0],
+            goal=[2.5, 0.0, 0.0],
             region_id=chokepoint_region,
             failure_reason="BUDGET_DEADLINE_EXCEEDED",
-            sim_time=probe1_time - 2.0,
+            sim_time=probe_time - 2.0,
             failed_action_id="probe_attempt_1",
             failure_evidence_id="probe_obs_1",
             failure_evidence=occ_obs,
@@ -197,22 +182,18 @@ def simulate_diagnostic_trial(
         )
         m1_suppressed = True
         
-        # Step B: Retreat
-        retreat1_dist = 2.6
-        t_mid = probe1_time + (retreat1_dist / avg_speed + 2.0)
+        t_mid = probe_time + retreat_time
         
-        # Step C: Clearance occurs & robot probes again
-        probe2_dist = 2.6
+        probe2_dist = 2.8
         probe2_time = t_mid + (probe2_dist / avg_speed + 3.0)
         free_obs = {
             "doorway_state": "FREE",
             "reason": "DOORWAY_CLEARANCE_VERIFIED (rays traversing corridor)",
-            "doorway_bbox": [-0.3, 0.3, 0.65, 1.25],
+            "doorway_bbox": [-0.3, 0.3, 0.80, 1.60],
             "stamp_sec": probe2_time - 1.0,
             "region_id": chokepoint_region,
             "map_version": "p2c_dualpath_world_v1",
         }
-        # Update cache & fail_store invalidation
         cache.update_observation(chokepoint_region, "FREE", probe2_time - 1.0, free_obs)
         ev_to_check = dict(free_obs)
         ev_to_check["timestamp_sim"] = probe2_time - 1.0
@@ -223,18 +204,16 @@ def simulate_diagnostic_trial(
             map_version="p2c_dualpath_world_v1",
             region_id=chokepoint_region,
         )
-        # Costmap is cleared by laser rays traversing doorway
         global_costmap_retains_obstacle = False
         
-        # Step D: Retreat back to J0
-        retreat2_dist = 2.6
+        retreat2_dist = 2.8
         t_final_hist = probe2_time + (retreat2_dist / avg_speed + 2.0)
         
-        history_distance = round(probe1_dist + retreat1_dist + probe2_dist + retreat2_dist, 2) # 10.4m
-        history_sim_time = round(t_final_hist, 2) # ~55.6s
+        history_distance = round(probe_dist + retreat_dist + probe2_dist + retreat2_dist, 2)  # 11.2m
+        history_sim_time = round(t_final_hist, 2)  # ~58.8s
         history_events.append({
             "phase": "HISTORY_PROBE_CLEARED",
-            "blocked_probe_sim": round(probe1_time, 2),
+            "blocked_probe_sim": round(probe_time, 2),
             "cleared_probe_sim": round(probe2_time, 2),
             "retreat_arrival_at_sim": round(history_sim_time, 2),
         })
@@ -242,9 +221,8 @@ def simulate_diagnostic_trial(
     # -------------------------------------------------------------------------
     # 2. DECISION PHASE AT JUNCTION J0
     # -------------------------------------------------------------------------
-    # Local instantaneous perception at J0:
-    local_sightline = verify_sightline_occlusion((-2.2, 0.0), (0.0, 0.95))
-    instant_local_obs = local_sightline["junction_local_observation"] # "UNKNOWN"
+    local_sightline = verify_sightline_occlusion((-2.5, 0.0), (0.0, 1.20))
+    instant_local_obs = local_sightline["junction_local_observation"]  # "UNKNOWN"
     
     chosen_route = "UNKNOWN"
     dead_end_traversals = 0
@@ -254,76 +232,64 @@ def simulate_diagnostic_trial(
     decision_rationales: List[str] = []
     
     if method == "R":
-        # Reactive Only:
-        # Sees UNKNOWN at J0 -> standard exploration policy dispatches nominal Path A
         if scenario in ["D0", "D2"]:
-            # Path A is actually open
             chosen_route = "Path_A"
             decision_dispatches = 1
             dead_end_traversals = 0
-            decision_distance = path_a_len # 4.8m
-            decision_sim_time = round(path_a_len / avg_speed + 2.0, 2) # ~21.2s
+            decision_distance = path_a_len  # 5.8m
+            decision_sim_time = round(path_a_len / avg_speed + 2.0, 2)  # ~25.2s
             decision_rationales.append("Local obs UNKNOWN -> explore nominal Path A -> SUCCESS")
         elif scenario == "D1":
-            # Path A is BLOCKED! R enters Path A, fails at doorway, retreats, then tries Path B
             chosen_route = "Path_A_then_Path_B"
             decision_dispatches = 2
-            dead_end_traversals = 1 # Repeated dead-end entry!
-            # Traverses into Path A (2.6m) + retreats (2.6m) + traverses Path B (7.8m) = 13.0m
-            decision_distance = round(2.6 + 2.6 + path_b_len, 2) # 13.0m
-            decision_sim_time = round((2.6 + 2.6 + path_b_len) / avg_speed + 6.0, 2) # ~58.0s
+            dead_end_traversals = 1
+            # Traverses into Path A (2.8m) + retreats (2.8m) + traverses Path B (8.8m) = 14.4m
+            decision_distance = round(2.8 + 2.8 + path_b_len, 2)  # 14.4m
+            decision_sim_time = round((2.8 + 2.8 + path_b_len) / avg_speed + 6.0, 2)  # ~63.6s
             decision_rationales.append("Local obs UNKNOWN -> naive Path A re-entry -> BLOCKED at chokepoint -> retreat to J0 -> fallback Path B -> SUCCESS")
 
     elif method == "O":
-        # Spatial Observation Cache:
         cached_state = cache.get_latest_state(chokepoint_region)
         if cached_state == "OCCUPIED":
-            # Chokepoint A cached as OCCUPIED -> avoid Path A, route via Path B immediately!
             chosen_route = "Path_B"
             decision_dispatches = 1
             dead_end_traversals = 0
-            decision_distance = path_b_len # 7.8m
-            decision_sim_time = round(path_b_len / avg_speed + 2.0, 2) # ~33.2s
+            decision_distance = path_b_len  # 8.8m
+            decision_sim_time = round(path_b_len / avg_speed + 2.0, 2)  # ~37.2s
             decision_rationales.append("Chokepoint A cached OCCUPIED -> bypass via Path B immediately -> SUCCESS (0 dead-end traversals)")
         else:
-            # Cached FREE or UNKNOWN (D0 or D2) -> take Path A
             chosen_route = "Path_A"
             decision_dispatches = 1
             dead_end_traversals = 0
-            decision_distance = path_a_len # 4.8m
-            decision_sim_time = round(path_a_len / avg_speed + 2.0, 2) # ~21.2s
+            decision_distance = path_a_len  # 5.8m
+            decision_sim_time = round(path_a_len / avg_speed + 2.0, 2)  # ~25.2s
             decision_rationales.append(f"Chokepoint A cached {cached_state} -> route via Path A -> SUCCESS")
 
     elif method == "F":
-        # FailMem Failure Memory:
-        is_blocked, blocked_entry, block_reason = fail_store.is_dispatch_blocked([2.2, 0.0, 0.0], chokepoint_region, "p2c_dualpath_world_v1")
+        is_blocked, blocked_entry, block_reason = fail_store.is_dispatch_blocked([2.5, 0.0, 0.0], chokepoint_region, "p2c_dualpath_world_v1")
         if is_blocked:
-            # Active failure memory suppresses Path A -> route via Path B immediately!
             chosen_route = "Path_B"
             decision_dispatches = 1
             dead_end_traversals = 0
-            decision_distance = path_b_len # 7.8m
-            decision_sim_time = round(path_b_len / avg_speed + 2.0, 2) # ~33.2s
+            decision_distance = path_b_len  # 8.8m
+            decision_sim_time = round(path_b_len / avg_speed + 2.0, 2)  # ~37.2s
             decision_rationales.append(f"Path A blocked by {blocked_entry.memory_id} -> route via Path B immediately -> SUCCESS (0 dead-end traversals)")
         else:
-            # No active blockage memory (D0 or D2 invalidated) -> take Path A
             chosen_route = "Path_A"
             decision_dispatches = 1
             dead_end_traversals = 0
-            decision_distance = path_a_len # 4.8m
-            decision_sim_time = round(path_a_len / avg_speed + 2.0, 2) # ~21.2s
+            decision_distance = path_a_len  # 5.8m
+            decision_sim_time = round(path_a_len / avg_speed + 2.0, 2)  # ~25.2s
             inv_str = " (recovery verified)" if scenario == "D2" else ""
             decision_rationales.append(f"Path A un-suppressed{inv_str} -> route via Path A -> SUCCESS")
 
     elif method == "M1":
-        # Persistent Memory Baseline:
         if m1_suppressed:
-            # Permanently suppressed Path A -> routes Path B in both D1 and D2
             chosen_route = "Path_B"
             decision_dispatches = 1
             dead_end_traversals = 0
-            decision_distance = path_b_len # 7.8m
-            decision_sim_time = round(path_b_len / avg_speed + 2.0, 2) # ~33.2s
+            decision_distance = path_b_len  # 8.8m
+            decision_sim_time = round(path_b_len / avg_speed + 2.0, 2)  # ~37.2s
             decision_rationales.append("Path A permanently suppressed -> route via Path B (detour penalty incurred in D2)")
         else:
             chosen_route = "Path_A"
@@ -338,9 +304,10 @@ def simulate_diagnostic_trial(
     total_sim_time = round(history_sim_time + decision_sim_time, 2)
 
     return {
+        "evidence_type": "analytical_model",
         "scenario": scenario,
         "method": method,
-        "junction_pose": [-2.2, 0.0, 0.0],
+        "junction_pose": [-2.5, 0.0, 0.0],
         "local_sensor_observation_at_junction": instant_local_obs,
         "global_costmap_retains_obstacle": global_costmap_retains_obstacle,
         "history_phase": {
@@ -365,9 +332,9 @@ def simulate_diagnostic_trial(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="FailMem Milestone P2c Feasibility Pilot Diagnosis")
+    parser = argparse.ArgumentParser(description="FailMem Milestone P2c Analytical Model & Policy Unit Demonstration")
     parser.add_argument("--protocol", default="configs/p2c_pilot_protocol.yaml", help="Path to protocol YAML")
-    parser.add_argument("--out-dir", default="reports/evidence/p2c_pilot", help="Output evidence directory")
+    parser.add_argument("--out-dir", default="reports/evidence/p2c_analytical", help="Output analytical evidence directory")
     args = parser.parse_args()
 
     protocol_path = Path(args.protocol)
@@ -378,23 +345,25 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print("=======================================================================")
-    print("FailMem Milestone P2c Feasibility Pilot Diagnosis")
+    print("FailMem Milestone P2c Analytical Model & Policy Unit Demonstration")
     print(f"Protocol: {protocol_path} (Version {protocol.get('protocol_version')})")
+    print(f"Evidence Type: analytical_model")
     print(f"Evidence Directory: {out_dir}")
     print("=======================================================================\n")
 
     # 1. Sightline Verification
-    sightline_proof = verify_sightline_occlusion((-2.2, 0.0), (0.0, 0.95))
+    sightline_proof = verify_sightline_occlusion((-2.5, 0.0), (0.0, 1.20))
+    sightline_proof["evidence_type"] = "analytical_model"
     with open(out_dir / "sightline_occlusion_proof.json", "w", encoding="utf-8") as f:
         json.dump(sightline_proof, f, indent=2)
 
-    print("1. SIGHTLINE OCCLUSION VERIFICATION:")
+    print("1. SIGHTLINE OCCLUSION VERIFICATION (Analytical):")
     print(f"   Junction J0: {sightline_proof['junction_xy']} -> Chokepoint A: {sightline_proof['doorway_xy']}")
     print(f"   Ray Distance: {sightline_proof['ray_distance_m']}m")
     print(f"   Line of Sight Occluded: {sightline_proof['line_of_sight_occluded']} (Occluder: {sightline_proof['occluding_geometry']})")
     print(f"   Junction Local Sensor Observation: {sightline_proof['junction_local_observation']}\n")
 
-    # 2. Run Diagnostics (D0, D1, D2) for R, O, F, M1
+    # 2. Run Analytical Diagnostics (D0, D1, D2) for R, O, F, M1
     diagnostics = ["D0", "D1", "D2"]
     methods = ["R", "O", "F", "M1"]
     all_results: List[Dict[str, Any]] = []
@@ -405,6 +374,7 @@ def main():
             all_results.append(res)
 
     pilot_report = {
+        "evidence_type": "analytical_model",
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "protocol_version": protocol.get("protocol_version"),
         "sightline_occlusion_proof": sightline_proof,
@@ -416,7 +386,7 @@ def main():
 
     # Print Summary Comparison Table
     print("=======================================================================")
-    print("2. DIAGNOSTIC EXECUTION SUMMARY MATRIX:")
+    print("2. ANALYTICAL DIAGNOSTIC SUMMARY MATRIX (Idealized Kinematics):")
     print("-----------------------------------------------------------------------")
     print("| Scenario | Method | Route | Dead-End | Decision Dist | Decision Time | Total Dist | Total Time |")
     print("| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |")
@@ -431,7 +401,7 @@ def main():
         tot_t = r["end_to_end_total"]["total_sim_time_sec"]
         print(f"| {diag:8s} | {m:6s} | {route:22s} | {dead_end:8d} | {dec_d:11.1f}m | {dec_t:11.1f}s | {tot_d:8.1f}m | {tot_t:8.1f}s |")
     print("=======================================================================")
-    print(f"\nEvidence written to: {out_dir / 'p2c_pilot_diagnosis_results.json'}")
+    print(f"\nAnalytical evidence written to: {out_dir / 'p2c_pilot_diagnosis_results.json'}")
 
 
 if __name__ == "__main__":

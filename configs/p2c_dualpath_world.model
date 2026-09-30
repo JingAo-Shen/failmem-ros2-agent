@@ -43,85 +43,85 @@
       </ode>
     </physics>
 
-    <!-- Dual-Path Fork Arena -->
+    <!-- Dual-Path Fork Arena (Asymmetric) -->
     <model name="dualpath_walls">
       <static>true</static>
       <link name="walls_link">
         
-        <!-- North Wall: center (0, 1.8, 0.5), size (6.8, 0.2, 1.0) -->
+        <!-- North Wall: center (0.0, 2.0, 0.5), size (7.6, 0.2, 1.0) -->
         <collision name="north_wall_col">
-          <pose>0.0 1.8 0.5 0 0 0</pose>
-          <geometry><box><size>6.8 0.2 1.0</size></box></geometry>
+          <pose>0.0 2.0 0.5 0 0 0</pose>
+          <geometry><box><size>7.6 0.2 1.0</size></box></geometry>
         </collision>
         <visual name="north_wall_vis">
-          <pose>0.0 1.8 0.5 0 0 0</pose>
-          <geometry><box><size>6.8 0.2 1.0</size></box></geometry>
+          <pose>0.0 2.0 0.5 0 0 0</pose>
+          <geometry><box><size>7.6 0.2 1.0</size></box></geometry>
           <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
         </visual>
 
-        <!-- South Wall: center (0, -1.8, 0.5), size (6.8, 0.2, 1.0) -->
+        <!-- South Wall: center (0.0, -3.0, 0.5), size (7.6, 0.2, 1.0) -->
         <collision name="south_wall_col">
-          <pose>0.0 -1.8 0.5 0 0 0</pose>
-          <geometry><box><size>6.8 0.2 1.0</size></box></geometry>
+          <pose>0.0 -3.0 0.5 0 0 0</pose>
+          <geometry><box><size>7.6 0.2 1.0</size></box></geometry>
         </collision>
         <visual name="south_wall_vis">
-          <pose>0.0 -1.8 0.5 0 0 0</pose>
-          <geometry><box><size>6.8 0.2 1.0</size></box></geometry>
+          <pose>0.0 -3.0 0.5 0 0 0</pose>
+          <geometry><box><size>7.6 0.2 1.0</size></box></geometry>
           <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
         </visual>
 
-        <!-- West Wall: center (-3.3, 0, 0.5), size (0.2, 3.8, 1.0) -->
+        <!-- West Wall: center (-3.7, -0.5, 0.5), size (0.2, 5.2, 1.0) -->
         <collision name="west_wall_col">
-          <pose>-3.3 0.0 0.5 0 0 0</pose>
-          <geometry><box><size>0.2 3.8 1.0</size></box></geometry>
+          <pose>-3.7 -0.5 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 5.2 1.0</size></box></geometry>
         </collision>
         <visual name="west_wall_vis">
-          <pose>-3.3 0.0 0.5 0 0 0</pose>
-          <geometry><box><size>0.2 3.8 1.0</size></box></geometry>
+          <pose>-3.7 -0.5 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 5.2 1.0</size></box></geometry>
           <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
         </visual>
 
-        <!-- East Wall: center (3.3, 0, 0.5), size (0.2, 3.8, 1.0) -->
+        <!-- East Wall: center (3.7, -0.5, 0.5), size (0.2, 5.2, 1.0) -->
         <collision name="east_wall_col">
-          <pose>3.3 0.0 0.5 0 0 0</pose>
-          <geometry><box><size>0.2 3.8 1.0</size></box></geometry>
+          <pose>3.7 -0.5 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 5.2 1.0</size></box></geometry>
         </collision>
         <visual name="east_wall_vis">
-          <pose>3.3 0.0 0.5 0 0 0</pose>
-          <geometry><box><size>0.2 3.8 1.0</size></box></geometry>
+          <pose>3.7 -0.5 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 5.2 1.0</size></box></geometry>
           <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
         </visual>
 
-        <!-- Central Island: center (0, 0, 0.5), size (3.2, 0.8, 1.0) -> covers x in [-1.6, 1.6], y in [-0.4, 0.4] -->
+        <!-- Central Island: center (0.0, -0.3, 0.5), size (3.6, 1.4, 1.0) -> covers x in [-1.8, 1.8], y in [-1.0, 0.4] -->
         <collision name="central_island_col">
-          <pose>0.0 0.0 0.5 0 0 0</pose>
-          <geometry><box><size>3.2 0.8 1.0</size></box></geometry>
+          <pose>0.0 -0.3 0.5 0 0 0</pose>
+          <geometry><box><size>3.6 1.4 1.0</size></box></geometry>
         </collision>
         <visual name="central_island_vis">
-          <pose>0.0 0.0 0.5 0 0 0</pose>
-          <geometry><box><size>3.2 0.8 1.0</size></box></geometry>
+          <pose>0.0 -0.3 0.5 0 0 0</pose>
+          <geometry><box><size>3.6 1.4 1.0</size></box></geometry>
           <material><ambient>0.5 0.5 0.7 1</ambient><diffuse>0.5 0.5 0.7 1</diffuse></material>
         </visual>
 
-        <!-- Chokepoint A Dividing Wall Lower: (0.0, 0.525, 0.5), size (0.2, 0.25, 1.0) -->
+        <!-- Chokepoint A Dividing Wall Lower: center (0.0, 0.6, 0.5), size (0.2, 0.4, 1.0) -> y in [0.4, 0.8] -->
         <collision name="chokepoint_lower_col">
-          <pose>0.0 0.525 0.5 0 0 0</pose>
-          <geometry><box><size>0.2 0.25 1.0</size></box></geometry>
+          <pose>0.0 0.6 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 0.4 1.0</size></box></geometry>
         </collision>
         <visual name="chokepoint_lower_vis">
-          <pose>0.0 0.525 0.5 0 0 0</pose>
-          <geometry><box><size>0.2 0.25 1.0</size></box></geometry>
+          <pose>0.0 0.6 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 0.4 1.0</size></box></geometry>
           <material><ambient>0.7 0.3 0.3 1</ambient><diffuse>0.7 0.3 0.3 1</diffuse></material>
         </visual>
 
-        <!-- Chokepoint A Dividing Wall Upper: (0.0, 1.525, 0.5), size (0.2, 0.35, 1.0) -->
+        <!-- Chokepoint A Dividing Wall Upper: center (0.0, 1.8, 0.5), size (0.2, 0.4, 1.0) -> y in [1.6, 2.0] -->
         <collision name="chokepoint_upper_col">
-          <pose>0.0 1.525 0.5 0 0 0</pose>
-          <geometry><box><size>0.2 0.35 1.0</size></box></geometry>
+          <pose>0.0 1.8 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 0.4 1.0</size></box></geometry>
         </collision>
         <visual name="chokepoint_upper_vis">
-          <pose>0.0 1.525 0.5 0 0 0</pose>
-          <geometry><box><size>0.2 0.35 1.0</size></box></geometry>
+          <pose>0.0 1.8 0.5 0 0 0</pose>
+          <geometry><box><size>0.2 0.4 1.0</size></box></geometry>
           <material><ambient>0.7 0.3 0.3 1</ambient><diffuse>0.7 0.3 0.3 1</diffuse></material>
         </visual>
 

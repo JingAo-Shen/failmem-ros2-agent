@@ -59,28 +59,28 @@ To ensure strict scientific fairness, we evaluate three primary architectural pa
 
 ### 3.1 Topology & Geometry
 
-The arena connects Room 1 (Spawn / Decision Junction $J_0: x=-2.0, y=0.0$) to Room 2 (Goal: $x=+2.0, y=0.0$) via two distinct routes:
+The arena connects Room 1 (Spawn / Decision Junction $J_0: x=-2.50, y=0.00$) to Room 2 (Goal: $x=+2.50, y=0.00$) via two distinct routes:
 
 ```
-                        [ Path A: Nominal Short Route (Length: ~4.5m) ]
+                        [ Path A: Nominal Short Route (Nominal: ~5.8m) ]
                         +------------- [ Chokepoint A ] ---------------+
-                        |                (Occluded Doorway)            |
-                        | (90 deg wall)                  (90 deg wall) |
-   [ Decision Junction  ]                                              [ Goal Target        ]
-   [ J0: (-2.0, 0.0)    ]                                              [ Room 2: (2.0, 0.0) ]
+                        |             (Occluded Doorway y=1.20)        |
                         |                                              |
-                        | (Open Bypass Corridor)                       |
+   [ Decision Junction  ]                                              [ Goal Target        ]
+   [ J0: (-2.5, 0.0)    ]                                              [ Room 2: (2.5, 0.0) ]
+                        |                                              |
+                        | (Open South Detour Corridor y=-2.40)         |
                         +----------------------------------------------+
-                        [ Path B: Alternative Detour Route (Length: ~8.0m) ]
+                        [ Path B: Alternative Detour Route (Nominal: ~8.8m) ]
 ```
 
 1. **Path A (Nominal Short Route)**:
-   - Shorter nominal traversal distance ($\approx 4.5\,\text{m}$).
-   - Passes through Chokepoint A at $(0.0, +1.2)$, which is occluded from Junction $J_0$ by an interior wall and a $90^\circ$ turn.
-   - At $J_0$, the LiDAR cannot penetrate the wall to observe Chokepoint A $\implies \mathcal{O}(J_0) = \text{UNKNOWN}$.
+   - Shorter nominal traversal distance ($\approx 5.8\,\text{m}$).
+   - Passes through Chokepoint A at $(0.00, +1.20)$, which is occluded from Junction $J_0$ by the central dividing island ($X \in [-1.8, 1.8], Y \in [-1.0, 0.4]$).
+   - At $J_0$, the LiDAR cannot penetrate the central wall to observe Chokepoint A $\implies \mathcal{O}(J_0) = \text{UNKNOWN}$.
 2. **Path B (Detour Route)**:
-   - Longer nominal traversal distance ($\approx 8.0\,\text{m}$).
-   - Completely free of obstacles and always passable.
+   - Longer nominal traversal distance ($\approx 8.8\,\text{m}$).
+   - Completely free of obstacles and always passable along the South corridor.
 
 ### 3.2 Nav2 Global Costmap Integrity & Shared Memory Verification
 - A critical audit requirement is verifying whether the Nav2 global costmap retains previously detected obstacle markers after the robot returns to $J_0$.
