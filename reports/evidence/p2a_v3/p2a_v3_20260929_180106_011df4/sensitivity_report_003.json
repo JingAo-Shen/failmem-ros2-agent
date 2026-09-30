@@ -1,31 +1,26 @@
 {
-  "target_path": "reports/evidence/p2b/p2b_20260930_023426_385655",
-  "timestamp_utc": "2026-09-30T03:36:05.708037+00:00",
-  "mode": "frozen_baseline",
+  "target_path": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4",
+  "timestamp_utc": "2026-09-30T03:36:13.085715+00:00",
+  "mode": "sensitivity_003",
   "applied_thresholds": {
     "position_tolerance_m": 0.3,
     "yaw_tolerance_rad": 0.35,
-    "max_linear_velocity_mps": 0.05,
-    "max_angular_velocity_radps": 0.08,
+    "max_linear_velocity_mps": 0.03,
+    "max_angular_velocity_radps": 0.03,
     "stability_window_duration_sim_sec": 2.0,
     "max_gt_displacement_m": 0.03,
     "max_sensor_staleness_sim_sec": 0.5,
     "max_costmap_staleness_sec": 3.0,
-    "max_stationary_amcl_staleness_sec": 30.0,
-    "online_position_tolerance_m": 0.45,
-    "online_yaw_tolerance_rad": 0.55,
-    "online_max_linear_velocity_mps": 0.03,
-    "online_max_angular_velocity_radps": 0.05,
-    "max_amcl_covariance_variance": 0.5
+    "max_stationary_amcl_staleness_sec": 30.0
   },
-  "runtime_config_sha256": "378ea3bd848b24ee65d76e457218b04cea3b216602535e3e1caebf0435820301",
-  "total_episodes_replayed": 24,
-  "verified_episodes": 24,
+  "runtime_config_sha256": "c2c8a8005bc2ac2a66a4796ed00e1d1915555305c0bd04235f87d4a485e5adc2",
+  "total_episodes_replayed": 18,
+  "verified_episodes": 18,
   "unverifiable_episodes": 0,
-  "tamper_detected_episodes": 3,
+  "tamper_detected_episodes": 4,
   "raw_checksum_tamper_episodes": 0,
-  "summary_discrepancy_episodes": 0,
-  "mechanism_verified_episodes": 23,
+  "summary_discrepancy_episodes": 2,
+  "mechanism_verified_episodes": 16,
   "episodes": [
     {
       "episode_id": "M0_S1_ep1",
@@ -39,7 +34,7 @@
       "disagreement_reason": null,
       "task_success": false,
       "mechanism_verified": true,
-      "observation_count": 4,
+      "observation_count": 3,
       "suppression_count": 0,
       "navigation_attempt_count": 3,
       "redundant_retries_count": 2,
@@ -50,7 +45,7 @@
         "failure_times": [
           47.6,
           72.8,
-          97.9
+          98.5
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
@@ -58,13 +53,12 @@
         "observation_stamps": [
           23.5,
           48.0,
-          73.2,
-          98.2
+          73.10000000000001
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep1/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep1/attempt_1",
           "attempt_index": 1,
           "action_id": "M0_S1_ep1_nav_attempt1",
           "dispatch_time_sim": 23.5,
@@ -80,10 +74,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3373m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.5987rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6654m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6034rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -94,10 +87,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.3095,
-              "gt_yaw_error_rad": 1.6146,
-              "amcl_position_error_m": 3.3373,
-              "amcl_yaw_error_rad": 1.5987,
+              "gt_position_error_m": 3.5998,
+              "gt_yaw_error_rad": 1.6154,
+              "amcl_position_error_m": 3.6654,
+              "amcl_yaw_error_rad": 1.6034,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -107,12 +100,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.856,
+              "odom_duration_covered": 2.89,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
+              "unique_samples_count": 110,
+              "unique_odom_count": 85,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 419,
+              "total_raw_samples_count": 418,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -134,7 +127,7 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep1/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep1/attempt_2",
           "attempt_index": 2,
           "action_id": "M0_S1_ep1_nav_attempt2",
           "dispatch_time_sim": 48.0,
@@ -150,10 +143,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0320m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (3.0389rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3590m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (3.0271rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -164,10 +156,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.0026,
-              "gt_yaw_error_rad": 3.0554,
-              "amcl_position_error_m": 3.032,
-              "amcl_yaw_error_rad": 3.0389,
+              "gt_position_error_m": 3.2931,
+              "gt_yaw_error_rad": 3.0524,
+              "amcl_position_error_m": 3.359,
+              "amcl_yaw_error_rad": 3.0271,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -182,7 +174,7 @@
               "unique_samples_count": 109,
               "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 421,
+              "total_raw_samples_count": 417,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -190,7 +182,7 @@
             "halt_evaluation": {
               "all_samples_stopped": true,
               "max_linear_v_seen": 0.0001,
-              "max_angular_v_seen": 0.0008,
+              "max_angular_v_seen": 0.0007,
               "max_gt_displacement_m": 0.0,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
@@ -204,12 +196,12 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep1/attempt_3",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep1/attempt_3",
           "attempt_index": 3,
           "action_id": "M0_S1_ep1_nav_attempt3",
-          "dispatch_time_sim": 73.2,
-          "dispatch_elapsed_sim": 49.7,
-          "completion_sim_time": 97.9,
+          "dispatch_time_sim": 73.1,
+          "dispatch_elapsed_sim": 49.6,
+          "completion_sim_time": 98.5,
           "target_goal": [
             1.8,
             0.0,
@@ -220,10 +212,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0334m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.4682rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3866m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (0.9853rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -234,34 +225,35 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.0262,
-              "gt_yaw_error_rad": 1.4524,
-              "amcl_position_error_m": 3.0334,
-              "amcl_yaw_error_rad": 1.4682,
+              "gt_position_error_m": 3.3195,
+              "gt_yaw_error_rad": 0.987,
+              "amcl_position_error_m": 3.3866,
+              "amcl_yaw_error_rad": 0.9853,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
               }
             },
             "window_evaluation": {
-              "window_valid": true,
-              "failure_reasons": [],
-              "sim_duration_covered": 2.3,
-              "odom_duration_covered": 2.72,
-              "gt_duration_covered": 2.4,
-              "unique_samples_count": 104,
-              "unique_odom_count": 80,
-              "unique_gt_count": 25,
-              "total_raw_samples_count": 404,
-              "max_sampling_interval_sec": 0.1,
-              "data_fresh": true,
-              "watchdog_triggered": false
+              "window_valid": false,
+              "failure_reasons": [
+                "WATCHDOG_TRIGGERED_EARLY_EXIT"
+              ],
+              "sim_duration_covered": 0.0,
+              "odom_duration_covered": 0.0,
+              "gt_duration_covered": 0.0,
+              "unique_samples_count": 382,
+              "unique_odom_count": 0,
+              "unique_gt_count": 0,
+              "max_sampling_interval_sec": null,
+              "data_fresh": false,
+              "watchdog_triggered": true
             },
             "halt_evaluation": {
               "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0,
-              "max_angular_v_seen": 0.0011,
-              "max_gt_displacement_m": 0.0001,
+              "max_linear_v_seen": 0.0001,
+              "max_angular_v_seen": 0.0017,
+              "max_gt_displacement_m": 0.0002,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
               "halt_verified": true,
@@ -294,7 +286,7 @@
       "disagreement_reason": null,
       "task_success": false,
       "mechanism_verified": true,
-      "observation_count": 4,
+      "observation_count": 3,
       "suppression_count": 0,
       "navigation_attempt_count": 3,
       "redundant_retries_count": 2,
@@ -303,7 +295,7 @@
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
         "failure_times": [
-          47.6,
+          47.2,
           72.6,
           97.6
         ],
@@ -311,20 +303,19 @@
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
-          23.5,
-          48.0,
-          73.0,
-          98.0
+          23.1,
+          47.800000000000004,
+          73.0
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep2/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep2/attempt_1",
           "attempt_index": 1,
           "action_id": "M0_S1_ep2_nav_attempt1",
-          "dispatch_time_sim": 23.5,
+          "dispatch_time_sim": 23.1,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.6,
+          "completion_sim_time": 47.2,
           "target_goal": [
             1.8,
             0.0,
@@ -335,10 +326,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6975m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6127rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6622m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.5952rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -350,9 +340,9 @@
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
               "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6154,
-              "amcl_position_error_m": 3.6975,
-              "amcl_yaw_error_rad": 1.6127,
+              "gt_yaw_error_rad": 1.6155,
+              "amcl_position_error_m": 3.6622,
+              "amcl_yaw_error_rad": 1.5952,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -362,12 +352,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.856,
+              "odom_duration_covered": 2.822,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
+              "unique_samples_count": 108,
+              "unique_odom_count": 83,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 419,
+              "total_raw_samples_count": 421,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -389,11 +379,11 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep2/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep2/attempt_2",
           "attempt_index": 2,
           "action_id": "M0_S1_ep2_nav_attempt2",
-          "dispatch_time_sim": 48.0,
-          "dispatch_elapsed_sim": 24.5,
+          "dispatch_time_sim": 47.8,
+          "dispatch_elapsed_sim": 24.7,
           "completion_sim_time": 72.6,
           "target_goal": [
             1.8,
@@ -405,10 +395,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3835m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (3.0271rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3596m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (3.0585rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -420,9 +409,9 @@
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
               "gt_position_error_m": 3.293,
-              "gt_yaw_error_rad": 3.0435,
-              "amcl_position_error_m": 3.3835,
-              "amcl_yaw_error_rad": 3.0271,
+              "gt_yaw_error_rad": 3.0545,
+              "amcl_position_error_m": 3.3596,
+              "amcl_yaw_error_rad": 3.0585,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -437,7 +426,7 @@
               "unique_samples_count": 109,
               "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 418,
+              "total_raw_samples_count": 427,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -445,7 +434,7 @@
             "halt_evaluation": {
               "all_samples_stopped": true,
               "max_linear_v_seen": 0.0001,
-              "max_angular_v_seen": 0.0007,
+              "max_angular_v_seen": 0.0008,
               "max_gt_displacement_m": 0.0,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
@@ -459,11 +448,11 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep2/attempt_3",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep2/attempt_3",
           "attempt_index": 3,
           "action_id": "M0_S1_ep2_nav_attempt3",
           "dispatch_time_sim": 73.0,
-          "dispatch_elapsed_sim": 49.5,
+          "dispatch_elapsed_sim": 49.9,
           "completion_sim_time": 97.6,
           "target_goal": [
             1.8,
@@ -475,10 +464,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3720m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.4225rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3624m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.4227rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -489,10 +477,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.3233,
-              "gt_yaw_error_rad": 1.4371,
-              "amcl_position_error_m": 3.372,
-              "amcl_yaw_error_rad": 1.4225,
+              "gt_position_error_m": 3.3184,
+              "gt_yaw_error_rad": 1.4522,
+              "amcl_position_error_m": 3.3624,
+              "amcl_yaw_error_rad": 1.4227,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -502,12 +490,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.788,
+              "odom_duration_covered": 2.822,
               "gt_duration_covered": 2.5,
               "unique_samples_count": 108,
               "unique_odom_count": 83,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 419,
+              "total_raw_samples_count": 422,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -560,21 +548,21 @@
         "failure_times": [
           47.2,
           72.3,
-          97.6
+          97.1
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
           23.1,
-          47.5,
-          72.80000000000001,
-          97.9
+          47.7,
+          72.60000000000001,
+          97.4
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep3/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep3/attempt_1",
           "attempt_index": 1,
           "action_id": "M0_S1_ep3_nav_attempt1",
           "dispatch_time_sim": 23.1,
@@ -590,10 +578,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6639m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6347rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3187m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6496rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -604,10 +591,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6156,
-              "amcl_position_error_m": 3.6639,
-              "amcl_yaw_error_rad": 1.6347,
+              "gt_position_error_m": 3.2839,
+              "gt_yaw_error_rad": 1.6322,
+              "amcl_position_error_m": 3.3187,
+              "amcl_yaw_error_rad": 1.6496,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -622,7 +609,7 @@
               "unique_samples_count": 109,
               "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 419,
+              "total_raw_samples_count": 425,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -644,11 +631,11 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep3/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep3/attempt_2",
           "attempt_index": 2,
           "action_id": "M0_S1_ep3_nav_attempt2",
-          "dispatch_time_sim": 47.5,
-          "dispatch_elapsed_sim": 24.4,
+          "dispatch_time_sim": 47.7,
+          "dispatch_elapsed_sim": 24.6,
           "completion_sim_time": 72.3,
           "target_goal": [
             1.8,
@@ -660,10 +647,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3492m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (2.9607rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0440m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (3.0211rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -674,10 +660,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.2929,
-              "gt_yaw_error_rad": 2.9701,
-              "amcl_position_error_m": 3.3492,
-              "amcl_yaw_error_rad": 2.9607,
+              "gt_position_error_m": 2.977,
+              "gt_yaw_error_rad": 3.0371,
+              "amcl_position_error_m": 3.044,
+              "amcl_yaw_error_rad": 3.0211,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -686,13 +672,13 @@
             "window_evaluation": {
               "window_valid": true,
               "failure_reasons": [],
-              "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.822,
-              "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
-              "unique_gt_count": 26,
-              "total_raw_samples_count": 418,
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 105,
+              "unique_odom_count": 81,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 410,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -701,7 +687,7 @@
               "all_samples_stopped": true,
               "max_linear_v_seen": 0.0001,
               "max_angular_v_seen": 0.0007,
-              "max_gt_displacement_m": 0.0,
+              "max_gt_displacement_m": 0.0001,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
               "halt_verified": true,
@@ -714,12 +700,12 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S1_ep3/attempt_3",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S1_ep3/attempt_3",
           "attempt_index": 3,
           "action_id": "M0_S1_ep3_nav_attempt3",
-          "dispatch_time_sim": 72.8,
-          "dispatch_elapsed_sim": 49.7,
-          "completion_sim_time": 97.6,
+          "dispatch_time_sim": 72.6,
+          "dispatch_elapsed_sim": 49.5,
+          "completion_sim_time": 97.1,
           "target_goal": [
             1.8,
             0.0,
@@ -730,10 +716,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3696m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.3572rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.0353m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.4579rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -744,10 +729,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.345,
-              "gt_yaw_error_rad": 1.3638,
-              "amcl_position_error_m": 3.3696,
-              "amcl_yaw_error_rad": 1.3572,
+              "gt_position_error_m": 3.0064,
+              "gt_yaw_error_rad": 1.4346,
+              "amcl_position_error_m": 3.0353,
+              "amcl_yaw_error_rad": 1.4579,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -756,13 +741,13 @@
             "window_evaluation": {
               "window_valid": true,
               "failure_reasons": [],
-              "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.856,
-              "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
-              "unique_gt_count": 26,
-              "total_raw_samples_count": 421,
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 106,
+              "unique_odom_count": 82,
+              "unique_gt_count": 25,
+              "total_raw_samples_count": 410,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -770,7 +755,7 @@
             "halt_evaluation": {
               "all_samples_stopped": true,
               "max_linear_v_seen": 0.0,
-              "max_angular_v_seen": 0.0012,
+              "max_angular_v_seen": 0.0011,
               "max_gt_displacement_m": 0.0001,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
@@ -801,7 +786,7 @@
       "episode_valid": true,
       "policy_reported_success": true,
       "evaluator_verified_success": false,
-      "disagreement_reason": "EVALUATOR_HALT_FAILED_EXCESS_VELOCITY (max lv=0.0133 > 0.05 or max av=0.0893 > 0.08)",
+      "disagreement_reason": "EVALUATOR_HALT_FAILED_EXCESS_VELOCITY (max lv=0.0052 > 0.03 or max av=0.0358 > 0.03)",
       "task_success": false,
       "mechanism_verified": false,
       "observation_count": 2,
@@ -813,24 +798,24 @@
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
         "failure_times": [
-          47.6
+          47.2
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
-          23.5,
-          48.0
+          23.1,
+          47.800000000000004
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S2_ep1/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S2_ep1/attempt_1",
           "attempt_index": 1,
           "action_id": "M0_S2_ep1_nav_attempt1",
-          "dispatch_time_sim": 23.5,
+          "dispatch_time_sim": 23.1,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.6,
+          "completion_sim_time": 47.2,
           "target_goal": [
             1.8,
             0.0,
@@ -841,10 +826,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6924m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6074rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6508m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6232rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -856,9 +840,9 @@
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
               "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6154,
-              "amcl_position_error_m": 3.6924,
-              "amcl_yaw_error_rad": 1.6074,
+              "gt_yaw_error_rad": 1.6156,
+              "amcl_position_error_m": 3.6508,
+              "amcl_yaw_error_rad": 1.6232,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -868,12 +852,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.856,
+              "odom_duration_covered": 2.822,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
+              "unique_samples_count": 108,
+              "unique_odom_count": 83,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 416,
+              "total_raw_samples_count": 422,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -895,12 +879,12 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S2_ep1/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S2_ep1/attempt_2",
           "attempt_index": 2,
           "action_id": "M0_S2_ep1_nav_attempt2",
-          "dispatch_time_sim": 48.0,
-          "dispatch_elapsed_sim": 24.5,
-          "completion_sim_time": 71.1,
+          "dispatch_time_sim": 47.8,
+          "dispatch_elapsed_sim": 24.7,
+          "completion_sim_time": 69.7,
           "target_goal": [
             1.8,
             0.0,
@@ -911,7 +895,7 @@
           "online_action_succeeded": true,
           "online_failure_reasons": [],
           "evaluator_verified_success": false,
-          "disagreement_reason": "EVALUATOR_HALT_FAILED_EXCESS_VELOCITY (max lv=0.0133 > 0.05 or max av=0.0893 > 0.08)",
+          "disagreement_reason": "EVALUATOR_HALT_FAILED_EXCESS_VELOCITY (max lv=0.0052 > 0.03 or max av=0.0358 > 0.03)",
           "recomputed_evaluation": {
             "nav2_action_status": "SUCCEEDED",
             "execution_outcome": "BUDGET_SUCCESS",
@@ -919,10 +903,10 @@
             "nav2_action_succeeded": true,
             "failure_reason": null,
             "final_geometric_errors": {
-              "gt_position_error_m": 0.2183,
-              "gt_yaw_error_rad": 0.0356,
-              "amcl_position_error_m": 0.2354,
-              "amcl_yaw_error_rad": 0.0329,
+              "gt_position_error_m": 0.2067,
+              "gt_yaw_error_rad": 0.0688,
+              "amcl_position_error_m": 0.2716,
+              "amcl_yaw_error_rad": 0.0953,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -931,26 +915,26 @@
             "window_evaluation": {
               "window_valid": true,
               "failure_reasons": [],
-              "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.856,
-              "gt_duration_covered": 2.5,
-              "unique_samples_count": 110,
-              "unique_odom_count": 84,
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.686,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 106,
+              "unique_odom_count": 80,
               "unique_gt_count": 27,
-              "total_raw_samples_count": 418,
+              "total_raw_samples_count": 412,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
             },
             "halt_evaluation": {
               "all_samples_stopped": false,
-              "max_linear_v_seen": 0.0133,
-              "max_angular_v_seen": 0.0893,
-              "max_gt_displacement_m": 0.0005,
+              "max_linear_v_seen": 0.0052,
+              "max_angular_v_seen": 0.0358,
+              "max_gt_displacement_m": 0.0001,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
               "halt_verified": false,
-              "halt_failure_reason": "EXCESS_VELOCITY (max lv=0.0133 > 0.05 or max av=0.0893 > 0.08)"
+              "halt_failure_reason": "EXCESS_VELOCITY (max lv=0.0052 > 0.03 or max av=0.0358 > 0.03)"
             },
             "all_window_pos_ok": true,
             "all_window_yaw_ok": true,
@@ -961,11 +945,32 @@
       ],
       "raw_checksum_tamper_detected": false,
       "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
+      "summary_discrepancy_detected": true,
+      "summary_discrepancies": [
+        {
+          "field": "task_success",
+          "stored_value": true,
+          "recomputed_value": false
+        },
+        {
+          "field": "mechanism_verified",
+          "stored_value": true,
+          "recomputed_value": false
+        },
+        {
+          "field": "evaluator_verified_success",
+          "stored_value": true,
+          "recomputed_value": false
+        },
+        {
+          "field": "evaluator_verified_recovery",
+          "stored_value": true,
+          "recomputed_value": false
+        }
+      ],
       "policy_state_discrepancy_detected": false,
       "policy_state_discrepancies": [],
-      "tamper_detected": false
+      "tamper_detected": true
     },
     {
       "episode_id": "M0_S2_ep2",
@@ -988,24 +993,24 @@
       "evaluator_verified_recovery": true,
       "exact_timestamps": {
         "failure_times": [
-          47.3
+          47.2
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
-          23.1,
+          23.200000000000003,
           47.800000000000004
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S2_ep2/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S2_ep2/attempt_1",
           "attempt_index": 1,
           "action_id": "M0_S2_ep2_nav_attempt1",
-          "dispatch_time_sim": 23.1,
+          "dispatch_time_sim": 23.2,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.3,
+          "completion_sim_time": 47.2,
           "target_goal": [
             1.8,
             0.0,
@@ -1016,10 +1021,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6713m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6195rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3513m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6059rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -1030,10 +1034,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6155,
-              "amcl_position_error_m": 3.6713,
-              "amcl_yaw_error_rad": 1.6195,
+              "gt_position_error_m": 3.2882,
+              "gt_yaw_error_rad": 1.6161,
+              "amcl_position_error_m": 3.3513,
+              "amcl_yaw_error_rad": 1.6059,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1045,10 +1049,10 @@
               "sim_duration_covered": 2.4,
               "odom_duration_covered": 2.856,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 110,
-              "unique_odom_count": 85,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 433,
+              "total_raw_samples_count": 425,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -1070,12 +1074,12 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S2_ep2/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S2_ep2/attempt_2",
           "attempt_index": 2,
           "action_id": "M0_S2_ep2_nav_attempt2",
           "dispatch_time_sim": 47.8,
-          "dispatch_elapsed_sim": 24.7,
-          "completion_sim_time": 70.1,
+          "dispatch_elapsed_sim": 24.6,
+          "completion_sim_time": 69.8,
           "target_goal": [
             1.8,
             0.0,
@@ -1094,10 +1098,10 @@
             "nav2_action_succeeded": true,
             "failure_reason": null,
             "final_geometric_errors": {
-              "gt_position_error_m": 0.2009,
-              "gt_yaw_error_rad": 0.0174,
-              "amcl_position_error_m": 0.2484,
-              "amcl_yaw_error_rad": 0.0188,
+              "gt_position_error_m": 0.1989,
+              "gt_yaw_error_rad": 0.251,
+              "amcl_position_error_m": 0.2388,
+              "amcl_yaw_error_rad": 0.2027,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1107,21 +1111,21 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.3,
-              "odom_duration_covered": 2.686,
+              "odom_duration_covered": 2.72,
               "gt_duration_covered": 2.4,
-              "unique_samples_count": 104,
-              "unique_odom_count": 79,
+              "unique_samples_count": 106,
+              "unique_odom_count": 81,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 407,
+              "total_raw_samples_count": 408,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
             },
             "halt_evaluation": {
               "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0087,
-              "max_angular_v_seen": 0.0115,
-              "max_gt_displacement_m": 0.0003,
+              "max_linear_v_seen": 0.0003,
+              "max_angular_v_seen": 0.005,
+              "max_gt_displacement_m": 0.0001,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
               "halt_verified": true,
@@ -1175,7 +1179,7 @@
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S2_ep3/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S2_ep3/attempt_1",
           "attempt_index": 1,
           "action_id": "M0_S2_ep3_nav_attempt1",
           "dispatch_time_sim": 23.1,
@@ -1191,10 +1195,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6596m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6108rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6492m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6299rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -1206,9 +1209,9 @@
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
               "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6156,
-              "amcl_position_error_m": 3.6596,
-              "amcl_yaw_error_rad": 1.6108,
+              "gt_yaw_error_rad": 1.6155,
+              "amcl_position_error_m": 3.6492,
+              "amcl_yaw_error_rad": 1.6299,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1218,12 +1221,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.856,
+              "odom_duration_covered": 2.822,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
+              "unique_samples_count": 108,
+              "unique_odom_count": 83,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 428,
+              "total_raw_samples_count": 415,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -1245,12 +1248,12 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M0_S2_ep3/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M0_S2_ep3/attempt_2",
           "attempt_index": 2,
           "action_id": "M0_S2_ep3_nav_attempt2",
           "dispatch_time_sim": 47.8,
           "dispatch_elapsed_sim": 24.7,
-          "completion_sim_time": 73.8,
+          "completion_sim_time": 70.1,
           "target_goal": [
             1.8,
             0.0,
@@ -1269,10 +1272,10 @@
             "nav2_action_succeeded": true,
             "failure_reason": null,
             "final_geometric_errors": {
-              "gt_position_error_m": 0.1732,
-              "gt_yaw_error_rad": 0.1872,
-              "amcl_position_error_m": 0.235,
-              "amcl_yaw_error_rad": 0.1648,
+              "gt_position_error_m": 0.1876,
+              "gt_yaw_error_rad": 0.0731,
+              "amcl_position_error_m": 0.255,
+              "amcl_yaw_error_rad": 0.0745,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1281,22 +1284,22 @@
             "window_evaluation": {
               "window_valid": true,
               "failure_reasons": [],
-              "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.822,
-              "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
-              "unique_gt_count": 26,
-              "total_raw_samples_count": 430,
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.72,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 106,
+              "unique_odom_count": 80,
+              "unique_gt_count": 27,
+              "total_raw_samples_count": 405,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
             },
             "halt_evaluation": {
               "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0034,
-              "max_angular_v_seen": 0.0105,
-              "max_gt_displacement_m": 0.0002,
+              "max_linear_v_seen": 0.0006,
+              "max_angular_v_seen": 0.0086,
+              "max_gt_displacement_m": 0.0,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
               "halt_verified": true,
@@ -1346,30 +1349,30 @@
         "observation_stamps": [
           23.5,
           48.0,
-          51.2,
-          53.800000000000004,
-          56.400000000000006,
-          58.900000000000006,
-          61.400000000000006,
-          64.10000000000001,
-          66.60000000000001,
-          69.2,
-          71.80000000000001,
-          74.4,
-          76.9,
-          79.30000000000001,
-          81.7,
-          84.10000000000001,
-          86.5,
-          89.0,
+          51.1,
+          53.6,
+          56.1,
+          58.50000000000001,
+          60.900000000000006,
+          63.300000000000004,
+          65.9,
+          68.4,
+          71.0,
+          73.60000000000001,
+          76.2,
+          78.80000000000001,
+          81.4,
+          84.0,
+          86.60000000000001,
+          89.10000000000001,
           91.60000000000001,
-          94.10000000000001,
-          96.60000000000001
+          94.2,
+          96.7
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M1_S1_ep1/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M1_S1_ep1/attempt_1",
           "attempt_index": 1,
           "action_id": "M1_S1_ep1_nav_attempt1",
           "dispatch_time_sim": 23.5,
@@ -1385,10 +1388,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6481m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6278rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.3512m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.5944rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -1399,10 +1401,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5986,
-              "gt_yaw_error_rad": 1.6194,
-              "amcl_position_error_m": 3.6481,
-              "amcl_yaw_error_rad": 1.6278,
+              "gt_position_error_m": 3.3143,
+              "gt_yaw_error_rad": 1.5881,
+              "amcl_position_error_m": 3.3512,
+              "amcl_yaw_error_rad": 1.5944,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1426,7 +1428,7 @@
               "all_samples_stopped": true,
               "max_linear_v_seen": 0.0,
               "max_angular_v_seen": 0.0008,
-              "max_gt_displacement_m": 0.0,
+              "max_gt_displacement_m": 0.0001,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
               "halt_verified": true,
@@ -1468,43 +1470,43 @@
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
         "failure_times": [
-          47.4
+          47.6
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
           23.5,
-          47.800000000000004,
-          51.0,
-          53.5,
-          56.2,
+          48.0,
+          51.2,
+          53.800000000000004,
+          56.300000000000004,
           58.800000000000004,
-          61.400000000000006,
-          64.10000000000001,
-          66.8,
-          69.30000000000001,
-          71.7,
-          74.2,
-          76.80000000000001,
-          79.4,
-          82.0,
-          84.60000000000001,
-          87.2,
-          89.7,
-          92.30000000000001,
-          94.7,
-          97.10000000000001
+          61.300000000000004,
+          63.800000000000004,
+          66.4,
+          69.0,
+          71.5,
+          74.0,
+          76.60000000000001,
+          79.2,
+          81.7,
+          84.10000000000001,
+          86.60000000000001,
+          89.2,
+          91.80000000000001,
+          94.4,
+          97.0
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M1_S1_ep2/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M1_S1_ep2/attempt_1",
           "attempt_index": 1,
           "action_id": "M1_S1_ep2_nav_attempt1",
           "dispatch_time_sim": 23.5,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.4,
+          "completion_sim_time": 47.6,
           "target_goal": [
             1.8,
             0.0,
@@ -1515,10 +1517,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6393m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6115rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6807m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6316rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -1529,10 +1530,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6155,
-              "amcl_position_error_m": 3.6393,
-              "amcl_yaw_error_rad": 1.6115,
+              "gt_position_error_m": 3.5999,
+              "gt_yaw_error_rad": 1.6154,
+              "amcl_position_error_m": 3.6807,
+              "amcl_yaw_error_rad": 1.6316,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1542,10 +1543,10 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.822,
+              "odom_duration_covered": 2.856,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
+              "unique_samples_count": 110,
+              "unique_odom_count": 85,
               "unique_gt_count": 26,
               "total_raw_samples_count": 420,
               "max_sampling_interval_sec": 0.1,
@@ -1606,30 +1607,30 @@
         "observation_stamps": [
           23.1,
           47.800000000000004,
-          50.800000000000004,
+          51.0,
           53.400000000000006,
           56.0,
           58.6,
           61.2,
-          63.6,
-          66.2,
-          68.80000000000001,
-          71.4,
-          74.0,
-          76.60000000000001,
-          79.2,
-          81.80000000000001,
-          84.4,
-          87.0,
-          89.60000000000001,
-          92.2,
-          94.80000000000001,
-          97.4
+          63.800000000000004,
+          66.4,
+          69.0,
+          71.60000000000001,
+          74.2,
+          76.80000000000001,
+          79.4,
+          82.0,
+          84.60000000000001,
+          87.2,
+          89.80000000000001,
+          92.4,
+          95.0,
+          97.60000000000001
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M1_S1_ep3/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M1_S1_ep3/attempt_1",
           "attempt_index": 1,
           "action_id": "M1_S1_ep3_nav_attempt1",
           "dispatch_time_sim": 23.1,
@@ -1645,10 +1646,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6722m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.5934rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6549m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6441rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -1661,8 +1661,8 @@
             "final_geometric_errors": {
               "gt_position_error_m": 3.5998,
               "gt_yaw_error_rad": 1.6155,
-              "amcl_position_error_m": 3.6722,
-              "amcl_yaw_error_rad": 1.5934,
+              "amcl_position_error_m": 3.6549,
+              "amcl_yaw_error_rad": 1.6441,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1677,7 +1677,7 @@
               "unique_samples_count": 109,
               "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 424,
+              "total_raw_samples_count": 425,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -1728,43 +1728,43 @@
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
         "failure_times": [
-          47.9
+          47.6
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
-          23.900000000000002,
-          48.400000000000006,
-          51.6,
-          54.1,
-          56.6,
-          59.2,
-          61.7,
-          64.2,
-          66.8,
-          69.4,
-          72.0,
-          74.5,
-          77.2,
-          79.7,
-          82.2,
-          84.7,
-          87.10000000000001,
-          89.80000000000001,
-          92.4,
-          94.9,
-          97.4
+          23.5,
+          48.0,
+          51.0,
+          53.6,
+          56.2,
+          58.7,
+          61.2,
+          63.800000000000004,
+          66.4,
+          69.0,
+          71.5,
+          74.0,
+          76.60000000000001,
+          79.2,
+          81.80000000000001,
+          84.4,
+          86.9,
+          89.30000000000001,
+          91.7,
+          94.2,
+          96.80000000000001
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M1_S2_ep1/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M1_S2_ep1/attempt_1",
           "attempt_index": 1,
           "action_id": "M1_S2_ep1_nav_attempt1",
-          "dispatch_time_sim": 23.9,
+          "dispatch_time_sim": 23.5,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.9,
+          "completion_sim_time": 47.6,
           "target_goal": [
             1.8,
             0.0,
@@ -1775,10 +1775,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6516m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6317rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6767m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6150rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -1790,9 +1789,9 @@
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
               "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6156,
-              "amcl_position_error_m": 3.6516,
-              "amcl_yaw_error_rad": 1.6317,
+              "gt_yaw_error_rad": 1.6154,
+              "amcl_position_error_m": 3.6767,
+              "amcl_yaw_error_rad": 1.615,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1804,10 +1803,10 @@
               "sim_duration_covered": 2.4,
               "odom_duration_covered": 2.822,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
+              "unique_samples_count": 108,
+              "unique_odom_count": 83,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 416,
+              "total_raw_samples_count": 411,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -1858,43 +1857,43 @@
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
         "failure_times": [
-          47.3
+          47.4
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
-          23.3,
+          23.5,
           47.800000000000004,
-          50.7,
-          53.2,
-          55.7,
-          58.2,
-          60.7,
-          63.400000000000006,
-          66.0,
-          68.5,
-          71.0,
-          73.5,
-          76.10000000000001,
-          78.5,
-          81.10000000000001,
-          83.5,
-          86.10000000000001,
-          88.60000000000001,
-          91.2,
-          93.80000000000001,
-          96.4
+          50.800000000000004,
+          53.400000000000006,
+          56.0,
+          58.6,
+          61.1,
+          63.6,
+          66.10000000000001,
+          68.60000000000001,
+          71.2,
+          73.80000000000001,
+          76.4,
+          79.0,
+          81.60000000000001,
+          84.10000000000001,
+          86.60000000000001,
+          89.2,
+          91.7,
+          94.2,
+          96.80000000000001
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M1_S2_ep2/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M1_S2_ep2/attempt_1",
           "attempt_index": 1,
           "action_id": "M1_S2_ep2_nav_attempt1",
-          "dispatch_time_sim": 23.3,
+          "dispatch_time_sim": 23.5,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.3,
+          "completion_sim_time": 47.4,
           "target_goal": [
             1.8,
             0.0,
@@ -1905,10 +1904,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6778m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6198rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6606m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6255rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -1921,8 +1919,8 @@
             "final_geometric_errors": {
               "gt_position_error_m": 3.5998,
               "gt_yaw_error_rad": 1.6156,
-              "amcl_position_error_m": 3.6778,
-              "amcl_yaw_error_rad": 1.6198,
+              "amcl_position_error_m": 3.6606,
+              "amcl_yaw_error_rad": 1.6255,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -1932,12 +1930,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.788,
+              "odom_duration_covered": 2.822,
               "gt_duration_covered": 2.5,
               "unique_samples_count": 108,
               "unique_odom_count": 83,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 415,
+              "total_raw_samples_count": 413,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -1996,30 +1994,30 @@
         "observation_stamps": [
           23.5,
           48.0,
-          51.1,
-          53.5,
-          56.0,
-          58.6,
+          51.2,
+          53.7,
+          56.2,
+          58.7,
           61.2,
           63.800000000000004,
-          66.4,
-          69.0,
-          71.5,
-          74.0,
-          76.5,
-          78.9,
+          66.3,
+          68.7,
+          71.2,
+          73.7,
+          76.2,
+          78.80000000000001,
           81.4,
           83.9,
-          86.30000000000001,
-          88.80000000000001,
+          86.4,
+          88.9,
           91.4,
-          94.0,
-          96.60000000000001
+          93.9,
+          96.4
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M1_S2_ep3/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M1_S2_ep3/attempt_1",
           "attempt_index": 1,
           "action_id": "M1_S2_ep3_nav_attempt1",
           "dispatch_time_sim": 23.5,
@@ -2035,10 +2033,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6351m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6029rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6530m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6047rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -2049,10 +2046,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5998,
+              "gt_position_error_m": 3.5999,
               "gt_yaw_error_rad": 1.6154,
-              "amcl_position_error_m": 3.6351,
-              "amcl_yaw_error_rad": 1.6029,
+              "amcl_position_error_m": 3.653,
+              "amcl_yaw_error_rad": 1.6047,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2067,7 +2064,7 @@
               "unique_samples_count": 109,
               "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 418,
+              "total_raw_samples_count": 415,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -2126,30 +2123,30 @@
         "observation_stamps": [
           23.5,
           48.0,
-          51.0,
-          53.6,
+          51.2,
+          53.7,
           56.2,
           58.800000000000004,
           61.400000000000006,
-          64.10000000000001,
-          66.60000000000001,
-          69.2,
-          71.80000000000001,
-          74.4,
-          77.0,
-          79.60000000000001,
-          82.2,
-          84.80000000000001,
-          87.4,
-          90.0,
-          92.60000000000001,
-          95.10000000000001,
-          97.60000000000001
+          63.900000000000006,
+          66.4,
+          69.0,
+          71.60000000000001,
+          74.10000000000001,
+          76.60000000000001,
+          79.2,
+          81.7,
+          84.2,
+          86.80000000000001,
+          89.30000000000001,
+          91.80000000000001,
+          94.4,
+          97.0
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S1_ep1/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S1_ep1/attempt_1",
           "attempt_index": 1,
           "action_id": "M2_S1_ep1_nav_attempt1",
           "dispatch_time_sim": 23.5,
@@ -2165,10 +2162,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6828m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6273rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6547m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6217rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -2179,10 +2175,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6154,
-              "amcl_position_error_m": 3.6828,
-              "amcl_yaw_error_rad": 1.6273,
+              "gt_position_error_m": 3.5986,
+              "gt_yaw_error_rad": 1.6195,
+              "amcl_position_error_m": 3.6547,
+              "amcl_yaw_error_rad": 1.6217,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2192,12 +2188,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.822,
+              "odom_duration_covered": 2.856,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 108,
-              "unique_odom_count": 83,
+              "unique_samples_count": 109,
+              "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 415,
+              "total_raw_samples_count": 417,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -2206,7 +2202,7 @@
               "all_samples_stopped": true,
               "max_linear_v_seen": 0.0,
               "max_angular_v_seen": 0.0008,
-              "max_gt_displacement_m": 0.0001,
+              "max_gt_displacement_m": 0.0,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
               "halt_verified": true,
@@ -2248,43 +2244,43 @@
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
         "failure_times": [
-          47.2
+          47.8
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
-          23.1,
-          47.800000000000004,
-          50.800000000000004,
-          53.400000000000006,
-          56.0,
-          58.6,
-          61.2,
-          63.800000000000004,
-          66.4,
-          69.0,
-          71.60000000000001,
-          74.2,
-          76.80000000000001,
-          79.4,
-          82.0,
-          84.60000000000001,
-          87.2,
-          89.80000000000001,
-          92.4,
-          95.0,
-          97.60000000000001
+          23.3,
+          48.2,
+          51.2,
+          53.7,
+          56.1,
+          58.50000000000001,
+          61.00000000000001,
+          63.50000000000001,
+          66.0,
+          68.60000000000001,
+          71.2,
+          73.80000000000001,
+          76.30000000000001,
+          78.80000000000001,
+          81.4,
+          84.0,
+          86.60000000000001,
+          89.2,
+          91.7,
+          94.10000000000001,
+          96.60000000000001
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S1_ep2/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S1_ep2/attempt_1",
           "attempt_index": 1,
           "action_id": "M2_S1_ep2_nav_attempt1",
-          "dispatch_time_sim": 23.1,
+          "dispatch_time_sim": 23.3,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.2,
+          "completion_sim_time": 47.8,
           "target_goal": [
             1.8,
             0.0,
@@ -2295,10 +2291,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6680m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.5867rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6598m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6432rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -2309,10 +2304,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6156,
-              "amcl_position_error_m": 3.668,
-              "amcl_yaw_error_rad": 1.5867,
+              "gt_position_error_m": 3.5999,
+              "gt_yaw_error_rad": 1.6153,
+              "amcl_position_error_m": 3.6598,
+              "amcl_yaw_error_rad": 1.6432,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2322,12 +2317,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.856,
+              "odom_duration_covered": 2.822,
               "gt_duration_covered": 2.5,
               "unique_samples_count": 109,
               "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 424,
+              "total_raw_samples_count": 416,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -2378,24 +2373,24 @@
       "evaluator_verified_recovery": false,
       "exact_timestamps": {
         "failure_times": [
-          47.4
+          47.6
         ],
         "invalidation_times": [],
         "recovery_dispatch_times": [],
         "recovery_success_times": [],
         "observation_stamps": [
           23.5,
-          47.7,
-          50.800000000000004,
-          53.400000000000006,
-          56.0,
-          58.6,
-          61.2,
-          63.800000000000004,
-          66.4,
-          69.0,
-          71.60000000000001,
-          74.2,
+          48.0,
+          51.0,
+          53.6,
+          56.2,
+          58.800000000000004,
+          61.400000000000006,
+          64.10000000000001,
+          66.60000000000001,
+          69.2,
+          71.80000000000001,
+          74.30000000000001,
           76.80000000000001,
           79.4,
           82.0,
@@ -2409,12 +2404,12 @@
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S1_ep3/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S1_ep3/attempt_1",
           "attempt_index": 1,
           "action_id": "M2_S1_ep3_nav_attempt1",
           "dispatch_time_sim": 23.5,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.4,
+          "completion_sim_time": 47.6,
           "target_goal": [
             1.8,
             0.0,
@@ -2425,10 +2420,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6654m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6283rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6469m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6327rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -2439,10 +2433,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.6,
-              "gt_yaw_error_rad": 1.6155,
-              "amcl_position_error_m": 3.6654,
-              "amcl_yaw_error_rad": 1.6283,
+              "gt_position_error_m": 3.5998,
+              "gt_yaw_error_rad": 1.6154,
+              "amcl_position_error_m": 3.6469,
+              "amcl_yaw_error_rad": 1.6327,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2457,7 +2451,7 @@
               "unique_samples_count": 109,
               "unique_odom_count": 84,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 420,
+              "total_raw_samples_count": 416,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -2499,8 +2493,8 @@
       "disagreement_reason": null,
       "task_success": true,
       "mechanism_verified": true,
-      "observation_count": 4,
-      "suppression_count": 2,
+      "observation_count": 3,
+      "suppression_count": 1,
       "navigation_attempt_count": 2,
       "redundant_retries_count": 0,
       "invalidation_verified": true,
@@ -2508,32 +2502,31 @@
       "evaluator_verified_recovery": true,
       "exact_timestamps": {
         "failure_times": [
-          47.8
+          47.6
         ],
         "invalidation_times": [
-          54.2
+          51.1
         ],
         "recovery_dispatch_times": [
-          54.2
+          51.1
         ],
         "recovery_success_times": [
-          78.3
+          72.6
         ],
         "observation_stamps": [
-          23.900000000000002,
-          48.400000000000006,
-          51.6,
-          54.2
+          23.5,
+          48.0,
+          51.1
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S2_ep1/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S2_ep1/attempt_1",
           "attempt_index": 1,
           "action_id": "M2_S2_ep1_nav_attempt1",
-          "dispatch_time_sim": 23.9,
+          "dispatch_time_sim": 23.5,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.8,
+          "completion_sim_time": 47.6,
           "target_goal": [
             1.8,
             0.0,
@@ -2544,10 +2537,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6795m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.5967rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6653m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6265rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -2558,10 +2550,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6156,
-              "amcl_position_error_m": 3.6795,
-              "amcl_yaw_error_rad": 1.5967,
+              "gt_position_error_m": 3.5999,
+              "gt_yaw_error_rad": 1.6154,
+              "amcl_position_error_m": 3.6653,
+              "amcl_yaw_error_rad": 1.6265,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2573,8 +2565,8 @@
               "sim_duration_covered": 2.4,
               "odom_duration_covered": 2.856,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 84,
+              "unique_samples_count": 110,
+              "unique_odom_count": 85,
               "unique_gt_count": 26,
               "total_raw_samples_count": 417,
               "max_sampling_interval_sec": 0.1,
@@ -2598,12 +2590,12 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S2_ep1/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S2_ep1/attempt_2",
           "attempt_index": 2,
           "action_id": "M2_S2_ep1_nav_attempt2",
-          "dispatch_time_sim": 54.2,
-          "dispatch_elapsed_sim": 30.3,
-          "completion_sim_time": 78.3,
+          "dispatch_time_sim": 51.1,
+          "dispatch_elapsed_sim": 27.6,
+          "completion_sim_time": 72.6,
           "target_goal": [
             1.8,
             0.0,
@@ -2622,10 +2614,10 @@
             "nav2_action_succeeded": true,
             "failure_reason": null,
             "final_geometric_errors": {
-              "gt_position_error_m": 0.1874,
-              "gt_yaw_error_rad": 0.0602,
-              "amcl_position_error_m": 0.226,
-              "amcl_yaw_error_rad": 0.0586,
+              "gt_position_error_m": 0.1884,
+              "gt_yaw_error_rad": 0.2166,
+              "amcl_position_error_m": 0.2225,
+              "amcl_yaw_error_rad": 0.2056,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2634,21 +2626,21 @@
             "window_evaluation": {
               "window_valid": true,
               "failure_reasons": [],
-              "sim_duration_covered": 2.3,
-              "odom_duration_covered": 2.72,
-              "gt_duration_covered": 2.4,
-              "unique_samples_count": 105,
-              "unique_odom_count": 81,
-              "unique_gt_count": 25,
-              "total_raw_samples_count": 408,
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.822,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 110,
+              "unique_odom_count": 83,
+              "unique_gt_count": 28,
+              "total_raw_samples_count": 419,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
             },
             "halt_evaluation": {
               "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0093,
-              "max_angular_v_seen": 0.0353,
+              "max_linear_v_seen": 0.0023,
+              "max_angular_v_seen": 0.0073,
               "max_gt_displacement_m": 0.0002,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
@@ -2684,44 +2676,44 @@
       "status": "VERIFIED",
       "episode_valid": true,
       "policy_reported_success": true,
-      "evaluator_verified_success": true,
-      "disagreement_reason": null,
-      "task_success": true,
-      "mechanism_verified": true,
+      "evaluator_verified_success": false,
+      "disagreement_reason": "EVALUATOR_HALT_FAILED_EXCESS_VELOCITY (max lv=0.0098 > 0.03 or max av=0.0621 > 0.03)",
+      "task_success": false,
+      "mechanism_verified": false,
       "observation_count": 3,
       "suppression_count": 1,
       "navigation_attempt_count": 2,
       "redundant_retries_count": 0,
       "invalidation_verified": true,
       "policy_reported_recovery": true,
-      "evaluator_verified_recovery": true,
+      "evaluator_verified_recovery": false,
       "exact_timestamps": {
         "failure_times": [
-          47.7
+          47.6
         ],
         "invalidation_times": [
-          51.2
+          51.0
         ],
         "recovery_dispatch_times": [
-          51.2
+          51.0
         ],
         "recovery_success_times": [
           72.8
         ],
         "observation_stamps": [
-          23.5,
+          23.3,
           48.0,
-          51.2
+          51.0
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S2_ep2/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S2_ep2/attempt_1",
           "attempt_index": 1,
           "action_id": "M2_S2_ep2_nav_attempt1",
-          "dispatch_time_sim": 23.5,
+          "dispatch_time_sim": 23.3,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.7,
+          "completion_sim_time": 47.6,
           "target_goal": [
             1.8,
             0.0,
@@ -2732,10 +2724,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6854m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6501rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6704m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.5887rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -2746,10 +2737,10 @@
             "nav2_action_succeeded": false,
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
-              "gt_position_error_m": 3.5965,
-              "gt_yaw_error_rad": 1.6269,
-              "amcl_position_error_m": 3.6854,
-              "amcl_yaw_error_rad": 1.6501,
+              "gt_position_error_m": 3.5998,
+              "gt_yaw_error_rad": 1.6158,
+              "amcl_position_error_m": 3.6704,
+              "amcl_yaw_error_rad": 1.5887,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2786,10 +2777,10 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S2_ep2/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S2_ep2/attempt_2",
           "attempt_index": 2,
           "action_id": "M2_S2_ep2_nav_attempt2",
-          "dispatch_time_sim": 51.2,
+          "dispatch_time_sim": 51.0,
           "dispatch_elapsed_sim": 27.7,
           "completion_sim_time": 72.8,
           "target_goal": [
@@ -2801,8 +2792,8 @@
           "execution_outcome": "BUDGET_SUCCESS",
           "online_action_succeeded": true,
           "online_failure_reasons": [],
-          "evaluator_verified_success": true,
-          "disagreement_reason": null,
+          "evaluator_verified_success": false,
+          "disagreement_reason": "EVALUATOR_HALT_FAILED_EXCESS_VELOCITY (max lv=0.0098 > 0.03 or max av=0.0621 > 0.03)",
           "recomputed_evaluation": {
             "nav2_action_status": "SUCCEEDED",
             "execution_outcome": "BUDGET_SUCCESS",
@@ -2810,10 +2801,10 @@
             "nav2_action_succeeded": true,
             "failure_reason": null,
             "final_geometric_errors": {
-              "gt_position_error_m": 0.2051,
-              "gt_yaw_error_rad": 0.096,
-              "amcl_position_error_m": 0.2371,
-              "amcl_yaw_error_rad": 0.12,
+              "gt_position_error_m": 0.1513,
+              "gt_yaw_error_rad": 0.0678,
+              "amcl_position_error_m": 0.2379,
+              "amcl_yaw_error_rad": 0.0847,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2822,38 +2813,59 @@
             "window_evaluation": {
               "window_valid": true,
               "failure_reasons": [],
-              "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.856,
-              "gt_duration_covered": 2.5,
-              "unique_samples_count": 111,
-              "unique_odom_count": 84,
-              "unique_gt_count": 28,
-              "total_raw_samples_count": 420,
+              "sim_duration_covered": 2.3,
+              "odom_duration_covered": 2.754,
+              "gt_duration_covered": 2.4,
+              "unique_samples_count": 107,
+              "unique_odom_count": 81,
+              "unique_gt_count": 27,
+              "total_raw_samples_count": 411,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
             },
             "halt_evaluation": {
-              "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0028,
-              "max_angular_v_seen": 0.0106,
-              "max_gt_displacement_m": 0.0,
+              "all_samples_stopped": false,
+              "max_linear_v_seen": 0.0098,
+              "max_angular_v_seen": 0.0621,
+              "max_gt_displacement_m": 0.0003,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
-              "halt_verified": true,
-              "halt_failure_reason": null
+              "halt_verified": false,
+              "halt_failure_reason": "EXCESS_VELOCITY (max lv=0.0098 > 0.03 or max av=0.0621 > 0.03)"
             },
             "all_window_pos_ok": true,
             "all_window_yaw_ok": true,
             "final_pose_arrived": true,
-            "strict_physical_arrival_and_stable": true
+            "strict_physical_arrival_and_stable": false
           }
         }
       ],
       "raw_checksum_tamper_detected": false,
       "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
+      "summary_discrepancy_detected": true,
+      "summary_discrepancies": [
+        {
+          "field": "task_success",
+          "stored_value": true,
+          "recomputed_value": false
+        },
+        {
+          "field": "mechanism_verified",
+          "stored_value": true,
+          "recomputed_value": false
+        },
+        {
+          "field": "evaluator_verified_success",
+          "stored_value": true,
+          "recomputed_value": false
+        },
+        {
+          "field": "evaluator_verified_recovery",
+          "stored_value": true,
+          "recomputed_value": false
+        }
+      ],
       "policy_state_discrepancy_detected": true,
       "policy_state_discrepancies": [
         {
@@ -2885,31 +2897,31 @@
       "evaluator_verified_recovery": true,
       "exact_timestamps": {
         "failure_times": [
-          47.8
+          47.6
         ],
         "invalidation_times": [
-          51.400000000000006
+          51.1
         ],
         "recovery_dispatch_times": [
-          51.4
+          51.1
         ],
         "recovery_success_times": [
-          73.4
+          72.8
         ],
         "observation_stamps": [
-          23.1,
-          48.400000000000006,
-          51.400000000000006
+          23.5,
+          48.0,
+          51.1
         ]
       },
       "attempts": [
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S2_ep3/attempt_1",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S2_ep3/attempt_1",
           "attempt_index": 1,
           "action_id": "M2_S2_ep3_nav_attempt1",
-          "dispatch_time_sim": 23.1,
+          "dispatch_time_sim": 23.5,
           "dispatch_elapsed_sim": 0.0,
-          "completion_sim_time": 47.8,
+          "completion_sim_time": 47.6,
           "target_goal": [
             1.8,
             0.0,
@@ -2920,10 +2932,9 @@
           "online_action_succeeded": false,
           "online_failure_reasons": [
             "NAV2_STATUS_NOT_SUCCEEDED (CANCELED)",
-            "DEADLINE_EXCEEDED",
             "EXECUTION_OUTCOME_NOT_BUDGET_SUCCESS (BUDGET_DEADLINE_EXCEEDED)",
-            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6502m > 0.4500m)",
-            "AMCL_YAW_TOLERANCE_EXCEEDED (1.6211rad > 0.5500rad)"
+            "AMCL_POSITION_TOLERANCE_EXCEEDED (3.6863m > 0.4500m)",
+            "AMCL_YAW_TOLERANCE_EXCEEDED (1.5978rad > 0.5500rad)"
           ],
           "evaluator_verified_success": false,
           "disagreement_reason": null,
@@ -2935,9 +2946,9 @@
             "failure_reason": "SIM_BUDGET_EXCEEDED",
             "final_geometric_errors": {
               "gt_position_error_m": 3.5998,
-              "gt_yaw_error_rad": 1.6153,
-              "amcl_position_error_m": 3.6502,
-              "amcl_yaw_error_rad": 1.6211,
+              "gt_yaw_error_rad": 1.6154,
+              "amcl_position_error_m": 3.6863,
+              "amcl_yaw_error_rad": 1.5978,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -2947,12 +2958,12 @@
               "window_valid": true,
               "failure_reasons": [],
               "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.822,
+              "odom_duration_covered": 2.89,
               "gt_duration_covered": 2.5,
-              "unique_samples_count": 108,
-              "unique_odom_count": 83,
+              "unique_samples_count": 110,
+              "unique_odom_count": 85,
               "unique_gt_count": 26,
-              "total_raw_samples_count": 423,
+              "total_raw_samples_count": 420,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
@@ -2974,12 +2985,12 @@
           }
         },
         {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M2_S2_ep3/attempt_2",
+          "attempt_dir": "reports/evidence/p2a_v3/p2a_v3_20260929_180106_011df4/M2_S2_ep3/attempt_2",
           "attempt_index": 2,
           "action_id": "M2_S2_ep3_nav_attempt2",
-          "dispatch_time_sim": 51.4,
-          "dispatch_elapsed_sim": 28.3,
-          "completion_sim_time": 73.4,
+          "dispatch_time_sim": 51.1,
+          "dispatch_elapsed_sim": 27.6,
+          "completion_sim_time": 72.8,
           "target_goal": [
             1.8,
             0.0,
@@ -2998,10 +3009,10 @@
             "nav2_action_succeeded": true,
             "failure_reason": null,
             "final_geometric_errors": {
-              "gt_position_error_m": 0.1783,
-              "gt_yaw_error_rad": 0.1316,
-              "amcl_position_error_m": 0.2663,
-              "amcl_yaw_error_rad": 0.1172,
+              "gt_position_error_m": 0.2007,
+              "gt_yaw_error_rad": 0.0855,
+              "amcl_position_error_m": 0.2537,
+              "amcl_yaw_error_rad": 0.1103,
               "thresholds_applied": {
                 "position_tolerance_m": 0.3,
                 "yaw_tolerance_rad": 0.35
@@ -3010,22 +3021,22 @@
             "window_evaluation": {
               "window_valid": true,
               "failure_reasons": [],
-              "sim_duration_covered": 2.3,
-              "odom_duration_covered": 2.686,
-              "gt_duration_covered": 2.4,
-              "unique_samples_count": 105,
-              "unique_odom_count": 79,
-              "unique_gt_count": 27,
-              "total_raw_samples_count": 409,
+              "sim_duration_covered": 2.4,
+              "odom_duration_covered": 2.856,
+              "gt_duration_covered": 2.5,
+              "unique_samples_count": 112,
+              "unique_odom_count": 84,
+              "unique_gt_count": 29,
+              "total_raw_samples_count": 421,
               "max_sampling_interval_sec": 0.1,
               "data_fresh": true,
               "watchdog_triggered": false
             },
             "halt_evaluation": {
               "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0022,
-              "max_angular_v_seen": 0.0092,
-              "max_gt_displacement_m": 0.0001,
+              "max_linear_v_seen": 0.002,
+              "max_angular_v_seen": 0.0103,
+              "max_gt_displacement_m": 0.0,
               "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
               "safety_intervention": false,
               "halt_verified": true,
@@ -3051,549 +3062,6 @@
         }
       ],
       "tamper_detected": true
-    },
-    {
-      "episode_id": "M3_S1_ep1",
-      "condition_id": "M3_S1",
-      "policy_name": "M3",
-      "sequence_name": "S1",
-      "status": "VERIFIED",
-      "episode_valid": true,
-      "policy_reported_success": false,
-      "evaluator_verified_success": false,
-      "disagreement_reason": null,
-      "task_success": false,
-      "mechanism_verified": true,
-      "observation_count": 30,
-      "suppression_count": 30,
-      "navigation_attempt_count": 0,
-      "redundant_retries_count": 0,
-      "invalidation_verified": false,
-      "policy_reported_recovery": false,
-      "evaluator_verified_recovery": false,
-      "exact_timestamps": {
-        "failure_times": [],
-        "invalidation_times": [],
-        "recovery_dispatch_times": [],
-        "recovery_success_times": [],
-        "observation_stamps": [
-          23.900000000000002,
-          26.400000000000002,
-          29.000000000000004,
-          31.6,
-          34.2,
-          36.800000000000004,
-          39.400000000000006,
-          41.900000000000006,
-          44.400000000000006,
-          47.0,
-          49.5,
-          52.0,
-          54.6,
-          57.1,
-          59.800000000000004,
-          62.400000000000006,
-          64.9,
-          67.3,
-          69.80000000000001,
-          72.4,
-          75.0,
-          77.60000000000001,
-          80.2,
-          82.80000000000001,
-          85.4,
-          87.9,
-          90.30000000000001,
-          92.80000000000001,
-          95.4,
-          98.0
-        ]
-      },
-      "attempts": [],
-      "raw_checksum_tamper_detected": false,
-      "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
-      "policy_state_discrepancy_detected": false,
-      "policy_state_discrepancies": [],
-      "tamper_detected": false
-    },
-    {
-      "episode_id": "M3_S1_ep2",
-      "condition_id": "M3_S1",
-      "policy_name": "M3",
-      "sequence_name": "S1",
-      "status": "VERIFIED",
-      "episode_valid": true,
-      "policy_reported_success": false,
-      "evaluator_verified_success": false,
-      "disagreement_reason": null,
-      "task_success": false,
-      "mechanism_verified": true,
-      "observation_count": 30,
-      "suppression_count": 30,
-      "navigation_attempt_count": 0,
-      "redundant_retries_count": 0,
-      "invalidation_verified": false,
-      "policy_reported_recovery": false,
-      "evaluator_verified_recovery": false,
-      "exact_timestamps": {
-        "failure_times": [],
-        "invalidation_times": [],
-        "recovery_dispatch_times": [],
-        "recovery_success_times": [],
-        "observation_stamps": [
-          23.3,
-          25.8,
-          28.400000000000002,
-          31.000000000000004,
-          33.6,
-          36.2,
-          38.800000000000004,
-          41.400000000000006,
-          44.0,
-          46.6,
-          49.2,
-          51.800000000000004,
-          54.400000000000006,
-          57.0,
-          59.50000000000001,
-          62.00000000000001,
-          64.60000000000001,
-          67.2,
-          69.80000000000001,
-          72.30000000000001,
-          74.80000000000001,
-          77.4,
-          80.0,
-          82.60000000000001,
-          85.2,
-          87.7,
-          90.10000000000001,
-          92.60000000000001,
-          95.10000000000001,
-          97.5
-        ]
-      },
-      "attempts": [],
-      "raw_checksum_tamper_detected": false,
-      "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
-      "policy_state_discrepancy_detected": false,
-      "policy_state_discrepancies": [],
-      "tamper_detected": false
-    },
-    {
-      "episode_id": "M3_S1_ep3",
-      "condition_id": "M3_S1",
-      "policy_name": "M3",
-      "sequence_name": "S1",
-      "status": "VERIFIED",
-      "episode_valid": true,
-      "policy_reported_success": false,
-      "evaluator_verified_success": false,
-      "disagreement_reason": null,
-      "task_success": false,
-      "mechanism_verified": true,
-      "observation_count": 30,
-      "suppression_count": 30,
-      "navigation_attempt_count": 0,
-      "redundant_retries_count": 0,
-      "invalidation_verified": false,
-      "policy_reported_recovery": false,
-      "evaluator_verified_recovery": false,
-      "exact_timestamps": {
-        "failure_times": [],
-        "invalidation_times": [],
-        "recovery_dispatch_times": [],
-        "recovery_success_times": [],
-        "observation_stamps": [
-          23.900000000000002,
-          26.400000000000002,
-          29.000000000000004,
-          31.6,
-          34.2,
-          36.800000000000004,
-          39.300000000000004,
-          41.800000000000004,
-          44.400000000000006,
-          47.0,
-          49.6,
-          52.2,
-          54.800000000000004,
-          57.300000000000004,
-          60.00000000000001,
-          62.50000000000001,
-          65.10000000000001,
-          67.5,
-          69.9,
-          72.4,
-          75.0,
-          77.60000000000001,
-          80.2,
-          82.80000000000001,
-          85.4,
-          88.0,
-          90.60000000000001,
-          93.2,
-          95.7,
-          98.2
-        ]
-      },
-      "attempts": [],
-      "raw_checksum_tamper_detected": false,
-      "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
-      "policy_state_discrepancy_detected": false,
-      "policy_state_discrepancies": [],
-      "tamper_detected": false
-    },
-    {
-      "episode_id": "M3_S2_ep1",
-      "condition_id": "M3_S2",
-      "policy_name": "M3",
-      "sequence_name": "S2",
-      "status": "VERIFIED",
-      "episode_valid": true,
-      "policy_reported_success": true,
-      "evaluator_verified_success": true,
-      "disagreement_reason": null,
-      "task_success": true,
-      "mechanism_verified": true,
-      "observation_count": 18,
-      "suppression_count": 17,
-      "navigation_attempt_count": 1,
-      "redundant_retries_count": 0,
-      "invalidation_verified": false,
-      "policy_reported_recovery": false,
-      "evaluator_verified_recovery": false,
-      "exact_timestamps": {
-        "failure_times": [],
-        "invalidation_times": [],
-        "recovery_dispatch_times": [],
-        "recovery_success_times": [],
-        "observation_stamps": [
-          23.5,
-          25.900000000000002,
-          28.3,
-          30.8,
-          33.5,
-          36.0,
-          38.6,
-          41.2,
-          43.800000000000004,
-          46.400000000000006,
-          49.0,
-          51.5,
-          54.0,
-          56.6,
-          59.2,
-          61.800000000000004,
-          64.4,
-          66.9
-        ]
-      },
-      "attempts": [
-        {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M3_S2_ep1/attempt_1",
-          "attempt_index": 1,
-          "action_id": "M3_S2_ep1_nav_attempt1",
-          "dispatch_time_sim": 66.9,
-          "dispatch_elapsed_sim": 43.4,
-          "completion_sim_time": 87.6,
-          "target_goal": [
-            1.8,
-            0.0,
-            0.0
-          ],
-          "nav2_status": "SUCCEEDED",
-          "execution_outcome": "BUDGET_SUCCESS",
-          "online_action_succeeded": true,
-          "online_failure_reasons": [],
-          "evaluator_verified_success": true,
-          "disagreement_reason": null,
-          "recomputed_evaluation": {
-            "nav2_action_status": "SUCCEEDED",
-            "execution_outcome": "BUDGET_SUCCESS",
-            "deadline_exceeded": false,
-            "nav2_action_succeeded": true,
-            "failure_reason": null,
-            "final_geometric_errors": {
-              "gt_position_error_m": 0.1973,
-              "gt_yaw_error_rad": 0.0901,
-              "amcl_position_error_m": 0.2565,
-              "amcl_yaw_error_rad": 0.0783,
-              "thresholds_applied": {
-                "position_tolerance_m": 0.3,
-                "yaw_tolerance_rad": 0.35
-              }
-            },
-            "window_evaluation": {
-              "window_valid": true,
-              "failure_reasons": [],
-              "sim_duration_covered": 2.3,
-              "odom_duration_covered": 2.72,
-              "gt_duration_covered": 2.4,
-              "unique_samples_count": 107,
-              "unique_odom_count": 81,
-              "unique_gt_count": 27,
-              "total_raw_samples_count": 409,
-              "max_sampling_interval_sec": 0.1,
-              "data_fresh": true,
-              "watchdog_triggered": false
-            },
-            "halt_evaluation": {
-              "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0001,
-              "max_angular_v_seen": 0.0003,
-              "max_gt_displacement_m": 0.0,
-              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
-              "safety_intervention": false,
-              "halt_verified": true,
-              "halt_failure_reason": null
-            },
-            "all_window_pos_ok": true,
-            "all_window_yaw_ok": true,
-            "final_pose_arrived": true,
-            "strict_physical_arrival_and_stable": true
-          }
-        }
-      ],
-      "raw_checksum_tamper_detected": false,
-      "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
-      "policy_state_discrepancy_detected": false,
-      "policy_state_discrepancies": [],
-      "tamper_detected": false
-    },
-    {
-      "episode_id": "M3_S2_ep2",
-      "condition_id": "M3_S2",
-      "policy_name": "M3",
-      "sequence_name": "S2",
-      "status": "VERIFIED",
-      "episode_valid": true,
-      "policy_reported_success": true,
-      "evaluator_verified_success": true,
-      "disagreement_reason": null,
-      "task_success": true,
-      "mechanism_verified": true,
-      "observation_count": 12,
-      "suppression_count": 11,
-      "navigation_attempt_count": 1,
-      "redundant_retries_count": 0,
-      "invalidation_verified": false,
-      "policy_reported_recovery": false,
-      "evaluator_verified_recovery": false,
-      "exact_timestamps": {
-        "failure_times": [],
-        "invalidation_times": [],
-        "recovery_dispatch_times": [],
-        "recovery_success_times": [],
-        "observation_stamps": [
-          23.1,
-          25.6,
-          28.200000000000003,
-          30.8,
-          33.5,
-          36.0,
-          38.6,
-          41.2,
-          43.800000000000004,
-          46.400000000000006,
-          49.0,
-          51.6
-        ]
-      },
-      "attempts": [
-        {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M3_S2_ep2/attempt_1",
-          "attempt_index": 1,
-          "action_id": "M3_S2_ep2_nav_attempt1",
-          "dispatch_time_sim": 51.6,
-          "dispatch_elapsed_sim": 28.5,
-          "completion_sim_time": 72.8,
-          "target_goal": [
-            1.8,
-            0.0,
-            0.0
-          ],
-          "nav2_status": "SUCCEEDED",
-          "execution_outcome": "BUDGET_SUCCESS",
-          "online_action_succeeded": true,
-          "online_failure_reasons": [],
-          "evaluator_verified_success": true,
-          "disagreement_reason": null,
-          "recomputed_evaluation": {
-            "nav2_action_status": "SUCCEEDED",
-            "execution_outcome": "BUDGET_SUCCESS",
-            "deadline_exceeded": false,
-            "nav2_action_succeeded": true,
-            "failure_reason": null,
-            "final_geometric_errors": {
-              "gt_position_error_m": 0.1654,
-              "gt_yaw_error_rad": 0.104,
-              "amcl_position_error_m": 0.2399,
-              "amcl_yaw_error_rad": 0.0951,
-              "thresholds_applied": {
-                "position_tolerance_m": 0.3,
-                "yaw_tolerance_rad": 0.35
-              }
-            },
-            "window_evaluation": {
-              "window_valid": true,
-              "failure_reasons": [],
-              "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.822,
-              "gt_duration_covered": 2.5,
-              "unique_samples_count": 109,
-              "unique_odom_count": 83,
-              "unique_gt_count": 27,
-              "total_raw_samples_count": 425,
-              "max_sampling_interval_sec": 0.1,
-              "data_fresh": true,
-              "watchdog_triggered": false
-            },
-            "halt_evaluation": {
-              "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0001,
-              "max_angular_v_seen": 0.0004,
-              "max_gt_displacement_m": 0.0,
-              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
-              "safety_intervention": false,
-              "halt_verified": true,
-              "halt_failure_reason": null
-            },
-            "all_window_pos_ok": true,
-            "all_window_yaw_ok": true,
-            "final_pose_arrived": true,
-            "strict_physical_arrival_and_stable": true
-          }
-        }
-      ],
-      "raw_checksum_tamper_detected": false,
-      "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
-      "policy_state_discrepancy_detected": false,
-      "policy_state_discrepancies": [],
-      "tamper_detected": false
-    },
-    {
-      "episode_id": "M3_S2_ep3",
-      "condition_id": "M3_S2",
-      "policy_name": "M3",
-      "sequence_name": "S2",
-      "status": "VERIFIED",
-      "episode_valid": true,
-      "policy_reported_success": true,
-      "evaluator_verified_success": true,
-      "disagreement_reason": null,
-      "task_success": true,
-      "mechanism_verified": true,
-      "observation_count": 12,
-      "suppression_count": 11,
-      "navigation_attempt_count": 1,
-      "redundant_retries_count": 0,
-      "invalidation_verified": false,
-      "policy_reported_recovery": false,
-      "evaluator_verified_recovery": false,
-      "exact_timestamps": {
-        "failure_times": [],
-        "invalidation_times": [],
-        "recovery_dispatch_times": [],
-        "recovery_success_times": [],
-        "observation_stamps": [
-          23.3,
-          25.700000000000003,
-          28.200000000000003,
-          30.8,
-          33.300000000000004,
-          35.800000000000004,
-          38.400000000000006,
-          41.0,
-          43.6,
-          46.2,
-          48.800000000000004,
-          51.400000000000006
-        ]
-      },
-      "attempts": [
-        {
-          "attempt_dir": "reports/evidence/p2b/p2b_20260930_023426_385655/M3_S2_ep3/attempt_1",
-          "attempt_index": 1,
-          "action_id": "M3_S2_ep3_nav_attempt1",
-          "dispatch_time_sim": 51.4,
-          "dispatch_elapsed_sim": 28.1,
-          "completion_sim_time": 72.3,
-          "target_goal": [
-            1.8,
-            0.0,
-            0.0
-          ],
-          "nav2_status": "SUCCEEDED",
-          "execution_outcome": "BUDGET_SUCCESS",
-          "online_action_succeeded": true,
-          "online_failure_reasons": [],
-          "evaluator_verified_success": true,
-          "disagreement_reason": null,
-          "recomputed_evaluation": {
-            "nav2_action_status": "SUCCEEDED",
-            "execution_outcome": "BUDGET_SUCCESS",
-            "deadline_exceeded": false,
-            "nav2_action_succeeded": true,
-            "failure_reason": null,
-            "final_geometric_errors": {
-              "gt_position_error_m": 0.1878,
-              "gt_yaw_error_rad": 0.128,
-              "amcl_position_error_m": 0.2511,
-              "amcl_yaw_error_rad": 0.1445,
-              "thresholds_applied": {
-                "position_tolerance_m": 0.3,
-                "yaw_tolerance_rad": 0.35
-              }
-            },
-            "window_evaluation": {
-              "window_valid": true,
-              "failure_reasons": [],
-              "sim_duration_covered": 2.4,
-              "odom_duration_covered": 2.822,
-              "gt_duration_covered": 2.5,
-              "unique_samples_count": 111,
-              "unique_odom_count": 84,
-              "unique_gt_count": 28,
-              "total_raw_samples_count": 420,
-              "max_sampling_interval_sec": 0.1,
-              "data_fresh": true,
-              "watchdog_triggered": false
-            },
-            "halt_evaluation": {
-              "all_samples_stopped": true,
-              "max_linear_v_seen": 0.0001,
-              "max_angular_v_seen": 0.0004,
-              "max_gt_displacement_m": 0.0001,
-              "cmd_vel_status": "ZERO_COMMANDS_RECEIVED",
-              "safety_intervention": false,
-              "halt_verified": true,
-              "halt_failure_reason": null
-            },
-            "all_window_pos_ok": true,
-            "all_window_yaw_ok": true,
-            "final_pose_arrived": true,
-            "strict_physical_arrival_and_stable": true
-          }
-        }
-      ],
-      "raw_checksum_tamper_detected": false,
-      "checksum_mismatches": [],
-      "summary_discrepancy_detected": false,
-      "summary_discrepancies": [],
-      "policy_state_discrepancy_detected": false,
-      "policy_state_discrepancies": [],
-      "tamper_detected": false
     }
   ]
 }
