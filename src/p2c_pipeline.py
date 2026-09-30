@@ -244,7 +244,9 @@ class P2cTrajectoryClassifier:
                 st = linked_perception.get("doorway_state")
                 p_stamp = linked_perception.get("stamp_sec", 0.0)
                 a_stamp = last_pt.get("recv_sim_time_sec", last_pt.get("sim_time", 0.0))
-                is_fresh = abs(a_stamp - p_stamp) <= max_staleness_sec if (p_stamp > 0 and a_stamp > 0) else True
+                if not is_finite_number(p_stamp) or not is_finite_number(a_stamp) or p_stamp <= 0.0 or a_stamp <= 0.0:
+                    return "DOORWAY_BLOCKED_EVIDENCE_STALE"
+                is_fresh = abs(a_stamp - p_stamp) <= max_staleness_sec
                 if st == "OCCUPIED" and is_fresh:
                     return "BLOCKED_AT_DOORWAY"
                 elif not is_fresh:
@@ -255,6 +257,24 @@ class P2cTrajectoryClassifier:
             return "BUDGET_EXHAUSTED"
 
         return "NAVIGATION_ABORTED_OR_FAILED"
+
+
+def build_chokepoint_probe_action(
+    action_id: str = "hist_attempt_chokepoint_traversal",
+    target_goal: Tuple[float, float, float] | List[float] = (0.50, 1.20, 0.0),
+    timeout_sec: float = 15.0,
+) -> Dict[str, Any]:
+    """Standardized factory for identical-configuration chokepoint probe navigation action."""
+    return {
+        "action_id": action_id,
+        "action": "navigate",
+        "params": {
+            "goal": list(target_goal),
+            "frame_id": "map",
+            "timeout_sec": float(timeout_sec),
+        },
+    }
+
 
 
 
@@ -368,8 +388,11 @@ class P2cEpisodeEvaluator:
         history_aborted: bool = False,
         raw_evidence_verified: bool = True,
         memory_lifecycle_verified: bool = True,
+        policy_matched: bool = True,
+        costmap_valid: Optional[bool] = None,
+        tamper_reasons: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """Compute full suite of objective validity flags."""
+        """Compute full suite of objective validity flags with single-entrypoint audit verdict."""
         task_success = bool(
             not history_aborted
             and physical_eval_dict.get("strict_physical_arrival_and_stable", False)
@@ -381,16 +404,17 @@ class P2cEpisodeEvaluator:
         actual_route = P2cTrajectoryClassifier.classify_actual_route(odom_samples)
         dead_ends = P2cTrajectoryClassifier.classify_dead_end_traversals(odom_samples)
 
-        costmap_valid = True
-        for cm in costmap_snapshots:
-            stg = cm.get("stage", "")
-            op_lethal = cm.get("cell_counts", {}).get("opening_lethal", 0)
-            if "PROBE_BLOCKED" in stg and op_lethal == 0:
-                costmap_valid = False
-            elif "PROBE_CLEARED" in stg and op_lethal > 0:
-                costmap_valid = False
+        if costmap_valid is None:
+            costmap_valid = True
+            for cm in costmap_snapshots:
+                stg = cm.get("stage", "")
+                op_lethal = cm.get("cell_counts", {}).get("opening_lethal", 0)
+                if "PROBE_BLOCKED" in stg and op_lethal == 0:
+                    costmap_valid = False
+                elif "PROBE_CLEARED" in stg and op_lethal > 0:
+                    costmap_valid = False
 
-        data_valid = bool(evidence_complete and len(odom_samples) > 10 and jumps == 0)
+        data_valid = bool(evidence_complete and len(odom_samples) > 10 and jumps == 0 and raw_evidence_verified and checksums_verified)
         route_valid = bool(data_valid and dist > 0.0 and costmap_valid and not history_aborted)
 
         # 2. History Validation
@@ -415,7 +439,7 @@ class P2cEpisodeEvaluator:
                 history_reasons.append("MISSING_D1_HISTORY_ACTIONS")
             else:
                 v1_ok = (v1.get("terminal_status_name") == "SUCCEEDED" and v1.get("execution_outcome") == "BUDGET_SUCCESS")
-                tr1_fail = (tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or tr1.get("terminal_status_name") == "ABORTED")
+                tr1_fail = (tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
                 r1_ok = (r1.get("terminal_status_name") == "SUCCEEDED" and r1.get("execution_outcome") == "BUDGET_SUCCESS")
                 if not (v1_ok and tr1_fail and r1_ok):
                     history_valid = False
@@ -434,15 +458,23 @@ class P2cEpisodeEvaluator:
                         history_valid = False
                         history_reasons.append(f"D2_OUTCOME_MISMATCH (p2_ok={p2_ok}, r2_ok={r2_ok})")
 
-        # 3. Comprehensive Validity & Audit
+        # 3. Comprehensive Validity & Audit (Single Entrypoint)
         episode_valid = bool(task_success and success_within_budget and history_valid and route_valid and evidence_complete)
+        no_tamper = (len(tamper_reasons) == 0) if tamper_reasons is not None else True
         audit_pass = bool(
             episode_valid
-            and checksums_verified
-            and protocol_hash_match
+            and history_valid
+            and route_valid
+            and costmap_valid
             and raw_evidence_verified
             and memory_lifecycle_verified
+            and policy_matched
+            and checksums_verified
+            and protocol_hash_match
+            and no_tamper
+            and not history_aborted
         )
+
 
         return {
             "task_success": task_success,

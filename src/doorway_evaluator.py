@@ -220,6 +220,70 @@ def extract_costmap_doorway_subgrid(
     }
 
 
+def recompute_costmap_subgrid_stats(
+    subgrid_matrix: List[List[int]],
+    grid_bounds_u: List[int],
+    grid_bounds_v: List[int],
+    resolution_m: float,
+    origin_xy: List[float],
+    opening_bbox: Tuple[float, float, float, float] = (-0.15, 0.15, 0.95, 1.45),
+    lethal_cost_threshold: int = 100,
+) -> Dict[str, Any]:
+    """Recompute cell statistics from raw 2D subgrid matrix without trusting recorded aggregates."""
+    if not subgrid_matrix or not grid_bounds_u or not grid_bounds_v or resolution_m <= 0:
+        return {
+            "valid": False,
+            "error": "EMPTY_OR_INVALID_SUBGRID_MATRIX",
+            "cell_counts": {"unknown": 0, "free": 0, "inflated": 0, "lethal": 0, "opening_lethal": 0},
+            "has_blockage": False,
+        }
+
+    u_min, u_max = grid_bounds_u
+    v_min, v_max = grid_bounds_v
+    ox, oy = origin_xy[0], origin_xy[1]
+
+    op_xmin, op_xmax, op_ymin, op_ymax = opening_bbox
+    op_umin = max(0, int((op_xmin - ox) / resolution_m))
+    op_umax = int((op_xmax - ox) / resolution_m)
+    op_vmin = max(0, int((op_ymin - oy) / resolution_m))
+    op_vmax = int((op_ymax - oy) / resolution_m)
+
+    unknown_cnt = 0
+    free_cnt = 0
+    inflated_cnt = 0
+    lethal_cnt = 0
+    opening_lethal_cnt = 0
+
+    for v_idx, row in enumerate(subgrid_matrix):
+        v = v_min + v_idx
+        for u_idx, val in enumerate(row):
+            u = u_min + u_idx
+            if val < 0:
+                unknown_cnt += 1
+            elif val == 0:
+                free_cnt += 1
+            elif 1 <= val < lethal_cost_threshold:
+                inflated_cnt += 1
+            elif val >= lethal_cost_threshold:
+                lethal_cnt += 1
+                if op_umin <= u <= op_umax and op_vmin <= v <= op_vmax:
+                    opening_lethal_cnt += 1
+
+    return {
+        "valid": True,
+        "error": None,
+        "cell_counts": {
+            "unknown": unknown_cnt,
+            "free": free_cnt,
+            "inflated": inflated_cnt,
+            "lethal": lethal_cnt,
+            "opening_lethal": opening_lethal_cnt,
+        },
+        "has_blockage": (opening_lethal_cnt > 0),
+    }
+
+
+
 def evaluate_doorway_clearance(
     ranges: List[float],
     angle_min: float,

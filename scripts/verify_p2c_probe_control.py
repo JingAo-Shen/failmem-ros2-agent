@@ -29,8 +29,12 @@ from unique_identifier_msgs.msg import UUID as RosUUID
 
 from src.action_dispatcher import ActionDispatcher
 from src.action_runtime import EpisodeActionHistoryContext
-from src.p2c_pipeline import P2cProtocolConfig
+from src.p2c_pipeline import (
+    P2cProtocolConfig,
+    build_chokepoint_probe_action,
+)
 from scripts.run_p1c_v3 import (
+
     P1cV3RunnerNode,
     execute_navigation_action,
     cleanup_simulation_processes,
@@ -133,11 +137,11 @@ def run_probe_control_test(output_dir: Path) -> Dict[str, Any]:
         print(f"Open Condition Vantage Perception: {obs_open.get('doorway_state')} (Pass-through: {obs_open.get('pass_through_count')})")
 
         node.start_tracking()
-        open_act = {
-            "action_id": "probe_open_traversal",
-            "action": "navigate",
-            "params": {"goal": [1.50, 1.20, 0.0], "frame_id": "map", "timeout_sec": 35.0},
-        }
+        open_act = build_chokepoint_probe_action(
+            action_id="probe_open_traversal",
+            target_goal=(0.50, 1.20, 0.0),
+            timeout_sec=15.0,
+        )
         sum_open, eval_open, _ = execute_navigation_action(node, dispatcher, open_act, print, thresholds)
         print(f"Open Condition Nav2 Result: Status={sum_open.get('terminal_status_name')}, Arrival={eval_open.get('strict_physical_arrival_and_stable')}")
 
@@ -163,12 +167,13 @@ def run_probe_control_test(output_dir: Path) -> Dict[str, Any]:
         print(f"Blocked Condition Vantage Perception: {obs_blocked.get('doorway_state')} (Hits: {obs_blocked.get('hits_inside_count')})")
 
         node.start_tracking()
-        blocked_act = {
-            "action_id": "probe_blocked_traversal",
-            "action": "navigate",
-            "params": {"goal": [1.50, 1.20, 0.0], "frame_id": "map", "timeout_sec": 20.0},
-        }
+        blocked_act = build_chokepoint_probe_action(
+            action_id="probe_blocked_traversal",
+            target_goal=(0.50, 1.20, 0.0),
+            timeout_sec=15.0,
+        )
         sum_blocked, eval_blocked, _ = execute_navigation_action(node, dispatcher, blocked_act, print, thresholds)
+
         print(f"Blocked Condition Nav2 Result: Status={sum_blocked.get('terminal_status_name')}, Execution Outcome={sum_blocked.get('execution_outcome')}")
 
         # Cleanup obstacle

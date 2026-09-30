@@ -80,7 +80,9 @@ from src.p2c_pipeline import (
     P2cPolicyDecider,
     P2cEpisodeEvaluator,
     SpatialObservationCache,
+    build_chokepoint_probe_action,
 )
+
 from scripts.run_p1c_v3 import (
     P1cV3RunnerNode,
     execute_navigation_action,
@@ -247,7 +249,9 @@ def capture_scan_snapshot(
             "child_frame_id": tf_rec.get("child_frame_id", "base_scan"),
         }
 
+    obs_id = f"obs_{stage.lower()}_{int(scan_stamp * 1000)}"
     return {
+        "observation_id": obs_id,
         "stage": stage,
         "sim_time_sec": round(scan_stamp, 3),
         "has_raw_scan": (scan_data is not None),
@@ -257,6 +261,7 @@ def capture_scan_snapshot(
         "tf_transform": tf_data,
         "perception_result": copy.deepcopy(perception_result),
     }
+
 
 
 def run_physical_episode(
@@ -456,10 +461,17 @@ def run_physical_episode(
 
             eff_timeout = min(nominal_timeout, rem_budget)
             action_dict["params"]["timeout_sec"] = eff_timeout
+            t_step_start = node.get_sim_time_sec()
             s_sum, s_eval, s_stab = execute_navigation_action(
                 node, dispatcher, action_dict, log_ep, thresholds, abs_sim_deadline=abs_sim_deadline
             )
+            t_step_end = node.get_sim_time_sec()
+            s_sum["timestamp_sim_start"] = round(t_step_start, 3)
+            s_sum["timestamp_sim"] = round(t_step_end, 3)
+            if "evaluation" in s_sum and isinstance(s_sum["evaluation"], dict):
+                s_sum["evaluation"]["timestamp_sim"] = round(t_step_end, 3)
             return s_sum, s_eval, s_stab
+
 
         # =========================================================================
         # PHASE 1: PHYSICAL HISTORY ACQUISITION (D0 vs D1 vs D2)
@@ -520,12 +532,12 @@ def run_physical_episode(
             # 3. Action 2: Attempt Real Chokepoint Traversal through Doorway (Real Nav2 Action)
             log_ep(f"[History Phase {scenario_name}] Step 2: Attempting real Nav2 chokepoint traversal through doorway (goal: [0.50, 1.20, 0.0])...")
             node.start_tracking()
-            trav_act = {
-                "action_id": "hist_attempt_chokepoint_traversal",
-                "action": "navigate",
-                "params": {"goal": [0.50, 1.20, 0.0], "frame_id": "map"},
-            }
-            summary_tr1, eval_tr1, stab_tr1 = run_step(trav_act, nominal_timeout=12.0)
+            trav_act = build_chokepoint_probe_action(
+                action_id="hist_attempt_chokepoint_traversal",
+                target_goal=(0.50, 1.20, 0.0),
+                timeout_sec=15.0,
+            )
+            summary_tr1, eval_tr1, stab_tr1 = run_step(trav_act, nominal_timeout=15.0)
             action_summaries.append(summary_tr1)
             hist_odom_samples.extend(node.episode_odom_samples)
             hist_gt_samples.extend(node.episode_gt_samples)
@@ -548,14 +560,16 @@ def run_physical_episode(
             # Robust linked perception: use post_fail_obs if conclusive, else occ_obs from vantage probe
             linked_obs = post_fail_obs if post_fail_obs.get("doorway_state") in ["OCCUPIED", "FREE"] else occ_obs
 
+            # Diagnose failure cause purely from online odom trajectory and time-aligned perception (zero online GT oracle)
             fail_cause = P2cTrajectoryClassifier.diagnose_failure_cause(
-                summary_tr1, node.episode_gt_samples, linked_obs, max_staleness_sec=30.0
+                summary_tr1, node.episode_odom_samples, linked_obs, max_staleness_sec=2.0
             )
             summary_tr1["failure_cause"] = fail_cause
 
             trav1_outcome = summary_tr1.get("execution_outcome")
             trav1_failed = (trav1_outcome in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or summary_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
             log_ep(f"[History Phase {scenario_name}] Step 2 Traversal outcome: {trav1_outcome} (Diagnosed cause: {fail_cause})")
+
 
             # Only genuine failed action with linked OCCUPIED evidence creates failure memory
             if trav1_failed and linked_obs.get("doorway_state") == "OCCUPIED":
@@ -616,7 +630,8 @@ def run_physical_episode(
                 log_ep("[History Phase D2] Deleting obstacle from Gazebo to simulate environmental clearance...")
                 del_ok = node.delete_obstacle(obs_name)
                 time.sleep(1.0)
-                rclpy.spin_once(node, timeout_sec=0.1)
+                for _ in range(15):
+                    rclpy.spin_once(node, timeout_sec=0.1)
 
                 # Action 4: Probe clearance vantage point (-1.00, 1.20)
                 log_ep("[History Phase D2] Step 4: Probing Path A again to observe clearance (-1.00, 1.20)...")
@@ -635,13 +650,15 @@ def run_physical_episode(
 
                 vantage2_ok = (summary_p2.get("terminal_status_name") == "SUCCEEDED" and summary_p2.get("execution_outcome") == "BUDGET_SUCCESS")
 
+                node.request_nomotion_amcl_update(timeout_sec=1.5)
                 sim_now_clear = node.get_sim_time_sec()
-                free_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=1.0)
+                free_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=2.0)
                 free_obs["region_id"] = chokepoint_region
                 free_obs["map_version"] = map_version
                 free_obs["stamp_sec"] = round(sim_now_clear, 3)
                 log_ep(f"[History Phase D2] Step 4 Live Perception: State={free_obs.get('doorway_state')} (Pass-through={free_obs.get('pass_through_count')}, Reason: {free_obs.get('reason')})")
                 scan_snapshots.append(capture_scan_snapshot(node, "STEP4_CLEARANCE_VANTAGE", sim_now_clear, doorway_bbox, free_obs))
+
 
                 if free_obs.get("doorway_state") in ["OCCUPIED", "FREE"]:
                     cache.update_observation(chokepoint_region, free_obs.get("doorway_state"), sim_now_clear, free_obs)
