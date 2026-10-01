@@ -6,6 +6,13 @@ Loads raw evidence from a P2c run directory and produces:
 2. condition_summary.csv: Condition-level aggregated statistics (n, mean, sample std ddof=1, min, max).
 3. contrasts.csv: Pairwise contrasts (F vs R, F vs O, F vs M1) in absolute and relative terms.
 4. Publication-ready visualization figures with raw data points and group distributions.
+
+Strict Integrity Rules:
+- Missing action_result.json or mandatory artifacts causes integrity check failure and reports missing list.
+- Missing replay/audit fields are NOT defaulted to True/0.0; preserved as None / NaN.
+- Runner claims and Replay verdicts are tracked separately, and conflicts are explicitly reported.
+- When n=1, sample standard deviation is output as 'NA'.
+- When baseline mean is 0, relative difference is output as 'NA' while absolute difference is preserved.
 """
 
 from __future__ import annotations
@@ -16,7 +23,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import matplotlib
 matplotlib.use("Agg")
@@ -25,35 +32,169 @@ import numpy as np
 import pandas as pd
 
 
-def load_run_episodes(run_dir: Path) -> List[Dict[str, Any]]:
-    """Load per-episode data by joining action_result.json and replay audit results."""
+EXPECTED_30_EPISODES = [
+    f"{cond}_ep{i}"
+    for cond in ["D0_R", "D0_O", "D0_F", "D1_R", "D1_O", "D1_F", "D2_R", "D2_O", "D2_F", "D2_M1"]
+    for i in range(1, 4)
+]
+
+
+def load_and_verify_run_episodes(
+    run_dir: Path,
+    expected_episodes: Optional[List[str]] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Load per-episode data by joining action_result.json and replay audit results.
+    
+    Returns:
+        (episodes_list, integrity_report_dict)
+    """
+    if expected_episodes is None:
+        expected_episodes = EXPECTED_30_EPISODES
+
     replay_summary_file = run_dir / "p2c_replay_summary.json"
     audit_by_ep: Dict[str, Dict[str, Any]] = {}
-    if replay_summary_file.exists():
-        with open(replay_summary_file, "r", encoding="utf-8") as f:
-            rep_data = json.load(f)
-            for ep in rep_data.get("episodes", []):
-                audit_by_ep[ep["episode_id"]] = ep
+    replay_summary_present = replay_summary_file.exists()
+
+    if replay_summary_present:
+        try:
+            with open(replay_summary_file, "r", encoding="utf-8") as f:
+                rep_data = json.load(f)
+                for ep in rep_data.get("episodes", []):
+                    audit_by_ep[ep["episode_id"]] = ep
+        except Exception as e:
+            pass
+
+    found_ep_dirs = sorted([d for d in run_dir.iterdir() if d.is_dir() and any(k in d.name for k in ["D0_", "D1_", "D2_"])])
+    found_ep_ids = [d.name for d in found_ep_dirs]
+
+    missing_expected: List[str] = [eid for eid in expected_episodes if eid not in found_ep_ids]
+    missing_action_results: List[str] = []
+    missing_replay_entries: List[str] = []
+    conflicts: List[Dict[str, Any]] = []
 
     episodes: List[Dict[str, Any]] = []
-    ep_dirs = sorted([d for d in run_dir.iterdir() if d.is_dir() and any(k in d.name for k in ["D0_", "D1_", "D2_"])])
 
-    for ep_dir in ep_dirs:
+    # First process all discovered directories
+    for ep_dir in found_ep_dirs:
+        ep_id = ep_dir.name
         act_file = ep_dir / "action_result.json"
+
         if not act_file.exists():
+            missing_action_results.append(ep_id)
+            # Create incomplete record with None values to preserve accounting
+            episodes.append({
+                "episode_id": ep_id,
+                "scenario": ep_id.split("_")[0] if "_" in ep_id else "UNKNOWN",
+                "method": ep_id.split("_")[1] if len(ep_id.split("_")) > 1 else "UNKNOWN",
+                "condition_id": f"{ep_id.split('_')[0]}_{ep_id.split('_')[1]}" if len(ep_id.split('_')) > 1 else "UNKNOWN",
+                "ep_num": int(ep_id.split("_ep")[-1]) if "_ep" in ep_id and ep_id.split("_ep")[-1].isdigit() else None,
+                "data_complete": False,
+                "missing_artifacts": ["action_result.json"],
+                "requested_route": None,
+                "actual_route": None,
+                "dead_end_traversals": None,
+                "decision_dispatches": None,
+                "history_distance_m": None,
+                "history_sim_time_sec": None,
+                "decision_distance_m": None,
+                "decision_sim_time_sec": None,
+                "total_distance_m": None,
+                "replayed_total_dist_m": None,
+                "distance_discrepancy_m": None,
+                "total_sim_time_sec": None,
+                "total_budget_sec": None,
+                "runner_goal_success": None,
+                "runner_budget_success": None,
+                "runner_history_valid": None,
+                "runner_route_valid": None,
+                "runner_episode_valid": None,
+                "replay_task_success": None,
+                "replay_budget_success": None,
+                "replay_history_valid": None,
+                "replay_route_valid": None,
+                "replay_costmap_valid": None,
+                "replay_raw_evidence_verified": None,
+                "replay_memory_lifecycle_verified": None,
+                "replay_policy_matched": None,
+                "replay_episode_valid": None,
+                "replay_audit_pass": None,
+                "verdict_conflict": False,
+                "conflict_details": "MISSING_ACTION_RESULT",
+            })
             continue
-        with open(act_file, "r", encoding="utf-8") as f:
-            act = json.load(f)
 
-        ep_id = act.get("episode_id", ep_dir.name)
-        audit_info = audit_by_ep.get(ep_id, {})
+        try:
+            with open(act_file, "r", encoding="utf-8") as f:
+                act = json.load(f)
+        except Exception as e:
+            missing_action_results.append(f"{ep_id} (corrupted: {e})")
+            continue
 
-        ep_num = 1
+        audit_info = audit_by_ep.get(ep_id)
+        if audit_info is None:
+            missing_replay_entries.append(ep_id)
+
+        ep_num = None
         if "_ep" in ep_id:
             try:
                 ep_num = int(ep_id.split("_ep")[-1])
             except ValueError:
                 pass
+
+        # Helper to safely extract floats without defaulting missing to 0.0
+        def get_float(d: Optional[Dict[str, Any]], k: str) -> Optional[float]:
+            if d is None or k not in d:
+                return None
+            v = d[k]
+            return float(v) if v is not None else None
+
+        # Helper to safely extract bools without defaulting missing to True/False
+        def get_bool(d: Optional[Dict[str, Any]], k: str) -> Optional[bool]:
+            if d is None or k not in d:
+                return None
+            v = d[k]
+            return bool(v) if v is not None else None
+
+        runner_goal_success = get_bool(act, "final_goal_success")
+        runner_budget_success = get_bool(act, "success_within_budget")
+        runner_history_valid = get_bool(act, "history_valid")
+        runner_route_valid = get_bool(act, "route_valid")
+        runner_ep_valid = get_bool(act, "episode_valid")
+
+        replay_task_success = get_bool(audit_info, "task_success") if audit_info else None
+        replay_budget_success = get_bool(audit_info, "success_within_budget") if audit_info else None
+        replay_history_valid = get_bool(audit_info, "history_valid") if audit_info else None
+        replay_route_valid = get_bool(audit_info, "route_valid") if audit_info else None
+        replay_costmap_valid = get_bool(audit_info, "costmap_valid") if audit_info else None
+        replay_raw_evidence_verified = get_bool(audit_info, "raw_evidence_verified") if audit_info else None
+        replay_memory_lifecycle_verified = get_bool(audit_info, "memory_lifecycle_verified") if audit_info else None
+        replay_policy_matched = get_bool(audit_info, "policy_matched") if audit_info else None
+        replay_ep_valid = get_bool(audit_info, "episode_valid") if audit_info else None
+        replay_audit_pass = get_bool(audit_info, "audit_pass") if audit_info else None
+
+        # Detect conflicts between runner self-reporting and offline replay audit
+        verdict_conflict = False
+        conflict_reasons: List[str] = []
+
+        if audit_info is not None:
+            if runner_ep_valid is not None and replay_ep_valid is not None and runner_ep_valid != replay_ep_valid:
+                verdict_conflict = True
+                conflict_reasons.append(f"episode_valid (runner={runner_ep_valid} vs replay={replay_ep_valid})")
+            if runner_goal_success is not None and replay_task_success is not None and runner_goal_success != replay_task_success:
+                verdict_conflict = True
+                conflict_reasons.append(f"goal_success (runner={runner_goal_success} vs replay={replay_task_success})")
+            if runner_history_valid is not None and replay_history_valid is not None and runner_history_valid != replay_history_valid:
+                verdict_conflict = True
+                conflict_reasons.append(f"history_valid (runner={runner_history_valid} vs replay={replay_history_valid})")
+        else:
+            verdict_conflict = True
+            conflict_reasons.append("MISSING_REPLAY_AUDIT_RECORD")
+
+        if verdict_conflict:
+            conflicts.append({
+                "episode_id": ep_id,
+                "reasons": conflict_reasons,
+            })
 
         record = {
             "episode_id": ep_id,
@@ -61,37 +202,88 @@ def load_run_episodes(run_dir: Path) -> List[Dict[str, Any]]:
             "method": act.get("method", ep_id.split("_")[1]),
             "condition_id": act.get("condition_id", f"{act.get('scenario')}_{act.get('method')}"),
             "ep_num": ep_num,
-            "requested_route": act.get("requested_route", act.get("chosen_route", "UNKNOWN")),
-            "actual_route": act.get("actual_route", audit_info.get("actual_route", "UNKNOWN")),
-            "dead_end_traversals": int(act.get("dead_end_traversals", audit_info.get("dead_end_traversals", 0))),
-            "decision_dispatches": int(act.get("decision_dispatches", 0)),
-            "history_distance_m": float(act.get("history_distance_m", 0.0)),
-            "history_sim_time_sec": float(act.get("history_sim_time_sec", 0.0)),
-            "decision_distance_m": float(act.get("decision_distance_m", 0.0)),
-            "decision_sim_time_sec": float(act.get("decision_sim_time_sec", 0.0)),
-            "total_distance_m": float(act.get("total_distance_m", 0.0)),
-            "replayed_total_dist_m": float(audit_info.get("replayed_total_dist_m", act.get("total_distance_m", 0.0))),
-            "distance_discrepancy_m": float(audit_info.get("distance_discrepancy_m", 0.0)),
-            "total_sim_time_sec": float(act.get("total_sim_time_sec", 0.0)),
-            "total_budget_sec": float(act.get("total_budget_sec", 180.0)),
-            "final_goal_success": bool(act.get("final_goal_success", False)),
-            "success_within_budget": bool(act.get("success_within_budget", False)),
-            "history_valid": bool(act.get("history_valid", audit_info.get("history_valid", False))),
-            "route_valid": bool(act.get("route_valid", audit_info.get("route_valid", False))),
-            "costmap_valid": bool(audit_info.get("costmap_valid", True)),
-            "raw_evidence_verified": bool(audit_info.get("raw_evidence_verified", True)),
-            "memory_lifecycle_verified": bool(audit_info.get("memory_lifecycle_verified", True)),
-            "policy_matched": bool(audit_info.get("policy_matched", True)),
-            "episode_valid": bool(act.get("episode_valid", audit_info.get("episode_valid", False))),
-            "audit_pass": bool(audit_info.get("audit_pass", False)),
+            "data_complete": True,
+            "missing_artifacts": [],
+            "requested_route": act.get("requested_route", act.get("chosen_route")),
+            "actual_route": audit_info.get("actual_route", act.get("actual_route")) if audit_info else act.get("actual_route"),
+            "dead_end_traversals": int(act["dead_end_traversals"]) if "dead_end_traversals" in act and act["dead_end_traversals"] is not None else None,
+            "decision_dispatches": int(act["decision_dispatches"]) if "decision_dispatches" in act and act["decision_dispatches"] is not None else None,
+            "history_distance_m": get_float(act, "history_distance_m"),
+            "history_sim_time_sec": get_float(act, "history_sim_time_sec"),
+            "decision_distance_m": get_float(act, "decision_distance_m"),
+            "decision_sim_time_sec": get_float(act, "decision_sim_time_sec"),
+            "total_distance_m": get_float(act, "total_distance_m"),
+            "replayed_total_dist_m": get_float(audit_info, "replayed_total_dist_m"),
+            "distance_discrepancy_m": get_float(audit_info, "distance_discrepancy_m"),
+            "total_sim_time_sec": get_float(act, "total_sim_time_sec"),
+            "total_budget_sec": get_float(act, "total_budget_sec"),
+            "runner_goal_success": runner_goal_success,
+            "runner_budget_success": runner_budget_success,
+            "runner_history_valid": runner_history_valid,
+            "runner_route_valid": runner_route_valid,
+            "runner_episode_valid": runner_ep_valid,
+            "replay_task_success": replay_task_success,
+            "replay_budget_success": replay_budget_success,
+            "replay_history_valid": replay_history_valid,
+            "replay_route_valid": replay_route_valid,
+            "replay_costmap_valid": replay_costmap_valid,
+            "replay_raw_evidence_verified": replay_raw_evidence_verified,
+            "replay_memory_lifecycle_verified": replay_memory_lifecycle_verified,
+            "replay_policy_matched": replay_policy_matched,
+            "replay_episode_valid": replay_ep_valid,
+            "replay_audit_pass": replay_audit_pass,
+            "verdict_conflict": verdict_conflict,
+            "conflict_details": "; ".join(conflict_reasons) if conflict_reasons else None,
         }
         episodes.append(record)
 
-    return episodes
+    # Check for duplicate episode IDs
+    seen_ids: Set[str] = set()
+    duplicates: List[str] = []
+    for r in episodes:
+        eid = r["episode_id"]
+        if eid in seen_ids:
+            duplicates.append(eid)
+        seen_ids.add(eid)
+
+    expected_count = len(expected_episodes)
+    actual_found_count = len(found_ep_ids)
+    data_complete_count = sum(1 for r in episodes if r.get("data_complete"))
+    runner_valid_count = sum(1 for r in episodes if r.get("runner_episode_valid") is True)
+    replay_audit_pass_count = sum(1 for r in episodes if r.get("replay_audit_pass") is True)
+
+    all_intact = (
+        len(missing_expected) == 0
+        and len(missing_action_results) == 0
+        and len(missing_replay_entries) == 0
+        and len(duplicates) == 0
+        and len(conflicts) == 0
+        and replay_summary_present
+    )
+
+    integrity_report = {
+        "integrity_check_passed": all_intact,
+        "expected_episodes_count": expected_count,
+        "actual_found_count": actual_found_count,
+        "data_complete_count": data_complete_count,
+        "runner_valid_count": runner_valid_count,
+        "replay_audit_pass_count": replay_audit_pass_count,
+        "missing_expected_episodes": missing_expected,
+        "missing_action_results": missing_action_results,
+        "missing_replay_entries": missing_replay_entries,
+        "duplicate_episodes": duplicates,
+        "conflicts_count": len(conflicts),
+        "conflicts": conflicts,
+    }
+
+    return episodes, integrity_report
 
 
 def compute_condition_summary(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute condition summary statistics with sample standard deviation (ddof=1)."""
+    """Compute condition summary statistics with sample standard deviation (ddof=1).
+    
+    Handles n=1 gracefully by returning 'NA' for sample standard deviation.
+    """
     metric_cols = [
         "dead_end_traversals",
         "history_distance_m",
@@ -103,12 +295,13 @@ def compute_condition_summary(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     rate_cols = [
-        "final_goal_success",
-        "success_within_budget",
-        "history_valid",
-        "route_valid",
-        "episode_valid",
-        "audit_pass",
+        ("runner_goal_success", "runner_goal_success_rate_pct"),
+        ("runner_budget_success", "runner_budget_success_rate_pct"),
+        ("runner_episode_valid", "runner_valid_rate_pct"),
+        ("replay_task_success", "replay_goal_success_rate_pct"),
+        ("replay_budget_success", "replay_budget_success_rate_pct"),
+        ("replay_episode_valid", "replay_valid_rate_pct"),
+        ("replay_audit_pass", "replay_audit_pass_rate_pct"),
     ]
 
     records = []
@@ -122,10 +315,10 @@ def compute_condition_summary(df: pd.DataFrame) -> pd.DataFrame:
         scen = sub["scenario"].iloc[0]
         meth = sub["method"].iloc[0]
         n = len(sub)
-        routes = sorted(sub["requested_route"].unique().tolist())
-        route_str = ", ".join(routes)
+        routes = sorted([r for r in sub["requested_route"].unique() if r is not None])
+        route_str = ", ".join(routes) if routes else "UNKNOWN"
 
-        row = {
+        row: Dict[str, Any] = {
             "scenario": scen,
             "method": meth,
             "condition_id": cond_id,
@@ -134,15 +327,26 @@ def compute_condition_summary(df: pd.DataFrame) -> pd.DataFrame:
         }
 
         for m in metric_cols:
-            vals = sub[m].to_numpy(dtype=float)
-            row[f"{m}_mean"] = round(float(np.mean(vals)), 3)
-            row[f"{m}_std_ddof1"] = round(float(np.std(vals, ddof=1)), 3) if n > 1 else 0.0
-            row[f"{m}_min"] = round(float(np.min(vals)), 3)
-            row[f"{m}_max"] = round(float(np.max(vals)), 3)
+            valid_vals = sub[m].dropna().to_numpy(dtype=float)
+            n_valid = len(valid_vals)
 
-        for r in rate_cols:
-            vals = sub[r].to_numpy(dtype=bool)
-            row[f"{r}_rate_pct"] = round(float(np.mean(vals) * 100.0), 1)
+            if n_valid == 0:
+                row[f"{m}_mean"] = "NA"
+                row[f"{m}_std_ddof1"] = "NA"
+                row[f"{m}_min"] = "NA"
+                row[f"{m}_max"] = "NA"
+            else:
+                row[f"{m}_mean"] = round(float(np.mean(valid_vals)), 3)
+                row[f"{m}_std_ddof1"] = round(float(np.std(valid_vals, ddof=1)), 3) if n_valid > 1 else "NA"
+                row[f"{m}_min"] = round(float(np.min(valid_vals)), 3)
+                row[f"{m}_max"] = round(float(np.max(valid_vals)), 3)
+
+        for col_name, out_name in rate_cols:
+            valid_bools = sub[col_name].dropna().to_numpy(dtype=bool)
+            if len(valid_bools) == 0:
+                row[out_name] = "NA"
+            else:
+                row[out_name] = round(float(np.mean(valid_bools) * 100.0), 1)
 
         records.append(row)
 
@@ -150,7 +354,10 @@ def compute_condition_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_contrasts(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute pairwise contrasts: F - R, F - O, F - M1 across scenarios."""
+    """Compute pairwise contrasts: F - R, F - O, F - M1 across scenarios.
+    
+    Handles zero denominator gracefully by setting relative difference to 'NA'.
+    """
     contrasts = [
         {"scenario": "D1", "method_a": "F", "method_b": "R", "comparison": "FailMem vs Reactive"},
         {"scenario": "D1", "method_a": "F", "method_b": "O", "comparison": "FailMem vs Spatial Cache"},
@@ -181,20 +388,26 @@ def compute_contrasts(df: pd.DataFrame) -> pd.DataFrame:
         if sub_a.empty or sub_b.empty:
             continue
 
-        n_a = len(sub_a)
-        n_b = len(sub_b)
-
         for m_col, m_label in metrics:
-            vals_a = sub_a[m_col].to_numpy(dtype=float)
-            vals_b = sub_b[m_col].to_numpy(dtype=float)
+            vals_a = sub_a[m_col].dropna().to_numpy(dtype=float)
+            vals_b = sub_b[m_col].dropna().to_numpy(dtype=float)
+
+            n_a = len(vals_a)
+            n_b = len(vals_b)
+
+            if n_a == 0 or n_b == 0:
+                continue
 
             mean_a = float(np.mean(vals_a))
-            std_a = float(np.std(vals_a, ddof=1)) if n_a > 1 else 0.0
+            std_a = round(float(np.std(vals_a, ddof=1)), 3) if n_a > 1 else "NA"
             mean_b = float(np.mean(vals_b))
-            std_b = float(np.std(vals_b, ddof=1)) if n_b > 1 else 0.0
+            std_b = round(float(np.std(vals_b, ddof=1)), 3) if n_b > 1 else "NA"
 
             abs_diff = mean_a - mean_b
-            rel_diff_pct = (abs_diff / mean_b * 100.0) if abs(mean_b) > 1e-6 else 0.0
+            if abs(mean_b) > 1e-6:
+                rel_diff_pct: Any = round((abs_diff / mean_b * 100.0), 2)
+            else:
+                rel_diff_pct = "NA"
 
             records.append({
                 "scenario": scen,
@@ -206,11 +419,11 @@ def compute_contrasts(df: pd.DataFrame) -> pd.DataFrame:
                 "metric": m_label,
                 "metric_field": m_col,
                 "mean_a": round(mean_a, 3),
-                "std_a_ddof1": round(std_a, 3),
+                "std_a_ddof1": std_a,
                 "mean_b": round(mean_b, 3),
-                "std_b_ddof1": round(std_b, 3),
+                "std_b_ddof1": std_b,
                 "abs_diff_a_minus_b": round(abs_diff, 3),
-                "rel_diff_pct": round(rel_diff_pct, 2),
+                "rel_diff_pct": rel_diff_pct,
             })
 
     return pd.DataFrame(records)
@@ -229,58 +442,54 @@ def generate_plots(df: pd.DataFrame, output_dir: Path):
         "M1": "#d62728", # Red
     }
 
+    # Filter only conditions present in data
+    valid_conditions = [c for c in condition_order if not df[df["condition_id"] == c].empty]
+    if not valid_conditions:
+        return
+
+    x_indices = np.arange(len(valid_conditions))
+
     # -------------------------------------------------------------
     # Figure 1: Distance Metrics (Decision vs Total)
     # -------------------------------------------------------------
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.5), sharey=False)
 
-    x_indices = np.arange(len(condition_order))
-
-    # Subplot 1: Decision Phase Distance
-    for i, cond in enumerate(condition_order):
+    for i, cond in enumerate(valid_conditions):
         sub = df[df["condition_id"] == cond]
-        if sub.empty:
-            continue
         meth = sub["method"].iloc[0]
-        vals = sub["decision_distance_m"].to_numpy()
-        mean = np.mean(vals)
-        std = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
-
-        # Draw mean bar / error bar
-        ax1.bar(i, mean, yerr=std, capsize=4, color=colors[meth], alpha=0.35, edgecolor=colors[meth], linewidth=1.5, width=0.6)
-        # Overlay raw data points (with slight jitter)
-        jitter = np.linspace(-0.12, 0.12, len(vals))
-        ax1.scatter(i + jitter, vals, color=colors[meth], s=45, zorder=5, edgecolors="black", linewidth=0.8, alpha=0.9)
+        vals = sub["decision_distance_m"].dropna().to_numpy()
+        if len(vals) > 0:
+            mean = np.mean(vals)
+            std = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
+            ax1.bar(i, mean, yerr=std, capsize=4, color=colors.get(meth, "#333333"), alpha=0.35, edgecolor=colors.get(meth, "#333333"), linewidth=1.5, width=0.6)
+            jitter = np.linspace(-0.12, 0.12, len(vals))
+            ax1.scatter(i + jitter, vals, color=colors.get(meth, "#333333"), s=45, zorder=5, edgecolors="black", linewidth=0.8, alpha=0.9)
 
     ax1.set_title("Decision Phase Distance (m) by Condition", fontsize=12, fontweight="bold")
     ax1.set_xticks(x_indices)
-    ax1.set_xticklabels(condition_order, rotation=35, ha="right", fontsize=10)
+    ax1.set_xticklabels(valid_conditions, rotation=35, ha="right", fontsize=10)
     ax1.set_ylabel("Distance (m)", fontsize=11)
     ax1.set_ylim(0, 13.0)
     ax1.grid(True, linestyle="--", alpha=0.5)
 
-    # Subplot 2: Total End-to-End Distance
-    for i, cond in enumerate(condition_order):
+    for i, cond in enumerate(valid_conditions):
         sub = df[df["condition_id"] == cond]
-        if sub.empty:
-            continue
         meth = sub["method"].iloc[0]
-        vals = sub["total_distance_m"].to_numpy()
-        mean = np.mean(vals)
-        std = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
-
-        ax2.bar(i, mean, yerr=std, capsize=4, color=colors[meth], alpha=0.35, edgecolor=colors[meth], linewidth=1.5, width=0.6)
-        jitter = np.linspace(-0.12, 0.12, len(vals))
-        ax2.scatter(i + jitter, vals, color=colors[meth], s=45, zorder=5, edgecolors="black", linewidth=0.8, alpha=0.9)
+        vals = sub["total_distance_m"].dropna().to_numpy()
+        if len(vals) > 0:
+            mean = np.mean(vals)
+            std = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
+            ax2.bar(i, mean, yerr=std, capsize=4, color=colors.get(meth, "#333333"), alpha=0.35, edgecolor=colors.get(meth, "#333333"), linewidth=1.5, width=0.6)
+            jitter = np.linspace(-0.12, 0.12, len(vals))
+            ax2.scatter(i + jitter, vals, color=colors.get(meth, "#333333"), s=45, zorder=5, edgecolors="black", linewidth=0.8, alpha=0.9)
 
     ax2.set_title("Total End-to-End Distance (m) by Condition (incl. History)", fontsize=12, fontweight="bold")
     ax2.set_xticks(x_indices)
-    ax2.set_xticklabels(condition_order, rotation=35, ha="right", fontsize=10)
+    ax2.set_xticklabels(valid_conditions, rotation=35, ha="right", fontsize=10)
     ax2.set_ylabel("Distance (m)", fontsize=11)
     ax2.set_ylim(0, 21.0)
     ax2.grid(True, linestyle="--", alpha=0.5)
 
-    # Add custom legend
     from matplotlib.lines import Line2D
     legend_elements = [
         Line2D([0], [0], color=colors["R"], marker="o", lw=0, label="R (Reactive)"),
@@ -299,44 +508,38 @@ def generate_plots(df: pd.DataFrame, output_dir: Path):
     # -------------------------------------------------------------
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.5), sharey=False)
 
-    # Subplot 1: Decision Phase Sim Time
-    for i, cond in enumerate(condition_order):
+    for i, cond in enumerate(valid_conditions):
         sub = df[df["condition_id"] == cond]
-        if sub.empty:
-            continue
         meth = sub["method"].iloc[0]
-        vals = sub["decision_sim_time_sec"].to_numpy()
-        mean = np.mean(vals)
-        std = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
-
-        ax1.bar(i, mean, yerr=std, capsize=4, color=colors[meth], alpha=0.35, edgecolor=colors[meth], linewidth=1.5, width=0.6)
-        jitter = np.linspace(-0.12, 0.12, len(vals))
-        ax1.scatter(i + jitter, vals, color=colors[meth], s=45, zorder=5, edgecolors="black", linewidth=0.8, alpha=0.9)
+        vals = sub["decision_sim_time_sec"].dropna().to_numpy()
+        if len(vals) > 0:
+            mean = np.mean(vals)
+            std = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
+            ax1.bar(i, mean, yerr=std, capsize=4, color=colors.get(meth, "#333333"), alpha=0.35, edgecolor=colors.get(meth, "#333333"), linewidth=1.5, width=0.6)
+            jitter = np.linspace(-0.12, 0.12, len(vals))
+            ax1.scatter(i + jitter, vals, color=colors.get(meth, "#333333"), s=45, zorder=5, edgecolors="black", linewidth=0.8, alpha=0.9)
 
     ax1.set_title("Decision Phase Sim Time (s) by Condition", fontsize=12, fontweight="bold")
     ax1.set_xticks(x_indices)
-    ax1.set_xticklabels(condition_order, rotation=35, ha="right", fontsize=10)
+    ax1.set_xticklabels(valid_conditions, rotation=35, ha="right", fontsize=10)
     ax1.set_ylabel("Simulation Time (s)", fontsize=11)
     ax1.set_ylim(0, 100.0)
     ax1.grid(True, linestyle="--", alpha=0.5)
 
-    # Subplot 2: Total End-to-End Sim Time
-    for i, cond in enumerate(condition_order):
+    for i, cond in enumerate(valid_conditions):
         sub = df[df["condition_id"] == cond]
-        if sub.empty:
-            continue
         meth = sub["method"].iloc[0]
-        vals = sub["total_sim_time_sec"].to_numpy()
-        mean = np.mean(vals)
-        std = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
-
-        ax2.bar(i, mean, yerr=std, capsize=4, color=colors[meth], alpha=0.35, edgecolor=colors[meth], linewidth=1.5, width=0.6)
-        jitter = np.linspace(-0.12, 0.12, len(vals))
-        ax2.scatter(i + jitter, vals, color=colors[meth], s=45, zorder=5, edgecolors="black", linewidth=0.8, alpha=0.9)
+        vals = sub["total_sim_time_sec"].dropna().to_numpy()
+        if len(vals) > 0:
+            mean = np.mean(vals)
+            std = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
+            ax2.bar(i, mean, yerr=std, capsize=4, color=colors.get(meth, "#333333"), alpha=0.35, edgecolor=colors.get(meth, "#333333"), linewidth=1.5, width=0.6)
+            jitter = np.linspace(-0.12, 0.12, len(vals))
+            ax2.scatter(i + jitter, vals, color=colors.get(meth, "#333333"), s=45, zorder=5, edgecolors="black", linewidth=0.8, alpha=0.9)
 
     ax2.set_title("Total End-to-End Sim Time (s) by Condition (incl. History)", fontsize=12, fontweight="bold")
     ax2.set_xticks(x_indices)
-    ax2.set_xticklabels(condition_order, rotation=35, ha="right", fontsize=10)
+    ax2.set_xticklabels(valid_conditions, rotation=35, ha="right", fontsize=10)
     ax2.set_ylabel("Simulation Time (s)", fontsize=11)
     ax2.set_ylim(0, 180.0)
     ax2.grid(True, linestyle="--", alpha=0.5)
@@ -351,27 +554,24 @@ def generate_plots(df: pd.DataFrame, output_dir: Path):
     # -------------------------------------------------------------
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.5))
 
-    # Subplot 1: Dead-End Traversals (Entrance Re-entry count)
-    for i, cond in enumerate(condition_order):
+    for i, cond in enumerate(valid_conditions):
         sub = df[df["condition_id"] == cond]
-        if sub.empty:
-            continue
         meth = sub["method"].iloc[0]
-        vals = sub["dead_end_traversals"].to_numpy()
-        mean = np.mean(vals)
-        ax1.bar(i, mean, color=colors[meth], alpha=0.45, edgecolor=colors[meth], linewidth=1.5, width=0.6)
-        jitter = np.linspace(-0.10, 0.10, len(vals))
-        ax1.scatter(i + jitter, vals, color=colors[meth], s=50, zorder=5, edgecolors="black", linewidth=0.8)
+        vals = sub["dead_end_traversals"].dropna().to_numpy()
+        if len(vals) > 0:
+            mean = np.mean(vals)
+            ax1.bar(i, mean, color=colors.get(meth, "#333333"), alpha=0.45, edgecolor=colors.get(meth, "#333333"), linewidth=1.5, width=0.6)
+            jitter = np.linspace(-0.10, 0.10, len(vals))
+            ax1.scatter(i + jitter, vals, color=colors.get(meth, "#333333"), s=50, zorder=5, edgecolors="black", linewidth=0.8)
 
     ax1.set_title("Dead-End Traversals (Corridor Re-entry) by Condition", fontsize=12, fontweight="bold")
     ax1.set_xticks(x_indices)
-    ax1.set_xticklabels(condition_order, rotation=35, ha="right", fontsize=10)
+    ax1.set_xticklabels(valid_conditions, rotation=35, ha="right", fontsize=10)
     ax1.set_ylabel("Count per Episode", fontsize=11)
     ax1.set_ylim(-0.1, 1.3)
     ax1.set_yticks([0, 1])
     ax1.grid(True, linestyle="--", alpha=0.5)
 
-    # Subplot 2: Contrasts Absolute Differences
     contrast_labels = ["D1: F - R", "D1: F - O", "D2: F - M1", "D2: F - O"]
     comp_keys = [
         ("D1", "F", "R"),
@@ -381,30 +581,73 @@ def generate_plots(df: pd.DataFrame, output_dir: Path):
     ]
     dist_diffs = []
     time_diffs = []
-    for scen, ma, mb in comp_keys:
+    valid_contrast_labels = []
+
+    for idx, (scen, ma, mb) in enumerate(comp_keys):
         sub_a = df[(df["scenario"] == scen) & (df["method"] == ma)]
         sub_b = df[(df["scenario"] == scen) & (df["method"] == mb)]
-        dist_diff = np.mean(sub_a["total_distance_m"]) - np.mean(sub_b["total_distance_m"])
-        time_diff = np.mean(sub_a["total_sim_time_sec"]) - np.mean(sub_b["total_sim_time_sec"])
-        dist_diffs.append(dist_diff)
-        time_diffs.append(time_diff)
+        vals_da = sub_a["total_distance_m"].dropna()
+        vals_db = sub_b["total_distance_m"].dropna()
+        vals_ta = sub_a["total_sim_time_sec"].dropna()
+        vals_tb = sub_b["total_sim_time_sec"].dropna()
 
-    c_x = np.arange(len(contrast_labels))
-    w = 0.35
-    ax2.bar(c_x - w/2, dist_diffs, width=w, label="Total Dist Diff (m)", color="#2ca02c", alpha=0.6, edgecolor="#2ca02c")
-    ax2.bar(c_x + w/2, [t / 10.0 for t in time_diffs], width=w, label="Total Time Diff (scaled /10s)", color="#9467bd", alpha=0.6, edgecolor="#9467bd")
+        if len(vals_da) > 0 and len(vals_db) > 0:
+            dist_diff = np.mean(vals_da) - np.mean(vals_db)
+            time_diff = np.mean(vals_ta) - np.mean(vals_tb)
+            dist_diffs.append(dist_diff)
+            time_diffs.append(time_diff)
+            valid_contrast_labels.append(contrast_labels[idx])
 
-    ax2.axhline(0, color="black", linestyle="--", linewidth=0.8)
-    ax2.set_title("Method Contrasts: Absolute Differences", fontsize=12, fontweight="bold")
-    ax2.set_xticks(c_x)
-    ax2.set_xticklabels(contrast_labels, fontsize=10)
-    ax2.set_ylabel("Difference (Negative = F saves cost)", fontsize=11)
-    ax2.legend(loc="lower right", frameon=True, fontsize=10)
-    ax2.grid(True, linestyle="--", alpha=0.5)
+    if valid_contrast_labels:
+        c_x = np.arange(len(valid_contrast_labels))
+        w = 0.35
+        ax2.bar(c_x - w/2, dist_diffs, width=w, label="Total Dist Diff (m)", color="#2ca02c", alpha=0.6, edgecolor="#2ca02c")
+        ax2.bar(c_x + w/2, [t / 10.0 for t in time_diffs], width=w, label="Total Time Diff (scaled /10s)", color="#9467bd", alpha=0.6, edgecolor="#9467bd")
+
+        ax2.axhline(0, color="black", linestyle="--", linewidth=0.8)
+        ax2.set_title("Method Contrasts: Absolute Differences", fontsize=12, fontweight="bold")
+        ax2.set_xticks(c_x)
+        ax2.set_xticklabels(valid_contrast_labels, fontsize=10)
+        ax2.set_ylabel("Difference (Negative = F saves cost)", fontsize=11)
+        ax2.legend(loc="lower right", frameon=True, fontsize=10)
+        ax2.grid(True, linestyle="--", alpha=0.5)
 
     plt.tight_layout()
     fig.savefig(output_dir / "p2c_dead_ends_and_contrasts.png", dpi=300)
     plt.close(fig)
+
+
+def analyze_p2c_run(
+    run_dir: Path,
+    output_dir: Optional[Path] = None,
+    expected_episodes: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Execute complete analysis pipeline on a P2c run evidence directory."""
+    out_dir = output_dir if output_dir else (run_dir / "analysis")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    episodes, integrity_report = load_and_verify_run_episodes(run_dir, expected_episodes)
+    df_episodes = pd.DataFrame(episodes)
+    episodes_csv = out_dir / "episodes.csv"
+    df_episodes.to_csv(episodes_csv, index=False)
+
+    df_summary = compute_condition_summary(df_episodes)
+    summary_csv = out_dir / "condition_summary.csv"
+    df_summary.to_csv(summary_csv, index=False)
+
+    df_contrasts = compute_contrasts(df_episodes)
+    contrasts_csv = out_dir / "contrasts.csv"
+    df_contrasts.to_csv(contrasts_csv, index=False)
+
+    generate_plots(df_episodes, out_dir)
+
+    return {
+        "integrity_report": integrity_report,
+        "episodes_df": df_episodes,
+        "summary_df": df_summary,
+        "contrasts_df": df_contrasts,
+        "output_dir": out_dir,
+    }
 
 
 def main():
@@ -418,55 +661,70 @@ def main():
         print(f"Error: Run directory '{run_dir}' does not exist.")
         sys.exit(1)
 
-    out_dir = Path(args.output_dir) if args.output_dir else (run_dir / "analysis")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    res = analyze_p2c_run(run_dir, Path(args.output_dir) if args.output_dir else None)
+    integ = res["integrity_report"]
 
-    print(f"Loading episodes from: {run_dir}")
-    episodes = load_run_episodes(run_dir)
-    if not episodes:
-        print("No valid episodes found in run directory.")
-        sys.exit(1)
-
-    df_episodes = pd.DataFrame(episodes)
-    episodes_csv = out_dir / "episodes.csv"
-    df_episodes.to_csv(episodes_csv, index=False)
-    print(f"Saved episodes record: {episodes_csv} ({len(df_episodes)} rows)")
-
-    df_summary = compute_condition_summary(df_episodes)
-    summary_csv = out_dir / "condition_summary.csv"
-    df_summary.to_csv(summary_csv, index=False)
-    print(f"Saved condition summary: {summary_csv} ({len(df_summary)} conditions)")
-
-    df_contrasts = compute_contrasts(df_episodes)
-    contrasts_csv = out_dir / "contrasts.csv"
-    df_contrasts.to_csv(contrasts_csv, index=False)
-    print(f"Saved pairwise contrasts: {contrasts_csv} ({len(df_contrasts)} contrast rows)")
-
-    generate_plots(df_episodes, out_dir)
-    print(f"Saved visualization plots in: {out_dir}")
-
-    # Print markdown tables for easy verification
-    print("\n=========================================================================================================")
-    print("P2c Condition Summary Table (Sample Std Dev ddof=1):")
+    print("=========================================================================================================")
+    print("P2c Evidence Integrity & Accounting Check:")
     print("---------------------------------------------------------------------------------------------------------")
-    print("| Scenario | Method | n | Route | Dead-Ends | Decision Dist (m) | Decision Time (s) | Total Dist (m) | Total Time (s) | Arrival Rate | Audit Pass |")
+    print(f"Integrity Check Passed:        {integ['integrity_check_passed']}")
+    print(f"Expected Episodes:             {integ['expected_episodes_count']}")
+    print(f"Actual Discovered Directories: {integ['actual_found_count']}")
+    print(f"Data-Complete Episodes:        {integ['data_complete_count']}")
+    print(f"Runner-Valid Episodes:         {integ['runner_valid_count']}")
+    print(f"Replay Audit-Passed Episodes:  {integ['replay_audit_pass_count']}")
+    print(f"Conflicts Count:               {integ['conflicts_count']}")
+
+    if integ["missing_expected_episodes"]:
+        print(f"\n[WARNING] Missing Expected Episodes ({len(integ['missing_expected_episodes'])}):")
+        for m in integ["missing_expected_episodes"]:
+            print(f"  - {m}")
+
+    if integ["missing_action_results"]:
+        print(f"\n[ERROR] Missing action_result.json in directories ({len(integ['missing_action_results'])}):")
+        for m in integ["missing_action_results"]:
+            print(f"  - {m}")
+
+    if integ["conflicts"]:
+        print(f"\n[WARNING] Verdict Conflicts ({len(integ['conflicts'])}):")
+        for c in integ["conflicts"]:
+            print(f"  - Episode {c['episode_id']}: {', '.join(c['reasons'])}")
+
+    print("\n=========================================================================================================")
+    print("P2c Condition Summary Table (Sample Std Dev ddof=1, Independent Unpaired):")
+    print("---------------------------------------------------------------------------------------------------------")
+    print("| Scenario | Method | n | Route | Dead-Ends | Decision Dist (m) | Decision Time (s) | Total Dist (m) | Total Time (s) | Runner Valid | Replay Audit |")
     print("| :--- | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |")
-    for _, r in df_summary.iterrows():
-        dec_d_str = f"{r['decision_distance_m_mean']:.2f} ± {r['decision_distance_m_std_ddof1']:.2f}"
-        dec_t_str = f"{r['decision_sim_time_sec_mean']:.1f} ± {r['decision_sim_time_sec_std_ddof1']:.1f}"
-        tot_d_str = f"{r['total_distance_m_mean']:.2f} ± {r['total_distance_m_std_ddof1']:.2f}"
-        tot_t_str = f"{r['total_sim_time_sec_mean']:.1f} ± {r['total_sim_time_sec_std_ddof1']:.1f}"
-        print(f"| {r['scenario']:8s} | {r['method']:6s} | {r['n']:1d} | {r['requested_routes']:18s} | {r['dead_end_traversals_mean']:.1f} | {dec_d_str:17s} | {dec_t_str:17s} | {tot_d_str:14s} | {tot_t_str:14s} | {r['final_goal_success_rate_pct']:.0f}% | {r['audit_pass_rate_pct']:.0f}% |")
+    for _, r in res["summary_df"].iterrows():
+        dec_d_std = f"± {r['decision_distance_m_std_ddof1']:.2f}" if r['decision_distance_m_std_ddof1'] != "NA" else "NA"
+        dec_d_str = f"{r['decision_distance_m_mean']} {dec_d_std}" if r['decision_distance_m_mean'] != "NA" else "NA"
+
+        dec_t_std = f"± {r['decision_sim_time_sec_std_ddof1']:.1f}" if r['decision_sim_time_sec_std_ddof1'] != "NA" else "NA"
+        dec_t_str = f"{r['decision_sim_time_sec_mean']} {dec_t_std}" if r['decision_sim_time_sec_mean'] != "NA" else "NA"
+
+        tot_d_std = f"± {r['total_distance_m_std_ddof1']:.2f}" if r['total_distance_m_std_ddof1'] != "NA" else "NA"
+        tot_d_str = f"{r['total_distance_m_mean']} {tot_d_std}" if r['total_distance_m_mean'] != "NA" else "NA"
+
+        tot_t_std = f"± {r['total_sim_time_sec_std_ddof1']:.1f}" if r['total_sim_time_sec_std_ddof1'] != "NA" else "NA"
+        tot_t_str = f"{r['total_sim_time_sec_mean']} {tot_t_std}" if r['total_sim_time_sec_mean'] != "NA" else "NA"
+
+        rv_rate = f"{r['runner_valid_rate_pct']:.0f}%" if r['runner_valid_rate_pct'] != "NA" else "NA"
+        ra_rate = f"{r['replay_audit_pass_rate_pct']:.0f}%" if r['replay_audit_pass_rate_pct'] != "NA" else "NA"
+
+        print(f"| {r['scenario']:8s} | {r['method']:6s} | {r['n']:1d} | {r['requested_routes']:18s} | {r['dead_end_traversals_mean']} | {dec_d_str:17s} | {dec_t_str:17s} | {tot_d_str:14s} | {tot_t_str:14s} | {rv_rate:12s} | {ra_rate:12s} |")
 
     print("\n=========================================================================================================")
     print("Key Pairwise Contrasts (ddof=1, Unpaired Samples):")
     print("---------------------------------------------------------------------------------------------------------")
     print("| Scenario | Comparison | Metric | Method A Mean ± Std | Method B Mean ± Std | Abs Diff (A - B) | Rel Diff (%) |")
     print("| :--- | :--- | :--- | :--- | :--- | :---: | :---: |")
-    for _, c in df_contrasts.iterrows():
-        a_str = f"{c['mean_a']:.2f} ± {c['std_a_ddof1']:.2f}"
-        b_str = f"{c['mean_b']:.2f} ± {c['std_b_ddof1']:.2f}"
-        print(f"| {c['scenario']:8s} | {c['comparison']:25s} | {c['metric']:20s} | {a_str:19s} | {b_str:19s} | {c['abs_diff_a_minus_b']:+10.2f} | {c['rel_diff_pct']:+8.1f}% |")
+    for _, c in res["contrasts_df"].iterrows():
+        a_std = f"± {c['std_a_ddof1']:.2f}" if c['std_a_ddof1'] != "NA" else "NA"
+        b_std = f"± {c['std_b_ddof1']:.2f}" if c['std_b_ddof1'] != "NA" else "NA"
+        a_str = f"{c['mean_a']} {a_std}"
+        b_str = f"{c['mean_b']} {b_std}"
+        rel_str = f"{c['rel_diff_pct']:+.1f}%" if c['rel_diff_pct'] != "NA" else "NA"
+        print(f"| {c['scenario']:8s} | {c['comparison']:28s} | {c['metric']:20s} | {a_str:19s} | {b_str:19s} | {c['abs_diff_a_minus_b']:+10.2f} | {rel_str:12s} |")
     print("=========================================================================================================\n")
 
 

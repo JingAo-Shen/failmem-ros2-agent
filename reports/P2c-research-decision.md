@@ -1,9 +1,9 @@
 # FailMem Milestone P2c Research Decision & Boundary Analysis
 
 **Date**: 2026-10-01  
-**Author / Context**: FailMem Research Team (Milestone P2c Evaluation)  
-**Reference Code Base**: Git Commit `84fd245`  
-**Primary Dataset**: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/` (30 physical runs)
+**Context**: FailMem Research Team (Milestone P2c Evaluation & H1 Design)  
+**Reference Code Base**: Git Commit `ad4701e`  
+**Primary Dataset**: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/` (30 physical runs, exploratory $n=3$)
 
 ---
 
@@ -24,12 +24,13 @@ Across the P2c development and evaluation phases, the following components and b
 
 3. **Empirical Findings on the 30-Run Physical Comparative Benchmark (`p2c_pilot_20261001_022711_0d3c35`)**:
    - **Scenario D1 (Confirmed Blockage)**:
-     - Retaining historical information (both FailMem $F$ and Spatial Cache $O$) completely eliminates redundant corridor entry ($0.0 \pm 0.0$ dead ends vs. Reactive $R$'s $1.0 \pm 0.0$ dead ends).
+     - Retaining historical information (both FailMem $F$ and Spatial Cache $O$) eliminates redundant corridor entry ($0.0 \pm 0.0$ dead ends vs. Reactive $R$'s $1.0 \pm 0.0$ dead ends).
      - FailMem reduces decision distance by **$30.3\%$** ($7.54\,\text{m}$ vs. $10.82\,\text{m}$) and total distance by **$18.5\%$** ($14.03\,\text{m}$ vs. $17.22\,\text{m}$) compared to Reactive $R$.
      - Total execution time is reduced by **$22.3\%$** ($109.5\,\text{s}$ vs. $141.0\,\text{s}$).
+     - *Conclusion*: Proves that **historical information is useful**, but does not demonstrate independent value of failure semantics over spatial caching.
    - **Scenario D2 (Cleared / Restored Environment)**:
-     - Dynamic invalidation in FailMem ($F$) successfully unsuppresses Path A upon observing verified clearance (`FREE`), saving **$2.00\,\text{m}$** ($-11.0\%$) total distance ($16.25\,\text{m}$ vs. $18.25\,\text{m}$) compared to the persistent suppression baseline ($M1$).
-     - Total execution time between $F$ ($151.1\,\text{s}$) and $M1$ ($148.8\,\text{s}$) is comparable ($+1.5\%$) due to the narrow corridor turning dynamics.
+     - Dynamic invalidation in FailMem ($F$) unsuppresses Path A upon observing verified clearance (`FREE`), saving **$2.00\,\text{m}$** ($-11.0\%$) total distance ($16.25\,\text{m}$ vs. $18.25\,\text{m}$) compared to persistent suppression baseline ($M1$).
+     - Total execution time between $F$ ($151.1\,\text{s}$) and $M1$ ($148.8\,\text{s}$) is comparable ($+1.5\%$). The advantage is strictly confined to distance/path length.
 
 ---
 
@@ -42,72 +43,89 @@ In the current single-agent static dual-path environment, **FailMem ($F$) and Sp
 - D2 Total Time: $F = 151.1 \pm 7.8\,\text{s}$ vs. $O = 149.8 \pm 0.6\,\text{s}$ ($+0.9\%$).
 
 The following hypothesized advantages of failure semantics remain **unverified**:
-1. **Performance Superiority in Static Geometric Blockages**: When blockages are purely spatial/geometric (e.g. physical boxes), an unconditioned 2D spatial occupancy cache and an action-conditioned failure store make identical high-level topological decisions.
+1. **Performance Superiority in Static Geometric Blockages**: When blockages are purely spatial/geometric (e.g. physical boxes), an unconditioned 2D spatial occupancy cache and an action-conditioned failure store make identical high-level topological decisions. Current exploratory $n=3$ data have **neither proved $F$ is superior to $O$, nor proved their mathematical/statistical equivalence**.
 2. **Resilience Against Spatial Cache Corruption / Noise**: The theoretical claim that failure memory is more robust against spurious clearance or noisy occupancy updates was not tested, as the current environment features deterministic Gazebo laser sensing without synthetic sensor dropouts or adversarial noise.
-3. **Action-Conditioned Failure Differentiation**: Scenarios where space is geometrically *free* but an action is dynamically *infeasible* (e.g., speed, footprint, orientation, payload limits) were not evaluated.
+3. **Action-Conditioned Failure Differentiation**: Scenarios where space is geometrically *free* but an action is dynamically *infeasible* (e.g., speed, footprint, orientation, payload limits) were not evaluated in P2c.
 4. **Multi-Agent / Cross-Capability Generalization**: Transfer of failure records across heterogeneous agents with different mobility constraints was outside the single-robot scope.
 
 ---
 
 ## 3. Scope of Research Contributions Supported by Current Work (现有工作支持的贡献范围)
 
-The current codebase, protocol, and empirical findings fully support a solid, publication-grade contribution with the following positioning:
+The current codebase, protocol, and empirical findings support a concrete study with the following scope:
 
 1. **System & Protocol Contribution**:
-   - A rigorous, fully reproducible benchmarking protocol and evaluation framework for event-driven failure memory in ROS 2 / Nav2 autonomous systems.
+   - A reproducible benchmarking protocol and evaluation framework for event-driven failure memory in ROS 2 / Nav2 autonomous systems.
    - An immutable observation bundle architecture and verifiable chronological offline replay engine with zero-bypass audit contracts.
 2. **Empirical Boundary Characterization**:
    - Quantitative demonstration that historical information (both spatial caching and failure memory) significantly reduces redundant exploration in NLOS environments ($-18.5\%$ distance, $-22.3\%$ time).
    - Empirical proof that dynamic memory invalidation is essential to prevent permanent detour penalties ($-11.0\%$ distance overhead) when environments recover.
-   - A transparent scientific finding that in static 2D geometric environments, failure semantics and spatial caching converge in routing efficiency, delineating the exact applicability boundaries of failure memory systems.
+   - A transparent scientific finding that in static 2D geometric environments, failure semantics and spatial caching converge in routing behavior, delineating the applicability boundaries of failure memory systems.
 
 ---
 
-## 4. Decision: Is It Worthwhile to Seek Independent Value for Failure Semantics? (是否继续探索独立价值)
+## 4. Architectural Analysis: Conflicts in Current `failure_memory.py` with Action-Conditioned Failure
 
-### 4.1 Decision Assessment
-- **Option A (Conclude & Publish Current Boundary Results)**: Package the existing verified framework, the 30-run dataset, the 21-test audit engine, and the empirical convergence findings as a complete, transparent study titled *"Applicability Boundaries and Verifiable Evaluation of Event-Driven Failure Memory in Mobile Robot Navigation"*.
-- **Option B (Test Exactly One Minimal Distinguishing Hypothesis)**: Formulate a single, fair, and tightly bounded hypothesis where spatial caching and failure memory diverge by construction, execute a strictly bounded trial ($n=5$, $\le 20$ runs), and terminate immediately if not confirmed.
+Reviewing `src/failure_memory.py` identifies fundamental conflicts with action-conditioned failure scenarios:
 
-**Recommendation**: We formulate **ONE minimal, falsifiable follow-up hypothesis** below. If this hypothesis is not confirmed within the allocated budget, we immediately default to Option A.
+1. **Memory Admission Gate (`is_failure_eligible_for_doorway_memory`, Line 41)**:
+   - Current implementation strictly requires `doorway_state == "OCCUPIED"`.
+   - If an action fails due to controller oscillation/kinematics while the doorway is geometrically clear (`doorway_state == "FREE"`), `failure_memory.py` currently **rejects** failure memory creation.
+2. **Memory Invalidation Rule (`update_memory_on_perception`, Line 350)**:
+   - Current implementation automatically invalidates active failure memory whenever any observation of `doorway_state == "FREE"` is received.
+   - For an action-conditioned failure, geometric `FREE` is the exact operational condition under which the action failed. Unconditionally wiping the memory upon seeing `FREE` causes an immediate cycle of repeated failures.
 
 ---
 
-## 5. Single Minimal Follow-Up Hypothesis Design (单一最小后续假设)
+## 5. Design of Extended Method F2 and Strong Baseline O+ (机制与公平基线设计)
 
-### 5.1 Hypothesis Statement
+To address action-conditioned failure without modifying or invalidating existing Milestone P2c results, we specify the design of an extended method **F2** and a strong baseline **O+**.
+
+### 5.1 Extended Method: F2 (Action-Conditioned Failure Memory)
+- **Separation of Legacy F and F2**: Legacy Method $F$ and its existing benchmark records are strictly preserved. $F2$ is explicitly defined as an extension.
+- **Stable `action_profile_id`**:
+  - `goal_uuid` identifies only a single execution instance and **cannot** be used as a matching key across episodes.
+  - $F2$ defines a stable, deterministic key:
+    $$\text{action\_profile\_id} = \text{hash}(\text{planner\_id}, \text{controller\_id}, v_{\text{max}}, \omega_{\text{max}}, \text{footprint\_spec}, \text{approach\_vector})$$
+- **Dual-Category Failure Taxonomy**:
+  1. *Type I: Spatial Obstruction Failure* (physical obstacle present, `doorway_state == "OCCUPIED"`). Invalidation condition: verified spatial `FREE`.
+  2. *Type II: Action-Conditioned Kinematic Failure* (space geometrically open, action aborted by controller/planner). Invalidation condition: NOT invalidated by spatial `FREE`. Invalidation requires explicit capability verification (e.g. reconfiguration, capability reset, or verified alternative profile execution).
+- **Asymmetric Action Binding**:
+  - A failure under $a_{\text{fast}}$ suppresses $a_{\text{fast}}$ for the specified region, but does **not** suppress $a_{\text{slow}}$ if $a_{\text{slow}}$ has a compatible footprint/velocity profile.
+  - A successful traversal under $a_{\text{slow}}$ does **not** automatically prove that $a_{\text{fast}}$ has been restored.
+
+### 5.2 Strong Baseline: O+ (Spatial Cache + Action Retry Backoff)
+- **Definition**: $O+$ consists of standard Spatial Observation Cache combined with a generic exponential action/region retry backoff mechanism.
+- **Fairness & Symmetry**:
+  - $O+$ receives the exact same sensor inputs (raw laser scans, TF transforms, costmap ROIs) and the exact same Nav2 action terminal results as $F2$.
+  - $O+$ does not rely on failure semantics, but maintains a standard failure retry counter per region/action.
+  - After $K$ consecutive action failures (default $K=1$), $O+$ suppresses the region/action for a backoff horizon.
+- **Core Testable Distinction**:
+  - $F2$ maintains explicit causal precondition bindings that distinguish *which* action configuration failed and under *what* physical profile.
+  - $O+$ applies a generic retry suppression without causal parameter binding.
+  - *Critical Assessment*: If $F2$ and $O+$ yield identical decision sequences and execution costs in the test scenario, we will explicitly acknowledge that the mechanism cannot be empirically distinguished from standard backoff, and cease further expansion.
+
+### 5.3 Clear Distinction of Spatial Representation Levels
+To avoid ungrounded assumptions (such as "entire costmap = 0"), four distinct physical/representational layers are formally distinguished:
+1. **LiDAR Ray Pass-Through**: Geometric line-of-sight clearance across sensor beams.
+2. **Raw Grid Occupancy**: Static/dynamic cell values in the global costmap ($0$ = free, $-1$ = unknown, $\ge 100$ = lethal).
+3. **Costmap Inflation & Clearance**: Non-lethal inscribed/inflation costs ($1 \dots 99$) reflecting proximity to walls.
+4. **Kinematic / Controller Navigability**: Feasibility of the robot's local trajectory generator (`DWBLocalPlanner`) tracking a path given velocity, acceleration limits, footprint inflation, and doorway approach angle.
+
+---
+
+## 6. Single Minimal Follow-Up Hypothesis (H1) & Protocol
+
+### 6.1 Hypothesis Statement
 > **Hypothesis H1 (Action-Conditioned Kinematic Infeasibility in Geometrically Free Space)**:  
-> *In a navigation environment where a passage is geometrically unoccupied (LiDAR ray pass-through verified, costmap cell values = 0), but a specific high-level navigation action $a_{\text{fast}}$ (or directional entry) consistently fails due to local controller kinematic/oscillation limits in narrow geometry, a Spatial Observation Cache ($O$) will incorrectly treat the passage as navigable and repeatedly attempt $a_{\text{fast}}$, whereas FailMem ($F$) will bind the failure to $(a_{\text{fast}}, \text{region})$ and autonomously select the viable bypass route, achieving zero repeated action failures and significantly lower execution cost.*
+> *In a narrow corridor where spatial LiDAR rays pass through and raw cell occupancy is free, but a specific navigation action $a_{\text{fast}}$ ($v_{\text{max}}=0.35\,\text{m/s}$, strict footprint inflation) consistently fails due to local controller oscillation while $a_{\text{slow}}$ ($v_{\text{max}}=0.15\,\text{m/s}$, fine footprint alignment) consistently succeeds, standard Spatial Cache ($O$) will repeatedly attempt $a_{\text{fast}}$ incurring severe dead-end timeout penalties, whereas Action-Conditioned Failure Memory ($F2$) will bind the failure specifically to $a_{\text{fast}}$, autonomously dispatching $a_{\text{slow}}$ or the bypass detour to achieve lower execution costs.*
 
-### 5.2 Fairness & Symmetry Guarantees
-1. **Identical Sensor & Action Feedback**: Both $F$ and $O$ receive the exact same raw laser scans, TF transforms, costmap ROIs, and Nav2 action server feedback.
-2. **No Artificial Weakening of $O$**: Method $O$ uses the standard spatial occupancy logic (marking unobstructed space as `FREE`). It is not artificially degraded or impaired.
-3. **Explicit Mechanism Distinction**:
-   - $O$ operates on the premise: $\text{SpatialState}(\text{region}) = \text{FREE} \implies \text{Action Executable}$.
-   - $F$ operates on the premise: $\text{ActionExecutable}(a, \text{region}) \iff \text{SpatialState} = \text{FREE} \land \neg \text{ActiveFailure}(a, \text{region})$.
+### 6.2 Falsification Criteria (证伪条件)
+Hypothesis $H_1$ shall be deemed **refuted / falsified** if ANY of the following occur:
+1. Nav2 standard recovery behaviors (e.g. backup, spin) or local costmap adjustments allow $a_{\text{fast}}$ to traverse the narrow passage without abortion.
+2. Strong baseline $O+$ achieves comparable execution cost (difference $< 10\%$) through generic retry backoff without action-conditioned failure semantics.
+3. $F2$ incorrectly suppresses the viable action $a_{\text{slow}}$ upon $a_{\text{fast}}$ failure.
 
-### 5.3 Concrete Testbed Setup
-- **Geometry**: The existing `p2c_dualpath_world` layout is retained.
-- **Modification**: Doorway width is adjusted to $0.52\,\text{m}$ (robot width $0.38\,\text{m}$), and a directional entry angle or controller velocity profile is applied such that Nav2 local planner (`DWBLocalPlanner`) consistently times out / oscillates on action $a_1$ while spatial LiDAR rays pass through completely unobstructed.
-- **Conditions**:
-  - `D1_kin_R`: Reactive (local perception only).
-  - `D1_kin_O`: Spatial Observation Cache (records `FREE` from history, dispatches $a_1$).
-  - `D1_kin_F`: FailMem (records failure of $a_1$, suppresses $a_1$, dispatches Path B).
-  - `D1_kin_M1`: Persistent baseline.
-
-### 5.4 Falsification Criteria (证伪条件)
-The hypothesis $H_1$ shall be deemed **refuted / falsified** if ANY of the following occur:
-1. Nav2 standard recovery behaviors or costmap inflation allow Method $O$ to successfully execute $a_1$ through the narrow passage within nominal timeout.
-2. Method $O$ with a generic single-retry limit achieves comparable total distance and time (difference $< 10\%$) without specialized failure memory.
-3. Method $F$ fails to correctly invalidate or unsuppress when an alternative, viable action $a_{\text{slow}}$ is attempted.
-
-### 5.5 Experiment Cost & Hard Stopping Criteria (实验成本与停止条件)
-- **Sample Size**: Exactly $n=5$ per condition $\times$ 4 conditions = **20 physical simulation runs maximum**.
-- **Execution Budget**: Maximum 1 hour of total simulation time.
-- **Stopping Rule**: If after 20 runs, Method $F$ does not demonstrate a statistically distinct advantage ($\ge 20\%$ cost savings and $>0$ failure avoidance over $O$), **all further exploration of failure semantics shall be permanently halted**, and the paper shall be finalized based on the empirical boundary findings established in Milestone P2c.
-
----
-
-## 6. Summary Conclusion
-
-Milestone P2c has successfully established the authenticity, auditability, and empirical baseline of failure memory in ROS 2. Rather than pursuing unjustified claims of universal superiority, future efforts must strictly adhere to the bounded hypothesis $H_1$ or conclude with the rigorous boundary analysis already delivered.
+### 6.3 Pre-Set Practical Effect Threshold & Stopping Rules
+- **Pre-set Practical Effect Threshold**: $F2$ must demonstrate $\ge 20\%$ total cost savings and $>0$ action failure avoidance over $O$ to be considered practically meaningful (not a claim of statistical significance).
+- **Hard Stopping Rule**: If feasibility checks fail or if the bounded 20-run trial does not meet the $\ge 20\%$ threshold, **we will stop the current hypothesis exploration and consolidate the existing boundary results**, without adding further scenarios or parameters.

@@ -29,7 +29,7 @@ This report presents empirical findings of Milestone P2c on an asymmetric dual-p
 ### 1.1 Study Positioning & Methodological Constraints
 - **Exploratory Repetition Experiment**: The 30-run batch ($n=3$ per condition) serves as an exploratory repetition study to demonstrate mechanism functioning, pipeline reproducibility, and offline auditability. It is **not** an asymptotic or high-powered statistical verification.
 - **Execution Order & Determinism**: The runner executed the 3 repetitions per condition consecutively (e.g. D0_R ep1 $\to$ ep2 $\to$ ep3, then D0_O ...) rather than using a randomized execution sequence. Explicit random seeds were not varied across runs.
-- **Pre-Registration Status**: The code, protocol (`v4.2`), map, and scoring thresholds were frozen in Git repository commit `84fd245` before the batch run. However, no independent external pre-registration platform was used; this benchmark is an internally frozen exploratory protocol.
+- **Code Freeze & Pre-Registration Status**: **未证实事前独立代码冻结**。虽然协议与评估逻辑已在代码库中实现，但归档提交（Commit `84fd245`）同时包含了实验运行产物，缺乏运行前独立的第三方时间戳或外部预注册记录；因此不属于预注册实验。
 - **Sample Observations vs. Universal Reliability**: The observed $3/3$ success rate describes the outcomes in the current sample under nominal simulation conditions. It does not constitute a statistical proof of $100\%$ reliability.
 - **Definition of "$\pm$"**: All "$\pm$" values in this report represent the **sample standard deviation** ($s$) computed with Bessel's correction ($ddof=1$):
   $$s = \sqrt{\frac{1}{n-1}\sum_{i=1}^n (x_i - \bar{x})^2}$$
@@ -219,7 +219,7 @@ All 21 paired tests pass in the automated test suite (`pytest tests/test_p2c_eve
 
 ### 6.3 Research Question 3: Dynamic Invalidation ($F$) vs. Persistent Suppression ($M1$) in Restored Environments (D2)
 - **Distance Benefit**: Upon observing verified doorway clearance (`FREE`), FailMem invalidates the failure memory, unsuppressing Path A and selecting the short route ($5.89 \pm 0.02\,\text{m}$ decision distance, $16.25 \pm 0.10\,\text{m}$ total distance). In contrast, persistent baseline $M1$ permanently suppresses Path A, executing the south detour ($7.89 \pm 0.02\,\text{m}$ decision distance, $18.25 \pm 0.09\,\text{m}$ total distance). Invalidation saves **$2.00\,\text{m}$** ($-11.0\%$) total distance.
-- **Execution Time Limitation**: Despite traversing $2.00\,\text{m}$ less distance, FailMem required **$151.1 \pm 7.8\,\text{s}$** total sim time vs. $M1$'s **$148.8 \pm 2.4\,\text{s}$** (Difference: $+2.27\,\text{s}$, $+1.5\%$). This occurs because navigating the narrower north corridor involves lower rotational speeds and tighter costmap clearance checks than the wide south bypass detour.
+- **Execution Time Limitation**: Despite traversing $2.00\,\text{m}$ less distance, FailMem required **$151.1 \pm 7.8\,\text{s}$** total sim time vs. $M1$'s **$148.8 \pm 2.4\,\text{s}$** (Difference: $+2.27\,\text{s}$, $+1.5\%$). 耗时差异的可能原因（如北侧较窄走廊中的局部加减速或航向调整等）仅能列为**待验证的候选假设**，不能直接断定为唯一确因。
 - **Conclusion**: The advantage of event-driven invalidation in this scenario is **strictly confined to navigation distance / path length**, and cannot be generalized to an improvement across all efficiency metrics (such as total execution duration).
 
 ---
