@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -38,12 +39,59 @@ EXPECTED_30_EPISODES = [
     for i in range(1, 4)
 ]
 
+REQUIRED_ACTION_FIELDS: Dict[str, Tuple[type, ...]] = {
+    "scenario": (str,),
+    "method": (str,),
+    "condition_id": (str,),
+    "total_distance_m": (int, float),
+    "total_sim_time_sec": (int, float),
+    "decision_distance_m": (int, float),
+    "decision_sim_time_sec": (int, float),
+    "dead_end_traversals": (int, float),
+    "final_goal_success": (bool,),
+    "success_within_budget": (bool,),
+    "history_valid": (bool,),
+    "route_valid": (bool,),
+    "episode_valid": (bool,),
+}
+
+
+def validate_action_dict(act: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Validate that action_result contains all required fields with correct types and finite values."""
+    issues: List[str] = []
+    for field, expected_types in REQUIRED_ACTION_FIELDS.items():
+        if field not in act:
+            issues.append(f"MISSING_FIELD_{field}")
+            continue
+        val = act[field]
+        if val is None:
+            issues.append(f"NULL_VALUE_{field}")
+            continue
+        if bool in expected_types:
+            if not isinstance(val, bool):
+                issues.append(f"TYPE_MISMATCH_{field}_EXPECTED_BOOL_GOT_{type(val).__name__}")
+        elif (int in expected_types) or (float in expected_types):
+            if isinstance(val, bool) or not isinstance(val, (int, float)):
+                issues.append(f"TYPE_MISMATCH_{field}_EXPECTED_NUMERIC_GOT_{type(val).__name__}")
+            elif not math.isfinite(float(val)):
+                issues.append(f"NON_FINITE_VALUE_{field}")
+        elif str in expected_types:
+            if not isinstance(val, str) or len(val.strip()) == 0:
+                issues.append(f"INVALID_STRING_{field}")
+    return (len(issues) == 0), issues
+
 
 def load_and_verify_run_episodes(
     run_dir: Path,
     expected_episodes: Optional[List[str]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Load per-episode data by joining action_result.json and replay audit results.
+    
+    Strict Verification:
+    - Validates required fields, non-null values, correct types, and finite numeric values.
+    - Tracks duplicate replay episode IDs in p2c_replay_summary.json without silent overwrite.
+    - Checks consistency between directory name, internal episode_id, scenario, method, and condition_id.
+    - Identifies missing expected episodes and unexpected extra episodes.
     
     Returns:
         (episodes_list, integrity_report_dict)
@@ -53,6 +101,7 @@ def load_and_verify_run_episodes(
 
     replay_summary_file = run_dir / "p2c_replay_summary.json"
     audit_by_ep: Dict[str, Dict[str, Any]] = {}
+    duplicate_replay_ids: List[str] = []
     replay_summary_present = replay_summary_file.exists()
 
     if replay_summary_present:
@@ -60,7 +109,12 @@ def load_and_verify_run_episodes(
             with open(replay_summary_file, "r", encoding="utf-8") as f:
                 rep_data = json.load(f)
                 for ep in rep_data.get("episodes", []):
-                    audit_by_ep[ep["episode_id"]] = ep
+                    eid = ep.get("episode_id")
+                    if not eid:
+                        continue
+                    if eid in audit_by_ep:
+                        duplicate_replay_ids.append(eid)
+                    audit_by_ep[eid] = ep
         except Exception as e:
             pass
 
@@ -68,25 +122,34 @@ def load_and_verify_run_episodes(
     found_ep_ids = [d.name for d in found_ep_dirs]
 
     missing_expected: List[str] = [eid for eid in expected_episodes if eid not in found_ep_ids]
+    extra_episodes: List[str] = [eid for eid in found_ep_ids if eid not in expected_episodes]
     missing_action_results: List[str] = []
+    invalid_action_results: List[Dict[str, Any]] = []
+    identity_mismatches: List[Dict[str, Any]] = []
     missing_replay_entries: List[str] = []
     conflicts: List[Dict[str, Any]] = []
 
     episodes: List[Dict[str, Any]] = []
 
-    # First process all discovered directories
+    # Process all discovered directories
     for ep_dir in found_ep_dirs:
         ep_id = ep_dir.name
         act_file = ep_dir / "action_result.json"
+
+        # Check directory identity structure
+        parts = ep_id.split("_")
+        expected_scen = parts[0] if len(parts) > 0 else "UNKNOWN"
+        expected_meth = parts[1] if len(parts) > 1 else "UNKNOWN"
+        expected_cond = f"{expected_scen}_{expected_meth}"
 
         if not act_file.exists():
             missing_action_results.append(ep_id)
             # Create incomplete record with None values to preserve accounting
             episodes.append({
                 "episode_id": ep_id,
-                "scenario": ep_id.split("_")[0] if "_" in ep_id else "UNKNOWN",
-                "method": ep_id.split("_")[1] if len(ep_id.split("_")) > 1 else "UNKNOWN",
-                "condition_id": f"{ep_id.split('_')[0]}_{ep_id.split('_')[1]}" if len(ep_id.split('_')) > 1 else "UNKNOWN",
+                "scenario": expected_scen,
+                "method": expected_meth,
+                "condition_id": expected_cond,
                 "ep_num": int(ep_id.split("_ep")[-1]) if "_ep" in ep_id and ep_id.split("_ep")[-1].isdigit() else None,
                 "data_complete": False,
                 "missing_artifacts": ["action_result.json"],
@@ -130,6 +193,36 @@ def load_and_verify_run_episodes(
             missing_action_results.append(f"{ep_id} (corrupted: {e})")
             continue
 
+        # Validate action fields and data types
+        act_valid, field_issues = validate_action_dict(act)
+        if not act_valid:
+            invalid_action_results.append({
+                "episode_id": ep_id,
+                "issues": field_issues,
+            })
+
+        # Validate consistency between directory name and file metadata
+        act_scen = act.get("scenario")
+        act_meth = act.get("method")
+        act_cond = act.get("condition_id")
+        act_epid = act.get("episode_id")
+
+        mismatch_reasons: List[str] = []
+        if act_scen != expected_scen:
+            mismatch_reasons.append(f"scenario mismatch (dir={expected_scen} vs file={act_scen})")
+        if act_meth != expected_meth:
+            mismatch_reasons.append(f"method mismatch (dir={expected_meth} vs file={act_meth})")
+        if act_cond != expected_cond:
+            mismatch_reasons.append(f"condition_id mismatch (dir={expected_cond} vs file={act_cond})")
+        if act_epid != ep_id:
+            mismatch_reasons.append(f"episode_id mismatch (dir={ep_id} vs file={act_epid})")
+
+        if mismatch_reasons:
+            identity_mismatches.append({
+                "episode_id": ep_id,
+                "reasons": mismatch_reasons,
+            })
+
         audit_info = audit_by_ep.get(ep_id)
         if audit_info is None:
             missing_replay_entries.append(ep_id)
@@ -146,14 +239,20 @@ def load_and_verify_run_episodes(
             if d is None or k not in d:
                 return None
             v = d[k]
-            return float(v) if v is not None else None
+            if v is None or isinstance(v, bool):
+                return None
+            try:
+                fv = float(v)
+                return fv if math.isfinite(fv) else None
+            except (ValueError, TypeError):
+                return None
 
         # Helper to safely extract bools without defaulting missing to True/False
         def get_bool(d: Optional[Dict[str, Any]], k: str) -> Optional[bool]:
             if d is None or k not in d:
                 return None
             v = d[k]
-            return bool(v) if v is not None else None
+            return bool(v) if isinstance(v, bool) else None
 
         runner_goal_success = get_bool(act, "final_goal_success")
         runner_budget_success = get_bool(act, "success_within_budget")
@@ -196,18 +295,20 @@ def load_and_verify_run_episodes(
                 "reasons": conflict_reasons,
             })
 
+        is_data_complete = bool(act_valid and not mismatch_reasons)
+
         record = {
             "episode_id": ep_id,
-            "scenario": act.get("scenario", ep_id.split("_")[0]),
-            "method": act.get("method", ep_id.split("_")[1]),
-            "condition_id": act.get("condition_id", f"{act.get('scenario')}_{act.get('method')}"),
+            "scenario": expected_scen if expected_scen != "UNKNOWN" else act.get("scenario"),
+            "method": expected_meth if expected_meth != "UNKNOWN" else act.get("method"),
+            "condition_id": expected_cond if expected_cond != "UNKNOWN_UNKNOWN" else act.get("condition_id"),
             "ep_num": ep_num,
-            "data_complete": True,
-            "missing_artifacts": [],
+            "data_complete": is_data_complete,
+            "missing_artifacts": field_issues if not act_valid else [],
             "requested_route": act.get("requested_route", act.get("chosen_route")),
             "actual_route": audit_info.get("actual_route", act.get("actual_route")) if audit_info else act.get("actual_route"),
-            "dead_end_traversals": int(act["dead_end_traversals"]) if "dead_end_traversals" in act and act["dead_end_traversals"] is not None else None,
-            "decision_dispatches": int(act["decision_dispatches"]) if "decision_dispatches" in act and act["decision_dispatches"] is not None else None,
+            "dead_end_traversals": int(act["dead_end_traversals"]) if "dead_end_traversals" in act and isinstance(act["dead_end_traversals"], (int, float)) and not isinstance(act["dead_end_traversals"], bool) else None,
+            "decision_dispatches": int(act["decision_dispatches"]) if "decision_dispatches" in act and isinstance(act["decision_dispatches"], (int, float)) and not isinstance(act["decision_dispatches"], bool) else None,
             "history_distance_m": get_float(act, "history_distance_m"),
             "history_sim_time_sec": get_float(act, "history_sim_time_sec"),
             "decision_distance_m": get_float(act, "decision_distance_m"),
@@ -237,13 +338,13 @@ def load_and_verify_run_episodes(
         }
         episodes.append(record)
 
-    # Check for duplicate episode IDs
+    # Check for duplicate episode directory IDs
     seen_ids: Set[str] = set()
-    duplicates: List[str] = []
+    duplicate_ep_dirs: List[str] = []
     for r in episodes:
         eid = r["episode_id"]
         if eid in seen_ids:
-            duplicates.append(eid)
+            duplicate_ep_dirs.append(eid)
         seen_ids.add(eid)
 
     expected_count = len(expected_episodes)
@@ -254,11 +355,16 @@ def load_and_verify_run_episodes(
 
     all_intact = (
         len(missing_expected) == 0
+        and len(extra_episodes) == 0
         and len(missing_action_results) == 0
+        and len(invalid_action_results) == 0
+        and len(identity_mismatches) == 0
         and len(missing_replay_entries) == 0
-        and len(duplicates) == 0
+        and len(duplicate_ep_dirs) == 0
+        and len(duplicate_replay_ids) == 0
         and len(conflicts) == 0
         and replay_summary_present
+        and (data_complete_count == expected_count)
     )
 
     integrity_report = {
@@ -269,9 +375,13 @@ def load_and_verify_run_episodes(
         "runner_valid_count": runner_valid_count,
         "replay_audit_pass_count": replay_audit_pass_count,
         "missing_expected_episodes": missing_expected,
+        "extra_episodes": extra_episodes,
         "missing_action_results": missing_action_results,
+        "invalid_action_results": invalid_action_results,
+        "identity_mismatches": identity_mismatches,
         "missing_replay_entries": missing_replay_entries,
-        "duplicate_episodes": duplicates,
+        "duplicate_episodes": duplicate_ep_dirs,
+        "duplicate_replay_ids": duplicate_replay_ids,
         "conflicts_count": len(conflicts),
         "conflicts": conflicts,
     }
@@ -280,9 +390,10 @@ def load_and_verify_run_episodes(
 
 
 def compute_condition_summary(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute condition summary statistics with sample standard deviation (ddof=1).
+    """Compute condition summary statistics with sample standard deviation (ddof=1) and valid counts.
     
     Handles n=1 gracefully by returning 'NA' for sample standard deviation.
+    Reports n_valid explicitly for each metric column.
     """
     metric_cols = [
         "dead_end_traversals",
@@ -329,6 +440,7 @@ def compute_condition_summary(df: pd.DataFrame) -> pd.DataFrame:
         for m in metric_cols:
             valid_vals = sub[m].dropna().to_numpy(dtype=float)
             n_valid = len(valid_vals)
+            row[f"{m}_n_valid"] = n_valid
 
             if n_valid == 0:
                 row[f"{m}_mean"] = "NA"
@@ -343,7 +455,9 @@ def compute_condition_summary(df: pd.DataFrame) -> pd.DataFrame:
 
         for col_name, out_name in rate_cols:
             valid_bools = sub[col_name].dropna().to_numpy(dtype=bool)
-            if len(valid_bools) == 0:
+            n_valid_bool = len(valid_bools)
+            row[f"{out_name}_n_valid"] = n_valid_bool
+            if n_valid_bool == 0:
                 row[out_name] = "NA"
             else:
                 row[out_name] = round(float(np.mean(valid_bools) * 100.0), 1)
@@ -627,6 +741,11 @@ def analyze_p2c_run(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     episodes, integrity_report = load_and_verify_run_episodes(run_dir, expected_episodes)
+    
+    # Save integrity report to disk
+    with open(out_dir / "integrity_report.json", "w", encoding="utf-8") as f:
+        json.dump(integrity_report, f, indent=2)
+
     df_episodes = pd.DataFrame(episodes)
     episodes_csv = out_dir / "episodes.csv"
     df_episodes.to_csv(episodes_csv, index=False)
@@ -674,6 +793,26 @@ def main():
     print(f"Runner-Valid Episodes:         {integ['runner_valid_count']}")
     print(f"Replay Audit-Passed Episodes:  {integ['replay_audit_pass_count']}")
     print(f"Conflicts Count:               {integ['conflicts_count']}")
+
+    if integ.get("extra_episodes"):
+        print(f"\n[WARNING] Unexpected Extra Episodes ({len(integ['extra_episodes'])}):")
+        for m in integ["extra_episodes"]:
+            print(f"  - {m}")
+
+    if integ.get("identity_mismatches"):
+        print(f"\n[ERROR] Identity / Metadata Mismatches ({len(integ['identity_mismatches'])}):")
+        for m in integ["identity_mismatches"]:
+            print(f"  - Episode {m['episode_id']}: {', '.join(m['reasons'])}")
+
+    if integ.get("invalid_action_results"):
+        print(f"\n[ERROR] Invalid / Incomplete action_result.json fields ({len(integ['invalid_action_results'])}):")
+        for m in integ["invalid_action_results"]:
+            print(f"  - Episode {m['episode_id']}: {', '.join(m['issues'])}")
+
+    if integ.get("duplicate_replay_ids"):
+        print(f"\n[ERROR] Duplicate Replay IDs in replay summary ({len(integ['duplicate_replay_ids'])}):")
+        for m in integ["duplicate_replay_ids"]:
+            print(f"  - {m}")
 
     if integ["missing_expected_episodes"]:
         print(f"\n[WARNING] Missing Expected Episodes ({len(integ['missing_expected_episodes'])}):")
@@ -726,6 +865,10 @@ def main():
         rel_str = f"{c['rel_diff_pct']:+.1f}%" if c['rel_diff_pct'] != "NA" else "NA"
         print(f"| {c['scenario']:8s} | {c['comparison']:28s} | {c['metric']:20s} | {a_str:19s} | {b_str:19s} | {c['abs_diff_a_minus_b']:+10.2f} | {rel_str:12s} |")
     print("=========================================================================================================\n")
+
+    if not integ["integrity_check_passed"]:
+        print("[CRITICAL ERROR] Integrity check failed. Exiting with non-zero status code.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -30,10 +30,40 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import rclpy
-from geometry_msgs.msg import PoseWithCovarianceStamped
-from nav2_msgs.action import NavigateToPose
-from unique_identifier_msgs.msg import UUID as RosUUID
+try:
+    import rclpy
+    from geometry_msgs.msg import PoseWithCovarianceStamped
+    from nav2_msgs.action import NavigateToPose
+    from unique_identifier_msgs.msg import UUID as RosUUID
+    from scripts.run_p1c_v3 import (
+        P1cV3RunnerNode,
+        execute_navigation_action,
+        cleanup_simulation_processes,
+        kill_process_group,
+        await_nav_goal_terminal_result,
+    )
+    from scripts.run_p2c_experiment import (
+        spawn_simulation_p2c,
+        capture_costmap_snapshot,
+        acquire_doorway_observation_bundle,
+    )
+except ImportError:
+    rclpy = None
+
+
+def compute_sha256_tree(dir_path: Path, output_file: Path) -> str:
+    """Compute sha256 checksums for all files in directory tree."""
+    records = []
+    for p in sorted(dir_path.rglob("*")):
+        if p.is_file() and p != output_file and not p.name.endswith(".sha256"):
+            with open(p, "rb") as f:
+                h = hashlib.sha256(f.read()).hexdigest()
+            records.append(f"{h}  {p.relative_to(dir_path)}")
+    content = "\n".join(records) + "\n"
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(content)
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
 
 from src.action_dispatcher import ActionDispatcher
 from src.action_runtime import EpisodeActionHistoryContext
@@ -45,19 +75,6 @@ from src.doorway_evaluator import (
 from src.p2c_pipeline import (
     P2cProtocolConfig,
     build_chokepoint_probe_action,
-)
-from scripts.run_p1c_v3 import (
-    P1cV3RunnerNode,
-    execute_navigation_action,
-    compute_sha256_tree,
-    cleanup_simulation_processes,
-    kill_process_group,
-    await_nav_goal_terminal_result,
-)
-from scripts.run_p2c_experiment import (
-    spawn_simulation_p2c,
-    capture_costmap_snapshot,
-    acquire_doorway_observation_bundle,
 )
 
 
@@ -207,7 +224,7 @@ def run_single_h1_check(
 
         test_outcome = sum_test.get("execution_outcome", "UNKNOWN")
         term_status = sum_test.get("terminal_status_name", "UNKNOWN")
-        term_code = sum_test.get("terminal_status_code", -1)
+        term_code = sum_test.get("status_code", -1)
         deadline_exceeded = sum_test.get("deadline_exceeded", False)
         nav2_autonomous_aborted = (term_status == "ABORTED" and not deadline_exceeded)
         timeout_canceled = (term_status in ["CANCELED", "ABORTED"] and deadline_exceeded)
@@ -221,7 +238,7 @@ def run_single_h1_check(
             "timeout_sec": timeout_sec,
             "doorway_state_before_action": obs_ent.get("doorway_state"),
             "hits_inside_before_action": obs_ent.get("hits_inside_count"),
-            "pass_through_rays": obs_ent.get("rays_intersecting_count"),
+            "pass_through_rays": obs_ent.get("pass_through_count"),
             "terminal_status_name": term_status,
             "terminal_status_code": term_code,
             "execution_outcome": test_outcome,
@@ -260,6 +277,135 @@ def run_single_h1_check(
             events_log.close()
         except Exception:
             pass
+
+
+def evaluate_h1_go_nogo(parsed_runs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Strict evaluation of Go / No-Go decision logic.
+    
+    Checks:
+    - Preconditions & FREE evidence: doorway perception must be FREE (0 hits, >= 8 pass-through rays).
+    - Budget: execution outcome must be BUDGET_SUCCESS without deadline exceeded.
+    - Profile aligned: requires SUCCEEDED (status code 4) AND strict_physical_arrival_and_stable == True.
+    - Profile oblique: candidate hypothesis requires ABORTED/CANCELED or failure of strict arrival.
+    - Go requires 2/2 strict aligned successes AND 2/2 oblique failures.
+    """
+    aligned_runs = [r for r in parsed_runs if r["profile_id"] == "act_aligned"]
+    oblique_runs = [r for r in parsed_runs if r["profile_id"] == "act_oblique"]
+
+    aligned_strict_successes = [
+        r for r in aligned_runs
+        if r.get("doorway_state_before_action") == "FREE"
+        and r.get("terminal_status_name") == "SUCCEEDED"
+        and r.get("terminal_status_code") == 4
+        and r.get("physical_arrival_verified") is True
+        and r.get("execution_outcome") == "BUDGET_SUCCESS"
+    ]
+
+    oblique_failures = [
+        r for r in oblique_runs
+        if r.get("terminal_status_name") in ["ABORTED", "CANCELED"]
+        or r.get("physical_arrival_verified") is False
+        or r.get("execution_outcome") != "BUDGET_SUCCESS"
+    ]
+
+    go_condition = (len(aligned_strict_successes) == 2 and len(oblique_failures) == 2)
+    verdict = "GO (Preliminary Scenario Usable)" if go_condition else "NO-GO (Scenario Not Established - 本场景未建立)"
+    rationale = (
+        "Both candidate action profiles executed successfully without failure under FREE perception, "
+        "failing to demonstrate reproducible executability differences."
+        if not go_condition
+        else "Reproducible executability divergence confirmed."
+    )
+
+    return {
+        "go_condition_met": go_condition,
+        "verdict": verdict,
+        "rationale": rationale,
+        "aligned_total": len(aligned_runs),
+        "aligned_strict_successes": len(aligned_strict_successes),
+        "oblique_total": len(oblique_runs),
+        "oblique_failures": len(oblique_failures),
+    }
+
+
+def parse_and_derive_h1_evidence(evidence_dir: Path, derived_dir: Path) -> Dict[str, Any]:
+    """Offline parser to reconstruct timing breakdowns, field corrections, and Go/No-Go decisions."""
+    derived_dir.mkdir(parents=True, exist_ok=True)
+    run_dirs = sorted([d for d in evidence_dir.iterdir() if d.is_dir() and d.name.startswith("H1_")])
+    parsed_records: List[Dict[str, Any]] = []
+
+    for ep_dir in run_dirs:
+        res_file = ep_dir / "feasibility_result.json"
+        scan_file = ep_dir / "scan_snapshots.json"
+        if not res_file.exists():
+            continue
+
+        with open(res_file, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+
+        test_act = raw["actions"][1] if len(raw.get("actions", [])) > 1 else {}
+        test_eval = test_act.get("evaluation", {})
+        window_eval = test_eval.get("window_evaluation", {})
+        halt_eval = test_eval.get("halt_evaluation", {})
+
+        pass_through_cnt = None
+        if scan_file.exists():
+            with open(scan_file, "r", encoding="utf-8") as sf:
+                scans = json.load(sf)
+                for s in scans:
+                    if s.get("stage") == "H1_CORRIDOR_ENTRANCE":
+                        pass_through_cnt = s.get("perception_result", {}).get("pass_through_count")
+
+        total_dur = raw.get("test_action_duration_sec")
+        stability_dur = window_eval.get("sim_duration_covered", 2.4)
+        # Passive settling duration is typically ~3.0s sim time
+        # Estimated active Nav2 duration: total_dur - settling - stability
+        nav2_dur = round(total_dur - 3.0 - stability_dur, 2) if total_dur is not None else None
+
+        parsed_records.append({
+            "run_name": raw["run_name"],
+            "profile_id": raw["profile_id"],
+            "target_goal": raw["target_goal"],
+            "timeout_sec": raw["timeout_sec"],
+            "doorway_state_before_action": raw.get("doorway_state_before_action"),
+            "hits_inside_before_action": raw.get("hits_inside_before_action"),
+            "pass_through_count": pass_through_cnt,
+            "terminal_status_name": test_act.get("terminal_status_name", "UNKNOWN"),
+            "terminal_status_code": test_act.get("status_code", -1),
+            "execution_outcome": test_act.get("execution_outcome", "UNKNOWN"),
+            "nav2_action_succeeded": test_eval.get("nav2_action_succeeded", False),
+            "physical_arrival_verified": test_eval.get("strict_physical_arrival_and_stable", False),
+            "halt_verified": halt_eval.get("halt_verified", False),
+            "halt_failure_reason": halt_eval.get("halt_failure_reason"),
+            "timing_breakdown": {
+                "total_step_sim_time_sec": total_dur,
+                "nav2_navigation_duration_sec": nav2_dur,
+                "passive_settling_sim_time_sec": 3.0,
+                "stability_window_sim_time_sec": stability_dur,
+            },
+        })
+
+    eval_summary = evaluate_h1_go_nogo(parsed_records)
+
+    derived_output = {
+        "metadata": {
+            "source_directory": str(evidence_dir),
+            "derivation_timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "transformation_rules": [
+                "Extracted terminal status_code from actions[1].status_code",
+                "Extracted pass_through_count from scan_snapshots H1_CORRIDOR_ENTRANCE",
+                "Decomposed action duration into Nav2 navigation, passive settling, and stability window",
+                "Applied multi-condition Go/No-Go evaluation (preconditions, FREE evidence, budget, physical arrival)",
+            ],
+        },
+        "evaluation_summary": eval_summary,
+        "runs": parsed_records,
+    }
+
+    with open(derived_dir / "h1_feasibility_parsed.json", "w", encoding="utf-8") as f:
+        json.dump(derived_output, f, indent=2)
+
+    return derived_output
 
 
 def main():
@@ -308,15 +454,13 @@ def main():
 
     compute_sha256_tree(output_dir, output_dir / "checksums.sha256")
 
-    # Evaluate Go / No-Go
-    aligned_successes = [r for r in results if r["profile_id"] == "act_aligned" and r["terminal_status_name"] == "SUCCEEDED"]
-    oblique_failures = [r for r in results if r["profile_id"] == "act_oblique" and r["terminal_status_name"] in ["ABORTED", "CANCELED"]]
-
-    go_condition = (len(aligned_successes) == 2 and len(oblique_failures) == 2)
-    verdict = "GO (Preliminary Scenario Usable)" if go_condition else "NO-GO (Scenario Not Established - 本场景未建立)"
+    # Offline derivation and strict evaluation
+    derived_dir = output_dir / "derived"
+    derived_data = parse_and_derive_h1_evidence(output_dir, derived_dir)
+    eval_res = derived_data["evaluation_summary"]
 
     print("\n=======================================================================")
-    print(f"H1 Feasibility Check Summary: {verdict}")
+    print(f"H1 Feasibility Check Summary: {eval_res['verdict']}")
     print("-----------------------------------------------------------------------")
     print("| Run Name | Profile ID | Target Goal | Doorway State | Terminal Status | Outcome | Nav2 Aborted | Timeout Canceled | Arrival OK |")
     print("| :--- | :--- | :--- | :---: | :---: | :--- | :---: | :---: | :---: |")

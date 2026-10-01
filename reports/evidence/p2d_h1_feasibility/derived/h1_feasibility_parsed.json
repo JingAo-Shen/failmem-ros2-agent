@@ -1,0 +1,127 @@
+{
+  "metadata": {
+    "source_directory": "reports/evidence/p2d_h1_feasibility",
+    "derivation_timestamp_utc": "2026-10-01T04:28:33.567156+00:00",
+    "transformation_rules": [
+      "Extracted terminal status_code from actions[1].status_code",
+      "Extracted pass_through_count from scan_snapshots H1_CORRIDOR_ENTRANCE",
+      "Decomposed action duration into Nav2 navigation, passive settling, and stability window",
+      "Applied multi-condition Go/No-Go evaluation (preconditions, FREE evidence, budget, physical arrival)"
+    ]
+  },
+  "evaluation_summary": {
+    "go_condition_met": false,
+    "verdict": "NO-GO (Scenario Not Established - \u672c\u573a\u666f\u672a\u5efa\u7acb)",
+    "rationale": "Both candidate action profiles executed successfully without failure under FREE perception, failing to demonstrate reproducible executability differences.",
+    "aligned_total": 2,
+    "aligned_strict_successes": 1,
+    "oblique_total": 2,
+    "oblique_failures": 0
+  },
+  "runs": [
+    {
+      "run_name": "H1_aligned_run1",
+      "profile_id": "act_aligned",
+      "target_goal": [
+        1.5,
+        1.2,
+        0.0
+      ],
+      "timeout_sec": 15.0,
+      "doorway_state_before_action": "FREE",
+      "hits_inside_before_action": 0,
+      "pass_through_count": 23,
+      "terminal_status_name": "SUCCEEDED",
+      "terminal_status_code": 4,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "nav2_action_succeeded": true,
+      "physical_arrival_verified": false,
+      "halt_verified": false,
+      "halt_failure_reason": "EXCESS_VELOCITY (max lv=0.0154 > 0.05 or max av=0.1068 > 0.08)",
+      "timing_breakdown": {
+        "total_step_sim_time_sec": 18.8,
+        "nav2_navigation_duration_sec": 13.4,
+        "passive_settling_sim_time_sec": 3.0,
+        "stability_window_sim_time_sec": 2.4
+      }
+    },
+    {
+      "run_name": "H1_aligned_run2",
+      "profile_id": "act_aligned",
+      "target_goal": [
+        1.5,
+        1.2,
+        0.0
+      ],
+      "timeout_sec": 15.0,
+      "doorway_state_before_action": "FREE",
+      "hits_inside_before_action": 0,
+      "pass_through_count": 22,
+      "terminal_status_name": "SUCCEEDED",
+      "terminal_status_code": 4,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "nav2_action_succeeded": true,
+      "physical_arrival_verified": true,
+      "halt_verified": true,
+      "halt_failure_reason": null,
+      "timing_breakdown": {
+        "total_step_sim_time_sec": 18.8,
+        "nav2_navigation_duration_sec": 13.4,
+        "passive_settling_sim_time_sec": 3.0,
+        "stability_window_sim_time_sec": 2.4
+      }
+    },
+    {
+      "run_name": "H1_oblique_run1",
+      "profile_id": "act_oblique",
+      "target_goal": [
+        0.5,
+        0.88,
+        0.0
+      ],
+      "timeout_sec": 15.0,
+      "doorway_state_before_action": "FREE",
+      "hits_inside_before_action": 0,
+      "pass_through_count": 23,
+      "terminal_status_name": "SUCCEEDED",
+      "terminal_status_code": 4,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "nav2_action_succeeded": true,
+      "physical_arrival_verified": true,
+      "halt_verified": true,
+      "halt_failure_reason": null,
+      "timing_breakdown": {
+        "total_step_sim_time_sec": 16.4,
+        "nav2_navigation_duration_sec": 11.1,
+        "passive_settling_sim_time_sec": 3.0,
+        "stability_window_sim_time_sec": 2.3
+      }
+    },
+    {
+      "run_name": "H1_oblique_run2",
+      "profile_id": "act_oblique",
+      "target_goal": [
+        0.5,
+        0.88,
+        0.0
+      ],
+      "timeout_sec": 15.0,
+      "doorway_state_before_action": "FREE",
+      "hits_inside_before_action": 0,
+      "pass_through_count": 22,
+      "terminal_status_name": "SUCCEEDED",
+      "terminal_status_code": 4,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "nav2_action_succeeded": true,
+      "physical_arrival_verified": true,
+      "halt_verified": true,
+      "halt_failure_reason": null,
+      "timing_breakdown": {
+        "total_step_sim_time_sec": 16.3,
+        "nav2_navigation_duration_sec": 11.0,
+        "passive_settling_sim_time_sec": 3.0,
+        "stability_window_sim_time_sec": 2.3
+      }
+    }
+  ]
+}
