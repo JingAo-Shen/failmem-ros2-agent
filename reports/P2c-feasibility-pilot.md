@@ -1,7 +1,8 @@
 # FailMem Milestone P2c Feasibility Pilot Report: Non-Line-of-Sight Multi-Route Evaluation
 
 **Date**: 2026-10-01  
-**Phase**: Milestone P2c Authenticity Audit, Immutable Observation Bundles, Event-Driven Memory Architecture & 30-Run Comparative Experiment  
+**Phase**: Milestone P2c Authenticity Audit, Immutable Observation Bundles, Event-Driven Memory Architecture & 30-Run Exploratory Comparative Experiment  
+**Execution Code Base**: Git Commit `84fd245` (Branch: `audit/r0-authenticity`)  
 **Protocol Configuration**: `configs/p2c_pilot_protocol.yaml` (v4.2, SHA256: `fdbe35c90e53b0e80fa106cdee06d942033491cb212a616df815efc7c0b37a5f`)  
 **Frozen Environment Checksums**:
 - World Model: `configs/p2c_dualpath_world.model` (SHA256: `7b5d5638bbe4ecc17a18cec3c7cb38750c6bb513ce6be296a3ee4634129486f4`)
@@ -11,6 +12,11 @@
 
 **Evidence Artifacts**:
 - **30-Run Comparative Physical Experiment Batch**: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/` (10 conditions $\times$ 3 repeats = 30 episodes, 100% Valid & 100% Audit Pass)
+  - Automated CSV Records: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/analysis/episodes.csv`
+  - Aggregated Statistics: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/analysis/condition_summary.csv`
+  - Pairwise Contrasts: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/analysis/contrasts.csv`
+  - Visualizations: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/analysis/p2c_distances_by_condition.png`, `p2c_durations_by_condition.png`, `p2c_dead_ends_and_contrasts.png`
+- **Separate Execution Smoke Test**: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022540_d13df9/` (`D0_R_ep1`, executed prior to the 30-run batch to verify simulation pipeline startup, not pooled in the 30-run comparative stats)
 - Open vs. Blocked Control Probe Verification: `reports/evidence/p2c_probe_control/probe_control_results.json`
 - Analytical Baseline Demonstrations: `reports/evidence/p2c_analytical/p2c_pilot_diagnosis_results.json`
 
@@ -20,18 +26,26 @@
 
 This report presents empirical findings of Milestone P2c on an asymmetric dual-path non-line-of-sight (NLOS) navigation benchmark in ROS 2 Humble and Gazebo 11.
 
-### 1.1 Separation of Evidence Types
+### 1.1 Study Positioning & Methodological Constraints
+- **Exploratory Repetition Experiment**: The 30-run batch ($n=3$ per condition) serves as an exploratory repetition study to demonstrate mechanism functioning, pipeline reproducibility, and offline auditability. It is **not** an asymptotic or high-powered statistical verification.
+- **Execution Order & Determinism**: The runner executed the 3 repetitions per condition consecutively (e.g. D0_R ep1 $\to$ ep2 $\to$ ep3, then D0_O ...) rather than using a randomized execution sequence. Explicit random seeds were not varied across runs.
+- **Pre-Registration Status**: The code, protocol (`v4.2`), map, and scoring thresholds were frozen in Git repository commit `84fd245` before the batch run. However, no independent external pre-registration platform was used; this benchmark is an internally frozen exploratory protocol.
+- **Sample Observations vs. Universal Reliability**: The observed $3/3$ success rate describes the outcomes in the current sample under nominal simulation conditions. It does not constitute a statistical proof of $100\%$ reliability.
+- **Definition of "$\pm$"**: All "$\pm$" values in this report represent the **sample standard deviation** ($s$) computed with Bessel's correction ($ddof=1$):
+  $$s = \sqrt{\frac{1}{n-1}\sum_{i=1}^n (x_i - \bar{x})^2}$$
+- **Unpaired Samples**: Runs with identical episode indices (e.g., ep1 in D1_R vs ep1 in D1_F) are treated as independent, non-paired samples, as they did not share randomized seed conditions. No large-scale hypothesis significance testing or claims of statistical equivalence are made on $n=3$.
+
+### 1.2 Separation of Evidence Types
 - **Analytical Model (`reports/evidence/p2c_analytical/`)**: Evaluates policy decision logic under idealized constant-velocity kinematic abstractions ($0.25\,\text{m/s}$ avg velocity, nominal segment geometry). Serves as a deterministic baseline for policy logic demonstration.
 - **Physical ROS 2 / Gazebo Simulation (`reports/evidence/p2c_pilot/`)**: Authentic physical execution in Gazebo 11 with ROS 2 Humble Nav2, AMCL particle filter localization, LiDAR ray tracing, Nav2 global costmap updates, and continuous odometry/ground-truth trajectory integration.
 - **Immutable Observation Bundle**:
-  - `create_observation_bundle` is captured first, followed immediately by `evaluate_observation_bundle`. Online decision-making and serialization share the exact same bundle object.
+  - `create_observation_bundle` is captured first, followed immediately by `evaluate_observation_bundle`. Online decision-making and disk serialization share the exact same bundle object.
   - Bundles preserve `observation_id`, raw `scan_data`, matching `tf_transform`, raw `costmap_roi` (`subgrid_matrix` & metadata), `msg_times`, `capture_times`, and `evaluation_times` with untruncated float precision.
   - In replay, costmap summaries are recalculated directly from `costmap_roi.subgrid_matrix` via `recompute_costmap_subgrid_stats`, ignoring any recorded summary.
 - **Strict Event-Driven Lifecycle**:
   - Reaching the observation vantage point (`hist_reach_obs_vantage`) succeeds and produces live perception evidence, but does **not** register failure memory.
   - Failure memory is registered **only** when chokepoint traversal fails (`hist_attempt_chokepoint_traversal`) with linked `OCCUPIED` perception evidence.
   - Invalidation is strictly event-driven by subsequent live perception returning `FREE` ($\ge 8$ traversing rays, 0 obstacle hits, cleared costmap).
-- **Scope of Claims**: Empirical behaviors are reported for the evaluated benchmark scenario. Claims of universal superiority or generalized equivalence across arbitrary topologies are not made.
 
 ---
 
@@ -46,93 +60,89 @@ A methodological audit identified defects in earlier experimental runs, leading 
 
 ### 2.2 Dataset Verification Matrix
 
-| Dataset ID | Execution Type | Immutable Bundles | Frozen Protocol | Checksums SHA256 | Failure Authenticity | Replay Verdict | Reason |
+| Dataset ID | Execution Type | Immutable Bundles | Frozen Protocol | Checksums SHA256 | Failure Authenticity | Replay Verdict | Status & Purpose |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
 | `p2c_pilot_20260930_051359_16dd42` | Physical ROS | ❌ Missing | ❌ Missing | ❌ Missing | ❌ Manufactured | ❌ REJECTED | Missing frozen protocol snapshot & checksums (`UNVERIFIABLE`) |
 | `p2c_pilot_20260930_051709_dc4324` | Physical ROS | ❌ Missing | ❌ Missing | ❌ Missing | ❌ Manufactured | ❌ REJECTED | Missing frozen protocol snapshot & checksums (`UNVERIFIABLE`) |
 | `p2c_pilot_20260930_052812_f14f2b` | Physical ROS | ❌ Missing | ⚠️ Incomplete | ⚠️ Incomplete | ❌ Manufactured | ❌ REJECTED | Missing trajectory artifacts & checksum tree (`UNVERIFIABLE`) |
 | `p2c_pilot_20260930_102323_62b40e` | Physical ROS | ❌ Missing | ✅ Verified | ✅ Verified | ❌ Manufactured | ❌ REJECTED | Lacks immutable observation bundles & authentic Nav2 failure (`UNVERIFIABLE`) |
+| `p2c_pilot_20261001_022540_d13df9` | Physical ROS (1 Run) | ✅ Verified | ✅ Verified (v4.2) | ✅ Verified | ✅ Authentic Nav2 | ✅ AUDIT PASS | Pre-batch execution smoke test (`D0_R_ep1`), listed separately |
 | `p2c_pilot_20261001_022711_0d3c35` | **Physical ROS (30 Runs)** | **✅ Verified** | **✅ Verified (v4.2)** | **✅ Verified** | **✅ Authentic Nav2** | **✅ AUDIT PASS (30/30)** | **Complete 30-Run Comparative Experiment Matrix** |
 
 ---
 
-## 3. Authentic Event-Driven Failure Architecture
+## 3. Authentic Event-Driven Architecture & Navigation Boundaries
 
 ### 3.1 Genuine Nav2 Action Server Traversal & Probe Control
-- Traversal probing (`hist_attempt_chokepoint_traversal`) is dispatched via `build_chokepoint_probe_action` (`goal=[0.50, 1.20, 0.0]`, `timeout=15.0s`, Nav2 action client) across both runner and verification harnesses.
+- Traversal probing (`hist_attempt_chokepoint_traversal`) is dispatched via `build_chokepoint_probe_action` (`goal=[0.50, 1.20, 0.0]`, `timeout=15.0s`, Nav2 action client) across runner and verification harnesses.
 - The open vs. blocked control probe test (`scripts/verify_p2c_probe_control.py`) demonstrates causal distinction:
   - **Open Condition**: Nav2 navigates towards `[0.50, 1.20, 0.0]` through the clear doorway; action succeeds (`SUCCEEDED`, physical arrival confirmed), and perception verifies `FREE` (30 pass-through rays).
   - **Blocked Condition**: The identical navigation action is dispatched with the doorway obstacle spawned; Nav2 is physically blocked by lethal costmap cells, times out (`BUDGET_DEADLINE_EXCEEDED`), and perception verifies `OCCUPIED` (laser hits inside doorway bounding box).
   - `both_passed = True` confirms identical execution configuration without manufactured outcomes.
 
-### 3.2 Strict Invalid-History Hard-Stop
+### 3.2 R Baseline & Navigation Stack Contribution Boundaries
+Analysis of D1-R logs and continuous trajectory data clarifies the division of responsibilities:
+1. **Perception Acquisition Location**: In Scenario D1-R, the robot starts at $J_0$ with local perception returning `UNKNOWN` due to wall occlusion. It navigates to Leg 1 corridor entrance waypoint `[-1.50, 1.20, 0.0]`. At this waypoint, the robot's LiDAR acquires direct line-of-sight and evaluates the doorway bounding box as `OCCUPIED` (20 hits, costmap occupied = 27).
+2. **Proactive Entrance Fallback vs. Traversal Failure**: The retreat in D1-R is triggered proactively by the high-level policy state machine upon evaluating the live perception gate at `[-1.50, 1.20, 0.0]`, rather than allowing the robot to crash into the obstacle or waiting for a Nav2 planner timeout.
+3. **Costmap State & Waypoint Constraints**: The shared Nav2 global costmap retains lethal obstacle cells at the doorway. However, high-level policy execution dispatches discrete sequential waypoints (`dec_path_a_approach` $\to$ `dec_fallback_retreat_to_j0` $\to$ `dec_fallback_path_b_mid` $\to$ `dec_fallback_path_b_goal`). Nav2 was not tasked with autonomous global multi-corridor replanning directly from `[-1.50, 1.20]`; the detour is structured by the high-level fallback state machine.
+4. **Definition of `dead_end_traversals`**: In this protocol, `dead_end_traversals` is strictly defined as **"entering the north corridor approach leg under UNKNOWN local state, detecting blockage at the entrance gate, and returning to J0"**. It measures redundant corridor entry, not physical collision or unhandled action failure.
+
+### 3.3 Strict Invalid-History Hard-Stop
 - If history acquisition fails to produce protocol-compliant physical evidence (e.g. traversal does not fail with verified `OCCUPIED` perception, or clearance does not produce verified `FREE` perception), the episode **halts immediately**.
 - The runner logs `[HARD STOP] History acquisition invalid!`, dispatches **0 decision goals**, sets `chosen_route = "HISTORY_INVALID_ABORTED"`, serializes all 7 artifacts, and marks `episode_valid = False`.
-
-### 3.3 Symmetric Observation Stream
-- `SpatialObservationCache` and `FailureMemoryStore` consume the identical time-aligned perception stream.
-- In both models, instantaneous `UNKNOWN` observations (such as sightline occlusion from junction $J_0$) do **not** overwrite previously acquired known state (`OCCUPIED` or `FREE`).
-- In Scenario D2, upon observing `FREE` during the clearance probe, $O$ caches `FREE` and $F$ invalidates failure memory. When retreating to $J_0$, both methods retain the cleared state and select Path A during the decision phase.
 
 ---
 
 ## 4. 30-Run Comparative Experiment Matrix Results
 
-The full comparative experiment matrix (10 conditions $\times$ 3 repetitions = 30 physical episodes) was executed in Gazebo 11 / ROS 2 Humble under Protocol `v4.2` (`p2c_pilot_20261001_022711_0d3c35`). Zero runs were discarded or retried.
+The full comparative experiment matrix (10 conditions $\times$ 3 repetitions = 30 physical episodes) was executed in Gazebo 11 / ROS 2 Humble under Protocol `v4.2` (`p2c_pilot_20261001_022711_0d3c35`). All metrics were automatically extracted by `scripts/analyze_p2c_results.py`.
 
-### 4.1 Condition-Level Aggregated Metrics
+### 4.1 Condition-Level Summary Statistics ($n=3$ per condition, Sample Std Dev $ddof=1$)
 
-| Scenario | Method | Runs | Selected Route | Actual Route | Dead-End Traversals | Decision Dist ($m$) | Decision Sim Time ($s$) | Total Dist ($m$) | Total Sim Time ($s$) | Arrival Rate | Budget OK | Valid Rate | Audit Pass Rate |
-| :--- | :--- | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **D0** | **R** (Reactive) | 3 | Path_A | Path_A | 0.0 | $6.16 \pm 0.03$ | $51.5 \pm 1.4$ | $6.16 \pm 0.03$ | $51.5 \pm 1.4$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D0** | **O** (Obs Cache) | 3 | Path_A | Path_A | 0.0 | $6.20 \pm 0.01$ | $50.0 \pm 0.7$ | $6.20 \pm 0.01$ | $50.0 \pm 0.7$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D0** | **F** (FailMem) | 3 | Path_A | Path_A | 0.0 | $6.20 \pm 0.02$ | $49.9 \pm 0.4$ | $6.20 \pm 0.02$ | $49.9 \pm 0.4$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D1** | **R** (Reactive) | 3 | Path_A_then_Path_B | Path_A_then_Path_B | **1.0** | **$10.82 \pm 0.06$** | **$82.1 \pm 3.6$** | **$17.22 \pm 0.20$** | **$141.0 \pm 4.8$** | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D1** | **O** (Obs Cache) | 3 | Path_B | Path_B | 0.0 | $7.55 \pm 0.04$ | $50.0 \pm 1.6$ | $13.95 \pm 0.06$ | $108.7 \pm 2.2$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D1** | **F** (FailMem) | 3 | Path_B | Path_B | 0.0 | $7.54 \pm 0.00$ | $48.2 \pm 0.8$ | $14.03 \pm 0.21$ | $109.5 \pm 1.3$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D2** | **R** (Reactive) | 3 | Path_A | Path_A | 0.0 | $5.92 \pm 0.04$ | $49.6 \pm 1.3$ | $16.34 \pm 0.03$ | $148.2 \pm 2.6$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D2** | **O** (Obs Cache) | 3 | Path_A | Path_A | 0.0 | $5.94 \pm 0.05$ | $52.0 \pm 1.4$ | $16.40 \pm 0.20$ | $149.8 \pm 0.4$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D2** | **F** (FailMem) | 3 | Path_A | Path_A | 0.0 | $5.89 \pm 0.02$ | $51.1 \pm 0.8$ | $16.25 \pm 0.08$ | $151.1 \pm 6.3$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
-| **D2** | **M1** (Persistent) | 3 | Path_B | Path_B | 0.0 | **$7.89 \pm 0.02$** | **$51.3 \pm 1.6$** | **$18.25 \pm 0.08$** | **$148.8 \pm 2.0$** | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| Scenario | Method | $n$ | Route | Dead-Ends | Decision Dist ($m$) | Decision Sim Time ($s$) | Total Dist ($m$) | Total Sim Time ($s$) | Arrival Rate | Budget OK | Valid Rate | Audit Pass |
+| :--- | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **D0 (Fresh)** | **R** | 3 | Path_A | 0.0 | $6.16 \pm 0.04$ | $51.5 \pm 1.7$ | $6.16 \pm 0.04$ | $51.5 \pm 1.7$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D0 (Fresh)** | **O** | 3 | Path_A | 0.0 | $6.20 \pm 0.01$ | $50.0 \pm 0.8$ | $6.20 \pm 0.01$ | $50.0 \pm 0.8$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D0 (Fresh)** | **F** | 3 | Path_A | 0.0 | $6.20 \pm 0.03$ | $49.9 \pm 0.5$ | $6.20 \pm 0.03$ | $49.9 \pm 0.5$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D1 (Blocked)** | **R** | 3 | Path_A $\to$ Path_B | **1.0** | **$10.82 \pm 0.07$** | **$82.1 \pm 4.4$** | **$17.22 \pm 0.24$** | **$141.0 \pm 5.9$** | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D1 (Blocked)** | **O** | 3 | Path_B | 0.0 | $7.55 \pm 0.05$ | $50.0 \pm 2.0$ | $13.95 \pm 0.07$ | $108.7 \pm 2.7$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D1 (Blocked)** | **F** | 3 | Path_B | 0.0 | $7.54 \pm 0.00$ | $48.2 \pm 1.0$ | $14.03 \pm 0.25$ | $109.5 \pm 1.6$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D2 (Cleared)** | **R** | 3 | Path_A | 0.0 | $5.92 \pm 0.04$ | $49.6 \pm 1.6$ | $16.34 \pm 0.03$ | $148.2 \pm 3.2$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D2 (Cleared)** | **O** | 3 | Path_A | 0.0 | $5.94 \pm 0.07$ | $52.0 \pm 1.7$ | $16.40 \pm 0.24$ | $149.8 \pm 0.6$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D2 (Cleared)** | **F** | 3 | Path_A | 0.0 | $5.89 \pm 0.02$ | $51.1 \pm 1.0$ | $16.25 \pm 0.10$ | $151.1 \pm 7.8$ | 100% (3/3) | 100% | 100% | **100% (3/3)** |
+| **D2 (Cleared)** | **M1** | 3 | Path_B | 0.0 | **$7.89 \pm 0.02$** | **$51.3 \pm 2.0$** | **$18.25 \pm 0.09$** | **$148.8 \pm 2.4$** | 100% (3/3) | 100% | 100% | **100% (3/3)** |
 
-### 4.2 Detailed 30-Episode Replay & Audit Breakdown
+*Note: All values report mean $\pm$ sample standard deviation ($ddof=1$). Decision phase reports metrics measured from decision dispatch at J0 to final goal arrival; Total phase includes historical acquisition traversal costs.*
 
-```
-=============================================================================================================
-| Episode ID  | Scenario | Method | Req Route          | Act Route          | Dead-Ends | Total Dist | Sim Time | Goal OK | Budget OK | Valid | Audit Pass |
-| :---        | :---     | :---   | :---               | :---               | :---:     | :---:      | :---:    | :---:   | :---:     | :---: | :---:      |
-| D0_F_ep1    | D0       | F      | Path_A             | Path_A             | 0         | 6.16m      | 50.30s   | True    | True      | True  | True       |
-| D0_F_ep2    | D0       | F      | Path_A             | Path_A             | 0         | 6.20m      | 49.40s   | True    | True      | True  | True       |
-| D0_F_ep3    | D0       | F      | Path_A             | Path_A             | 0         | 6.22m      | 50.00s   | True    | True      | True  | True       |
-| D0_O_ep1    | D0       | O      | Path_A             | Path_A             | 0         | 6.21m      | 49.10s   | True    | True      | True  | True       |
-| D0_O_ep2    | D0       | O      | Path_A             | Path_A             | 0         | 6.20m      | 50.80s   | True    | True      | True  | True       |
-| D0_O_ep3    | D0       | O      | Path_A             | Path_A             | 0         | 6.20m      | 50.00s   | True    | True      | True  | True       |
-| D0_R_ep1    | D0       | R      | Path_A             | Path_A             | 0         | 6.12m      | 53.10s   | True    | True      | True  | True       |
-| D0_R_ep2    | D0       | R      | Path_A             | Path_A             | 0         | 6.19m      | 49.80s   | True    | True      | True  | True       |
-| D0_R_ep3    | D0       | R      | Path_A             | Path_A             | 0         | 6.17m      | 51.70s   | True    | True      | True  | True       |
-| D1_F_ep1    | D1       | F      | Path_B             | Path_B             | 0         | 13.84m     | 107.70s  | True    | True      | True  | True       |
-| D1_F_ep2    | D1       | F      | Path_B             | Path_B             | 0         | 14.31m     | 110.20s  | True    | True      | True  | True       |
-| D1_F_ep3    | D1       | F      | Path_B             | Path_B             | 0         | 13.93m     | 110.60s  | True    | True      | True  | True       |
-| D1_O_ep1    | D1       | O      | Path_B             | Path_B             | 0         | 13.92m     | 108.00s  | True    | True      | True  | True       |
-| D1_O_ep2    | D1       | O      | Path_B             | Path_B             | 0         | 13.89m     | 111.70s  | True    | True      | True  | True       |
-| D1_O_ep3    | D1       | O      | Path_B             | Path_B             | 0         | 14.03m     | 106.40s  | True    | True      | True  | True       |
-| D1_R_ep1    | D1       | R      | Path_A_then_Path_B | Path_A_then_Path_B | 1         | 17.50m     | 147.80s  | True    | True      | True  | True       |
-| D1_R_ep2    | D1       | R      | Path_A_then_Path_B | Path_A_then_Path_B | 1         | 17.09m     | 138.10s  | True    | True      | True  | True       |
-| D1_R_ep3    | D1       | R      | Path_A_then_Path_B | Path_A_then_Path_B | 1         | 17.07m     | 137.10s  | True    | True      | True  | True       |
-| D2_F_ep1    | D2       | F      | Path_A             | Path_A             | 0         | 16.23m     | 159.10s  | True    | True      | True  | True       |
-| D2_F_ep2    | D2       | F      | Path_A             | Path_A             | 0         | 16.16m     | 143.60s  | True    | True      | True  | True       |
-| D2_F_ep3    | D2       | F      | Path_A             | Path_A             | 0         | 16.35m     | 150.60s  | True    | True      | True  | True       |
-| D2_M1_ep1   | D2       | M1     | Path_B             | Path_B             | 0         | 18.34m     | 147.50s  | True    | True      | True  | True       |
-| D2_M1_ep2   | D2       | M1     | Path_B             | Path_B             | 0         | 18.15m     | 151.60s  | True    | True      | True  | True       |
-| D2_M1_ep3   | D2       | M1     | Path_B             | Path_B             | 0         | 18.25m     | 147.40s  | True    | True      | True  | True       |
-| D2_O_ep1    | D2       | O      | Path_A             | Path_A             | 0         | 16.33m     | 150.30s  | True    | True      | True  | True       |
-| D2_O_ep2    | D2       | O      | Path_A             | Path_A             | 0         | 16.20m     | 149.80s  | True    | True      | True  | True       |
-| D2_O_ep3    | D2       | O      | Path_A             | Path_A             | 0         | 16.66m     | 149.20s  | True    | True      | True  | True       |
-| D2_R_ep1    | D2       | R      | Path_A             | Path_A             | 0         | 16.32m     | 148.90s  | True    | True      | True  | True       |
-| D2_R_ep2    | D2       | R      | Path_A             | Path_A             | 0         | 16.34m     | 144.70s  | True    | True      | True  | True       |
-| D2_R_ep3    | D2       | R      | Path_A             | Path_A             | 0         | 16.38m     | 150.90s  | True    | True      | True  | True       |
-=============================================================================================================
-```
+### 4.2 Pairwise Method Contrasts (Unpaired Sample Differences)
+
+| Scenario | Comparison | Metric | Method A ($F$) Mean $\pm$ Std | Method B Mean $\pm$ Std | Absolute Difference ($A - B$) | Relative Difference (%) |
+| :--- | :--- | :--- | :--- | :--- | :---: | :---: |
+| **D1** | **FailMem vs Reactive ($F - R$)** | Dead Ends | $0.00 \pm 0.00$ | $1.00 \pm 0.00$ | $-1.00$ | $-100.0\%$ |
+| | | Decision Dist ($m$) | $7.54 \pm 0.00$ | $10.82 \pm 0.07$ | $-3.28$ | $-30.3\%$ |
+| | | Decision Time ($s$) | $48.20 \pm 0.95$ | $82.07 \pm 4.39$ | $-33.87$ | $-41.3\%$ |
+| | | Total Dist ($m$) | $14.03 \pm 0.25$ | $17.22 \pm 0.24$ | $-3.19$ | $-18.5\%$ |
+| | | Total Time ($s$) | $109.50 \pm 1.57$ | $141.00 \pm 5.91$ | $-31.50$ | $-22.3\%$ |
+| **D1** | **FailMem vs Spatial Cache ($F - O$)** | Dead Ends | $0.00 \pm 0.00$ | $0.00 \pm 0.00$ | $0.00$ | $0.0\%$ |
+| | | Decision Dist ($m$) | $7.54 \pm 0.00$ | $7.55 \pm 0.05$ | $-0.01$ | $-0.2\%$ |
+| | | Decision Time ($s$) | $48.20 \pm 0.95$ | $50.03 \pm 1.99$ | $-1.83$ | $-3.7\%$ |
+| | | Total Dist ($m$) | $14.03 \pm 0.25$ | $13.95 \pm 0.07$ | $+0.08$ | $+0.6\%$ |
+| | | Total Time ($s$) | $109.50 \pm 1.57$ | $108.70 \pm 2.72$ | $+0.80$ | $+0.7\%$ |
+| **D2** | **FailMem vs Persistent Memory ($F - M1$)** | Dead Ends | $0.00 \pm 0.00$ | $0.00 \pm 0.00$ | $0.00$ | $0.0\%$ |
+| | | Decision Dist ($m$) | $5.89 \pm 0.02$ | $7.89 \pm 0.02$ | $-2.01$ | $-25.4\%$ |
+| | | Decision Time ($s$) | $51.10 \pm 0.95$ | $51.30 \pm 2.00$ | $-0.20$ | $-0.4\%$ |
+| | | Total Dist ($m$) | $16.25 \pm 0.10$ | $18.25 \pm 0.09$ | $-2.00$ | $-11.0\%$ |
+| | | Total Time ($s$) | $151.10 \pm 7.76$ | $148.83 \pm 2.40$ | $+2.27$ | $+1.5\%$ |
+| **D2** | **FailMem vs Spatial Cache ($F - O$)** | Dead Ends | $0.00 \pm 0.00$ | $0.00 \pm 0.00$ | $0.00$ | $0.0\%$ |
+| | | Decision Dist ($m$) | $5.89 \pm 0.02$ | $5.94 \pm 0.07$ | $-0.05$ | $-0.9\%$ |
+| | | Decision Time ($s$) | $51.10 \pm 0.95$ | $52.03 \pm 1.75$ | $-0.93$ | $-1.8\%$ |
+| | | Total Dist ($m$) | $16.25 \pm 0.10$ | $16.40 \pm 0.24$ | $-0.15$ | $-0.9\%$ |
+| | | Total Time ($s$) | $151.10 \pm 7.76$ | $149.77 \pm 0.55$ | $+1.33$ | $+0.9\%$ |
+| **D2** | **FailMem vs Reactive ($F - R$)** | Dead Ends | $0.00 \pm 0.00$ | $0.00 \pm 0.00$ | $0.00$ | $0.0\%$ |
+| | | Decision Dist ($m$) | $5.89 \pm 0.02$ | $5.92 \pm 0.04$ | $-0.03$ | $-0.5\%$ |
+| | | Decision Time ($s$) | $51.10 \pm 0.95$ | $49.57 \pm 1.59$ | $+1.53$ | $+3.1\%$ |
+| | | Total Dist ($m$) | $16.25 \pm 0.10$ | $16.34 \pm 0.03$ | $-0.10$ | $-0.6\%$ |
+| | | Total Time ($s$) | $151.10 \pm 7.76$ | $148.17 \pm 3.16$ | $+2.93$ | $+2.0\%$ |
 
 ---
 
@@ -187,36 +197,36 @@ All 21 paired tests pass in the automated test suite (`pytest tests/test_p2c_eve
 ## 6. Key Empirical Findings & Discussion
 
 ### 6.1 Research Question 1: FailMem ($F$) vs. Reactive ($R$) under Confirmed Blockage (D1)
-- **Dead-End Traversal Elimination**: Method $R$ entered the blocked corridor in 100% of runs ($1.0 \pm 0.0$ dead ends), requiring physical detection at the vantage point, retreat to $J_0$, and fallback detour. FailMem ($F$) achieved **0.0 dead ends** across all runs.
-- **Distance & Time Reduction**:
-  - Decision Distance: FailMem dispatched Path B directly ($7.54\,\text{m}$), saving **$3.28\,\text{m}$** ($-30.3\%$) over $R$ ($10.82\,\text{m}$).
-  - Total Distance: FailMem traversed **$14.03\,\text{m}$** vs. $R$'s **$17.22\,\text{m}$** ($-18.5\%$ total distance savings).
-  - Decision Sim Time: FailMem required **$48.2\,\text{s}$** vs. $R$'s **$82.1\,\text{s}$** ($-41.3\%$ decision time savings).
-  - Total Sim Time: FailMem required **$109.5\,\text{s}$** vs. $R$'s **$141.0\,\text{s}$** ($-22.3\%$ total time savings).
+- **Reduction of Redundant Corridor Entry**: Method $R$ entered the blocked corridor in all 3 runs ($1.0 \pm 0.0$ dead ends), requiring physical detection at the entrance waypoint, retreat to $J_0$, and fallback detour. Both FailMem ($F$) and Spatial Cache ($O$) achieved **0.0 dead ends**.
+- **Distance & Time Comparison**:
+  - Decision Distance: FailMem dispatched Path B directly ($7.54 \pm 0.00\,\text{m}$), saving **$3.28\,\text{m}$** ($-30.3\%$) over $R$ ($10.82 \pm 0.07\,\text{m}$).
+  - Total Distance: FailMem traversed **$14.03 \pm 0.25\,\text{m}$** vs. $R$'s **$17.22 \pm 0.24\,\text{m}$** ($-18.5\%$ total distance difference).
+  - Decision Sim Time: FailMem required **$48.2 \pm 1.0\,\text{s}$** vs. $R$'s **$82.1 \pm 4.4\,\text{s}$** ($-41.3\%$ decision time difference).
+  - Total Sim Time: FailMem required **$109.5 \pm 1.6\,\text{s}$** vs. $R$'s **$141.0 \pm 5.9\,\text{s}$** ($-22.3\%$ total time difference).
+- **Core Interpretation**: This result demonstrates that **retaining historical evidence avoids redundant exploration costs** compared to instantaneous local sensing. However, this comparison alone does **not** demonstrate that failure semantics offer independent value beyond standard spatial observation caching.
 
 ### 6.2 Research Question 2: FailMem ($F$) vs. Spatial Observation Cache ($O$)
-- In both D1 and D2, FailMem ($F$) and Spatial Observation Cache ($O$) yielded closely matched routing performance:
-  - D1: $O$ total dist $13.95 \pm 0.06\,\text{m}$, $F$ total dist $14.03 \pm 0.21\,\text{m}$.
-  - D2: $O$ total dist $16.40 \pm 0.20\,\text{m}$, $F$ total dist $16.25 \pm 0.08\,\text{m}$.
-- **Structural Differences**:
-  - Method $O$ maintains an unstructured spatial cell cache without action-level causal binding.
-  - Method $F$ records an explicit precondition-action-outcome failure record (`failed_action_id`, `goal_uuid`, `failure_reason`, `region_id`). In single-agent static clearance, spatial caching and failure invalidation exhibit functional routing parity; however, $F$ provides verifiable auditability and resilience against unstructured cache corruption.
+- In both D1 and D2, FailMem ($F$) and Spatial Observation Cache ($O$) exhibited nearly identical routing performance on this benchmark:
+  - D1 Total Distance: $F = 14.03 \pm 0.25\,\text{m}$ vs. $O = 13.95 \pm 0.07\,\text{m}$ (Difference: $+0.08\,\text{m}$, $+0.6\%$).
+  - D1 Total Sim Time: $F = 109.5 \pm 1.6\,\text{s}$ vs. $O = 108.7 \pm 2.7\,\text{s}$ (Difference: $+0.80\,\text{s}$, $+0.7\%$).
+  - D2 Total Distance: $F = 16.25 \pm 0.10\,\text{m}$ vs. $O = 16.40 \pm 0.24\,\text{m}$ (Difference: $-0.15\,\text{m}$, $-0.9\%$).
+  - D2 Total Sim Time: $F = 151.1 \pm 7.8\,\text{s}$ vs. $O = 149.8 \pm 0.6\,\text{s}$ (Difference: $+1.33\,\text{s}$, $+0.9\%$).
+- **Scientific Implication**:
+  - The observed minor differences fall entirely within ordinary simulation variance.
+  - Current empirical data **does not demonstrate a stable performance advantage for FailMem over Spatial Cache** in this static single-agent layout.
+  - Conversely, with $n=3$, these data do **not prove mathematical or statistical equivalence** between $F$ and $O$ across arbitrary topologies.
+  - The primary distinction remains structural: $F$ binds failure records to specific action goals and precondition evidence, whereas $O$ maintains an unconditioned 2D spatial grid.
 
 ### 6.3 Research Question 3: Dynamic Invalidation ($F$) vs. Persistent Suppression ($M1$) in Restored Environments (D2)
-- **Restoration Adaptability**: Upon observing verified doorway clearance (`FREE`), FailMem invalidates the failure memory, unsuppressing Path A and selecting the short route ($5.89\,\text{m}$ decision phase, $16.25\,\text{m}$ total distance).
-- **Persistent Detour Suboptimality**: Baseline $M1$ permanently suppresses Path A, forcing the robot to execute the south detour ($7.89\,\text{m}$ decision phase, $18.25\,\text{m}$ total distance).
-- **Quantified Benefit**: Event-driven invalidation saves **$2.00\,\text{m}$** of navigation distance ($-11.0\%$ total distance, $-25.3\%$ decision distance) compared to persistent memory.
+- **Distance Benefit**: Upon observing verified doorway clearance (`FREE`), FailMem invalidates the failure memory, unsuppressing Path A and selecting the short route ($5.89 \pm 0.02\,\text{m}$ decision distance, $16.25 \pm 0.10\,\text{m}$ total distance). In contrast, persistent baseline $M1$ permanently suppresses Path A, executing the south detour ($7.89 \pm 0.02\,\text{m}$ decision distance, $18.25 \pm 0.09\,\text{m}$ total distance). Invalidation saves **$2.00\,\text{m}$** ($-11.0\%$) total distance.
+- **Execution Time Limitation**: Despite traversing $2.00\,\text{m}$ less distance, FailMem required **$151.1 \pm 7.8\,\text{s}$** total sim time vs. $M1$'s **$148.8 \pm 2.4\,\text{s}$** (Difference: $+2.27\,\text{s}$, $+1.5\%$). This occurs because navigating the narrower north corridor involves lower rotational speeds and tighter costmap clearance checks than the wide south bypass detour.
+- **Conclusion**: The advantage of event-driven invalidation in this scenario is **strictly confined to navigation distance / path length**, and cannot be generalized to an improvement across all efficiency metrics (such as total execution duration).
 
 ---
 
-## 7. Conclusion
+## 7. Limitations & Research Boundaries
 
-Milestone P2c feasibility pilot has achieved complete verification:
-1. **Immutable Observation Bundles**: Formally frozen with raw scans, TF, and raw costmap ROI subgrids.
-2. **Strict Event Schema & Causal Audit**: Enforced across runner and independent replayer with 21 paired positive-negative tests.
-3. **30-Run Comparative Experiment**: Full matrix (10 conditions $\times$ 3 runs = 30 runs) executed with 100% validity, 100% arrival rate, and 100% audit pass.
-4. **Definitive Scientific Answers**:
-   - $F$ eliminates dead-end traversals and saves $18.5\%$ distance / $22.3\%$ time over $R$ under blockage (D1).
-   - $F$ restores optimal routing and saves $2.00\,\text{m}$ over persistent memory $M1$ upon environmental restoration (D2).
-   - $F$ matches spatial cache $O$ in static clearance routing while providing verifiable causal binding.
+1. **Structural Feature vs. Unverified Robustness**: Causal event binding (`goal_uuid`, `failed_action_id`, `observation_id`) is an implemented architectural feature that enables rigorous offline auditing. However, resilience against corrupted caches, partial sensor dropout, or adversarial noise has not been experimentally tested in this setup.
+2. **Benchmark Scope**: Results are restricted to the static dual-path layout with deterministic geometric blockages.
+3. **Exploratory Sample Size ($n=3$)**: Sample size $n=3$ per condition is appropriate for exploratory validation and audit confirmation, but insufficient for high-dimensional generalization.
 
