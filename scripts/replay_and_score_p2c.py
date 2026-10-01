@@ -125,10 +125,17 @@ def replay_p2c_episode(
     if missing:
         return {
             "episode_id": ep_id,
+            "scenario": "UNKNOWN",
+            "method": "UNKNOWN",
             "evidence_complete": False,
             "error": f"MISSING_ARTIFACTS: {missing}",
+            "requested_route": "N/A",
+            "actual_route": "N/A",
+            "dead_end_traversals": 0,
+            "task_success": False,
             "final_goal_success": False,
             "success_within_budget": False,
+            "data_valid": False,
             "history_valid": False,
             "route_valid": False,
             "episode_valid": False,
@@ -204,13 +211,14 @@ def replay_p2c_episode(
     total_sim_time_sec = float(action_res.get("total_sim_time_sec", 0.0))
     history_aborted = bool(action_res.get("history_aborted", False))
 
-    # 1. Raw Perception Recomputation from First Principles
+    # 1. Raw Perception Recomputation from First Principles (using Immutable Observation Bundles)
     raw_evidence_verified = True
     recomputed_perceptions: Dict[str, Dict[str, Any]] = {}
     for snap in scan_snapshots:
         stg = snap.get("stage", "")
         sdata = snap.get("scan_data")
         tfdata = snap.get("tf_transform")
+        cm_roi = snap.get("costmap_roi")
         if not sdata or not tfdata or not snap.get("has_raw_scan", False) or not snap.get("has_tf", False):
             raw_evidence_verified = False
             tamper_reasons.append(f"MISSING_RAW_SCAN_OR_TF ({stg})")
@@ -224,15 +232,60 @@ def replay_p2c_episode(
         t_trans = tfdata.get("translation", [0.0, 0.0, 0.0])
         t_yaw = float(tfdata.get("yaw", 0.0))
 
-        proj_rays, meta = project_laser_scan_rays_tf(
-            ranges=ranges,
-            angle_min=amin,
-            angle_increment=ainc,
-            range_min=rmin,
-            range_max=rmax,
-            tf_translation=t_trans,
-            tf_yaw=t_yaw,
-        )
+        tf_stamp = float(tfdata.get("stamp_sec", 0.0)) if tfdata.get("stamp_sec") is not None else None
+        scan_stamp = float(sdata.get("stamp_sec", 0.0)) if sdata.get("stamp_sec") is not None else None
+        capture_sim = float(snap.get("capture_sim_time_sec", snap.get("sim_time_sec", 0.0)))
+        eval_sim = float(snap.get("evaluation_sim_time_sec", snap.get("sim_time_sec", capture_sim)))
+
+        # Check timestamp integrity
+        if tf_stamp is None or scan_stamp is None or capture_sim <= 0 or eval_sim <= 0:
+            raw_evidence_verified = False
+            tamper_reasons.append(f"MISSING_OR_INVALID_BUNDLE_TIMESTAMPS ({stg})")
+            continue
+
+        if abs(eval_sim - scan_stamp) > 1.5:
+            raw_evidence_verified = False
+            tamper_reasons.append(f"STALE_SCAN_TIMESTAMP_IN_BUNDLE ({stg}: eval={eval_sim:.2f}s vs scan={scan_stamp:.2f}s, diff={abs(eval_sim-scan_stamp):.2f}s > 1.5s)")
+
+        if abs(tf_stamp - scan_stamp) > 0.8:
+            raw_evidence_verified = False
+            tamper_reasons.append(f"TF_SCAN_TIME_MISMATCH ({stg}: tf={tf_stamp:.2f}s vs scan={scan_stamp:.2f}s, diff={abs(tf_stamp-scan_stamp):.2f}s > 0.8s)")
+
+        # Recompute costmap summary directly from raw ROI subgrid matrix (ZERO trust in recorded perception_result.costmap_summary)
+        recomputed_costmap_summary = None
+        if cm_roi and cm_roi.get("costmap_available") and cm_roi.get("subgrid_matrix"):
+            recomp_cm = recompute_costmap_subgrid_stats(
+                subgrid_matrix=cm_roi.get("subgrid_matrix", []),
+                grid_bounds_u=cm_roi.get("grid_bounds_u", []),
+                grid_bounds_v=cm_roi.get("grid_bounds_v", []),
+                resolution_m=float(cm_roi.get("resolution_m", 0.05)),
+                origin_xy=cm_roi.get("origin_xy", [-5.0, -5.0]),
+                opening_bbox=tuple(cm_roi.get("opening_bbox", (-0.15, 0.15, 0.95, 1.45))),
+            )
+            if not recomp_cm.get("valid"):
+                raw_evidence_verified = False
+                tamper_reasons.append(f"INVALID_BUNDLE_COSTMAP_ROI ({stg})")
+            else:
+                counts = recomp_cm.get("cell_counts", {})
+                rec_counts = cm_roi.get("cell_counts", {})
+                for k in ["unknown", "free", "inflated", "lethal", "opening_lethal"]:
+                    if rec_counts.get(k) != counts.get(k):
+                        raw_evidence_verified = False
+                        tamper_reasons.append(f"COSTMAP_BUNDLE_ROI_DISCREPANCY ({stg}: {k} recorded={rec_counts.get(k)} vs recomputed={counts.get(k)})")
+
+                total_cells = counts.get("unknown", 0) + counts.get("free", 0) + counts.get("inflated", 0) + counts.get("lethal", 0)
+                costmap_cleared = (total_cells > 0 and counts.get("unknown", 0) == 0 and counts.get("opening_lethal", 0) == 0)
+                recomputed_costmap_summary = {
+                    "status": "VALID",
+                    "error": None,
+                    "total_cells": total_cells,
+                    "unknown_cells": counts.get("unknown", 0),
+                    "occupied_cells": counts.get("lethal", 0),
+                    "opening_lethal_cells": counts.get("opening_lethal", 0),
+                    "free_cells": counts.get("free", 0),
+                    "costmap_cleared": costmap_cleared,
+                    "stamp_sec": cm_roi.get("costmap_stamp_sec"),
+                }
 
         recomp_res = evaluate_doorway_clearance(
             ranges=ranges,
@@ -242,11 +295,12 @@ def replay_p2c_episode(
             range_max=rmax,
             tf_translation=t_trans,
             tf_yaw=t_yaw,
-            tf_stamp_sec=float(tfdata.get("stamp_sec", snap.get("sim_time_sec", 0.0))),
-            scan_stamp_sec=float(sdata.get("stamp_sec", snap.get("sim_time_sec", 0.0))),
-            current_sim_time=float(snap.get("sim_time_sec", 0.0)),
+            tf_stamp_sec=tf_stamp,
+            scan_stamp_sec=scan_stamp,
+            current_sim_time=eval_sim,
             doorway_bbox=doorway_bbox,
-            costmap_data_summary=snap.get("perception_result", {}).get("costmap_summary"),
+            costmap_data_summary=recomputed_costmap_summary,
+            max_scan_staleness_sec=1.5,
         )
 
         recomputed_perceptions[stg] = recomp_res
@@ -312,7 +366,7 @@ def replay_p2c_episode(
             raw_evidence_verified = False
             tamper_reasons.append("MISSING_DECISION_J0_PERCEPTION_SNAPSHOT")
         else:
-            t_dec_val = dec_snap.get("sim_time_sec")
+            t_dec_val = dec_snap.get("evaluation_sim_time_sec", dec_snap.get("sim_time_sec"))
             if not is_finite_number(t_dec_val) or float(t_dec_val) <= 0:
                 tamper_reasons.append("MISSING_OR_INVALID_DECISION_J0_TIMESTAMP")
             else:
@@ -320,13 +374,13 @@ def replay_p2c_episode(
 
     replayed_cache = SpatialObservationCache()
     if t_dec is not None:
-        prior_snaps = [s for s in scan_snapshots if s.get("stage") != "DECISION_J0" and is_finite_number(s.get("sim_time_sec")) and float(s.get("sim_time_sec")) <= t_dec]
-        prior_snaps.sort(key=lambda s: float(s.get("sim_time_sec", 0.0)))
+        prior_snaps = [s for s in scan_snapshots if s.get("stage") != "DECISION_J0" and is_finite_number(s.get("evaluation_sim_time_sec", s.get("sim_time_sec"))) and float(s.get("evaluation_sim_time_sec", s.get("sim_time_sec"))) <= t_dec]
+        prior_snaps.sort(key=lambda s: float(s.get("evaluation_sim_time_sec", s.get("sim_time_sec", 0.0))))
         for s in prior_snaps:
             stg = s.get("stage", "")
             recomp = recomputed_perceptions.get(stg, {})
             st = recomp.get("doorway_state")
-            ts = float(s.get("sim_time_sec", 0.0))
+            ts = float(s.get("evaluation_sim_time_sec", s.get("sim_time_sec", 0.0)))
             if st in ["OCCUPIED", "FREE"] and ts > 0:
                 replayed_cache.update_observation(region_id, st, ts, recomp)
 
@@ -343,131 +397,269 @@ def replay_p2c_episode(
             history_valid = False
             tamper_reasons.append("DISPATCHED_GOALS_AFTER_INVALID_HISTORY")
 
-    if not history_aborted and scenario in ["D1", "D2"]:
-        act_v1 = next((a for a in actions if get_action_id(a) == "hist_reach_obs_vantage"), None)
-        act_tr1 = next((a for a in actions if get_action_id(a) == "hist_attempt_chokepoint_traversal"), None)
-        act_r1 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0"), None)
-
-        if not (act_v1 and act_tr1 and act_r1):
-            history_valid = False
+    # Step 1: Check memory_events timestamps ordering
+    prev_t = -1.0
+    for ev in memory_events:
+        t_ev = ev.get("sim_time")
+        if not is_finite_number(t_ev) or float(t_ev) <= 0:
             memory_lifecycle_verified = False
-            history_reasons.append("MISSING_D1_HISTORY_ACTIONS")
-        else:
-            v1_ok = (act_v1.get("terminal_status_name") == "SUCCEEDED" and act_v1.get("execution_outcome") == "BUDGET_SUCCESS")
-            tr1_failed = (act_tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or act_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
-            r1_ok = (act_r1.get("terminal_status_name") == "SUCCEEDED" and act_r1.get("execution_outcome") == "BUDGET_SUCCESS")
+            tamper_reasons.append("MISSING_OR_INVALID_MEMORY_EVENT_TIMESTAMP")
+        elif float(t_ev) < prev_t:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"UNSORTED_OR_PREMATURE_MEMORY_EVENT (time {t_ev} < {prev_t})")
+        prev_t = float(t_ev) if is_finite_number(t_ev) else prev_t
 
-            t_tr1 = act_tr1.get("timestamp_sim") or act_tr1.get("evaluation", {}).get("timestamp_sim")
-            t_tr1_start = act_tr1.get("timestamp_sim_start", t_tr1)
-            if not is_finite_number(t_tr1) or float(t_tr1) <= 0:
-                memory_lifecycle_verified = False
-                tamper_reasons.append("MISSING_OR_INVALID_ACTION_TIMESTAMP (hist_attempt_chokepoint_traversal)")
-                t_tr1 = None
+    # Step 2: Event checks per scenario
+    if scenario == "D0":
+        if len(memory_events) > 0:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("UNEXPECTED_MEMORY_EVENTS_IN_D0")
 
-            post_tr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP2_POST_TRAVERSAL"), None)
-            v1_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP1_VANTAGE1"), None)
-            post_tr_recomp = recomputed_perceptions.get("STEP2_POST_TRAVERSAL", {})
-            v1_recomp = recomputed_perceptions.get("STEP1_VANTAGE1", {})
+    elif scenario == "D1":
+        rec_events = [e for e in memory_events if e.get("event_type") == "RECORD_FAILURE"]
+        inv_events = [e for e in memory_events if e.get("event_type") == "INVALIDATE_MEMORY"]
+        other_events = [e for e in memory_events if e.get("event_type") not in ["RECORD_FAILURE", "INVALIDATE_MEMORY"]]
 
-            linked_snap = post_tr_snap if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_snap
-            linked_recomp = post_tr_recomp if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_recomp
-            probe_occ_st = linked_recomp.get("doorway_state")
+        if len(inv_events) > 0:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("UNEXPECTED_INVALIDATION_IN_D1")
+        if len(other_events) > 0:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"UNKNOWN_MEMORY_EVENT_TYPE ({[e.get('event_type') for e in other_events]})")
+        if len(rec_events) > 1:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"DUPLICATE_RECORD_FAILURE_EVENT (found {len(rec_events)} events in D1)")
 
-            if not linked_snap:
-                memory_lifecycle_verified = False
-                tamper_reasons.append("MISSING_LINKED_PERCEPTION_FOR_FAILURE")
-            else:
-                t_p = float(linked_snap.get("sim_time_sec", 0.0))
-                if not is_finite_number(t_p) or t_p <= 0:
-                    memory_lifecycle_verified = False
-                    tamper_reasons.append("MISSING_PERCEPTION_TIMESTAMP_FOR_FAILURE")
-                else:
-                    t_start_val = float(t_tr1_start) if is_finite_number(t_tr1_start) else (float(t_tr1) if t_tr1 else 0.0)
-                    t_end_val = float(t_tr1) if t_tr1 else t_start_val
-                    # Perception must be time-aligned with traversal action window [t_start - 2.0s, t_end + 2.0s]
-                    if t_p < (t_start_val - 2.0) or t_p > (t_end_val + 2.0):
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"STALE_FAILURE_PERCEPTION_TIMESTAMP (t_p={t_p:.2f}s outside action window [{t_start_val:.2f}s, {t_end_val:.2f}s])")
+        if not history_aborted:
+            act_v1 = next((a for a in actions if get_action_id(a) == "hist_reach_obs_vantage"), None)
+            act_tr1 = next((a for a in actions if get_action_id(a) == "hist_attempt_chokepoint_traversal"), None)
+            act_r1 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0"), None)
 
-
-            if not (v1_ok and tr1_failed and r1_ok and probe_occ_st == "OCCUPIED"):
+            if not (act_v1 and act_tr1 and act_r1):
                 history_valid = False
-                history_reasons.append(f"D1_OUTCOME_MISMATCH (v1={v1_ok}, tr1_fail={tr1_failed}, r1={r1_ok}, probe_occ={probe_occ_st})")
+                memory_lifecycle_verified = False
+                history_reasons.append("MISSING_D1_HISTORY_ACTIONS")
+            else:
+                v1_ok = (act_v1.get("terminal_status_name") == "SUCCEEDED" and act_v1.get("execution_outcome") == "BUDGET_SUCCESS")
+                tr1_failed = (act_tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or act_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
+                r1_ok = (act_r1.get("terminal_status_name") == "SUCCEEDED" and act_r1.get("execution_outcome") == "BUDGET_SUCCESS")
 
-            rec_ev = next((e for e in memory_events if e.get("event_type") == "RECORD_FAILURE"), None)
-            if tr1_failed and probe_occ_st == "OCCUPIED" and t_tr1 is not None:
-                if not rec_ev:
+                t_tr1 = act_tr1.get("timestamp_sim") or act_tr1.get("evaluation", {}).get("timestamp_sim")
+                t_tr1_start = act_tr1.get("timestamp_sim_start", t_tr1)
+                real_goal_uuid = str(act_tr1.get("dispatch", {}).get("goal_uuid", ""))
+
+                post_tr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP2_POST_TRAVERSAL"), None)
+                v1_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP1_VANTAGE1"), None)
+                post_tr_recomp = recomputed_perceptions.get("STEP2_POST_TRAVERSAL", {})
+                v1_recomp = recomputed_perceptions.get("STEP1_VANTAGE1", {})
+
+                linked_snap = post_tr_snap if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_snap
+                linked_recomp = post_tr_recomp if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_recomp
+                probe_occ_st = linked_recomp.get("doorway_state")
+                expected_obs_id = str(linked_snap.get("observation_id", "")) if linked_snap else ""
+
+                if not (v1_ok and tr1_failed and r1_ok and probe_occ_st == "OCCUPIED"):
+                    history_valid = False
+                    history_reasons.append(f"D1_OUTCOME_MISMATCH (v1={v1_ok}, tr1_fail={tr1_failed}, r1={r1_ok}, probe_occ={probe_occ_st})")
+
+                if len(rec_events) == 0:
                     memory_lifecycle_verified = False
                     tamper_reasons.append("MISSING_RECORD_FAILURE_IN_MEMORY_EVENTS")
                 else:
+                    rec_ev = rec_events[0]
+                    ev_failed_action = str(rec_ev.get("failed_action_id", ""))
+                    ev_goal_uuid = str(rec_ev.get("goal_uuid", ""))
+                    ev_obs_id = str(rec_ev.get("observation_id", ""))
+                    ev_mem_id = str(rec_ev.get("memory_id", ""))
+                    ev_region = str(rec_ev.get("region_id", ""))
+                    ev_map_ver = str(rec_ev.get("map_version", ""))
+                    ev_time = float(rec_ev.get("sim_time", 0.0))
+
+                    if ev_failed_action and ev_failed_action != "hist_attempt_chokepoint_traversal":
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_FAILED_ACTION_BINDING (expected 'hist_attempt_chokepoint_traversal', got '{ev_failed_action}')")
+                    if real_goal_uuid and ev_goal_uuid and ev_goal_uuid != real_goal_uuid:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_GOAL_UUID_BINDING (expected '{real_goal_uuid}', got '{ev_goal_uuid}')")
+                    if expected_obs_id and ev_obs_id and ev_obs_id != expected_obs_id:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_OBSERVATION_ID_BINDING (expected '{expected_obs_id}', got '{ev_obs_id}')")
+                    if ev_region and ev_region != region_id:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_REGION_BINDING (expected '{region_id}', got '{ev_region}')")
+                    if ev_map_ver and ev_map_ver != map_version:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_MAP_VERSION_BINDING (expected '{map_version}', got '{ev_map_ver}')")
+
+                    t_start_val = float(t_tr1_start) if is_finite_number(t_tr1_start) else (float(t_tr1) if t_tr1 else 0.0)
+                    t_end_val = float(t_tr1) if t_tr1 else t_start_val
+                    if ev_time < (t_start_val - 2.0) or ev_time > (t_end_val + 2.0):
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"STALE_FAILURE_EVENT_TIMESTAMP (ev_time={ev_time:.2f}s outside action window [{t_start_val:.2f}s, {t_end_val:.2f}s])")
+
                     entry = replayed_fail_store.record_failure(
                         goal=target_goal,
                         region_id=region_id,
                         failure_reason="BLOCKED_AT_DOORWAY",
-                        sim_time=float(t_tr1),
-                        failed_action_id="hist_attempt_chokepoint_traversal",
-                        failure_evidence_id="probe_occ_obs",
+                        sim_time=ev_time,
+                        failed_action_id=ev_failed_action or "hist_attempt_chokepoint_traversal",
+                        failure_evidence_id=ev_obs_id or expected_obs_id,
                         failure_evidence=linked_recomp,
                         map_version=map_version,
+                        metadata={"goal_uuid": ev_goal_uuid or real_goal_uuid},
                     )
+                    if not entry or entry.state != MemoryState.ACTIVE:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append("FAILURE_MEMORY_RECORDING_FAILED")
+                    elif ev_mem_id and entry.memory_id != ev_mem_id and ev_mem_id != "unknown":
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_MEMORY_ID_BINDING (reconstructed '{entry.memory_id}' vs recorded '{ev_mem_id}')")
                     m1_suppressed = True
-            else:
-                if rec_ev:
-                    memory_lifecycle_verified = False
-                    tamper_reasons.append("ORPHAN_MEMORY_EVENT_WITHOUT_FAILED_ACTION")
 
-        if scenario == "D2":
+    elif scenario == "D2":
+        rec_events = [e for e in memory_events if e.get("event_type") == "RECORD_FAILURE"]
+        inv_events = [e for e in memory_events if e.get("event_type") == "INVALIDATE_MEMORY"]
+        other_events = [e for e in memory_events if e.get("event_type") not in ["RECORD_FAILURE", "INVALIDATE_MEMORY"]]
+
+        if len(other_events) > 0:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"UNKNOWN_MEMORY_EVENT_TYPE ({[e.get('event_type') for e in other_events]})")
+        if len(rec_events) != 1:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALID_RECORD_FAILURE_COUNT_IN_D2 (expected 1, got {len(rec_events)})")
+        if len(inv_events) != 1:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALID_INVALIDATE_EVENT_COUNT_IN_D2 (expected 1, got {len(inv_events)})")
+
+        if len(rec_events) == 1 and len(inv_events) == 1:
+            t_rec = float(rec_events[0].get("sim_time", 0.0))
+            t_inv = float(inv_events[0].get("sim_time", 0.0))
+            if t_inv <= t_rec:
+                memory_lifecycle_verified = False
+                tamper_reasons.append(f"INVALIDATION_BEFORE_FAILURE_EVENT (invalidation at {t_inv:.2f}s <= failure at {t_rec:.2f}s)")
+
+        if not history_aborted:
+            act_v1 = next((a for a in actions if get_action_id(a) == "hist_reach_obs_vantage"), None)
+            act_tr1 = next((a for a in actions if get_action_id(a) == "hist_attempt_chokepoint_traversal"), None)
+            act_r1 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0"), None)
+
             act_p2 = next((a for a in actions if get_action_id(a) == "hist_probe_clearance_vantage"), None)
             act_r2 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0_clear"), None)
             clr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP4_CLEARANCE_VANTAGE"), None)
             clear_recomp = recomputed_perceptions.get("STEP4_CLEARANCE_VANTAGE", {})
             clear_st = clear_recomp.get("doorway_state")
 
-            if not (act_p2 and act_r2 and clr_snap):
+            if not (act_v1 and act_tr1 and act_r1 and act_p2 and act_r2 and clr_snap):
                 history_valid = False
                 memory_lifecycle_verified = False
                 history_reasons.append("MISSING_D2_HISTORY_ACTIONS_OR_CLEARANCE_PERCEPTION")
             else:
+                v1_ok = (act_v1.get("terminal_status_name") == "SUCCEEDED" and act_v1.get("execution_outcome") == "BUDGET_SUCCESS")
+                tr1_failed = (act_tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or act_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
+                r1_ok = (act_r1.get("terminal_status_name") == "SUCCEEDED" and act_r1.get("execution_outcome") == "BUDGET_SUCCESS")
                 p2_ok = (act_p2.get("terminal_status_name") == "SUCCEEDED" and act_p2.get("execution_outcome") == "BUDGET_SUCCESS")
                 r2_ok = (act_r2.get("terminal_status_name") == "SUCCEEDED" and act_r2.get("execution_outcome") == "BUDGET_SUCCESS")
+
+                t_tr1 = act_tr1.get("timestamp_sim") or act_tr1.get("evaluation", {}).get("timestamp_sim")
+                t_tr1_start = act_tr1.get("timestamp_sim_start", t_tr1)
+                real_goal_uuid = str(act_tr1.get("dispatch", {}).get("goal_uuid", ""))
+
                 t_p2 = act_p2.get("timestamp_sim") or act_p2.get("evaluation", {}).get("timestamp_sim")
                 t_p2_start = act_p2.get("timestamp_sim_start", t_p2)
-                t_clr_p = float(clr_snap.get("sim_time_sec", 0.0))
+                t_clr_p = float(clr_snap.get("evaluation_sim_time_sec", clr_snap.get("sim_time_sec", 0.0)))
+                expected_clear_obs_id = str(clr_snap.get("observation_id", ""))
 
-                if not is_finite_number(t_p2) or float(t_p2) <= 0 or not is_finite_number(t_clr_p) or t_clr_p <= 0:
-                    memory_lifecycle_verified = False
-                    tamper_reasons.append("MISSING_OR_INVALID_CLEARANCE_TIMESTAMP")
-                else:
+                post_tr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP2_POST_TRAVERSAL"), None)
+                v1_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP1_VANTAGE1"), None)
+                post_tr_recomp = recomputed_perceptions.get("STEP2_POST_TRAVERSAL", {})
+                v1_recomp = recomputed_perceptions.get("STEP1_VANTAGE1", {})
+                linked_snap = post_tr_snap if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_snap
+                linked_recomp = post_tr_recomp if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_recomp
+                probe_occ_st = linked_recomp.get("doorway_state")
+                expected_fail_obs_id = str(linked_snap.get("observation_id", "")) if linked_snap else ""
+
+                if not (v1_ok and tr1_failed and r1_ok and probe_occ_st == "OCCUPIED" and p2_ok and r2_ok and clear_st == "FREE"):
+                    history_valid = False
+                    history_reasons.append(f"D2_OUTCOME_MISMATCH (tr1_fail={tr1_failed}, p2={p2_ok}, r2={r2_ok}, clear_st={clear_st})")
+
+                # Replay failure first
+                if len(rec_events) >= 1:
+                    rec_ev = rec_events[0]
+                    ev_failed_action = str(rec_ev.get("failed_action_id", ""))
+                    ev_goal_uuid = str(rec_ev.get("goal_uuid", ""))
+                    ev_obs_id = str(rec_ev.get("observation_id", ""))
+                    ev_mem_id = str(rec_ev.get("memory_id", ""))
+                    ev_time = float(rec_ev.get("sim_time", 0.0))
+
+                    if ev_failed_action and ev_failed_action != "hist_attempt_chokepoint_traversal":
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_FAILED_ACTION_BINDING (expected 'hist_attempt_chokepoint_traversal', got '{ev_failed_action}')")
+                    if real_goal_uuid and ev_goal_uuid and ev_goal_uuid != real_goal_uuid:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_GOAL_UUID_BINDING (expected '{real_goal_uuid}', got '{ev_goal_uuid}')")
+                    if expected_fail_obs_id and ev_obs_id and ev_obs_id != expected_fail_obs_id:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_OBSERVATION_ID_BINDING (expected '{expected_fail_obs_id}', got '{ev_obs_id}')")
+
+                    entry = replayed_fail_store.record_failure(
+                        goal=target_goal,
+                        region_id=region_id,
+                        failure_reason="BLOCKED_AT_DOORWAY",
+                        sim_time=ev_time,
+                        failed_action_id=ev_failed_action or "hist_attempt_chokepoint_traversal",
+                        failure_evidence_id=ev_obs_id or expected_fail_obs_id,
+                        failure_evidence=linked_recomp,
+                        map_version=map_version,
+                        metadata={"goal_uuid": ev_goal_uuid or real_goal_uuid},
+                    )
+                    if not entry or entry.state != MemoryState.ACTIVE:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append("FAILURE_MEMORY_RECORDING_FAILED")
+                    elif ev_mem_id and entry.memory_id != ev_mem_id and ev_mem_id != "unknown":
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_MEMORY_ID_BINDING (reconstructed '{entry.memory_id}' vs recorded '{ev_mem_id}')")
+
+                # Replay invalidation
+                if len(inv_events) >= 1:
+                    inv_ev = inv_events[0]
+                    inv_mem_id = str(inv_ev.get("memory_id", ""))
+                    inv_obs_id = str(inv_ev.get("invalidated_by_observation_id", ""))
+                    inv_time = float(inv_ev.get("sim_time", 0.0))
+
+                    if expected_clear_obs_id and inv_obs_id and inv_obs_id != expected_clear_obs_id:
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append(f"MISMATCHED_INVALIDATION_OBS_BINDING (expected '{expected_clear_obs_id}', got '{inv_obs_id}')")
+
+                    if clear_st != "FREE":
+                        memory_lifecycle_verified = False
+                        tamper_reasons.append("INVALIDATION_WITHOUT_VERIFIED_FREE_PERCEPTION")
+
                     t_p2_s = float(t_p2_start) if is_finite_number(t_p2_start) else float(t_p2)
                     t_p2_e = float(t_p2)
-                    if t_clr_p < (t_p2_s - 2.0) or t_clr_p > (t_p2_e + 2.0):
+                    if inv_time < (t_p2_s - 2.0) or inv_time > (t_p2_e + 2.0):
                         memory_lifecycle_verified = False
-                        tamper_reasons.append(f"STALE_CLEARANCE_PERCEPTION_TIMESTAMP (t_clr_p={t_clr_p:.2f}s outside action window [{t_p2_s:.2f}s, {t_p2_e:.2f}s])")
+                        tamper_reasons.append(f"STALE_CLEARANCE_PERCEPTION_TIMESTAMP (inv_time={inv_time:.2f}s outside action window [{t_p2_s:.2f}s, {t_p2_e:.2f}s])")
 
-
-                if not (p2_ok and r2_ok and clear_st == "FREE"):
-                    history_valid = False
-                    history_reasons.append(f"D2_OUTCOME_MISMATCH (p2={p2_ok}, r2={r2_ok}, clear_st={clear_st})")
-
-                has_inv_event = any(e.get("event_type") == "INVALIDATE_MEMORY" for e in memory_events)
-                if p2_ok and clear_st == "FREE":
-                    if not has_inv_event:
+                    ev_check = dict(clear_recomp)
+                    ev_check["timestamp_sim"] = inv_time
+                    inv_res = replayed_fail_store.evaluate_perception_for_invalidation(
+                        perception_evidence=ev_check,
+                        sim_time=inv_time,
+                        evidence_id=inv_obs_id or expected_clear_obs_id,
+                        map_version=map_version,
+                        region_id=region_id,
+                    )
+                    if not inv_res or len(inv_res) == 0:
                         memory_lifecycle_verified = False
-                        tamper_reasons.append("MISSING_INVALIDATE_MEMORY_IN_MEMORY_EVENTS")
+                        tamper_reasons.append("INVALIDATION_EXECUTION_FAILED (no memory entry invalidated)")
                     else:
-                        inv_ev = dict(clear_recomp)
-                        inv_ev["timestamp_sim"] = t_clr_p
-                        replayed_fail_store.evaluate_perception_for_invalidation(
-                            perception_evidence=inv_ev,
-                            sim_time=t_clr_p,
-                            evidence_id="probe2_obs_clear",
-                            map_version=map_version,
-                            region_id=region_id,
-                        )
-                else:
-                    if has_inv_event:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append("INVALIDATION_EVENT_WITHOUT_VERIFIED_FREE_PERCEPTION")
+                        inv_entry = inv_res[0]
+                        if inv_entry.state != MemoryState.INVALIDATED:
+                            memory_lifecycle_verified = False
+                            tamper_reasons.append(f"INVALIDATION_STATE_TRANSITION_FAILED (entry state is {inv_entry.state})")
+                        if inv_mem_id and inv_entry.memory_id != inv_mem_id and inv_mem_id != "unknown":
+                            memory_lifecycle_verified = False
+                            tamper_reasons.append(f"MISMATCHED_INVALIDATED_MEMORY_ID (reconstructed '{inv_entry.memory_id}' vs recorded '{inv_mem_id}')")
 
     if scenario == "D0" and len(memory_events) > 0:
         memory_lifecycle_verified = False
@@ -675,7 +867,7 @@ def main():
         print("| Episode | Req Route | Act Route | Dead-End | Replayed Dist | Goal OK | Budget OK | Valid | Audit Pass |")
         print("| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |")
         for ep in summary["episodes"]:
-            print(f"| {ep['episode_id']:10s} | {ep.get('requested_route', 'N/A'):18s} | {ep.get('actual_route', 'N/A'):18s} | {ep['dead_end_traversals']:8d} | {ep['replayed_total_dist_m']:11.2f}m | {str(ep['final_goal_success']):7s} | {str(ep['success_within_budget']):9s} | {str(ep['episode_valid']):5s} | {str(ep['audit_pass']):10s} |")
+            print(f"| {ep['episode_id']:10s} | {ep.get('requested_route', 'N/A'):18s} | {ep.get('actual_route', 'N/A'):18s} | {ep.get('dead_end_traversals', 0):8d} | {ep.get('replayed_total_dist_m', 0.0):11.2f}m | {str(ep.get('final_goal_success', False)):7s} | {str(ep.get('success_within_budget', False)):9s} | {str(ep.get('episode_valid', False)):5s} | {str(ep.get('audit_pass', False)):10s} |")
         print("=============================================================================================================\n")
 
 

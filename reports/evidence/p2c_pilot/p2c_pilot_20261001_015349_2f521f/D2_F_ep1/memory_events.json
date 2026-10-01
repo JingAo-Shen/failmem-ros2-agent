@@ -1,0 +1,163 @@
+[
+  {
+    "event_seq": 1,
+    "event_type": "RECORD_FAILURE",
+    "sim_time": 68.1,
+    "memory_id": "mem_entry_0001",
+    "failed_action_id": "hist_attempt_chokepoint_traversal",
+    "goal_uuid": "9c567f86-a044-56c8-825b-c70143dc8915",
+    "observation_id": "obs_step1_vantage1_6b835082",
+    "region_id": "north_corridor_chokepoint",
+    "map_version": "p2c_dualpath_world_v1",
+    "target_goal": [
+      2.5,
+      0.0,
+      0.0
+    ],
+    "initial_state": "ACTIVE",
+    "evidence_state": "OCCUPIED",
+    "evidence": {
+      "doorway_state": "OCCUPIED",
+      "reason": "OBSTACLE_DETECTED (31 laser hits inside doorway bbox, costmap_occupied=20)",
+      "doorway_bbox": [
+        -0.25,
+        0.25,
+        0.9,
+        1.5
+      ],
+      "hits_inside_count": 31,
+      "pass_through_count": 0,
+      "rays_intersecting_bbox_count": 32,
+      "sample_hits_inside": [
+        [
+          -0.1679,
+          1.3618,
+          1.1484
+        ],
+        [
+          -0.1795,
+          1.3797,
+          1.141
+        ],
+        [
+          -0.1895,
+          1.3977,
+          1.1356
+        ],
+        [
+          -0.1873,
+          1.4189,
+          1.1431
+        ],
+        [
+          -0.1759,
+          1.4431,
+          1.1607
+        ]
+      ],
+      "sample_pass_through": [],
+      "laser_origin_map": [
+        -1.29,
+        1.1175
+      ],
+      "laser_yaw_map": 0.2144,
+      "costmap_status": "VALID",
+      "costmap_summary": {
+        "status": "VALID",
+        "error": null,
+        "total_cells": 143,
+        "unknown_cells": 0,
+        "occupied_cells": 20,
+        "opening_lethal_cells": 11,
+        "free_cells": 0,
+        "costmap_cleared": false,
+        "stamp_sec": 38.6
+      },
+      "error": null,
+      "observation_id": "obs_step1_vantage1_6b835082",
+      "region_id": "north_corridor_chokepoint",
+      "map_version": "p2c_dualpath_world_v1",
+      "stamp_sec": 40.400000000000006
+    }
+  },
+  {
+    "event_seq": 2,
+    "event_type": "INVALIDATE_MEMORY",
+    "sim_time": 101.2,
+    "memory_id": "mem_entry_0001",
+    "invalidated_by_observation_id": "obs_step4_clearance_vantage_d5f6f2af",
+    "region_id": "north_corridor_chokepoint",
+    "map_version": "p2c_dualpath_world_v1",
+    "target_goal": [
+      2.5,
+      0.0,
+      0.0
+    ],
+    "previous_state": "ACTIVE",
+    "resulting_state": "INVALIDATED",
+    "evidence_state": "FREE",
+    "evidence": {
+      "doorway_state": "FREE",
+      "reason": "DOORWAY_CLEARANCE_VERIFIED (29 rays traversing through doorway to Room 2, costmap free)",
+      "doorway_bbox": [
+        -0.25,
+        0.25,
+        0.9,
+        1.5
+      ],
+      "hits_inside_count": 0,
+      "pass_through_count": 29,
+      "rays_intersecting_bbox_count": 33,
+      "sample_hits_inside": [],
+      "sample_pass_through": [
+        [
+          1.5816,
+          1.7855,
+          2.9371
+        ],
+        [
+          1.4176,
+          1.7972,
+          2.7804
+        ],
+        [
+          1.2364,
+          1.7986,
+          2.6055
+        ],
+        [
+          1.0812,
+          1.8011,
+          2.4567
+        ],
+        [
+          3.5977,
+          0.1607,
+          4.9696
+        ]
+      ],
+      "laser_origin_map": [
+        -1.2788,
+        1.1186
+      ],
+      "laser_yaw_map": 0.229,
+      "costmap_status": "VALID",
+      "costmap_summary": {
+        "status": "VALID",
+        "error": null,
+        "total_cells": 143,
+        "unknown_cells": 0,
+        "occupied_cells": 0,
+        "opening_lethal_cells": 0,
+        "free_cells": 0,
+        "costmap_cleared": true,
+        "stamp_sec": 100.4
+      },
+      "error": null,
+      "observation_id": "obs_step4_clearance_vantage_d5f6f2af",
+      "region_id": "north_corridor_chokepoint",
+      "map_version": "p2c_dualpath_world_v1",
+      "stamp_sec": 101.2
+    }
+  }
+]

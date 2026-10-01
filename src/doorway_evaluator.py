@@ -301,17 +301,18 @@ def evaluate_doorway_clearance(
     min_obstacle_hits: int = 5,
     max_tf_staleness_sec: float = 1.0,
     max_tf_scan_diff_sec: float = 0.8,
+    max_scan_staleness_sec: float = 1.5,
 ) -> Dict[str, Any]:
     """Evaluate 3-valued doorway state: OCCUPIED / FREE / UNKNOWN.
     
     Strict Rules:
     - OCCUPIED: Verified obstacle laser hits inside doorway (>= min_obstacle_hits) OR costmap occupied.
     - FREE: Zero laser hits inside doorway AND >= min_pass_through_rays passing through doorway to Room 2 AND costmap cleared.
-    - UNKNOWN: TF missing/expired/mismatched, scan all-NaN, doorway out of FOV, costmap missing/stale/unknown cells.
+    - UNKNOWN: TF missing/expired/mismatched, scan all-NaN/stale, doorway out of FOV, costmap missing/stale/unknown cells.
     """
     xmin, xmax, ymin, ymax = doorway_bbox
 
-    # 1. TF Integrity & Timestamp Validation
+    # 1. TF & Scan Integrity & Timestamp Validation
     if tf_translation is None or tf_yaw is None or not is_finite_number(tf_yaw):
         return {
             "doorway_state": "UNKNOWN",
@@ -344,6 +345,18 @@ def evaluate_doorway_clearance(
                 "hits_inside_count": 0,
                 "pass_through_count": 0,
                 "error": "TF_STALE",
+            }
+
+    if scan_stamp_sec is not None and current_sim_time is not None:
+        scan_staleness = current_sim_time - scan_stamp_sec
+        if scan_staleness > max_scan_staleness_sec or scan_staleness < -0.50:
+            return {
+                "doorway_state": "UNKNOWN",
+                "reason": f"SCAN_STALE ({scan_staleness:.3f}s > {max_scan_staleness_sec}s)",
+                "doorway_bbox": list(doorway_bbox),
+                "hits_inside_count": 0,
+                "pass_through_count": 0,
+                "error": "SCAN_STALE",
             }
 
     # 2. Project Laser Scan Rays
@@ -445,3 +458,279 @@ def evaluate_doorway_clearance(
         "costmap_summary": costmap_data_summary,
         "error": None,
     }
+
+
+def create_observation_bundle(
+    stage: str,
+    raw_scan_msg: Any,
+    tf_transform_dict: Optional[Dict[str, Any]],
+    raw_costmap_msg: Any,
+    capture_sim_time: float,
+    capture_wall_time: float,
+    doorway_bbox: Tuple[float, float, float, float] = (-0.20, 0.20, 0.90, 1.50),
+    opening_bbox: Tuple[float, float, float, float] = (-0.15, 0.15, 0.95, 1.45),
+    observation_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Capture an immutable raw observation bundle before perception evaluation.
+    
+    Contains:
+    - observation_id
+    - stage
+    - message timestamps (scan, tf, costmap)
+    - capture timestamps (sim_time, wall_time)
+    - raw scan parameters & untruncated ranges
+    - raw TF transform (translation & yaw)
+    - raw costmap ROI (subgrid_matrix & metadata)
+    """
+    import uuid
+    obs_id = observation_id or f"obs_{stage.lower()}_{uuid.uuid4().hex[:8]}"
+
+    # 1. Scan Data extraction
+    scan_data = None
+    scan_stamp = None
+    if raw_scan_msg is not None:
+        if hasattr(raw_scan_msg, "header"):
+            scan_stamp = float(raw_scan_msg.header.stamp.sec + raw_scan_msg.header.stamp.nanosec * 1e-9)
+            ranges_list = [float(r) if (r is not None and math.isfinite(r)) else None for r in raw_scan_msg.ranges]
+            amin = float(raw_scan_msg.angle_min)
+            amax = float(raw_scan_msg.angle_max)
+            ainc = float(raw_scan_msg.angle_increment)
+            rmin = float(raw_scan_msg.range_min)
+            rmax = float(raw_scan_msg.range_max)
+        elif isinstance(raw_scan_msg, dict):
+            scan_stamp = float(raw_scan_msg.get("stamp_sec", capture_sim_time))
+            ranges_list = [float(r) if (r is not None and math.isfinite(r)) else None for r in raw_scan_msg.get("ranges", [])]
+            amin = float(raw_scan_msg.get("angle_min", -3.14159))
+            amax = float(raw_scan_msg.get("angle_max", 3.14159))
+            ainc = float(raw_scan_msg.get("angle_increment", 0.0087))
+            rmin = float(raw_scan_msg.get("range_min", 0.12))
+            rmax = float(raw_scan_msg.get("range_max", 3.50))
+        else:
+            scan_stamp = float(capture_sim_time)
+            ranges_list = []
+            amin, amax, ainc, rmin, rmax = -3.14159, 3.14159, 0.0087, 0.12, 3.50
+
+        scan_data = {
+            "ranges": ranges_list,
+            "angle_min": amin,
+            "angle_max": amax,
+            "angle_increment": ainc,
+            "range_min": rmin,
+            "range_max": rmax,
+            "stamp_sec": scan_stamp,
+        }
+
+    # 2. TF transform extraction
+    tf_data = None
+    tf_stamp = None
+    if tf_transform_dict is not None:
+        tf_stamp = float(tf_transform_dict.get("stamp_sec", scan_stamp or capture_sim_time))
+        tf_data = {
+            "translation": [float(v) for v in tf_transform_dict.get("translation", [0.0, 0.0, 0.0])],
+            "yaw": float(tf_transform_dict.get("yaw", 0.0)),
+            "stamp_sec": tf_stamp,
+            "frame_id": str(tf_transform_dict.get("frame_id", "map")),
+            "child_frame_id": str(tf_transform_dict.get("child_frame_id", "base_scan")),
+        }
+
+    # 3. Costmap ROI extraction
+    costmap_roi = None
+    cm_stamp = None
+    if raw_costmap_msg is not None:
+        if hasattr(raw_costmap_msg, "header"):
+            cm_stamp = float(raw_costmap_msg.header.stamp.sec + raw_costmap_msg.header.stamp.nanosec * 1e-9)
+            info = raw_costmap_msg.info
+            res = float(info.resolution)
+            ox = float(info.origin.position.x)
+            oy = float(info.origin.position.y)
+            w = int(info.width)
+            h = int(info.height)
+            data = list(raw_costmap_msg.data)
+        elif isinstance(raw_costmap_msg, dict):
+            cm_stamp = float(raw_costmap_msg.get("stamp_sec", capture_sim_time))
+            res = float(raw_costmap_msg.get("resolution", 0.05))
+            ox = float(raw_costmap_msg.get("origin_x", -5.0))
+            oy = float(raw_costmap_msg.get("origin_y", -5.0))
+            w = int(raw_costmap_msg.get("width", 200))
+            h = int(raw_costmap_msg.get("height", 200))
+            data = list(raw_costmap_msg.get("data", []))
+        else:
+            cm_stamp = float(capture_sim_time)
+            res, ox, oy, w, h = 0.05, -5.0, -5.0, 200, 200
+            data = []
+        
+        xmin, xmax, ymin, ymax = doorway_bbox
+        u_min = max(0, int((xmin - ox) / res))
+        u_max = min(w - 1, int((xmax - ox) / res))
+        v_min = max(0, int((ymin - oy) / res))
+        v_max = min(h - 1, int((ymax - oy) / res))
+
+        op_xmin, op_xmax, op_ymin, op_ymax = opening_bbox
+        op_umin = max(0, int((op_xmin - ox) / res))
+        op_umax = min(w - 1, int((op_xmax - ox) / res))
+        op_vmin = max(0, int((op_ymin - oy) / res))
+        op_vmax = min(h - 1, int((op_ymax - oy) / res))
+
+        unknown_cnt = 0
+        free_cnt = 0
+        inflated_cnt = 0
+        lethal_cnt = 0
+        opening_lethal_cnt = 0
+        subgrid_matrix = []
+
+        for v in range(v_min, v_max + 1):
+            row = []
+            for u in range(u_min, u_max + 1):
+                idx = v * w + u
+                val = data[idx] if 0 <= idx < len(data) else -1
+                row.append(val)
+                if val < 0:
+                    unknown_cnt += 1
+                elif val == 0:
+                    free_cnt += 1
+                elif 1 <= val < 100:
+                    inflated_cnt += 1
+                elif val >= 100:
+                    lethal_cnt += 1
+                    if op_umin <= u <= op_umax and op_vmin <= v <= op_vmax:
+                        opening_lethal_cnt += 1
+            subgrid_matrix.append(row)
+
+        costmap_roi = {
+            "costmap_available": True,
+            "costmap_stamp_sec": cm_stamp,
+            "resolution_m": res,
+            "origin_xy": [ox, oy],
+            "grid_bounds_u": [u_min, u_max],
+            "grid_bounds_v": [v_min, v_max],
+            "doorway_bbox": list(doorway_bbox),
+            "opening_bbox": list(opening_bbox),
+            "cell_counts": {
+                "unknown": unknown_cnt,
+                "free": free_cnt,
+                "inflated": inflated_cnt,
+                "lethal": lethal_cnt,
+                "opening_lethal": opening_lethal_cnt,
+            },
+            "has_blockage": (opening_lethal_cnt > 0),
+            "subgrid_matrix": subgrid_matrix,
+        }
+
+    return {
+        "observation_id": obs_id,
+        "stage": stage,
+        "has_raw_scan": (scan_data is not None),
+        "has_tf": (tf_data is not None),
+        "has_costmap_roi": (costmap_roi is not None),
+        "doorway_bbox": list(doorway_bbox),
+        "opening_bbox": list(opening_bbox),
+        "msg_times": {
+            "scan_stamp_sec": scan_stamp,
+            "tf_stamp_sec": tf_stamp,
+            "costmap_stamp_sec": cm_stamp,
+        },
+        "capture_sim_time_sec": capture_sim_time,
+        "capture_wall_time_sec": capture_wall_time,
+        "evaluation_sim_time_sec": None,
+        "evaluation_wall_time_sec": None,
+        "sim_time_sec": capture_sim_time,
+        "scan_data": scan_data,
+        "tf_transform": tf_data,
+        "costmap_roi": costmap_roi,
+        "perception_result": None,
+    }
+
+
+def evaluate_observation_bundle(
+    bundle: Dict[str, Any],
+    current_sim_time: float,
+    current_wall_time: float,
+    min_pass_through_rays: int = 8,
+    min_obstacle_hits: int = 5,
+    max_tf_staleness_sec: float = 1.0,
+    max_tf_scan_diff_sec: float = 0.8,
+    max_scan_staleness_sec: float = 1.5,
+) -> Dict[str, Any]:
+    """Perform doorway clearance evaluation on an observation bundle.
+    
+    Recomputes costmap summary from raw ROI and projects laser rays using TF transform.
+    Attaches evaluation times and perception_result directly into the bundle.
+    """
+    bundle["evaluation_sim_time_sec"] = current_sim_time
+    bundle["evaluation_wall_time_sec"] = current_wall_time
+
+    sdata = bundle.get("scan_data")
+    tfdata = bundle.get("tf_transform")
+    cm_roi = bundle.get("costmap_roi")
+    doorway_bbox = tuple(bundle.get("doorway_bbox", (-0.20, 0.20, 0.90, 1.50)))
+    opening_bbox = tuple(bundle.get("opening_bbox", (-0.15, 0.15, 0.95, 1.45)))
+
+    if not sdata or not tfdata:
+        res = {
+            "doorway_state": "UNKNOWN",
+            "reason": "SCAN_OR_TF_MISSING_IN_BUNDLE",
+            "doorway_bbox": list(doorway_bbox),
+            "hits_inside_count": 0,
+            "pass_through_count": 0,
+            "error": "MISSING_SCAN_OR_TF_DATA",
+            "costmap_status": "UNAVAILABLE",
+            "costmap_summary": None,
+        }
+        bundle["perception_result"] = res
+        return bundle
+
+    # Recompute costmap summary directly from raw ROI
+    costmap_summary = None
+    if cm_roi and cm_roi.get("costmap_available") and cm_roi.get("subgrid_matrix"):
+        recomp_cm = recompute_costmap_subgrid_stats(
+            subgrid_matrix=cm_roi["subgrid_matrix"],
+            grid_bounds_u=cm_roi.get("grid_bounds_u", []),
+            grid_bounds_v=cm_roi.get("grid_bounds_v", []),
+            resolution_m=float(cm_roi.get("resolution_m", 0.05)),
+            origin_xy=cm_roi.get("origin_xy", [-5.0, -5.0]),
+            opening_bbox=opening_bbox,
+        )
+        if recomp_cm.get("valid"):
+            counts = recomp_cm.get("cell_counts", {})
+            total_cells = counts.get("unknown", 0) + counts.get("free", 0) + counts.get("inflated", 0) + counts.get("lethal", 0)
+            costmap_cleared = (total_cells > 0 and counts.get("unknown", 0) == 0 and counts.get("opening_lethal", 0) == 0)
+            costmap_summary = {
+                "status": "VALID",
+                "error": None,
+                "total_cells": total_cells,
+                "unknown_cells": counts.get("unknown", 0),
+                "occupied_cells": counts.get("lethal", 0),
+                "opening_lethal_cells": counts.get("opening_lethal", 0),
+                "free_cells": counts.get("free", 0),
+                "costmap_cleared": costmap_cleared,
+                "stamp_sec": cm_roi.get("costmap_stamp_sec"),
+            }
+        else:
+            costmap_summary = {
+                "status": "INVALID",
+                "error": recomp_cm.get("error", "COSTMAP_RECOMPUTE_FAILED"),
+                "costmap_cleared": False,
+            }
+
+    perception_res = evaluate_doorway_clearance(
+        ranges=sdata.get("ranges", []),
+        angle_min=float(sdata.get("angle_min", -3.14159)),
+        angle_increment=float(sdata.get("angle_increment", 0.0087)),
+        range_min=float(sdata.get("range_min", 0.12)),
+        range_max=float(sdata.get("range_max", 3.50)),
+        tf_translation=tfdata.get("translation"),
+        tf_yaw=float(tfdata.get("yaw", 0.0)),
+        tf_stamp_sec=float(tfdata.get("stamp_sec", sdata.get("stamp_sec", current_sim_time))),
+        scan_stamp_sec=float(sdata.get("stamp_sec", current_sim_time)),
+        current_sim_time=current_sim_time,
+        doorway_bbox=doorway_bbox,
+        costmap_data_summary=costmap_summary,
+        min_pass_through_rays=min_pass_through_rays,
+        min_obstacle_hits=min_obstacle_hits,
+        max_tf_staleness_sec=max_tf_staleness_sec,
+        max_tf_scan_diff_sec=max_tf_scan_diff_sec,
+        max_scan_staleness_sec=max_scan_staleness_sec,
+    )
+    bundle["perception_result"] = perception_res
+    return bundle
+

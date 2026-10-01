@@ -68,6 +68,8 @@ from src.coordinate_alignment import verify_world_map_alignment
 from src.doorway_evaluator import (
     extract_costmap_doorway_subgrid,
     evaluate_doorway_clearance,
+    create_observation_bundle,
+    evaluate_observation_bundle,
 )
 from src.failure_memory import (
     MemoryState,
@@ -212,55 +214,66 @@ def capture_costmap_snapshot(
     }
 
 
-def capture_scan_snapshot(
+def acquire_doorway_observation_bundle(
     node: P1cV3RunnerNode,
     stage: str,
-    sim_time: float,
     doorway_bbox: Tuple[float, float, float, float],
-    perception_result: Dict[str, Any],
+    opening_bbox: Tuple[float, float, float, float],
+    spin_for_fresh_sec: float = 0.5,
+    refresh_amcl: bool = True,
 ) -> Dict[str, Any]:
-    """Capture raw laser scan parameters and map->base_scan TF for independent replay."""
+    """Capture raw observation bundle first, then evaluate perception on that exact bundle."""
+    if refresh_amcl and node.latest_odom_record:
+        lv = abs(float(node.latest_odom_record.get("linear_v", 0.0)))
+        av = abs(float(node.latest_odom_record.get("angular_v", 0.0)))
+        if lv < 0.05 and av < 0.05:
+            curr_sim = node.get_sim_time_sec()
+            amcl_stamp = node.latest_amcl_record.get("msg_stamp_sec", 0.0) if node.latest_amcl_record else 0.0
+            if (curr_sim - amcl_stamp) > 0.40:
+                node.request_nomotion_amcl_update(timeout_sec=1.5)
+
+    if spin_for_fresh_sec > 0.0:
+        t0 = time.monotonic()
+        prev_seq = node.latest_scan_record.get("seq", 0) if node.latest_scan_record else 0
+        while time.monotonic() - t0 < spin_for_fresh_sec:
+            rclpy.spin_once(node, timeout_sec=0.04)
+            curr_seq = node.latest_scan_record.get("seq", 0) if node.latest_scan_record else 0
+            if curr_seq > prev_seq + 1:
+                break
+            time.sleep(0.02)
+
+    t_cap_sim = node.get_sim_time_sec()
+    t_cap_wall = time.monotonic()
+
     raw_scan = node._latest_raw_scan
-    scan_stamp = (raw_scan.header.stamp.sec + raw_scan.header.stamp.nanosec * 1e-9) if raw_scan is not None else sim_time
+    scan_stamp = (raw_scan.header.stamp.sec + raw_scan.header.stamp.nanosec * 1e-9) if raw_scan is not None else t_cap_sim
     tf_rec = node.get_laser_map_transform(stamp_sec=scan_stamp, timeout_sec=0.5)
     if tf_rec is None:
         node.request_nomotion_amcl_update(timeout_sec=1.0)
         tf_rec = node.get_laser_map_transform(timeout_sec=1.0)
 
-    scan_data = None
-    if raw_scan is not None:
-        scan_data = {
-            "ranges": [round(float(r), 4) if (r is not None and math.isfinite(r)) else None for r in raw_scan.ranges],
-            "angle_min": round(float(raw_scan.angle_min), 4),
-            "angle_max": round(float(raw_scan.angle_max), 4),
-            "angle_increment": round(float(raw_scan.angle_increment), 6),
-            "range_min": round(float(raw_scan.range_min), 4),
-            "range_max": round(float(raw_scan.range_max), 4),
-            "stamp_sec": round(scan_stamp, 4),
-        }
+    raw_cm = node._latest_raw_costmap
 
-    tf_data = None
-    if tf_rec is not None:
-        tf_data = {
-            "translation": [round(float(v), 4) for v in tf_rec.get("translation", [0.0, 0.0, 0.0])],
-            "yaw": round(float(tf_rec.get("yaw", 0.0)), 4),
-            "stamp_sec": round(float(tf_rec.get("stamp_sec", scan_stamp)), 4),
-            "frame_id": tf_rec.get("frame_id", "map"),
-            "child_frame_id": tf_rec.get("child_frame_id", "base_scan"),
-        }
+    bundle = create_observation_bundle(
+        stage=stage,
+        raw_scan_msg=raw_scan,
+        tf_transform_dict=tf_rec,
+        raw_costmap_msg=raw_cm,
+        capture_sim_time=t_cap_sim,
+        capture_wall_time=t_cap_wall,
+        doorway_bbox=doorway_bbox,
+        opening_bbox=opening_bbox,
+    )
 
-    obs_id = f"obs_{stage.lower()}_{int(scan_stamp * 1000)}"
-    return {
-        "observation_id": obs_id,
-        "stage": stage,
-        "sim_time_sec": round(scan_stamp, 3),
-        "has_raw_scan": (scan_data is not None),
-        "has_tf": (tf_data is not None),
-        "doorway_bbox": list(doorway_bbox),
-        "scan_data": scan_data,
-        "tf_transform": tf_data,
-        "perception_result": copy.deepcopy(perception_result),
-    }
+    t_eval_sim = node.get_sim_time_sec()
+    t_eval_wall = time.monotonic()
+    evaluated_bundle = evaluate_observation_bundle(
+        bundle=bundle,
+        current_sim_time=t_eval_sim,
+        current_wall_time=t_eval_wall,
+    )
+    return evaluated_bundle
+
 
 
 
@@ -407,10 +420,11 @@ def run_physical_episode(
         costmap_snapshots.append(cm_base)
 
         # Observability Verification from J0
-        obs_j0 = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+        bundle_base_j0 = acquire_doorway_observation_bundle(node, "BASELINE_J0", doorway_bbox, opening_bbox, spin_for_fresh_sec=0.5)
+        scan_snapshots.append(bundle_base_j0)
+        obs_j0 = bundle_base_j0["perception_result"]
         sightline_j0 = verify_sightline_occlusion((spawn_coords[0], spawn_coords[1]), (obs_x, obs_y))
         log_ep(f"J0 Observability: Sightline Occluded={sightline_j0['line_of_sight_occluded']}, Local Doorway State={obs_j0['doorway_state']} (Reason: {obs_j0['reason']})")
-        scan_snapshots.append(capture_scan_snapshot(node, "BASELINE_J0", node.get_sim_time_sec(), doorway_bbox, obs_j0))
 
         action_history_ctx = EpisodeActionHistoryContext(max_retries=10, max_retries_per_state=5)
         dispatcher = ActionDispatcher(context=action_history_ctx, run_id=run_id, episode_id=ep_id)
@@ -512,21 +526,21 @@ def run_physical_episode(
             log_ep(f"[History Phase {scenario_name}] Step 1 Vantage arrival result: SUCCEEDED={vantage1_ok}")
 
             # Sample Live Perception from Vantage Point
-            node.request_nomotion_amcl_update(timeout_sec=1.5)
-            sim_now_v1 = node.get_sim_time_sec()
-            occ_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=1.0)
+            bundle_v1 = acquire_doorway_observation_bundle(node, "STEP1_VANTAGE1", doorway_bbox, opening_bbox, spin_for_fresh_sec=1.0)
+            scan_snapshots.append(bundle_v1)
+            occ_obs = bundle_v1["perception_result"]
+            occ_obs["observation_id"] = bundle_v1["observation_id"]
             occ_obs["region_id"] = chokepoint_region
             occ_obs["map_version"] = map_version
-            occ_obs["stamp_sec"] = round(sim_now_v1, 3)
+            occ_obs["stamp_sec"] = bundle_v1["evaluation_sim_time_sec"]
             log_ep(f"[History Phase {scenario_name}] Step 1 Live Perception: State={occ_obs.get('doorway_state')} (Hits={occ_obs.get('hits_inside_count')}, Reason: {occ_obs.get('reason')})")
-            scan_snapshots.append(capture_scan_snapshot(node, "STEP1_VANTAGE1", sim_now_v1, doorway_bbox, occ_obs))
 
             # Update cache with live observation
             if occ_obs.get("doorway_state") in ["OCCUPIED", "FREE"]:
-                cache.update_observation(chokepoint_region, occ_obs.get("doorway_state"), sim_now_v1, occ_obs)
+                cache.update_observation(chokepoint_region, occ_obs.get("doorway_state"), bundle_v1["evaluation_sim_time_sec"], occ_obs)
 
             # Snapshot Costmap after probe at chokepoint
-            cm_probe1 = capture_costmap_snapshot(node, "COSTMAP_PROBE_BLOCKED_AT_CHOKEPOINT", sim_now_v1, doorway_bbox, opening_bbox)
+            cm_probe1 = capture_costmap_snapshot(node, "COSTMAP_PROBE_BLOCKED_AT_CHOKEPOINT", bundle_v1["evaluation_sim_time_sec"], doorway_bbox, opening_bbox)
             costmap_snapshots.append(cm_probe1)
 
             # 3. Action 2: Attempt Real Chokepoint Traversal through Doorway (Real Nav2 Action)
@@ -545,20 +559,21 @@ def run_physical_episode(
             all_odom_samples.extend(node.episode_odom_samples)
 
             # Sample Fresh Live Perception immediately upon traversal termination
-            sim_now_tr1 = node.get_sim_time_sec()
-            node.request_nomotion_amcl_update(timeout_sec=1.5)
-            post_fail_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=1.0)
+            bundle_tr1 = acquire_doorway_observation_bundle(node, "STEP2_POST_TRAVERSAL", doorway_bbox, opening_bbox, spin_for_fresh_sec=1.0)
+            scan_snapshots.append(bundle_tr1)
+            post_fail_obs = bundle_tr1["perception_result"]
+            post_fail_obs["observation_id"] = bundle_tr1["observation_id"]
             post_fail_obs["region_id"] = chokepoint_region
             post_fail_obs["map_version"] = map_version
-            post_fail_obs["stamp_sec"] = round(sim_now_tr1, 3)
+            post_fail_obs["stamp_sec"] = bundle_tr1["evaluation_sim_time_sec"]
             log_ep(f"[History Phase {scenario_name}] Step 2 Post-traversal Live Perception: State={post_fail_obs.get('doorway_state')} (Hits={post_fail_obs.get('hits_inside_count')}, Reason: {post_fail_obs.get('reason')})")
-            scan_snapshots.append(capture_scan_snapshot(node, "STEP2_POST_TRAVERSAL", sim_now_tr1, doorway_bbox, post_fail_obs))
 
             if post_fail_obs.get("doorway_state") in ["OCCUPIED", "FREE"]:
-                cache.update_observation(chokepoint_region, post_fail_obs.get("doorway_state"), sim_now_tr1, post_fail_obs)
+                cache.update_observation(chokepoint_region, post_fail_obs.get("doorway_state"), bundle_tr1["evaluation_sim_time_sec"], post_fail_obs)
 
-            # Robust linked perception: use post_fail_obs if conclusive, else occ_obs from vantage probe
-            linked_obs = post_fail_obs if post_fail_obs.get("doorway_state") in ["OCCUPIED", "FREE"] else occ_obs
+            # Robust linked bundle & perception
+            linked_bundle = bundle_tr1 if post_fail_obs.get("doorway_state") in ["OCCUPIED", "FREE"] else bundle_v1
+            linked_obs = linked_bundle["perception_result"]
 
             # Diagnose failure cause purely from online odom trajectory and time-aligned perception (zero online GT oracle)
             fail_cause = P2cTrajectoryClassifier.diagnose_failure_cause(
@@ -570,29 +585,36 @@ def run_physical_episode(
             trav1_failed = (trav1_outcome in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or summary_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
             log_ep(f"[History Phase {scenario_name}] Step 2 Traversal outcome: {trav1_outcome} (Diagnosed cause: {fail_cause})")
 
-
             # Only genuine failed action with linked OCCUPIED evidence creates failure memory
             if trav1_failed and linked_obs.get("doorway_state") == "OCCUPIED":
                 entry = fail_store.record_failure(
                     goal=target_goal,
                     region_id=chokepoint_region,
                     failure_reason=fail_cause or trav1_outcome or "BUDGET_DEADLINE_EXCEEDED",
-                    sim_time=sim_now_tr1,
+                    sim_time=bundle_tr1["evaluation_sim_time_sec"],
                     failed_action_id="hist_attempt_chokepoint_traversal",
-                    failure_evidence_id="probe_occ_obs",
+                    failure_evidence_id=str(linked_bundle["observation_id"]),
                     failure_evidence=linked_obs,
                     map_version=map_version,
-                    metadata={"goal_uuid": summary_tr1.get("dispatch", {}).get("goal_uuid")},
+                    metadata={"goal_uuid": str(summary_tr1.get("dispatch", {}).get("goal_uuid"))},
                 )
                 m1_suppressed = True
                 memory_events.append({
+                    "event_seq": len(memory_events) + 1,
                     "event_type": "RECORD_FAILURE",
-                    "sim_time": round(sim_now_tr1, 3),
+                    "sim_time": round(bundle_tr1["evaluation_sim_time_sec"], 4),
                     "memory_id": entry.memory_id if entry else "unknown",
+                    "failed_action_id": "hist_attempt_chokepoint_traversal",
+                    "goal_uuid": str(summary_tr1.get("dispatch", {}).get("goal_uuid")),
+                    "observation_id": str(linked_bundle["observation_id"]),
                     "region_id": chokepoint_region,
+                    "map_version": map_version,
+                    "target_goal": list(target_goal),
+                    "initial_state": "ACTIVE",
+                    "evidence_state": linked_obs.get("doorway_state"),
                     "evidence": linked_obs,
                 })
-                log_ep(f"[History Phase {scenario_name}] Successfully created Failure Memory bound to action 'hist_attempt_chokepoint_traversal'.")
+                log_ep(f"[History Phase {scenario_name}] Successfully created Failure Memory bound to action 'hist_attempt_chokepoint_traversal' (Obs ID: {linked_bundle['observation_id']}).")
             else:
                 log_ep(f"[History Phase {scenario_name}] WARNING: Traversal did not fail with OCCUPIED evidence! Failure memory not created.")
 
@@ -615,11 +637,12 @@ def run_physical_episode(
             log_ep(f"[History Phase {scenario_name}] Step 3 Retreat result: SUCCEEDED={ret1_ok}")
 
             # Resample perception after returning to J0 (verifying UNKNOWN)
-            obs_at_j0 = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+            bundle_ret1 = acquire_doorway_observation_bundle(node, "STEP3_RETREAT_J0", doorway_bbox, opening_bbox, spin_for_fresh_sec=0.5)
+            scan_snapshots.append(bundle_ret1)
+            obs_at_j0 = bundle_ret1["perception_result"]
             log_ep(f"[History Phase {scenario_name}] Resampled perception at J0: State={obs_at_j0.get('doorway_state')} (Reason: {obs_at_j0.get('reason')})")
-            scan_snapshots.append(capture_scan_snapshot(node, "STEP3_RETREAT_J0", node.get_sim_time_sec(), doorway_bbox, obs_at_j0))
 
-            cm_ret1 = capture_costmap_snapshot(node, "COSTMAP_AFTER_RETREAT_TO_J0", node.get_sim_time_sec(), doorway_bbox, opening_bbox)
+            cm_ret1 = capture_costmap_snapshot(node, "COSTMAP_AFTER_RETREAT_TO_J0", bundle_ret1["evaluation_sim_time_sec"], doorway_bbox, opening_bbox)
             costmap_snapshots.append(cm_ret1)
 
             d1_valid = bool(vantage1_ok and trav1_failed and ret1_ok and linked_obs.get("doorway_state") == "OCCUPIED")
@@ -650,39 +673,46 @@ def run_physical_episode(
 
                 vantage2_ok = (summary_p2.get("terminal_status_name") == "SUCCEEDED" and summary_p2.get("execution_outcome") == "BUDGET_SUCCESS")
 
-                node.request_nomotion_amcl_update(timeout_sec=1.5)
-                sim_now_clear = node.get_sim_time_sec()
-                free_obs = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=2.0)
+                bundle_clear = acquire_doorway_observation_bundle(node, "STEP4_CLEARANCE_VANTAGE", doorway_bbox, opening_bbox, spin_for_fresh_sec=2.0)
+                scan_snapshots.append(bundle_clear)
+                free_obs = bundle_clear["perception_result"]
+                free_obs["observation_id"] = bundle_clear["observation_id"]
                 free_obs["region_id"] = chokepoint_region
                 free_obs["map_version"] = map_version
-                free_obs["stamp_sec"] = round(sim_now_clear, 3)
+                free_obs["stamp_sec"] = bundle_clear["evaluation_sim_time_sec"]
                 log_ep(f"[History Phase D2] Step 4 Live Perception: State={free_obs.get('doorway_state')} (Pass-through={free_obs.get('pass_through_count')}, Reason: {free_obs.get('reason')})")
-                scan_snapshots.append(capture_scan_snapshot(node, "STEP4_CLEARANCE_VANTAGE", sim_now_clear, doorway_bbox, free_obs))
-
 
                 if free_obs.get("doorway_state") in ["OCCUPIED", "FREE"]:
-                    cache.update_observation(chokepoint_region, free_obs.get("doorway_state"), sim_now_clear, free_obs)
+                    cache.update_observation(chokepoint_region, free_obs.get("doorway_state"), bundle_clear["evaluation_sim_time_sec"], free_obs)
 
                 if free_obs.get("doorway_state") == "FREE":
                     ev_to_check = dict(free_obs)
-                    ev_to_check["timestamp_sim"] = sim_now_clear
+                    ev_to_check["timestamp_sim"] = bundle_clear["evaluation_sim_time_sec"]
                     inv_entries = fail_store.evaluate_perception_for_invalidation(
                         perception_evidence=ev_to_check,
-                        sim_time=sim_now_clear,
-                        evidence_id="probe2_obs_clear",
+                        sim_time=bundle_clear["evaluation_sim_time_sec"],
+                        evidence_id=bundle_clear["observation_id"],
                         map_version=map_version,
                         region_id=chokepoint_region,
                     )
                     for inv in inv_entries:
                         memory_events.append({
+                            "event_seq": len(memory_events) + 1,
                             "event_type": "INVALIDATE_MEMORY",
-                            "sim_time": round(sim_now_clear, 3),
+                            "sim_time": round(bundle_clear["evaluation_sim_time_sec"], 4),
                             "memory_id": inv.memory_id,
+                            "invalidated_by_observation_id": str(bundle_clear["observation_id"]),
+                            "region_id": chokepoint_region,
+                            "map_version": map_version,
+                            "target_goal": list(target_goal),
+                            "previous_state": "ACTIVE",
+                            "resulting_state": "INVALIDATED",
+                            "evidence_state": free_obs.get("doorway_state"),
                             "evidence": free_obs,
                         })
-                    log_ep(f"[History Phase D2] Evaluated FREE perception -> {len(inv_entries)} Failure Memory INVALIDATED.")
+                    log_ep(f"[History Phase D2] Evaluated FREE perception -> {len(inv_entries)} Failure Memory INVALIDATED (Obs ID: {bundle_clear['observation_id']}).")
 
-                cm_probe2 = capture_costmap_snapshot(node, "COSTMAP_PROBE_CLEARED_AT_CHOKEPOINT", sim_now_clear, doorway_bbox, opening_bbox)
+                cm_probe2 = capture_costmap_snapshot(node, "COSTMAP_PROBE_CLEARED_AT_CHOKEPOINT", bundle_clear["evaluation_sim_time_sec"], doorway_bbox, opening_bbox)
                 costmap_snapshots.append(cm_probe2)
 
                 # Action 5: Retreat back to J0 after clearance observation
@@ -703,11 +733,12 @@ def run_physical_episode(
                 ret2_ok = (summary_r2.get("terminal_status_name") == "SUCCEEDED" and summary_r2.get("execution_outcome") == "BUDGET_SUCCESS")
 
                 # Resample perception after clearance retreat
-                obs_at_j0_clear = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
+                bundle_ret2 = acquire_doorway_observation_bundle(node, "STEP5_RETREAT_J0_CLEAR", doorway_bbox, opening_bbox, spin_for_fresh_sec=0.5)
+                scan_snapshots.append(bundle_ret2)
+                obs_at_j0_clear = bundle_ret2["perception_result"]
                 log_ep(f"[History Phase D2] Resampled perception at J0 after clearance: State={obs_at_j0_clear.get('doorway_state')}")
-                scan_snapshots.append(capture_scan_snapshot(node, "STEP5_RETREAT_J0_CLEAR", node.get_sim_time_sec(), doorway_bbox, obs_at_j0_clear))
 
-                cm_ret2 = capture_costmap_snapshot(node, "COSTMAP_AFTER_CLEARANCE_RETREAT_TO_J0", node.get_sim_time_sec(), doorway_bbox, opening_bbox)
+                cm_ret2 = capture_costmap_snapshot(node, "COSTMAP_AFTER_CLEARANCE_RETREAT_TO_J0", bundle_ret2["evaluation_sim_time_sec"], doorway_bbox, opening_bbox)
                 costmap_snapshots.append(cm_ret2)
 
                 d2_valid = bool(d1_valid and vantage2_ok and ret2_ok and free_obs.get("doorway_state") == "FREE")
@@ -840,8 +871,9 @@ def run_physical_episode(
         dec_gt_samples: List[Dict[str, Any]] = []
 
         # Consume real live observation at decision time
-        obs_dec_j0 = node.evaluate_doorway_perception(doorway_bbox=doorway_bbox, spin_for_fresh_sec=0.5)
-        scan_snapshots.append(capture_scan_snapshot(node, "DECISION_J0", node.get_sim_time_sec(), doorway_bbox, obs_dec_j0))
+        bundle_dec_j0 = acquire_doorway_observation_bundle(node, "DECISION_J0", doorway_bbox, opening_bbox, spin_for_fresh_sec=0.5)
+        scan_snapshots.append(bundle_dec_j0)
+        obs_dec_j0 = bundle_dec_j0["perception_result"]
 
         initial_route, dec_rationale, dec_meta = P2cPolicyDecider.decide_route(
             method=method_name,

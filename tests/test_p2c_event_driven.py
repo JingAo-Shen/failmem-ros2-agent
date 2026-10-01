@@ -419,40 +419,230 @@ def _create_valid_test_episode_bundle(
     scenario: str = "D1",
     method: str = "F",
 ) -> Dict[str, str]:
-    """Helper to create a complete, valid test episode directory in tmp_path."""
+    """Helper to create a complete, 100% production-valid test episode directory in tmp_path."""
+    from src.doorway_evaluator import create_observation_bundle, evaluate_observation_bundle
     ep_dir.mkdir(parents=True, exist_ok=True)
+
+    doorway_bbox = (-0.25, 0.25, 0.90, 1.50)
+    opening_bbox = (-0.15, 0.15, 0.95, 1.45)
+    target_goal = [2.50, 0.00, 0.0]
+    chokepoint_region = "north_corridor_chokepoint"
+    map_version = "p2c_dualpath_world_v1"
+
+    goal_uuid_tr1 = "11111111-2222-3333-4444-555555555555"
+
+    subgrid_blocked = [[100 if (4 <= u <= 6 and 4 <= v <= 6) else 0 for u in range(10)] for v in range(10)]
+    subgrid_free = [[0 for _ in range(10)] for _ in range(10)]
+
+    cm_probe1 = {
+        "stage": "COSTMAP_PROBE_BLOCKED_AT_CHOKEPOINT",
+        "sim_time_sec": 10.0,
+        "costmap_available": True,
+        "resolution_m": 0.05,
+        "origin_xy": [-0.25, 0.90],
+        "grid_bounds_u": [0, 9],
+        "grid_bounds_v": [0, 9],
+        "doorway_bbox": list(doorway_bbox),
+        "opening_bbox": list(opening_bbox),
+        "cell_counts": {"unknown": 0, "free": 91, "inflated": 0, "lethal": 9, "opening_lethal": 9},
+        "has_blockage": True,
+        "subgrid_matrix": subgrid_blocked,
+    }
+
+    cm_probe2 = {
+        "stage": "COSTMAP_PROBE_CLEARED_AT_CHOKEPOINT",
+        "sim_time_sec": 40.0,
+        "costmap_available": True,
+        "resolution_m": 0.05,
+        "origin_xy": [-0.25, 0.90],
+        "grid_bounds_u": [0, 9],
+        "grid_bounds_v": [0, 9],
+        "doorway_bbox": list(doorway_bbox),
+        "opening_bbox": list(opening_bbox),
+        "cell_counts": {"unknown": 0, "free": 100, "inflated": 0, "lethal": 0, "opening_lethal": 0},
+        "has_blockage": False,
+        "subgrid_matrix": subgrid_free,
+    }
+
+    # Bundles created via production functions
+    b_v1 = create_observation_bundle(
+        stage="STEP1_VANTAGE1",
+        raw_scan_msg={"ranges": [1.0] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 10.0},
+        tf_transform_dict={"translation": [-1.00, 1.20, 0.0], "yaw": 0.0, "stamp_sec": 10.0},
+        raw_costmap_msg=None,
+        capture_sim_time=10.0,
+        capture_wall_time=100.0,
+        doorway_bbox=doorway_bbox,
+        opening_bbox=opening_bbox,
+        observation_id="obs_v1_valid_001",
+    )
+    b_v1 = evaluate_observation_bundle(b_v1, current_sim_time=10.0, current_wall_time=100.0)
+
+    b_tr1 = create_observation_bundle(
+        stage="STEP2_POST_TRAVERSAL",
+        raw_scan_msg={"ranges": [0.4] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 20.0},
+        tf_transform_dict={"translation": [-0.40, 1.20, 0.0], "yaw": 0.0, "stamp_sec": 20.0},
+        raw_costmap_msg=None,
+        capture_sim_time=20.0,
+        capture_wall_time=110.0,
+        doorway_bbox=doorway_bbox,
+        opening_bbox=opening_bbox,
+        observation_id="obs_tr1_valid_002",
+    )
+    b_tr1 = evaluate_observation_bundle(b_tr1, current_sim_time=20.0, current_wall_time=110.0)
+
+    b_ret1 = create_observation_bundle(
+        stage="STEP3_RETREAT_J0",
+        raw_scan_msg={"ranges": [2.5] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 28.0},
+        tf_transform_dict={"translation": [-2.50, 0.00, 0.0], "yaw": 0.0, "stamp_sec": 28.0},
+        raw_costmap_msg=None,
+        capture_sim_time=28.0,
+        capture_wall_time=118.0,
+        doorway_bbox=doorway_bbox,
+        opening_bbox=opening_bbox,
+        observation_id="obs_ret1_valid_003",
+    )
+    b_ret1 = evaluate_observation_bundle(b_ret1, current_sim_time=28.0, current_wall_time=118.0)
+
+    b_dec = create_observation_bundle(
+        stage="DECISION_J0",
+        raw_scan_msg={"ranges": [2.5] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 30.0},
+        tf_transform_dict={"translation": [-2.50, 0.00, 0.0], "yaw": 0.0, "stamp_sec": 30.0},
+        raw_costmap_msg=None,
+        capture_sim_time=30.0,
+        capture_wall_time=120.0,
+        doorway_bbox=doorway_bbox,
+        opening_bbox=opening_bbox,
+        observation_id="obs_dec_valid_004",
+    )
+    b_dec = evaluate_observation_bundle(b_dec, current_sim_time=30.0, current_wall_time=120.0)
+
     if scenario == "D1" and method == "F":
         actions = [
-            {"action_id": "hist_reach_obs_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 10.0}},
-            {"action_id": "hist_attempt_chokepoint_traversal", "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_DEADLINE_EXCEEDED", "evaluation": {"timestamp_sim": 20.0}},
-            {"action_id": "hist_retreat_to_j0", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 30.0}},
-            {"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 80.0}},
+            {"action_id": "hist_reach_obs_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 0.0, "timestamp_sim": 10.0, "evaluation": {"timestamp_sim": 10.0}},
+            {"action_id": "hist_attempt_chokepoint_traversal", "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_DEADLINE_EXCEEDED", "timestamp_sim_start": 10.1, "timestamp_sim": 20.0, "dispatch": {"goal_uuid": goal_uuid_tr1}, "evaluation": {"timestamp_sim": 20.0}},
+            {"action_id": "hist_retreat_to_j0", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 20.1, "timestamp_sim": 28.0, "evaluation": {"timestamp_sim": 28.0}},
+            {"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 30.0, "timestamp_sim": 80.0, "evaluation": {"timestamp_sim": 80.0}},
         ]
         requested_route = "Path_B"
+        costmap_snaps = [cm_probe1]
+        scan_snaps = [b_v1, b_tr1, b_ret1, b_dec]
+        mem_events = [
+            {
+                "event_seq": 1,
+                "event_type": "RECORD_FAILURE",
+                "sim_time": 20.0,
+                "memory_id": "mem_entry_0001",
+                "failed_action_id": "hist_attempt_chokepoint_traversal",
+                "goal_uuid": goal_uuid_tr1,
+                "observation_id": "obs_tr1_valid_002",
+                "region_id": chokepoint_region,
+                "map_version": map_version,
+                "target_goal": target_goal,
+                "initial_state": "ACTIVE",
+                "evidence_state": "OCCUPIED",
+            }
+        ]
+
     elif scenario == "D2" and method == "F":
+        b_clr = create_observation_bundle(
+            stage="STEP4_CLEARANCE_VANTAGE",
+            raw_scan_msg={"ranges": [3.0] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 40.0},
+            tf_transform_dict={"translation": [-1.00, 1.20, 0.0], "yaw": 0.0, "stamp_sec": 40.0},
+            raw_costmap_msg=None,
+            capture_sim_time=40.0,
+            capture_wall_time=130.0,
+            doorway_bbox=doorway_bbox,
+            opening_bbox=opening_bbox,
+            observation_id="obs_clr_valid_005",
+        )
+        b_clr = evaluate_observation_bundle(b_clr, current_sim_time=40.0, current_wall_time=130.0)
+
+        b_ret2 = create_observation_bundle(
+            stage="STEP5_RETREAT_J0_CLEAR",
+            raw_scan_msg={"ranges": [2.5] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 48.0},
+            tf_transform_dict={"translation": [-2.50, 0.00, 0.0], "yaw": 0.0, "stamp_sec": 48.0},
+            raw_costmap_msg=None,
+            capture_sim_time=48.0,
+            capture_wall_time=138.0,
+            doorway_bbox=doorway_bbox,
+            opening_bbox=opening_bbox,
+            observation_id="obs_ret2_valid_006",
+        )
+        b_ret2 = evaluate_observation_bundle(b_ret2, current_sim_time=48.0, current_wall_time=138.0)
+
+        b_dec_d2 = create_observation_bundle(
+            stage="DECISION_J0",
+            raw_scan_msg={"ranges": [2.5] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 50.0},
+            tf_transform_dict={"translation": [-2.50, 0.00, 0.0], "yaw": 0.0, "stamp_sec": 50.0},
+            raw_costmap_msg=None,
+            capture_sim_time=50.0,
+            capture_wall_time=140.0,
+            doorway_bbox=doorway_bbox,
+            opening_bbox=opening_bbox,
+            observation_id="obs_dec_d2_valid_007",
+        )
+        b_dec_d2 = evaluate_observation_bundle(b_dec_d2, current_sim_time=50.0, current_wall_time=140.0)
+
         actions = [
-            {"action_id": "hist_reach_obs_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 10.0}},
-            {"action_id": "hist_attempt_chokepoint_traversal", "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_DEADLINE_EXCEEDED", "evaluation": {"timestamp_sim": 20.0}},
-            {"action_id": "hist_retreat_to_j0", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 30.0}},
-            {"action_id": "hist_probe_clearance_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 40.0}},
-            {"action_id": "hist_retreat_to_j0_clear", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 50.0}},
-            {"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 90.0}},
+            {"action_id": "hist_reach_obs_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 0.0, "timestamp_sim": 10.0, "evaluation": {"timestamp_sim": 10.0}},
+            {"action_id": "hist_attempt_chokepoint_traversal", "terminal_status_name": "ABORTED", "execution_outcome": "BUDGET_DEADLINE_EXCEEDED", "timestamp_sim_start": 10.1, "timestamp_sim": 20.0, "dispatch": {"goal_uuid": goal_uuid_tr1}, "evaluation": {"timestamp_sim": 20.0}},
+            {"action_id": "hist_retreat_to_j0", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 20.1, "timestamp_sim": 28.0, "evaluation": {"timestamp_sim": 28.0}},
+            {"action_id": "hist_probe_clearance_vantage", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 30.0, "timestamp_sim": 40.0, "evaluation": {"timestamp_sim": 40.0}},
+            {"action_id": "hist_retreat_to_j0_clear", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 40.1, "timestamp_sim": 48.0, "evaluation": {"timestamp_sim": 48.0}},
+            {"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 50.0, "timestamp_sim": 90.0, "evaluation": {"timestamp_sim": 90.0}},
         ]
         requested_route = "Path_A"
-    else:
+        costmap_snaps = [cm_probe1, cm_probe2]
+        scan_snaps = [b_v1, b_tr1, b_ret1, b_clr, b_ret2, b_dec_d2]
+        mem_events = [
+            {
+                "event_seq": 1,
+                "event_type": "RECORD_FAILURE",
+                "sim_time": 20.0,
+                "memory_id": "mem_entry_0001",
+                "failed_action_id": "hist_attempt_chokepoint_traversal",
+                "goal_uuid": goal_uuid_tr1,
+                "observation_id": "obs_tr1_valid_002",
+                "region_id": chokepoint_region,
+                "map_version": map_version,
+                "target_goal": target_goal,
+                "initial_state": "ACTIVE",
+                "evidence_state": "OCCUPIED",
+            },
+            {
+                "event_seq": 2,
+                "event_type": "INVALIDATE_MEMORY",
+                "sim_time": 40.0,
+                "memory_id": "mem_entry_0001",
+                "invalidated_by_observation_id": "obs_clr_valid_005",
+                "region_id": chokepoint_region,
+                "map_version": map_version,
+                "target_goal": target_goal,
+                "previous_state": "ACTIVE",
+                "resulting_state": "INVALIDATED",
+                "evidence_state": "FREE",
+            }
+        ]
+    else:  # D0_R
         actions = [
-            {"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "evaluation": {"timestamp_sim": 50.0}},
+            {"action_id": "dec_goal", "terminal_status_name": "SUCCEEDED", "execution_outcome": "BUDGET_SUCCESS", "timestamp_sim_start": 0.0, "timestamp_sim": 50.0, "evaluation": {"timestamp_sim": 50.0}},
         ]
         requested_route = "Path_A"
+        costmap_snaps = []
+        scan_snaps = [b_dec]
+        mem_events = []
 
     action_res = {
         "episode_id": ep_dir.name,
+        "condition_id": f"{scenario}_{method}",
         "scenario": scenario,
         "method": method,
         "requested_route": requested_route,
         "chosen_route": requested_route,
         "total_distance_m": 12.0,
-        "total_sim_time_sec": 80.0,
+        "total_sim_time_sec": 80.0 if scenario == "D1" else (90.0 if scenario == "D2" else 50.0),
+        "total_budget_sec": 180.0,
         "actions": actions,
     }
     with open(ep_dir / "action_result.json", "w") as f:
@@ -464,116 +654,60 @@ def _create_valid_test_episode_bundle(
             "gt_trajectory": [{"x": -2.5 + i * 0.1, "y": 0.0, "sim_time": float(i)} for i in range(50)],
         }, f, indent=2)
 
-    subgrid_blocked = [[100 if (4 <= u <= 6 and 4 <= v <= 6) else 0 for u in range(10)] for v in range(10)]
-    subgrid_free = [[0 for _ in range(10)] for _ in range(10)]
-
-    cm_snaps = [
-        {
-            "stage": "COSTMAP_PROBE_BLOCKED",
-            "sim_time_sec": 10.0,
-            "resolution_m": 0.05,
-            "origin_xy": [-0.25, 0.90],
-            "grid_bounds_u": [0, 9],
-            "grid_bounds_v": [0, 9],
-            "doorway_bbox": [-0.25, 0.25, 0.90, 1.50],
-            "opening_bbox": [-0.15, 0.15, 0.95, 1.45],
-            "cell_counts": {"unknown": 0, "free": 91, "inflated": 0, "lethal": 9, "opening_lethal": 9},
-            "subgrid_matrix": subgrid_blocked,
-        }
-    ]
-    if scenario == "D2":
-        cm_snaps.append({
-            "stage": "COSTMAP_PROBE_CLEARED",
-            "sim_time_sec": 40.0,
-            "resolution_m": 0.05,
-            "origin_xy": [-0.25, 0.90],
-            "grid_bounds_u": [0, 9],
-            "grid_bounds_v": [0, 9],
-            "doorway_bbox": [-0.25, 0.25, 0.90, 1.50],
-            "opening_bbox": [-0.15, 0.15, 0.95, 1.45],
-            "cell_counts": {"unknown": 0, "free": 100, "inflated": 0, "lethal": 0, "opening_lethal": 0},
-            "subgrid_matrix": subgrid_free,
-        })
     with open(ep_dir / "costmap_snapshots.json", "w") as f:
-        json.dump(cm_snaps, f, indent=2)
-
-    # Note: TF translation at vantage point [-1.00, 1.20, 0.0] facing doorway [0.00, 1.20] (yaw 0.0)
-    # Range 1.0 reaches doorway bbox [-0.25, 0.25, 0.90, 1.50]
-    scan_snaps = [
-        {
-            "stage": "STEP1_VANTAGE1",
-            "sim_time_sec": 10.0,
-            "has_raw_scan": True,
-            "has_tf": True,
-            "scan_data": {"ranges": [1.0] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 10.0},
-            "tf_transform": {"translation": [-1.00, 1.20, 0.0], "yaw": 0.0, "stamp_sec": 10.0},
-            "perception_result": {"doorway_state": "OCCUPIED"},
-        },
-        {
-            "stage": "STEP2_POST_TRAVERSAL",
-            "sim_time_sec": 20.0,
-            "has_raw_scan": True,
-            "has_tf": True,
-            "scan_data": {"ranges": [0.4] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 20.0},
-            "tf_transform": {"translation": [-0.40, 1.20, 0.0], "yaw": 0.0, "stamp_sec": 20.0},
-            "perception_result": {"doorway_state": "OCCUPIED"},
-        },
-        {
-            "stage": "DECISION_J0",
-            "sim_time_sec": 30.0,
-            "has_raw_scan": True,
-            "has_tf": True,
-            "scan_data": {"ranges": [2.5] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 30.0},
-            "tf_transform": {"translation": [-2.50, 0.00, 0.0], "yaw": 0.0, "stamp_sec": 30.0},
-            "perception_result": {"doorway_state": "UNKNOWN"},
-        },
-    ]
-    if scenario == "D2":
-        scan_snaps.insert(2, {
-            "stage": "STEP4_CLEARANCE_VANTAGE",
-            "sim_time_sec": 40.0,
-            "has_raw_scan": True,
-            "has_tf": True,
-            "scan_data": {"ranges": [3.0] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 40.0},
-            "tf_transform": {"translation": [-1.00, 1.20, 0.0], "yaw": 0.0, "stamp_sec": 40.0},
-            "perception_result": {"doorway_state": "FREE"},
-        })
-        for s in scan_snaps:
-            if s["stage"] == "DECISION_J0":
-                s["sim_time_sec"] = 50.0
-                s["scan_data"]["stamp_sec"] = 50.0
-                s["tf_transform"]["stamp_sec"] = 50.0
+        json.dump(costmap_snaps, f, indent=2)
 
     with open(ep_dir / "scan_snapshots.json", "w") as f:
         json.dump(scan_snaps, f, indent=2)
 
+    t_base = 77.0 if scenario == "D1" else (87.0 if scenario == "D2" else 47.0)
     with open(ep_dir / "stability_window.json", "w") as f:
         json.dump({
-            "sample_count": 5,
+            "sample_count": 7,
             "window_records": [
                 {
-                    "odom": {"linear_v": 0.01, "angular_v": 0.01},
-                    "gt": {"x": 2.50, "y": 0.00, "yaw": 0.00},
-                    "amcl": {"x": 2.50, "y": 0.00, "yaw": 0.00, "covariance_xx": 0.01, "covariance_yy": 0.01, "covariance_yaw": 0.01},
+                    "sample_index": i + 1,
+                    "sim_time": t_base + i * 0.4,
+                    "timestamp_sim": t_base + i * 0.4,
+                    "odom": {
+                        "linear_v": 0.001,
+                        "angular_v": 0.001,
+                        "msg_stamp_sec": t_base + i * 0.4,
+                        "recv_sim_time_sec": t_base + i * 0.4,
+                        "x": 2.50,
+                        "y": 0.00,
+                        "yaw": 0.00,
+                    },
+                    "gt": {
+                        "linear_v": 0.0001,
+                        "angular_v": 0.0001,
+                        "msg_stamp_sec": t_base + i * 0.4,
+                        "recv_sim_time_sec": t_base + i * 0.4,
+                        "sim_time": t_base + i * 0.4,
+                        "x": 2.50,
+                        "y": 0.00,
+                        "yaw": 0.00,
+                    },
+                    "amcl": {
+                        "x": 2.50,
+                        "y": 0.00,
+                        "yaw": 0.00,
+                        "covariance_xx": 0.01,
+                        "covariance_yy": 0.01,
+                        "covariance_yaw": 0.01,
+                        "msg_stamp_sec": t_base + i * 0.4,
+                    },
+                    "cmd_vel": {
+                        "linear_x": 0.0,
+                        "linear_y": 0.0,
+                        "angular_z": 0.0,
+                        "recv_sim_time_sec": t_base + i * 0.4,
+                    },
                 }
+                for i in range(7)
             ],
         }, f, indent=2)
 
-    mem_events = []
-    if scenario in ["D1", "D2"]:
-        mem_events.append({
-            "event_type": "RECORD_FAILURE",
-            "sim_time": 20.0,
-            "memory_id": "mem_entry_0001",
-            "region_id": "north_corridor_chokepoint",
-        })
-    if scenario == "D2":
-        mem_events.append({
-            "event_type": "INVALIDATE_MEMORY",
-            "sim_time": 40.0,
-            "memory_id": "mem_entry_0001",
-            "region_id": "north_corridor_chokepoint",
-        })
     with open(ep_dir / "memory_events.json", "w") as f:
         json.dump(mem_events, f, indent=2)
 
@@ -588,153 +722,283 @@ def _create_valid_test_episode_bundle(
             },
         }, f, indent=2)
 
-    return _recompute_episode_checksums(ep_dir)
-
-
-# =============================================================================
-# 7 NEGATIVE ACCEPTANCE TESTS FOR P2c PRODUCTION REPLAY & AUDIT
-# =============================================================================
-
-def test_negative_1_policy_route_altered_replay_fail(tmp_path):
-    """Negative Test 1: Runner claimed Path B chosen, but recomputed decision selects Path A -> REPLAY FAIL."""
-    from scripts.replay_and_score_p2c import replay_p2c_episode
-
-    ep_dir = tmp_path / "D0_R_ep1"
-    _create_valid_test_episode_bundle(ep_dir, scenario="D0", method="R")
-
-    # In D0_R with UNKNOWN perception at J0, Method R selects Path A.
-    # Alter action_result to falsely claim Path_B was chosen.
-    with open(ep_dir / "action_result.json", "r") as f:
-        data = json.load(f)
-    data["requested_route"] = "Path_B"
-    data["chosen_route"] = "Path_B"
-    with open(ep_dir / "action_result.json", "w") as f:
-        json.dump(data, f, indent=2)
-
     chks = _recompute_episode_checksums(ep_dir)
-    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
-    assert res["policy_matched"] is False
-    assert res["audit_pass"] is False
-    assert any("POLICY_DECISION_MISMATCH" in r for r in res["failure_reasons"])
+    with open(ep_dir / "checksums.sha256", "w") as f:
+        for k, v in sorted(chks.items()):
+            f.write(f"{v}  {k}\n")
+
+    return chks
 
 
-def test_negative_2_missing_decision_j0_snapshot_replay_fail(tmp_path):
-    """Negative Test 2: Missing DECISION_J0 observation snapshot -> REPLAY FAIL."""
+# =============================================================================
+# POSITIVE-NEGATIVE PAIRED ACCEPTANCE TESTS FOR P2c PRODUCTION REPLAY & AUDIT
+# =============================================================================
+
+def test_negative_pair_1_tampered_memory_id_binding(tmp_path):
+    """Negative Test 1: Mutating memory_id binding -> REPLAY FAIL (MISMATCHED_MEMORY_ID_BINDING)."""
     from scripts.replay_and_score_p2c import replay_p2c_episode
 
     ep_dir = tmp_path / "D1_F_ep1"
-    _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
 
-    # Delete DECISION_J0 snapshot
-    with open(ep_dir / "scan_snapshots.json", "r") as f:
-        snaps = json.load(f)
-    snaps = [s for s in snaps if s.get("stage") != "DECISION_J0"]
-    with open(ep_dir / "scan_snapshots.json", "w") as f:
-        json.dump(snaps, f, indent=2)
+    # Step 1: Base fixture must pass audit
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True, f"Base fixture failed: {base_res['failure_reasons']}"
 
-    chks = _recompute_episode_checksums(ep_dir)
-    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
-    assert res["policy_matched"] is False or res["raw_evidence_verified"] is False
-    assert res["audit_pass"] is False
-    assert any("MISSING_DECISION_J0_PERCEPTION_SNAPSHOT" in r for r in res["failure_reasons"])
-
-
-def test_negative_3_memory_event_without_causal_action_replay_fail(tmp_path):
-    """Negative Test 3: Memory event recorded without matching causal action failure -> REPLAY FAIL."""
-    from scripts.replay_and_score_p2c import replay_p2c_episode
-
-    ep_dir = tmp_path / "D0_F_ep1"
-    _create_valid_test_episode_bundle(ep_dir, scenario="D0", method="F")
-
-    # In D0, all actions succeeded. Add an orphan RECORD_FAILURE event!
+    # Step 2: Mutate memory_id binding in memory_events.json
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["memory_id"] = "tampered_fake_mem_9999"
     with open(ep_dir / "memory_events.json", "w") as f:
-        json.dump([{"event_type": "RECORD_FAILURE", "sim_time": 10.0, "memory_id": "orphan_mem"}], f, indent=2)
+        json.dump(events, f, indent=2)
 
-    chks = _recompute_episode_checksums(ep_dir)
-    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
-    assert res["memory_lifecycle_verified"] is False
+    # Step 3: Recompute checksums to isolate semantic failure
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
     assert res["audit_pass"] is False
-    assert any("UNEXPECTED_MEMORY_EVENTS_IN_D0" in r or "ORPHAN_MEMORY_EVENT" in r for r in res["failure_reasons"])
+    assert any("MISMATCHED_MEMORY_ID_BINDING" in r for r in res["failure_reasons"])
 
 
-def test_negative_4_stale_observation_timestamp_replay_fail(tmp_path):
-    """Negative Test 4: Stale observation timestamp (> 2.0s difference) cannot justify failure -> REPLAY FAIL."""
+def test_negative_pair_2_tampered_goal_uuid_binding(tmp_path):
+    """Negative Test 2: Mutating goal_uuid binding -> REPLAY FAIL (MISMATCHED_GOAL_UUID_BINDING)."""
     from scripts.replay_and_score_p2c import replay_p2c_episode
 
     ep_dir = tmp_path / "D1_F_ep1"
-    _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
 
-    # Change STEP2_POST_TRAVERSAL timestamp to 5.0s (action failed at 20.0s -> 15s staleness)
-    with open(ep_dir / "scan_snapshots.json", "r") as f:
-        snaps = json.load(f)
-    for s in snaps:
-        if s.get("stage") == "STEP2_POST_TRAVERSAL":
-            s["sim_time_sec"] = 5.0
-            s["scan_data"]["stamp_sec"] = 5.0
-            s["tf_transform"]["stamp_sec"] = 5.0
-    with open(ep_dir / "scan_snapshots.json", "w") as f:
-        json.dump(snaps, f, indent=2)
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
 
-    chks = _recompute_episode_checksums(ep_dir)
-    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
-    assert res["memory_lifecycle_verified"] is False or res["history_valid"] is False
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["goal_uuid"] = "99999999-9999-9999-9999-999999999999"
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
     assert res["audit_pass"] is False
-    assert any("STALE_FAILURE_PERCEPTION_TIMESTAMP" in r for r in res["failure_reasons"])
+    assert any("MISMATCHED_GOAL_UUID_BINDING" in r for r in res["failure_reasons"])
 
 
-def test_negative_5_costmap_roi_subgrid_discrepancy_replay_fail(tmp_path):
-    """Negative Test 5: Subgrid cell count discrepancy (tampered lethal count vs raw subgrid) -> REPLAY FAIL."""
+def test_negative_pair_3_tampered_observation_id_binding(tmp_path):
+    """Negative Test 3: Mutating observation_id binding -> REPLAY FAIL (MISMATCHED_OBSERVATION_ID_BINDING)."""
     from scripts.replay_and_score_p2c import replay_p2c_episode
 
     ep_dir = tmp_path / "D1_F_ep1"
-    _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
 
-    # Tamper with recorded cell_counts to say opening_lethal=0 while subgrid_matrix has 100s
-    with open(ep_dir / "costmap_snapshots.json", "r") as f:
-        cms = json.load(f)
-    cms[0]["cell_counts"]["opening_lethal"] = 0
-    cms[0]["cell_counts"]["lethal"] = 0
-    with open(ep_dir / "costmap_snapshots.json", "w") as f:
-        json.dump(cms, f, indent=2)
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
 
-    chks = _recompute_episode_checksums(ep_dir)
-    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
-    assert res["costmap_valid"] is False
-    assert res["raw_evidence_verified"] is False
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["observation_id"] = "obs_fake_nonexistent_999"
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
     assert res["audit_pass"] is False
-    assert any("COSTMAP_SUBGRID_DISCREPANCY" in r for r in res["failure_reasons"])
+    assert any("MISMATCHED_OBSERVATION_ID_BINDING" in r for r in res["failure_reasons"])
 
 
-def test_negative_6_d2_false_clearance_replay_fail(tmp_path):
-    """Negative Test 6: Obstacle still lethal in scan/costmap but runner recorded FREE -> REPLAY FAIL."""
+def test_negative_pair_4_duplicate_record_failure(tmp_path):
+    """Negative Test 4: Duplicate RECORD_FAILURE event -> REPLAY FAIL (DUPLICATE_RECORD_FAILURE_EVENT)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    dup_event = dict(events[0])
+    dup_event["event_seq"] = 2
+    events.append(dup_event)
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("DUPLICATE_RECORD_FAILURE_EVENT" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_5_invalidation_before_failure(tmp_path):
+    """Negative Test 5: Invalidation timestamp before failure -> REPLAY FAIL (INVALIDATION_BEFORE_FAILURE_EVENT)."""
     from scripts.replay_and_score_p2c import replay_p2c_episode
 
     ep_dir = tmp_path / "D2_F_ep1"
-    _create_valid_test_episode_bundle(ep_dir, scenario="D2", method="F")
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D2", method="F")
 
-    # Alter STEP4_CLEARANCE_VANTAGE laser scan to hit obstacle (0.4m) while recorded perception says FREE
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Mutate INVALIDATE_MEMORY sim_time to 15.0s (failure is at 20.0s)
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    for e in events:
+        if e.get("event_type") == "INVALIDATE_MEMORY":
+            e["sim_time"] = 15.0
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("INVALIDATION_BEFORE_FAILURE_EVENT" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_6_future_free_does_not_alter_past_decision(tmp_path):
+    """Negative Test 6: Future FREE observation after decision timestamp does not alter past decision."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+    from src.doorway_evaluator import create_observation_bundle, evaluate_observation_bundle
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+    assert base_res["requested_route"] == "Path_B"
+
+    # Insert a future FREE observation at t=100.0s (after t_dec=30.0s)
+    with open(ep_dir / "scan_snapshots.json", "r") as f:
+        snaps = json.load(f)
+    b_future = create_observation_bundle(
+        stage="STEP_FUTURE_CLEAR",
+        raw_scan_msg={"ranges": [3.0] * 360, "angle_min": -3.14159, "angle_max": 3.14159, "angle_increment": 0.01745, "range_min": 0.12, "range_max": 3.5, "stamp_sec": 100.0},
+        tf_transform_dict={"translation": [-1.00, 1.20, 0.0], "yaw": 0.0, "stamp_sec": 100.0},
+        raw_costmap_msg=None,
+        capture_sim_time=100.0,
+        capture_wall_time=200.0,
+        observation_id="obs_future_free",
+    )
+    b_future = evaluate_observation_bundle(b_future, current_sim_time=100.0, current_wall_time=200.0)
+    snaps.append(b_future)
+    with open(ep_dir / "scan_snapshots.json", "w") as f:
+        json.dump(snaps, f, indent=2)
+
+    # 1. With action_result remaining Path_B, decision at t_dec=30.0s is unchanged and replayer matches Path_B
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res_b = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res_b["policy_matched"] is True
+
+    # 2. If runner falsely claimed Path_A at decision time, replay must REJECT due to POLICY_DECISION_MISMATCH
+    with open(ep_dir / "action_result.json", "r") as f:
+        data = json.load(f)
+    data["requested_route"] = "Path_A"
+    data["chosen_route"] = "Path_A"
+    with open(ep_dir / "action_result.json", "w") as f:
+        json.dump(data, f, indent=2)
+
+    chks_new2 = _recompute_episode_checksums(ep_dir)
+    res_a = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new2, checksum_file_present=True)
+    assert res_a["audit_pass"] is False
+    assert any("POLICY_DECISION_MISMATCH" in r for r in res_a["failure_reasons"])
+
+
+def test_negative_pair_7_orphan_invalidation_without_free_evidence(tmp_path):
+    """Negative Test 7: Invalidation event recorded without verified FREE perception -> REPLAY FAIL."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D2_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D2", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Alter STEP4_CLEARANCE_VANTAGE to hit obstacle (ranges=0.4m), making recomputed perception OCCUPIED
     with open(ep_dir / "scan_snapshots.json", "r") as f:
         snaps = json.load(f)
     for s in snaps:
         if s.get("stage") == "STEP4_CLEARANCE_VANTAGE":
-            s["scan_data"]["ranges"] = [0.4] * 360  # obstacle present!
-            s["perception_result"]["doorway_state"] = "FREE"  # runner falsely claims FREE
+            s["scan_data"]["ranges"] = [0.4] * 360
+            s["perception_result"]["doorway_state"] = "FREE"  # Falsely claimed FREE
     with open(ep_dir / "scan_snapshots.json", "w") as f:
         json.dump(snaps, f, indent=2)
 
-    chks = _recompute_episode_checksums(ep_dir)
-    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
-    assert res["raw_evidence_verified"] is False or res["memory_lifecycle_verified"] is False
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
     assert res["audit_pass"] is False
-    assert any("PERCEPTION_RECOMPUTE_MISMATCH" in r or "INVALIDATION_EVENT_WITHOUT_VERIFIED_FREE_PERCEPTION" in r for r in res["failure_reasons"])
+    assert any("PERCEPTION_RECOMPUTE_MISMATCH" in r or "INVALIDATION_WITHOUT_VERIFIED_FREE_PERCEPTION" in r for r in res["failure_reasons"])
 
 
-def test_negative_7_checksum_tampered_file_replay_fail(tmp_path):
-    """Negative Test 7: Tampered file without matching checksums.sha256 -> REPLAY FAIL."""
+def test_negative_pair_8_tampered_bundle_costmap_summary_without_raw_roi(tmp_path):
+    """Negative Test 8: Tampered costmap summary in perception_result without modifying raw ROI -> REPLAY FAIL."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Tamper STEP2_POST_TRAVERSAL: attach a costmap_roi with lethal cells, but claim costmap_cleared=True in perception_result
+    with open(ep_dir / "scan_snapshots.json", "r") as f:
+        snaps = json.load(f)
+    for s in snaps:
+        if s.get("stage") == "STEP2_POST_TRAVERSAL":
+            s["costmap_roi"] = {
+                "costmap_available": True,
+                "costmap_stamp_sec": 20.0,
+                "resolution_m": 0.05,
+                "origin_xy": [-0.25, 0.90],
+                "grid_bounds_u": [0, 9],
+                "grid_bounds_v": [0, 9],
+                "doorway_bbox": [-0.25, 0.25, 0.90, 1.50],
+                "opening_bbox": [-0.15, 0.15, 0.95, 1.45],
+                "cell_counts": {"unknown": 0, "free": 91, "inflated": 0, "lethal": 9, "opening_lethal": 9},
+                "subgrid_matrix": [[100 if (4 <= u <= 6 and 4 <= v <= 6) else 0 for u in range(10)] for v in range(10)],
+            }
+            s["perception_result"]["costmap_summary"] = {"costmap_cleared": True, "occupied_cells": 0}
+            s["perception_result"]["doorway_state"] = "FREE"  # Falsely claims FREE!
+    with open(ep_dir / "scan_snapshots.json", "w") as f:
+        json.dump(snaps, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("PERCEPTION_RECOMPUTE_MISMATCH" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_9_stale_scan_timestamp_exceeds_threshold(tmp_path):
+    """Negative Test 9: Scan timestamp difference from evaluation time exceeds protocol threshold (1.5s) -> REPLAY FAIL."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Alter STEP2_POST_TRAVERSAL scan stamp to 10.0s (eval time is 20.0s, diff=10s > 1.5s)
+    with open(ep_dir / "scan_snapshots.json", "r") as f:
+        snaps = json.load(f)
+    for s in snaps:
+        if s.get("stage") == "STEP2_POST_TRAVERSAL":
+            s["scan_data"]["stamp_sec"] = 10.0
+            s["tf_transform"]["stamp_sec"] = 10.0
+    with open(ep_dir / "scan_snapshots.json", "w") as f:
+        json.dump(snaps, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("STALE_SCAN_TIMESTAMP_IN_BUNDLE" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_10_hash_tampered_file_without_checksum_update(tmp_path):
+    """Negative Test 10: File modified without updating checksum tree -> REPLAY FAIL (HASH_MISMATCH)."""
     from scripts.replay_and_score_p2c import replay_p2c_episode
 
     ep_dir = tmp_path / "D1_F_ep1"
     original_chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=original_chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
 
     # Tamper file WITHOUT updating checksums dict
     with open(ep_dir / "action_result.json", "r") as f:
@@ -747,5 +1011,29 @@ def test_negative_7_checksum_tampered_file_replay_fail(tmp_path):
     assert res["checksums_verified"] is False
     assert res["audit_pass"] is False
     assert any("HASH_MISMATCH" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_11_missing_decision_j0_snapshot(tmp_path):
+    """Negative Test 11: Missing DECISION_J0 observation snapshot -> REPLAY FAIL (MISSING_DECISION_J0_PERCEPTION_SNAPSHOT)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Delete DECISION_J0 snapshot
+    with open(ep_dir / "scan_snapshots.json", "r") as f:
+        snaps = json.load(f)
+    snaps = [s for s in snaps if s.get("stage") != "DECISION_J0"]
+    with open(ep_dir / "scan_snapshots.json", "w") as f:
+        json.dump(snaps, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("MISSING_DECISION_J0_PERCEPTION_SNAPSHOT" in r for r in res["failure_reasons"])
+
 
 
