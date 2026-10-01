@@ -1,12 +1,11 @@
-# Auditable Failure Memory for ROS 2 Navigation: An Exploratory Comparison with Spatial Caching
-
-**Anonymous Authors**
-
+---
+title: "Auditable Failure Memory for ROS 2 Navigation: An Exploratory Comparison with Spatial Caching"
+author: "Anonymous Authors"
 ---
 
 ## Abstract
 
-Autonomous mobile robots navigating dynamic indoor environments frequently encounter execution failures at physical chokepoints, narrow passages, and transient blockages. Standard navigation architectures (e.g., ROS 2 Nav2) employ reactive intra-episode recovery behaviors, yet they lack structured cross-episode memory indexing, leading to repetitive dead-end retries across subsequent tasks. Conversely, verbal self-reflection frameworks in embodied AI store unstructured text logs in prompt contexts that lack physical sensor postcondition grounding and spatial expiration semantics. In this work, we present **FailMem**, an event-driven, causally bound failure memory architecture for autonomous mobile robots. FailMem records immutable observation bundles comprising raw LiDAR range arrays, TF coordinate transforms, and raw 2D costmap regions-of-interest (ROIs), binding navigation failures to specific execution regions and action identities while dynamically invalidating suppression upon verified sensory clearance. To ensure rigorous scientific evaluation and eliminate unverified synthetic abstractions, we implement an independent replay audit pipeline that recomputes sensory metrics directly from raw physical observations against SHA256 checksum manifests. Evaluated across 30 physical simulation runs in Gazebo 11 with ROS 2 Humble Nav2 ($n=3$ per condition under sequential fixed-seed execution), FailMem ($F$) eliminates redundant dead-end traversals relative to a constrained reactive baseline ($R$), reducing total travel distance by $-18.5\%$ ($14.03\,\text{m}$ vs. $17.22\,\text{m}$) and total execution time by $-22.3\%$ ($109.5\,\text{s}$ vs. $141.0\,\text{s}$). Furthermore, dynamic memory invalidation saves $-11.0\%$ total distance relative to permanent suppression ($M1$) upon environmental recovery ($16.25\,\text{m}$ vs. $18.25\,\text{m}$). In our exploratory single-agent benchmark under static 2D geometric blockages, FailMem and a spatial observation caching baseline ($O$) exhibited identical high-level route choices with $<1\%$ metric differences ($14.03\,\text{m}$ vs. $13.95\,\text{m}$ in D1; $16.25\,\text{m}$ vs. $16.40\,\text{m}$ in D2). In this exploratory dataset, route choices were identical and showed no additional benefit of $F$ over $O$; general scenarios and statistical equivalence have not been verified. Finally, an exploratory feasibility check ($n=4$) on candidate action-conditioned execution ($H_1$) revealed that local planners negotiated narrow inflation margins without controller abortion (4/4 Nav2 `SUCCEEDED`, 3/4 verified strict physical arrival), indicating that the tested scenario did not establish executability divergence and providing concrete guidance for future action-profiled memory designs.
+Autonomous mobile robots navigating dynamic indoor environments frequently encounter execution failures at physical chokepoints, narrow passages, and transient blockages. Standard navigation architectures (e.g., ROS 2 Nav2) employ reactive intra-episode recovery behaviors, yet they lack structured cross-episode memory indexing, leading to repetitive dead-end retries across subsequent tasks. Unlike embodied agent architectures relying on LLM/VLM generative reflection (e.g., Reflexion) or specific rule-based failure summarization (e.g., REFLECT), FailMem operates directly at the low-level ROS action and costmap interface without natural language prompt overhead or unverified verbal heuristics. In this work, we present **FailMem**, an event-driven, causally bound failure memory architecture for autonomous mobile robots. FailMem records immutable observation bundles comprising raw LiDAR range arrays, TF coordinate transforms, and raw 2D costmap regions-of-interest (ROIs), binding navigation failures to specific execution regions and action identities while dynamically invalidating suppression upon verified sensory clearance. To ensure rigorous scientific evaluation and eliminate unverified synthetic abstractions, we implement an independent replay audit pipeline that recomputes sensory metrics directly from raw physical observations against SHA256 checksum manifests. Evaluated across 30 physical simulation runs in Gazebo 11 with ROS 2 Humble Nav2 ($n=3$ per condition under sequential fixed-seed execution), FailMem ($F$) eliminates redundant dead-end traversals relative to a constrained reactive baseline ($R$), reducing total travel distance by $-18.5\%$ ($14.03\,\text{m}$ vs. $17.22\,\text{m}$) and total execution time by $-22.3\%$ ($109.5\,\text{s}$ vs. $141.0\,\text{s}$). Furthermore, dynamic memory invalidation saves $-11.0\%$ total distance relative to permanent suppression ($M1$) upon environmental recovery ($16.25\,\text{m}$ vs. $18.25\,\text{m}$). In our exploratory single-agent benchmark under static 2D geometric blockages, FailMem and a spatial observation caching baseline ($O$) exhibited identical high-level route choices with $<1\%$ differences in reported total travel distance and total execution duration ($14.03\,\text{m}$ vs. $13.95\,\text{m}$ in D1; $16.25\,\text{m}$ vs. $16.40\,\text{m}$ in D2). In this exploratory dataset, route choices were identical and showed no additional benefit of $F$ over $O$; general scenarios and statistical equivalence have not been verified. Finally, an exploratory feasibility check ($n=4$) on candidate action-conditioned execution ($H_1$) revealed that local planners negotiated narrow inflation margins without controller abortion (4/4 Nav2 `SUCCEEDED`, 3/4 verified strict physical arrival), indicating that the tested scenario did not establish executability divergence and providing concrete guidance for future action-profiled memory designs.
 
 ---
 
@@ -15,16 +14,18 @@ Autonomous mobile robots navigating dynamic indoor environments frequently encou
 Autonomous mobile robots deployed in complex indoor environments—such as fulfillment warehouses, clinical facilities, and office buildings—must repeatedly traverse structured corridors and shared doorways. In such environments, unmapped physical blockages (e.g., temporarily parked carts or closed security doors) frequently obstruct the nominal shortest path. Standard navigation systems, such as the ROS 2 Navigation Stack (Nav2) \cite{macenski2020marathon2, macenski2022ros2}, rely on layered 2D costmaps \cite{lu2014layered} and local recovery behaviors (e.g., in-place rotations, backup maneuvers, costmap clearing). While these recovery routines assist in negotiating transient obstacles during active trajectory tracking, they are bound to the execution lifetime of individual navigation actions. When a new navigation goal is dispatched from a distant decision junction, the robot has no structured representation of prior execution failures in occluded corridors, resulting in unguided retry traversals into known dead ends before local sensors can re-acquire line-of-sight.
 
 To mitigate unguided re-exploration, two primary paradigms have been explored:
+
 1. **Spatial Occupancy Mapping**: Updating global geometric representations (e.g., Costmap2D \cite{lu2014layered}, OctoMap \cite{hornung2013octomap}, Voxblox \cite{oleynikova2017voxblox}) as sensor observations reveal occupied space.
 2. **Episodic Failure Memory & Verbal Reflection**: Storing execution traces, error diagnostics, or natural language self-reflections (e.g., Reflexion \cite{shinn2023reflexion}, REFLECT \cite{liu2023reflect}) to inform subsequent planning.
 
 However, existing frameworks present key operational and methodological limitations. In embodied AI, verbal reflection mechanisms typically store unstructured natural language strings in prompt contexts without physical sensor postcondition verification or spatial costmap expiration rules. Furthermore, robotics evaluation historically suffers from reproducibility challenges when relying on synthetic 2D mock state machines that omit real controller oscillation, sensor noise, and lifecycle timing delays.
 
 In this work, we present an auditable, event-driven failure memory framework and evaluate its behavior in physical ROS 2 / Gazebo simulation. Specifically, we provide:
+
 1. **Authentic Action Client & Perception Architecture**: We implement FailMem on genuine ROS 2 Humble Nav2 action clients, capturing immutable observation bundles (untruncated laser scans, TF transforms, and raw 2D costmap ROI subgrids) prior to state classification.
 2. **Independent Replay Audit Pipeline**: We implement an independent offline replay engine that reconstructs memory lifecycles and physical trajectories directly from raw serialized sensor records against SHA256 checksum manifests, validating chronological causality ($t_{\text{rec}} \ge \max(t_{\text{act}}, t_{\text{obs}}) - 0.05\,\text{s}$) and physical halt stability.
 3. **Empirical Evaluation Across 30 Physical Runs**: Across 30 physical simulation runs in Gazebo 11 ($n=3$ per condition), we demonstrate that historical knowledge eliminates redundant dead-end exploration ($-18.5\%$ distance vs. Reactive $R$) and dynamic invalidation prevents permanent detour traps ($-11.0\%$ distance vs. Persistent $M1$).
-4. **Calibrated Comparison with Spatial Caching**: We report that under static 2D geometric blockages, FailMem and spatial caching ($O$) produce identical route choices ($<1\%$ metric difference). In this exploratory dataset, route choices were identical and showed no additional benefit of $F$ over $O$; general scenarios and statistical equivalence have not been verified. An exploratory feasibility trial ($n=4$) on action-conditioned navigation ($H_1$) further shows that the candidate scenario did not establish executability divergence, clarifying the empirical boundaries for future action-profiled memory designs ($F2$).
+4. **Calibrated Comparison with Spatial Caching**: We report that under static 2D geometric blockages, FailMem and spatial caching ($O$) produce identical route choices with $<1\%$ differences in reported total travel distance and total execution duration. In this exploratory dataset, route choices were identical and showed no additional benefit of $F$ over $O$; general scenarios and statistical equivalence have not been verified. An exploratory feasibility trial ($n=4$) on action-conditioned navigation ($H_1$) further shows that the candidate scenario did not establish executability divergence, clarifying the empirical boundaries for future action-profiled memory designs ($F2$).
 
 ---
 
@@ -144,6 +145,7 @@ To prevent ambiguity across different evaluation granularities, distance metrics
 
 Table 1 presents condition-level performance across 30 physical simulation runs ($n=3$ per condition, reporting mean $\pm$ sample standard deviation with Bessel correction $ddof=1$).
 
+<!-- TABLE:table1_condition_summary -->
 | Scenario | Condition | $n$ | Actual Route | Dead-End Traversals | Decision Dist (m) | Decision Time (s) | Total Dist (m) | Total Time (s) | Replay Audit Pass |
 | :--- | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **D0** | $R$ | 3 | `Path_A` | 0.0 $\pm$ 0.0 | 6.160 $\pm$ 0.037 | 51.533 $\pm$ 1.656 | 6.160 $\pm$ 0.037 | 51.533 $\pm$ 1.656 | 3/3 (100\%) |
@@ -161,10 +163,13 @@ Table 1 presents condition-level performance across 30 physical simulation runs 
 
 Table 2 presents key pairwise contrast comparisons across evaluated methods.
 
+<!-- TABLE:table2_pairwise_contrasts -->
 | Scenario | Comparison | Metric | Method A Mean | Method B Mean | Abs Diff ($A - B$) | Rel Diff (%) |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
 | **D1** | $F$ vs. $R$ | Total Dist (m) | 14.027 | 17.220 | -3.193 | **-18.5\%** |
 | **D1** | $F$ vs. $R$ | Total Time (s) | 109.500 | 141.000 | -31.500 | **-22.3\%** |
+| **D1** | $O$ vs. $R$ | Total Dist (m) | 13.947 | 17.220 | -3.273 | **-19.0\%** |
+| **D1** | $O$ vs. $R$ | Total Time (s) | 108.700 | 141.000 | -32.300 | **-22.9\%** |
 | **D1** | $F$ vs. $O$ | Total Dist (m) | 14.027 | 13.947 | +0.080 | +0.6\% |
 | **D1** | $F$ vs. $O$ | Total Time (s) | 109.500 | 108.700 | +0.800 | +0.7\% |
 | **D2** | $F$ vs. $M1$ | Total Dist (m) | 16.247 | 18.248 | -2.000 | **-11.0\%** |
@@ -182,6 +187,7 @@ Table 2 presents key pairwise contrast comparisons across evaluated methods.
 
 To test whether action configurations (aligned $a_{\text{aligned}}$ vs. doorpost boundary-biased oblique $a_{\text{oblique}}$) create executability differences in an unobstructed doorway, a fixed 4-run feasibility check was executed (`reports/evidence/p2d_h1_feasibility/`).
 
+<!-- TABLE:table3_h1_feasibility -->
 | Run Name | Action Profile | Target Goal | Doorway Perception | Nav2 Status (Code) | Est. Nav2 Nav Time ($s$) | Assumed Settling ($s$) | Stability Window ($s$) | Total Sim Duration ($s$) | Physical Arrival Verified |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | `H1_aligned_run1` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` (23 rays) | `SUCCEEDED` (4) | $13.4$ (est.) | $3.0$ (nom.) | $2.4$ | $18.8$ | **False** (excess av: 0.1068 > 0.08) |
