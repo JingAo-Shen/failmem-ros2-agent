@@ -1,0 +1,148 @@
+{
+  "metadata": {
+    "source_directory": "/code/failmem-ros2-agent/reports/evidence/p2d_h1_feasibility",
+    "derivation_timestamp_utc": "2026-10-01T15:36:58.682799+00:00",
+    "transformation_rules": [
+      "Extracted terminal status_code from actions[1].status_code",
+      "Extracted pass_through_count from scan_snapshots H1_CORRIDOR_ENTRANCE",
+      "Decomposed action duration into estimated Nav2 navigation, assumed passive settling, and stability window",
+      "Applied multi-condition Go/No-Go evaluation (identity, FREE preconditions, budget, physical arrival)"
+    ]
+  },
+  "evaluation_summary": {
+    "go_condition_met": false,
+    "verdict": "NO-GO (Scenario Not Established - \u672c\u573a\u666f\u672a\u5efa\u7acb)",
+    "rationale": "Candidate scenario failed to establish expected executability divergence: Nav2 returned SUCCEEDED in 4/4 runs (including both oblique runs where ABORTED was expected). Strict physical arrival verified in 3/4 runs. Aligned strict successes: 1/2, Oblique Nav2 failures: 0/2. \u672c\u6b21\u5019\u9009\u573a\u666f\u672a\u5efa\u7acb\u9884\u671f\u7684\u52a8\u4f5c\u53ef\u6267\u884c\u6027\u5dee\u5f02\uff0c\u56e0\u6b64\u505c\u6b62\u672c\u8f6e H1 \u63a2\u7d22\uff1b\u4e0d\u6784\u6210\u5bf9\u4e00\u822c\u52a8\u4f5c\u6761\u4ef6\u5931\u8d25\u8bb0\u5fc6\u5047\u8bbe\u7684\u8bc1\u4f2a\u3002",
+    "unified_conclusion": "\u672c\u6b21\u5019\u9009\u573a\u666f\u672a\u5efa\u7acb\u9884\u671f\u7684\u52a8\u4f5c\u53ef\u6267\u884c\u6027\u5dee\u5f02\uff0c\u56e0\u6b64\u505c\u6b62\u672c\u8f6e H1 \u63a2\u7d22\uff1b\u4e0d\u6784\u6210\u5bf9\u4e00\u822c\u52a8\u4f5c\u6761\u4ef6\u5931\u8d25\u8bb0\u5fc6\u5047\u8bbe\u7684\u8bc1\u4f2a\u3002",
+    "preconditions_verified": true,
+    "precondition_failures": [],
+    "expected_runs": [
+      "H1_aligned_run1",
+      "H1_aligned_run2",
+      "H1_oblique_run1",
+      "H1_oblique_run2"
+    ],
+    "present_runs": [
+      "H1_aligned_run1",
+      "H1_aligned_run2",
+      "H1_oblique_run1",
+      "H1_oblique_run2"
+    ],
+    "nav2_succeeded_count": 4,
+    "strict_physical_arrival_count": 3,
+    "aligned_total": 2,
+    "aligned_strict_successes": 1,
+    "oblique_total": 2,
+    "oblique_nav2_failures": 0
+  },
+  "runs": [
+    {
+      "run_name": "H1_aligned_run1",
+      "profile_id": "act_aligned",
+      "target_goal": [
+        1.5,
+        1.2,
+        0.0
+      ],
+      "timeout_sec": 15.0,
+      "doorway_state_before_action": "FREE",
+      "hits_inside_before_action": 0,
+      "pass_through_count": 23,
+      "terminal_status_name": "SUCCEEDED",
+      "terminal_status_code": 4,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "nav2_action_succeeded": true,
+      "physical_arrival_verified": false,
+      "halt_verified": false,
+      "halt_failure_reason": "EXCESS_VELOCITY (max lv=0.0154 > 0.05 or max av=0.1068 > 0.08)",
+      "timing_breakdown": {
+        "total_step_sim_time_sec": 18.8,
+        "estimated_nav2_navigation_duration_sec": 13.4,
+        "estimated_passive_settling_sim_time_sec": 3.0,
+        "stability_window_sim_time_sec": 2.4,
+        "assumptions_note": "Passive settling duration assumes nominal 3.0s sim time prior to stability evaluation window; active Nav2 duration is estimated and not independently logged via per-event timestamp. Cannot definitively assert active Nav2 completed within 15s solely from this estimated breakdown."
+      }
+    },
+    {
+      "run_name": "H1_aligned_run2",
+      "profile_id": "act_aligned",
+      "target_goal": [
+        1.5,
+        1.2,
+        0.0
+      ],
+      "timeout_sec": 15.0,
+      "doorway_state_before_action": "FREE",
+      "hits_inside_before_action": 0,
+      "pass_through_count": 22,
+      "terminal_status_name": "SUCCEEDED",
+      "terminal_status_code": 4,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "nav2_action_succeeded": true,
+      "physical_arrival_verified": true,
+      "halt_verified": true,
+      "halt_failure_reason": null,
+      "timing_breakdown": {
+        "total_step_sim_time_sec": 18.8,
+        "estimated_nav2_navigation_duration_sec": 13.4,
+        "estimated_passive_settling_sim_time_sec": 3.0,
+        "stability_window_sim_time_sec": 2.4,
+        "assumptions_note": "Passive settling duration assumes nominal 3.0s sim time prior to stability evaluation window; active Nav2 duration is estimated and not independently logged via per-event timestamp. Cannot definitively assert active Nav2 completed within 15s solely from this estimated breakdown."
+      }
+    },
+    {
+      "run_name": "H1_oblique_run1",
+      "profile_id": "act_oblique",
+      "target_goal": [
+        0.5,
+        0.88,
+        0.0
+      ],
+      "timeout_sec": 15.0,
+      "doorway_state_before_action": "FREE",
+      "hits_inside_before_action": 0,
+      "pass_through_count": 23,
+      "terminal_status_name": "SUCCEEDED",
+      "terminal_status_code": 4,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "nav2_action_succeeded": true,
+      "physical_arrival_verified": true,
+      "halt_verified": true,
+      "halt_failure_reason": null,
+      "timing_breakdown": {
+        "total_step_sim_time_sec": 16.4,
+        "estimated_nav2_navigation_duration_sec": 11.1,
+        "estimated_passive_settling_sim_time_sec": 3.0,
+        "stability_window_sim_time_sec": 2.3,
+        "assumptions_note": "Passive settling duration assumes nominal 3.0s sim time prior to stability evaluation window; active Nav2 duration is estimated and not independently logged via per-event timestamp. Cannot definitively assert active Nav2 completed within 15s solely from this estimated breakdown."
+      }
+    },
+    {
+      "run_name": "H1_oblique_run2",
+      "profile_id": "act_oblique",
+      "target_goal": [
+        0.5,
+        0.88,
+        0.0
+      ],
+      "timeout_sec": 15.0,
+      "doorway_state_before_action": "FREE",
+      "hits_inside_before_action": 0,
+      "pass_through_count": 22,
+      "terminal_status_name": "SUCCEEDED",
+      "terminal_status_code": 4,
+      "execution_outcome": "BUDGET_SUCCESS",
+      "nav2_action_succeeded": true,
+      "physical_arrival_verified": true,
+      "halt_verified": true,
+      "halt_failure_reason": null,
+      "timing_breakdown": {
+        "total_step_sim_time_sec": 16.3,
+        "estimated_nav2_navigation_duration_sec": 11.0,
+        "estimated_passive_settling_sim_time_sec": 3.0,
+        "stability_window_sim_time_sec": 2.3,
+        "assumptions_note": "Passive settling duration assumes nominal 3.0s sim time prior to stability evaluation window; active Nav2 duration is estimated and not independently logged via per-event timestamp. Cannot definitively assert active Nav2 completed within 15s solely from this estimated breakdown."
+      }
+    }
+  ]
+}
