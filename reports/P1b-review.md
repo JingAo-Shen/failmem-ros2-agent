@@ -4,7 +4,7 @@
 > **已废弃 / 已被最终验收报告替代 (SUPERSEDED)**:
 > 本文档记录了 P1b 阶段的中间运行结果 (`p1b_20260928_020049_5f18d3`)。
 > 按照研究负责人后续审查意见，已对终态解析（禁止默认成功/取消）、全周期粘性安全干预追踪、真实 ROS 话题层故障注入门控（Suite 3）、运动后 AMCL 缓存陈旧性历史校验等缺陷进行了彻底修复与统一重构。
-> 最终正式验收报告与全量实验证据请查阅：**[reports/P1b-final-review.md](file:///code/failmem-ros2-agent/reports/P1b-final-review.md)**（对应运行 ID: `p1b_20260928_025039_df4f0c`）。
+> 最终正式验收报告与全量实验证据请查阅：**[reports/P1b-final-review.md](reports/P1b-final-review.md)**（对应运行 ID: `p1b_20260928_025039_df4f0c`）。
 
 - **Stage**: P1b (Historical Intermediate Run)
 - **Status**: PASSED

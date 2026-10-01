@@ -121,7 +121,7 @@ To avoid ungrounded assumptions (such as "entire costmap = 0"), four distinct ph
 ## 6. Follow-Up Feasibility Exploration (H1) and Stopping Conclusion
 
 ### 6.1 Bounded Physical Feasibility Check Outcome
-A separate, strictly bounded 4-run feasibility check ([`reports/P2d-h1-feasibility-check.md`](file:///code/failmem-ros2-agent/reports/P2d-h1-feasibility-check.md)) was executed to test whether candidate goal placements (`act_aligned` vs. `act_oblique`) produce reproducible executability differences in geometrically unobstructed space:
+A separate, strictly bounded 4-run feasibility check ([`reports/P2d-h1-feasibility-check.md`](reports/P2d-h1-feasibility-check.md)) was executed to test whether candidate goal placements (`act_aligned` vs. `act_oblique`) produce reproducible executability differences in geometrically unobstructed space:
 - **Result**: Both candidate actions successfully navigated through the doorway (`SUCCEEDED`, 4/4 Nav2 success, 3/4 strict physical arrival). No action aborts or timeout cancellations occurred.
 - **Verdict**: **本场景未建立 (Scenario Not Established - No-Go)**.
 - **Formal Conclusion**:

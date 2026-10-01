@@ -284,28 +284,28 @@ def test_h1_derived_parser_and_go_nogo_decision(tmp_path: Path):
 
     # Test with mock parsed runs where oblique succeeded (should be NO-GO)
     mock_runs = [
-        {"profile_id": "act_aligned", "doorway_state_before_action": "FREE", "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": False, "execution_outcome": "BUDGET_SUCCESS"},
-        {"profile_id": "act_aligned", "doorway_state_before_action": "FREE", "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
-        {"profile_id": "act_oblique", "doorway_state_before_action": "FREE", "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
-        {"profile_id": "act_oblique", "doorway_state_before_action": "FREE", "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
+        {"run_name": "H1_aligned_run1", "profile_id": "act_aligned", "doorway_state_before_action": "FREE", "hits_inside_before_action": 0, "pass_through_count": 23, "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": False, "execution_outcome": "BUDGET_SUCCESS"},
+        {"run_name": "H1_aligned_run2", "profile_id": "act_aligned", "doorway_state_before_action": "FREE", "hits_inside_before_action": 0, "pass_through_count": 22, "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
+        {"run_name": "H1_oblique_run1", "profile_id": "act_oblique", "doorway_state_before_action": "FREE", "hits_inside_before_action": 0, "pass_through_count": 23, "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
+        {"run_name": "H1_oblique_run2", "profile_id": "act_oblique", "doorway_state_before_action": "FREE", "hits_inside_before_action": 0, "pass_through_count": 22, "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
     ]
     res_nogo = evaluate_h1_go_nogo(mock_runs)
     assert res_nogo["go_condition_met"] is False
     assert "NO-GO" in res_nogo["verdict"]
     assert res_nogo["aligned_strict_successes"] == 1  # only 1 passed physical arrival
-    assert res_nogo["oblique_failures"] == 0
+    assert res_nogo["oblique_nav2_failures"] == 0
 
     # Test with hypothetical successful separation (2 strict successes, 2 failures)
     mock_runs_go = [
-        {"profile_id": "act_aligned", "doorway_state_before_action": "FREE", "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
-        {"profile_id": "act_aligned", "doorway_state_before_action": "FREE", "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
-        {"profile_id": "act_oblique", "doorway_state_before_action": "FREE", "terminal_status_name": "ABORTED", "terminal_status_code": 6, "physical_arrival_verified": False, "execution_outcome": "BUDGET_DEADLINE_EXCEEDED"},
-        {"profile_id": "act_oblique", "doorway_state_before_action": "FREE", "terminal_status_name": "ABORTED", "terminal_status_code": 6, "physical_arrival_verified": False, "execution_outcome": "BUDGET_DEADLINE_EXCEEDED"},
+        {"run_name": "H1_aligned_run1", "profile_id": "act_aligned", "doorway_state_before_action": "FREE", "hits_inside_before_action": 0, "pass_through_count": 23, "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
+        {"run_name": "H1_aligned_run2", "profile_id": "act_aligned", "doorway_state_before_action": "FREE", "hits_inside_before_action": 0, "pass_through_count": 22, "terminal_status_name": "SUCCEEDED", "terminal_status_code": 4, "physical_arrival_verified": True, "execution_outcome": "BUDGET_SUCCESS"},
+        {"run_name": "H1_oblique_run1", "profile_id": "act_oblique", "doorway_state_before_action": "FREE", "hits_inside_before_action": 0, "pass_through_count": 23, "terminal_status_name": "ABORTED", "terminal_status_code": 6, "physical_arrival_verified": False, "execution_outcome": "BUDGET_DEADLINE_EXCEEDED"},
+        {"run_name": "H1_oblique_run2", "profile_id": "act_oblique", "doorway_state_before_action": "FREE", "hits_inside_before_action": 0, "pass_through_count": 22, "terminal_status_name": "ABORTED", "terminal_status_code": 6, "physical_arrival_verified": False, "execution_outcome": "BUDGET_DEADLINE_EXCEEDED"},
     ]
     res_go = evaluate_h1_go_nogo(mock_runs_go)
     assert res_go["go_condition_met"] is True
     assert "GO" in res_go["verdict"]
     assert res_go["aligned_strict_successes"] == 2
-    assert res_go["oblique_failures"] == 2
+    assert res_go["oblique_nav2_failures"] == 2
 
 

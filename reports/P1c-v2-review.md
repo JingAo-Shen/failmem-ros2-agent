@@ -1,7 +1,7 @@
 # FailMem Milestone P1c-v2 Comprehensive Verification & Audit Review Report
 
 **Date**: 2026-09-28  
-**Run ID**: [`p1c_20260928_053029_d20378`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378)  
+**Run ID**: [`p1c_20260928_053029_d20378`](reports/evidence/p1c/p1c_20260928_053029_d20378)  
 **Protocol Version**: `2.0` (SHA256: `b90401bc7fdd3ff309021a0aeab0fb586e30b0d6497dc0e9e90f07dd94c9110b`)  
 **Overall Status**: `PARTIAL` (C0 Baseline: 100% Passed; C1 Continuous Blockage: 100% Mechanism Verified; C2 Temporary Blockage: Honestly Reported as Degraded due to AMCL Stationarity Gap)  
 **Branch**: `audit/r0-authenticity`  
@@ -39,15 +39,15 @@ The following table summarizes all 9 isolated episodes executed in clean, indepe
 
 | Episode ID | Cond. | Execution Outcome | ROS Terminal Status | Final GT Pose $(x, y, \text{yaw})$ | Calc. GT Error | Reported GT Error | Reported AMCL Error | Passive Halt Verified | Task Success | Mechanism Verified | Collision State |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| [`C0_ep1`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C0_ep1) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(0.2770, -0.5114, 0.2630)` | **0.2233 m** | **0.2233 m** | 0.2530 m | `True` (stable 2.0s) | **`True`** | **`True`** | `UNKNOWN` |
-| [`C0_ep2`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C0_ep2) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(0.2905, -0.5105, 0.1804)` | **0.2098 m** | **0.2098 m** | 0.2652 m | `True` (stable 2.0s) | **`True`** | **`True`** | `UNKNOWN` |
-| [`C0_ep3`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C0_ep3) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(0.3053, -0.5403, 0.1429)` | **0.1988 m** | **0.1988 m** | 0.2534 m | `True` (stable 2.0s) | **`True`** | **`True`** | `UNKNOWN` |
-| [`C1_ep1`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C1_ep1) | C1 | `BUDGET_DEADLINE_EXCEEDED` | `CANCELED` | `(-1.6627, -0.2035, -1.4857)` | **2.1829 m** | **2.1829 m** | 2.1705 m | `True` (stable 2.0s) | **`False`** | **`True`** | `UNKNOWN` |
-| [`C1_ep2`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C1_ep2) | C1 | `BUDGET_DEADLINE_EXCEEDED` | `CANCELED` | `(-1.8326, -0.4461, 0.2363)` | **2.3332 m** | **2.3332 m** | 2.3026 m | `True` (stable 2.0s) | **`False`** | **`True`** | `UNKNOWN` |
-| [`C1_ep3`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C1_ep3) | C1 | `BUDGET_DEADLINE_EXCEEDED` | `CANCELED` | `(-1.7997, -0.4781, 2.2383)` | **2.2998 m** | **2.2998 m** | 2.2849 m | `True` (stable 2.0s) | **`False`** | **`True`** | `UNKNOWN` |
-| [`C2_ep1`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C2_ep1) | C2 | `BUDGET_SUCCESS` (Detour) | `SUCCEEDED` | `(0.5911, -0.2508, -0.2263)` | **0.2653 m** | N/A | N/A | `True` (stable 2.0s) | **`False`** | **`False`** | `UNKNOWN` |
-| [`C2_ep2`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C2_ep2) | C2 | `BUDGET_SUCCESS` (Detour) | `SUCCEEDED` | `(0.5975, -0.2546, -0.2125)` | **0.2641 m** | N/A | N/A | `True` (stable 2.0s) | **`False`** | **`False`** | `UNKNOWN` |
-| [`C2_ep3`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_053029_d20378/C2_ep3) | C2 | `BUDGET_DEADLINE_EXCEEDED` | `CANCELED` | `(-1.8150, -0.4525, 0.5707)` | **2.3155 m** | N/A | N/A | `True` (stable 2.0s) | **`False`** | **`False`** | `UNKNOWN` |
+| [`C0_ep1`](reports/evidence/p1c/p1c_20260928_053029_d20378/C0_ep1) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(0.2770, -0.5114, 0.2630)` | **0.2233 m** | **0.2233 m** | 0.2530 m | `True` (stable 2.0s) | **`True`** | **`True`** | `UNKNOWN` |
+| [`C0_ep2`](reports/evidence/p1c/p1c_20260928_053029_d20378/C0_ep2) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(0.2905, -0.5105, 0.1804)` | **0.2098 m** | **0.2098 m** | 0.2652 m | `True` (stable 2.0s) | **`True`** | **`True`** | `UNKNOWN` |
+| [`C0_ep3`](reports/evidence/p1c/p1c_20260928_053029_d20378/C0_ep3) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(0.3053, -0.5403, 0.1429)` | **0.1988 m** | **0.1988 m** | 0.2534 m | `True` (stable 2.0s) | **`True`** | **`True`** | `UNKNOWN` |
+| [`C1_ep1`](reports/evidence/p1c/p1c_20260928_053029_d20378/C1_ep1) | C1 | `BUDGET_DEADLINE_EXCEEDED` | `CANCELED` | `(-1.6627, -0.2035, -1.4857)` | **2.1829 m** | **2.1829 m** | 2.1705 m | `True` (stable 2.0s) | **`False`** | **`True`** | `UNKNOWN` |
+| [`C1_ep2`](reports/evidence/p1c/p1c_20260928_053029_d20378/C1_ep2) | C1 | `BUDGET_DEADLINE_EXCEEDED` | `CANCELED` | `(-1.8326, -0.4461, 0.2363)` | **2.3332 m** | **2.3332 m** | 2.3026 m | `True` (stable 2.0s) | **`False`** | **`True`** | `UNKNOWN` |
+| [`C1_ep3`](reports/evidence/p1c/p1c_20260928_053029_d20378/C1_ep3) | C1 | `BUDGET_DEADLINE_EXCEEDED` | `CANCELED` | `(-1.7997, -0.4781, 2.2383)` | **2.2998 m** | **2.2998 m** | 2.2849 m | `True` (stable 2.0s) | **`False`** | **`True`** | `UNKNOWN` |
+| [`C2_ep1`](reports/evidence/p1c/p1c_20260928_053029_d20378/C2_ep1) | C2 | `BUDGET_SUCCESS` (Detour) | `SUCCEEDED` | `(0.5911, -0.2508, -0.2263)` | **0.2653 m** | N/A | N/A | `True` (stable 2.0s) | **`False`** | **`False`** | `UNKNOWN` |
+| [`C2_ep2`](reports/evidence/p1c/p1c_20260928_053029_d20378/C2_ep2) | C2 | `BUDGET_SUCCESS` (Detour) | `SUCCEEDED` | `(0.5975, -0.2546, -0.2125)` | **0.2641 m** | N/A | N/A | `True` (stable 2.0s) | **`False`** | **`False`** | `UNKNOWN` |
+| [`C2_ep3`](reports/evidence/p1c/p1c_20260928_053029_d20378/C2_ep3) | C2 | `BUDGET_DEADLINE_EXCEEDED` | `CANCELED` | `(-1.8150, -0.4525, 0.5707)` | **2.3155 m** | N/A | N/A | `True` (stable 2.0s) | **`False`** | **`False`** | `UNKNOWN` |
 
 > [!NOTE]
 > `collision_state` is recorded as `"UNKNOWN"` across all runs because the standard TurtleBot3 Waffle SDF model in Gazebo does not publish a contact bumper topic (`/bumper_states`).

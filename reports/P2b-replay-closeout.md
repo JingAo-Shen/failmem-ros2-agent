@@ -9,7 +9,7 @@
 
 ## 1. Summary of Replay Engine Fixes & Verification
 
-The offline replay and objective scoring suite [`scripts/replay_and_score_p2a.py`](file:///code/failmem-ros2-agent/scripts/replay_and_score_p2a.py) (v3.3) has been hardened to eliminate all mechanism inference flaws, circular dependencies, and retrospective tolerances:
+The offline replay and objective scoring suite [`scripts/replay_and_score_p2a.py`](scripts/replay_and_score_p2a.py) (v3.3) has been hardened to eliminate all mechanism inference flaws, circular dependencies, and retrospective tolerances:
 
 1. **Failure Category Disambiguation**:
    - Explicitly distinguishes between **Action Failures** (`ABORTED`, `CANCELED`, `TIMEOUT`, `BUDGET_DEADLINE_EXCEEDED`), **Online Verification Failures** (Nav2 succeeded but AMCL covariance / staleness / displacement checks failed), and **Infrastructure Failures** (`INFRASTRUCTURE_FAILURE`, ROS communication crash, unhandled watchdog terminations).
@@ -44,7 +44,7 @@ The offline replay and objective scoring suite [`scripts/replay_and_score_p2a.py
 
 ## 2. Comprehensive Negative Unit Test Coverage
 
-All 135 unit tests pass (`pytest /workspace/tests`: 127 passed, 8 xfailed, 0 failed), including targeted negative verification cases in [`tests/test_p2a_v3_targeted.py`](file:///code/failmem-ros2-agent/tests/test_p2a_v3_targeted.py):
+All 135 unit tests pass (`pytest /workspace/tests`: 127 passed, 8 xfailed, 0 failed), including targeted negative verification cases in [`tests/test_p2a_v3_targeted.py`](tests/test_p2a_v3_targeted.py):
 - `test_replay_negative_free_before_failure`: Observation of `FREE` before failure does not invalidate memory.
 - `test_replay_negative_other_region_free`: Observation of `FREE` in an unrelated region does not invalidate memory.
 - `test_replay_negative_infrastructure_failure_not_memory_eligible`: Infrastructure crash does not instantiate blockage memory.

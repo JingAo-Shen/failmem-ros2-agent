@@ -16,7 +16,7 @@
 - **Domain Isolation**: `ROS_DOMAIN_ID=42`, `ROS_LOCALHOST_ONLY=1`
 
 > [!NOTE]
-> **版本演进提示**：本报告为 P1a-v2 历史执行记录。后续根据研究负责人复核意见完成的被动停车验证、作用域UUID、实证坐标系证明与 P1b 最小 observe 接口，请查阅最新的 [P1a-v3-review.md](file:///code/failmem-ros2-agent/reports/P1a-v3-review.md)。
+> **版本演进提示**：本报告为 P1a-v2 历史执行记录。后续根据研究负责人复核意见完成的被动停车验证、作用域UUID、实证坐标系证明与 P1b 最小 observe 接口，请查阅最新的 [P1a-v3-review.md](reports/P1a-v3-review.md)。
 
 ---
 

@@ -66,18 +66,18 @@
 - Raw evidence directory: `reports/evidence/p2d_h1_feasibility/` (Preserved intact with `checksums.sha256`)
 - Parsed derived data: `reports/evidence/p2d_h1_feasibility/derived/h1_feasibility_parsed.json`
 
-| Run Name | Action Profile | Target Goal ($x, y, \theta$) | Doorway Perception | Nav2 Status (Code) | Nav2 Nav Time ($s$) | Passive Settling ($s$) | Stability Window ($s$) | Total Sim Duration ($s$) | Physical Arrival Verified |
+| Run Name | Action Profile | Target Goal ($x, y, \theta$) | Doorway Perception | Nav2 Status (Code) | Est. Nav2 Nav Time ($s$) | Assumed Settling ($s$) | Stability Window ($s$) | Total Sim Duration ($s$) | Physical Arrival Verified |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `H1_aligned_run1` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` ($23$ rays) | `SUCCEEDED` (4) | $13.4$ | $3.0$ | $2.4$ | $18.8$ | **False** (excess av: $0.1068 > 0.08$) |
-| `H1_aligned_run2` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` ($22$ rays) | `SUCCEEDED` (4) | $13.4$ | $3.0$ | $2.4$ | $18.8$ | **True** |
-| `H1_oblique_run1` | `act_oblique` | `[0.50, 0.88, 0.0]` | `FREE` ($23$ rays) | `SUCCEEDED` (4) | $11.1$ | $3.0$ | $2.3$ | $16.4$ | **True** |
-| `H1_oblique_run2` | `act_oblique` | `[0.50, 0.88, 0.0]` | `FREE` ($22$ rays) | `SUCCEEDED` (4) | $11.0$ | $3.0$ | $2.3$ | $16.3$ | **True** |
+| `H1_aligned_run1` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` ($23$ rays) | `SUCCEEDED` (4) | $13.4$ (est.) | $3.0$ (nom.) | $2.4$ | $18.8$ | **False** (excess av: $0.1068 > 0.08$) |
+| `H1_aligned_run2` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` ($22$ rays) | `SUCCEEDED` (4) | $13.4$ (est.) | $3.0$ (nom.) | $2.4$ | $18.8$ | **True** |
+| `H1_oblique_run1` | `act_oblique` | `[0.50, 0.88, 0.0]` | `FREE` ($23$ rays) | `SUCCEEDED` (4) | $11.1$ (est.) | $3.0$ (nom.) | $2.3$ | $16.4$ | **True** |
+| `H1_oblique_run2` | `act_oblique` | `[0.50, 0.88, 0.0]` | `FREE` ($22$ rays) | `SUCCEEDED` (4) | $11.0$ (est.) | $3.0$ (nom.) | $2.3$ | $16.3$ | **True** |
 
-### 6.2 Timing Calibration Note
-The `test_action_duration_sec` ($16.3-18.8\,\text{s}$) recorded at the step level includes:
-1. Active Nav2 navigation ($11.0-13.4\,\text{s}$, which completed within the $15.0\,\text{s}$ timeout);
-2. Post-arrival passive halt settling wait ($3.0\,\text{s}$);
-3. Post-halt trajectory stability recording window ($2.3-2.4\,\text{s}$).
+### 6.2 Timing Calibration & Estimation Note
+The `test_action_duration_sec` ($16.3-18.8\,\text{s}$) recorded at the step level spans the full execution wrapper:
+1. Active Nav2 navigation: Nav2 action server returned `SUCCEEDED` and execution finished without executor timeout (`deadline_exceeded == False`). Under a nominal $3.0\,\text{s}$ passive settling assumption, estimated active navigation duration is $11.0-13.4\,\text{s}$. Because per-event clock stamps for the exact goal completion were not logged separately, this active duration is reported as an estimated value (`estimated_nav2_navigation_duration_sec`) rather than an independently timestamped clock measurement.
+2. Passive post-arrival settling wait: Nominally $3.0\,\text{s}$ sim time before stability evaluation.
+3. Post-halt trajectory stability recording window: $2.3-2.4\,\text{s}$ sim time.
 
 ### 6.3 Separate Performance Summary
 - **Nav2 Action Server `SUCCEEDED`**: **4 / 4 (100%)**

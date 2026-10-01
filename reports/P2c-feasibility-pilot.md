@@ -212,9 +212,9 @@ All 21 paired tests pass in the automated test suite (`pytest tests/test_p2c_eve
   - D2 Total Distance: $F = 16.25 \pm 0.10\,\text{m}$ vs. $O = 16.40 \pm 0.24\,\text{m}$ (Difference: $-0.15\,\text{m}$, $-0.9\%$).
   - D2 Total Sim Time: $F = 151.1 \pm 7.8\,\text{s}$ vs. $O = 149.8 \pm 0.6\,\text{s}$ (Difference: $+1.33\,\text{s}$, $+0.9\%$).
 - **Scientific Implication**:
-  - The observed minor differences fall entirely within ordinary simulation variance.
-  - Current empirical data **does not demonstrate a stable performance advantage for FailMem over Spatial Cache** in this static single-agent layout.
-  - Conversely, with $n=3$, these data do **not prove mathematical or statistical equivalence** between $F$ and $O$ across arbitrary topologies.
+  - In this static single-agent layout, $F$ and $O$ produce identical high-level route choices with $<1\%$ metric differences.
+  - Current exploratory data **does not demonstrate a performance advantage for FailMem over Spatial Cache** in this static single-agent layout.
+  - Conversely, with exploratory $n=3$, these data do **not prove mathematical or statistical equivalence** between $F$ and $O$ across arbitrary topologies.
   - The primary distinction remains structural: $F$ binds failure records to specific action goals and precondition evidence, whereas $O$ maintains an unconditioned 2D spatial grid.
 
 ### 6.3 Research Question 3: Dynamic Invalidation ($F$) vs. Persistent Suppression ($M1$) in Restored Environments (D2)

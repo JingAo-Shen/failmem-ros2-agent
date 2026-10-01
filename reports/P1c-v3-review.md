@@ -1,8 +1,8 @@
 # FailMem Milestone P1c-v3 Comprehensive Verification & Audit Review Report
 
 **Date**: 2026-09-28  
-**Formal Run ID**: [`p1c_20260928_065410_72a954`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954)  
-**Diagnostic Run ID**: [`p1c_diag_20260928_064406_c7618e`](file:///code/failmem-ros2-agent/reports/evidence/p1c_diagnostic/p1c_diag_20260928_064406_c7618e)  
+**Formal Run ID**: [`p1c_20260928_065410_72a954`](reports/evidence/p1c/p1c_20260928_065410_72a954)  
+**Diagnostic Run ID**: [`p1c_diag_20260928_064406_c7618e`](reports/evidence/p1c_diagnostic/p1c_diag_20260928_064406_c7618e)  
 **Protocol Version**: `3.0` (`configs/p1c_v3_protocol.yaml`, SHA256: `f703c392ba1af0bba601c4e9ab56d62f0054d4ab53cb530a2807dfb33b8d3a47`)  
 **Overall Status**: `PASSED` (C0 Baseline: 100% 3/3; C1 Continuous Blockage: 100% 3/3; C2 Temporary Blockage & Recovery: 100% 3/3)  
 **Branch**: `audit/r0-authenticity`  
@@ -60,15 +60,15 @@ All 9 formal episodes were executed in isolated, clean simulation runs with inde
 
 | Episode ID | Cond. | Execution Outcome | ROS Terminal Status | Final GT Pose $(x, y, \text{yaw})$ | Reported GT Error | Reported AMCL Error | Passive Halt Stable | Task Success | Mechanism Verified | Doorway Check |
 |---|---|---|---|---|---|---|---|---|---|---|
-| [`C0_ep1`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C0_ep1) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.6016, -0.0051, 0.0353)` | **0.1984 m** | 0.2735 m | `True` (2.4s) | **`True`** | **`True`** | Cleared (No Obs) |
-| [`C0_ep2`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C0_ep2) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.5961, 0.0050, 0.1232)` | **0.2039 m** | 0.2648 m | `True` (2.4s) | **`True`** | **`True`** | Cleared (No Obs) |
-| [`C0_ep3`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C0_ep3) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.5885, -0.0034, 0.0631)` | **0.2115 m** | 0.2757 m | `True` (2.4s) | **`True`** | **`True`** | Cleared (No Obs) |
-| [`C1_ep1`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C1_ep1) | C1 | `EXECUTION_FAILED` | `ABORTED` | `(-1.4965, -0.0069, 0.0010)` | **3.2965 m** | 3.2982 m | `True` (2.4s) | **`False`** | **`True`** | Occupied (21 pts) |
-| [`C1_ep2`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C1_ep2) | C1 | `EXECUTION_FAILED` | `ABORTED` | `(-1.7980, 0.0038, 0.0011)` | **3.5980 m** | 3.6267 m | `True` (2.4s) | **`False`** | **`True`** | Occupied (21 pts) |
-| [`C1_ep3`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C1_ep3) | C1 | `EXECUTION_FAILED` | `ABORTED` | `(-1.2860, -0.0044, 0.0011)` | **3.0860 m** | 3.0841 m | `True` (2.4s) | **`False`** | **`True`** | Occupied (22 pts) |
-| [`C2_ep1`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C2_ep1) | C2 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.5956, 0.0053, 0.0650)` | **0.2044 m** | 0.2705 m | `True` (2.4s) | **`True`** | **`True`** | Blk=21 $\to$ Clr=0 |
-| [`C2_ep2`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C2_ep2) | C2 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.6081, 0.0022, 0.1642)` | **0.1919 m** | 0.2375 m | `True` (2.4s) | **`True`** | **`True`** | Blk=22 $\to$ Clr=0 |
-| [`C2_ep3`](file:///code/failmem-ros2-agent/reports/evidence/p1c/p1c_20260928_065410_72a954/C2_ep3) | C2 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.6051, 0.0044, 0.1355)` | **0.1949 m** | 0.2576 m | `True` (2.4s) | **`True`** | **`True`** | Blk=21 $\to$ Clr=0 |
+| [`C0_ep1`](reports/evidence/p1c/p1c_20260928_065410_72a954/C0_ep1) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.6016, -0.0051, 0.0353)` | **0.1984 m** | 0.2735 m | `True` (2.4s) | **`True`** | **`True`** | Cleared (No Obs) |
+| [`C0_ep2`](reports/evidence/p1c/p1c_20260928_065410_72a954/C0_ep2) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.5961, 0.0050, 0.1232)` | **0.2039 m** | 0.2648 m | `True` (2.4s) | **`True`** | **`True`** | Cleared (No Obs) |
+| [`C0_ep3`](reports/evidence/p1c/p1c_20260928_065410_72a954/C0_ep3) | C0 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.5885, -0.0034, 0.0631)` | **0.2115 m** | 0.2757 m | `True` (2.4s) | **`True`** | **`True`** | Cleared (No Obs) |
+| [`C1_ep1`](reports/evidence/p1c/p1c_20260928_065410_72a954/C1_ep1) | C1 | `EXECUTION_FAILED` | `ABORTED` | `(-1.4965, -0.0069, 0.0010)` | **3.2965 m** | 3.2982 m | `True` (2.4s) | **`False`** | **`True`** | Occupied (21 pts) |
+| [`C1_ep2`](reports/evidence/p1c/p1c_20260928_065410_72a954/C1_ep2) | C1 | `EXECUTION_FAILED` | `ABORTED` | `(-1.7980, 0.0038, 0.0011)` | **3.5980 m** | 3.6267 m | `True` (2.4s) | **`False`** | **`True`** | Occupied (21 pts) |
+| [`C1_ep3`](reports/evidence/p1c/p1c_20260928_065410_72a954/C1_ep3) | C1 | `EXECUTION_FAILED` | `ABORTED` | `(-1.2860, -0.0044, 0.0011)` | **3.0860 m** | 3.0841 m | `True` (2.4s) | **`False`** | **`True`** | Occupied (22 pts) |
+| [`C2_ep1`](reports/evidence/p1c/p1c_20260928_065410_72a954/C2_ep1) | C2 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.5956, 0.0053, 0.0650)` | **0.2044 m** | 0.2705 m | `True` (2.4s) | **`True`** | **`True`** | Blk=21 $\to$ Clr=0 |
+| [`C2_ep2`](reports/evidence/p1c/p1c_20260928_065410_72a954/C2_ep2) | C2 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.6081, 0.0022, 0.1642)` | **0.1919 m** | 0.2375 m | `True` (2.4s) | **`True`** | **`True`** | Blk=22 $\to$ Clr=0 |
+| [`C2_ep3`](reports/evidence/p1c/p1c_20260928_065410_72a954/C2_ep3) | C2 | `BUDGET_SUCCESS` | `SUCCEEDED` | `(1.6051, 0.0044, 0.1355)` | **0.1949 m** | 0.2576 m | `True` (2.4s) | **`True`** | **`True`** | Blk=21 $\to$ Clr=0 |
 
 > [!NOTE]
 > `collision_state` is reported as `"UNKNOWN"` across all episodes because TurtleBot3 Waffle does not integrate bumper sensors in default Gazebo setups.

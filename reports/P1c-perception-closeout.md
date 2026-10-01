@@ -1,7 +1,7 @@
 # FailMem Milestone P1c: Perception Acceptance & Closeout Report
 
 **Date**: 2026-09-28  
-**Diagnostic Run ID**: [`p1c_diag_20260928_073408_28db2e`](file:///code/failmem-ros2-agent/reports/evidence/p1c_diagnostic/p1c_diag_20260928_073408_28db2e)  
+**Diagnostic Run ID**: [`p1c_diag_20260928_073408_28db2e`](reports/evidence/p1c_diagnostic/p1c_diag_20260928_073408_28db2e)  
 **Protocol Version**: `3.0` (`configs/p1c_v3_protocol.yaml`, SHA256: `83882365b07dd9cb05ece1c696a8dec5eb934fdcfcf2c5e3d968788465c5767e`)  
 **Status**: `PASSED` (Perception acceptance criteria fully verified in unit tests and live Gazebo simulation)  
 **Branch**: `audit/r0-authenticity`  
@@ -11,7 +11,7 @@
 
 ## 1. Executive Summary & Defect Remediation
 
-Prior iterations of the doorway clearance verification relied on naive point counting and unprojected odometric approximations. This closeout report confirms the resolution of all identified perception defects in [`src/doorway_evaluator.py`](file:///code/failmem-ros2-agent/src/doorway_evaluator.py) and verifies them against both formal unit test fixtures and end-to-end simulation runs.
+Prior iterations of the doorway clearance verification relied on naive point counting and unprojected odometric approximations. This closeout report confirms the resolution of all identified perception defects in [`src/doorway_evaluator.py`](src/doorway_evaluator.py) and verifies them against both formal unit test fixtures and end-to-end simulation runs.
 
 ### Identified Deficiencies & Applied Remediations
 
@@ -57,7 +57,7 @@ graph TD
 
 ## 3. Unit Test Validation Matrix
 
-The perception evaluator was tested across 10 dedicated test suites in [`tests/test_doorway_perception.py`](file:///code/failmem-ros2-agent/tests/test_doorway_perception.py):
+The perception evaluator was tested across 10 dedicated test suites in [`tests/test_doorway_perception.py`](tests/test_doorway_perception.py):
 
 | Test Case | Simulated Condition | Expected Output | Actual Output | Result |
 |---|---|---|---|---|
@@ -76,7 +76,7 @@ The perception evaluator was tested across 10 dedicated test suites in [`tests/t
 
 ## 4. End-to-End Diagnostic Simulation Verification
 
-The perception pipeline was verified in a live end-to-end diagnostic run ([`p1c_diag_20260928_073408_28db2e`](file:///code/failmem-ros2-agent/reports/evidence/p1c_diagnostic/p1c_diag_20260928_073408_28db2e)):
+The perception pipeline was verified in a live end-to-end diagnostic run ([`p1c_diag_20260928_073408_28db2e`](reports/evidence/p1c_diagnostic/p1c_diag_20260928_073408_28db2e)):
 
 | Condition | Episode | Pre-Nav Doorway State | Initial Action Outcome | Environment Action | Post-Action Doorway State | Retry Action Outcome | Final Mechanism Status |
 |---|---|---|---|---|---|---|---|

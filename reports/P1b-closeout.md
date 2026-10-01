@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-28  
 **Run ID**: `p1b_20260928_034029_32c93a`  
-**Evidence Directory**: [`reports/evidence/p1b/p1b_20260928_034029_32c93a`](file:///code/failmem-ros2-agent/reports/evidence/p1b/p1b_20260928_034029_32c93a)  
+**Evidence Directory**: [`reports/evidence/p1b/p1b_20260928_034029_32c93a`](reports/evidence/p1b/p1b_20260928_034029_32c93a)  
 **Overall Status**: `PASSED`  
 **Branch**: `audit/r0-authenticity`  
 **Pytest Suite**: 83 passed, 8 xfailed in 0.17s
@@ -25,22 +25,22 @@ All 4 test suites and coordinate alignment proofs executed in isolated Gazebo/Na
 ## 2. Item-by-Item Resolution (A.1 – A.5)
 
 ### A.1: Timeout vs. ROS Terminal Status Decoupling
-- **Implementation**: [`src/terminal_resolution.py`](file:///code/failmem-ros2-agent/src/terminal_resolution.py)
+- **Implementation**: [`src/terminal_resolution.py`](src/terminal_resolution.py)
 - **Mechanics**:
   - `await_nav_goal_terminal_result()` separates simulation budget expiration (`sim_elapsed > sim_timeout_sec`) and wall-clock watchdog from actual ROS action terminal status.
   - Distinguishes structured execution outcomes: `BUDGET_SUCCESS`, `BUDGET_DEADLINE_EXCEEDED`, `EXECUTION_FAILED`, `EXECUTION_CANCELED`, `EXECUTION_ERROR`, `EXECUTION_UNKNOWN`.
-  - Guarantees that late `SUCCEEDED` status received after deadline expiration is categorized as `BUDGET_DEADLINE_EXCEEDED` with `deadline_exceeded=True`, strictly rejected by [`src/scoring_evaluator.py`](file:///code/failmem-ros2-agent/src/scoring_evaluator.py).
-- **Unit Tests**: [`tests/test_terminal_status_resolution.py`](file:///code/failmem-ros2-agent/tests/test_terminal_status_resolution.py) (8 dedicated unit tests covering timeouts, late success, aborted goals, exceptions, and cancel decoupling).
+  - Guarantees that late `SUCCEEDED` status received after deadline expiration is categorized as `BUDGET_DEADLINE_EXCEEDED` with `deadline_exceeded=True`, strictly rejected by [`src/scoring_evaluator.py`](src/scoring_evaluator.py).
+- **Unit Tests**: [`tests/test_terminal_status_resolution.py`](tests/test_terminal_status_resolution.py) (8 dedicated unit tests covering timeouts, late success, aborted goals, exceptions, and cancel decoupling).
 
 ### A.2: Removal of Hidden Injection Gates from Observer
-- **Implementation**: [`src/observe_interface.py`](file:///code/failmem-ros2-agent/src/observe_interface.py)
+- **Implementation**: [`src/observe_interface.py`](src/observe_interface.py)
 - **Mechanics**:
   - Completely purged all test-injection bypass flags (`gate_scan_enabled`, `gate_odom_enabled`) from observation extraction.
   - The observation extractor operates strictly on actual received message contents, header timestamps, and elapsed simulation time.
   - Injection/dropping is exclusively managed at the test harness subscriber layer by conditionally ignoring incoming ROS callbacks, ensuring the observer cannot distinguish simulated faults from real physical hardware dropouts.
 
 ### A.3: Real ROS Topic Gating, Stream Dropout & Clock Pause Resilience
-- **Implementation**: [`scripts/run_p1b_suite.py`](file:///code/failmem-ros2-agent/scripts/run_p1b_suite.py) (Suite 3)
+- **Implementation**: [`scripts/run_p1b_suite.py`](scripts/run_p1b_suite.py) (Suite 3)
 - **Empirical Results**:
   - `test_3_1_normal`: `SUCCESS` (fresh lidar, odom, and AMCL).
   - `test_3_2_stale_scan`: Gated lidar for 2.5s sim time $\to$ staleness 4.13s $\to$ `DEGRADED / SCAN_DEGRADED`.
@@ -51,13 +51,13 @@ All 4 test suites and coordinate alignment proofs executed in isolated Gazebo/Na
   - `test_3_7_clock_pause`: Called `/pause_physics` ($\Delta t_{\text{sim}} = 0.000$s over 0.6s wall time) $\to$ bounded return within 1.501s wall time $\to$ `ERROR / SIMULATION_CLOCK_FROZEN`. Unpaused physics $\to$ resumed clock advancement.
 
 ### A.4: Conservative Stationary AMCL Cache with Continuous Odom History
-- **Implementation**: [`src/observe_interface.py`](file:///code/failmem-ros2-agent/src/observe_interface.py) (`extract_observation`)
+- **Implementation**: [`src/observe_interface.py`](src/observe_interface.py) (`extract_observation`)
 - **Mechanics**:
   - When robot is stationary and AMCL staleness $\in (0.5\text{s}, 30.0\text{s}]$, caching is permitted ONLY IF `odom_history` strictly covers the entire window $[t_{\text{amcl}}, t_{\text{sim}}]$ without gaps ($>0.60$s) and without motion ($|v_l| \ge 0.05$, $|v_a| \ge 0.05$, cumulative displacement $>0.03$m).
   - If odom history is missing, incomplete, or contains motion/gaps, observation returns `ERROR / AMCL_HISTORY_UNAVAILABLE` or `ERROR / AMCL_HISTORY_INSUFFICIENT` with `observation: None`.
 
 ### A.5: Action Runtime Scoped UUIDs, Parameter Replay & Duplicate Blocking
-- **Implementation**: [`src/action_dispatcher.py`](file:///code/failmem-ros2-agent/src/action_dispatcher.py), [`src/action_runtime.py`](file:///code/failmem-ros2-agent/src/action_runtime.py)
+- **Implementation**: [`src/action_dispatcher.py`](src/action_dispatcher.py), [`src/action_runtime.py`](src/action_runtime.py)
 - **Mechanics**:
   - `derive_ros_goal_uuid()` uses deterministic namespaced RFC 4122 v5 UUID hashing (`UUID_NAMESPACE_FAILMEM`, `run_id`, `episode_id`, `action_id`, `attempt_seq`). Original and retry dispatches generate distinct, reproducible UUIDs.
   - ROS action client verifies returned `goal_handle.goal_id.uuid == goal_uuid.bytes`.

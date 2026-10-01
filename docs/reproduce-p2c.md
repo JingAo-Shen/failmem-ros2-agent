@@ -31,9 +31,9 @@ pytest
 ```
 **Expected Output**:
 ```text
-170 passed, 8 xfailed in ~1.5s
+176 passed, 8 xfailed in ~2.0s
 ```
-*(8 xfailed are expected negative corruption reproduction test cases)*.
+*(8 xfailed tests in `tests/test_audit_reproductions.py` are permanent regression fixtures reproducing legacy Phase R0 mock defects under strict failure assertions; see [`reports/offline-reproduction-check.md`](../reports/offline-reproduction-check.md) for details)*.
 
 ---
 

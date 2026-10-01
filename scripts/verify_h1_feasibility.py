@@ -279,19 +279,60 @@ def run_single_h1_check(
             pass
 
 
+EXPECTED_H1_RUNS = ["H1_aligned_run1", "H1_aligned_run2", "H1_oblique_run1", "H1_oblique_run2"]
+
+
 def evaluate_h1_go_nogo(parsed_runs: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Strict evaluation of Go / No-Go decision logic.
+    """Strict evaluation of Go / No-Go decision logic for Hypothesis H1.
     
     Checks:
+    - Run Identity: Must contain exactly the 4 pre-registered runs.
     - Preconditions & FREE evidence: doorway perception must be FREE (0 hits, >= 8 pass-through rays).
-    - Budget: execution outcome must be BUDGET_SUCCESS without deadline exceeded.
     - Profile aligned: requires SUCCEEDED (status code 4) AND strict_physical_arrival_and_stable == True.
-    - Profile oblique: candidate hypothesis requires ABORTED/CANCELED or failure of strict arrival.
-    - Go requires 2/2 strict aligned successes AND 2/2 oblique failures.
+    - Profile oblique: candidate hypothesis requires Nav2 failure (ABORTED/CANCELED). Arrival stability
+      failure cannot be equated with Nav2 planner abortion.
+    - Go requires 2/2 strict aligned successes AND 2/2 oblique Nav2 failures under verified FREE perception.
     """
+    unified_conclusion = "本次候选场景未建立预期的动作可执行性差异，因此停止本轮 H1 探索；不构成对一般动作条件失败记忆假设的证伪。"
+    
+    # 1. Check run identities and completeness
+    present_run_names = [r.get("run_name") for r in parsed_runs]
+    missing_runs = [r for r in EXPECTED_H1_RUNS if r not in present_run_names]
+    extra_runs = [r for r in present_run_names if r not in EXPECTED_H1_RUNS]
+    
+    if len(parsed_runs) != len(EXPECTED_H1_RUNS) or missing_runs or extra_runs:
+        return {
+            "go_condition_met": False,
+            "verdict": "NO-GO (Invalid Run Identity / Count)",
+            "rationale": f"Expected exactly runs {EXPECTED_H1_RUNS}, but got {present_run_names}. Missing: {missing_runs}, Extra: {extra_runs}.",
+            "unified_conclusion": unified_conclusion,
+            "expected_runs": EXPECTED_H1_RUNS,
+            "present_runs": present_run_names,
+            "aligned_total": len([r for r in parsed_runs if r.get("profile_id") == "act_aligned"]),
+            "aligned_strict_successes": 0,
+            "oblique_total": len([r for r in parsed_runs if r.get("profile_id") == "act_oblique"]),
+            "oblique_nav2_failures": 0,
+            "nav2_succeeded_count": 0,
+            "strict_physical_arrival_count": 0,
+        }
+
     aligned_runs = [r for r in parsed_runs if r["profile_id"] == "act_aligned"]
     oblique_runs = [r for r in parsed_runs if r["profile_id"] == "act_oblique"]
 
+    # 2. Verify FREE Preconditions
+    precondition_failures = []
+    for r in parsed_runs:
+        door_st = r.get("doorway_state_before_action")
+        hits = r.get("hits_inside_before_action")
+        pt = r.get("pass_through_count")
+        if door_st != "FREE" or hits != 0 or pt is None or pt < 8:
+            precondition_failures.append(
+                f"{r.get('run_name')}: state={door_st}, hits={hits}, pass_through={pt}"
+            )
+
+    preconditions_verified = (len(precondition_failures) == 0)
+
+    # 3. Evaluate Aligned Profile (Requires Nav2 SUCCEEDED + strict physical arrival)
     aligned_strict_successes = [
         r for r in aligned_runs
         if r.get("doorway_state_before_action") == "FREE"
@@ -301,30 +342,60 @@ def evaluate_h1_go_nogo(parsed_runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         and r.get("execution_outcome") == "BUDGET_SUCCESS"
     ]
 
-    oblique_failures = [
+    # 4. Evaluate Oblique Profile (Requires Nav2 ABORTED or CANCELED)
+    # NOTE: Nav2 returning SUCCEEDED with an arrival stability check failure cannot be
+    # counted as Nav2 failure/abort under the candidate hypothesis.
+    oblique_nav2_failures = [
         r for r in oblique_runs
         if r.get("terminal_status_name") in ["ABORTED", "CANCELED"]
-        or r.get("physical_arrival_verified") is False
-        or r.get("execution_outcome") != "BUDGET_SUCCESS"
+        and r.get("terminal_status_code") != 4
+        and not r.get("nav2_action_succeeded", False)
     ]
 
-    go_condition = (len(aligned_strict_successes) == 2 and len(oblique_failures) == 2)
-    verdict = "GO (Preliminary Scenario Usable)" if go_condition else "NO-GO (Scenario Not Established - 本场景未建立)"
-    rationale = (
-        "Both candidate action profiles executed successfully without failure under FREE perception, "
-        "failing to demonstrate reproducible executability differences."
-        if not go_condition
-        else "Reproducible executability divergence confirmed."
+    nav2_succeeded_count = sum(
+        1 for r in parsed_runs
+        if r.get("terminal_status_name") == "SUCCEEDED" and r.get("terminal_status_code") == 4
     )
+    strict_physical_arrival_count = sum(
+        1 for r in parsed_runs if r.get("physical_arrival_verified") is True
+    )
+
+    go_condition = (
+        preconditions_verified
+        and len(aligned_strict_successes) == 2
+        and len(oblique_nav2_failures) == 2
+    )
+
+    verdict = "GO (Preliminary Scenario Usable)" if go_condition else "NO-GO (Scenario Not Established - 本场景未建立)"
+
+    if not preconditions_verified:
+        rationale = f"Precondition check failed for runs: {'; '.join(precondition_failures)}."
+    elif not go_condition:
+        rationale = (
+            f"Candidate scenario failed to establish expected executability divergence: "
+            f"Nav2 returned SUCCEEDED in {nav2_succeeded_count}/4 runs (including both oblique runs where ABORTED was expected). "
+            f"Strict physical arrival verified in {strict_physical_arrival_count}/4 runs. "
+            f"Aligned strict successes: {len(aligned_strict_successes)}/2, Oblique Nav2 failures: {len(oblique_nav2_failures)}/2. "
+            f"{unified_conclusion}"
+        )
+    else:
+        rationale = "Reproducible executability divergence confirmed across aligned and oblique profiles."
 
     return {
         "go_condition_met": go_condition,
         "verdict": verdict,
         "rationale": rationale,
+        "unified_conclusion": unified_conclusion,
+        "preconditions_verified": preconditions_verified,
+        "precondition_failures": precondition_failures,
+        "expected_runs": EXPECTED_H1_RUNS,
+        "present_runs": present_run_names,
+        "nav2_succeeded_count": nav2_succeeded_count,
+        "strict_physical_arrival_count": strict_physical_arrival_count,
         "aligned_total": len(aligned_runs),
         "aligned_strict_successes": len(aligned_strict_successes),
         "oblique_total": len(oblique_runs),
-        "oblique_failures": len(oblique_failures),
+        "oblique_nav2_failures": len(oblique_nav2_failures),
     }
 
 
@@ -358,8 +429,9 @@ def parse_and_derive_h1_evidence(evidence_dir: Path, derived_dir: Path) -> Dict[
 
         total_dur = raw.get("test_action_duration_sec")
         stability_dur = window_eval.get("sim_duration_covered", 2.4)
-        # Passive settling duration is typically ~3.0s sim time
-        # Estimated active Nav2 duration: total_dur - settling - stability
+        # Note: Active Nav2 duration is estimated assuming nominal 3.0s passive settling duration.
+        # This is not independently timestamped from raw clock events and must not be used to
+        # assert active Nav2 completed within 15s without qualification.
         nav2_dur = round(total_dur - 3.0 - stability_dur, 2) if total_dur is not None else None
 
         parsed_records.append({
@@ -379,9 +451,15 @@ def parse_and_derive_h1_evidence(evidence_dir: Path, derived_dir: Path) -> Dict[
             "halt_failure_reason": halt_eval.get("halt_failure_reason"),
             "timing_breakdown": {
                 "total_step_sim_time_sec": total_dur,
-                "nav2_navigation_duration_sec": nav2_dur,
-                "passive_settling_sim_time_sec": 3.0,
+                "estimated_nav2_navigation_duration_sec": nav2_dur,
+                "estimated_passive_settling_sim_time_sec": 3.0,
                 "stability_window_sim_time_sec": stability_dur,
+                "assumptions_note": (
+                    "Passive settling duration assumes nominal 3.0s sim time prior to stability "
+                    "evaluation window; active Nav2 duration is estimated and not independently logged via "
+                    "per-event timestamp. Cannot definitively assert active Nav2 completed within 15s solely from "
+                    "this estimated breakdown."
+                ),
             },
         })
 
@@ -394,8 +472,8 @@ def parse_and_derive_h1_evidence(evidence_dir: Path, derived_dir: Path) -> Dict[
             "transformation_rules": [
                 "Extracted terminal status_code from actions[1].status_code",
                 "Extracted pass_through_count from scan_snapshots H1_CORRIDOR_ENTRANCE",
-                "Decomposed action duration into Nav2 navigation, passive settling, and stability window",
-                "Applied multi-condition Go/No-Go evaluation (preconditions, FREE evidence, budget, physical arrival)",
+                "Decomposed action duration into estimated Nav2 navigation, assumed passive settling, and stability window",
+                "Applied multi-condition Go/No-Go evaluation (identity, FREE preconditions, budget, physical arrival)",
             ],
         },
         "evaluation_summary": eval_summary,
