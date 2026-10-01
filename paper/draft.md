@@ -1,4 +1,4 @@
-# Verified Failure Memory for Cross-Episode Robot Navigation: An Auditable Evaluation and Exploratory Boundary Study
+# Auditable Failure Memory for ROS 2 Navigation: An Exploratory Comparison with Spatial Caching
 
 **Anonymous Authors**
 
@@ -6,7 +6,7 @@
 
 ## Abstract
 
-Autonomous mobile robots navigating dynamic indoor environments frequently encounter execution failures at physical chokepoints, narrow passages, and transient blockages. Standard navigation architectures (e.g., ROS 2 Nav2) employ reactive intra-episode recovery behaviors, yet they lack structured cross-episode memory indexing, leading to repetitive dead-end retries across subsequent tasks. Conversely, verbal self-reflection frameworks in embodied AI store unstructured text logs in prompt contexts that lack physical sensor postcondition grounding and spatial expiration semantics. In this work, we present **FailMem**, an event-driven, causally bound failure memory architecture for autonomous mobile robots. FailMem records immutable observation bundles comprising raw LiDAR range arrays, TF coordinate transforms, and raw 2D costmap regions-of-interest (ROIs), binding navigation failures to specific execution regions and action identities while dynamically invalidating suppression upon verified sensory clearance. To ensure rigorous scientific evaluation and eliminate unverified synthetic abstractions, we implement an independent replay audit pipeline that recomputes sensory metrics directly from raw physical observations against SHA256 checksum manifests. Evaluated across 30 physical simulation runs in Gazebo 11 with ROS 2 Humble Nav2 ($n=3$ per condition under sequential fixed-seed execution), FailMem ($F$) eliminates redundant dead-end traversals relative to a constrained reactive baseline ($R$), reducing total travel distance by $-18.5\%$ ($14.03\,\text{m}$ vs. $17.22\,\text{m}$) and total execution time by $-22.3\%$ ($109.5\,\text{s}$ vs. $141.0\,\text{s}$). Furthermore, dynamic memory invalidation saves $-11.0\%$ total distance relative to permanent suppression ($M1$) upon environmental recovery ($16.25\,\text{m}$ vs. $18.25\,\text{m}$). In our exploratory single-agent benchmark under static 2D geometric blockages, FailMem and a spatial observation caching baseline ($O$) exhibited identical high-level route choices with $<1\%$ metric differences ($14.03\,\text{m}$ vs. $13.95\,\text{m}$ in D1; $16.25\,\text{m}$ vs. $16.40\,\text{m}$ in D2), demonstrating that in this exploratory dataset, failure semantics did not provide an additional performance benefit over spatial caching. Finally, an exploratory feasibility check ($n=4$) on candidate action-conditioned execution ($H_1$) revealed that local planners negotiated narrow inflation margins without controller abortion (4/4 Nav2 `SUCCEEDED`, 3/4 verified strict physical arrival), defining the operational boundaries required for future action-profiled memory architectures.
+Autonomous mobile robots navigating dynamic indoor environments frequently encounter execution failures at physical chokepoints, narrow passages, and transient blockages. Standard navigation architectures (e.g., ROS 2 Nav2) employ reactive intra-episode recovery behaviors, yet they lack structured cross-episode memory indexing, leading to repetitive dead-end retries across subsequent tasks. Conversely, verbal self-reflection frameworks in embodied AI store unstructured text logs in prompt contexts that lack physical sensor postcondition grounding and spatial expiration semantics. In this work, we present **FailMem**, an event-driven, causally bound failure memory architecture for autonomous mobile robots. FailMem records immutable observation bundles comprising raw LiDAR range arrays, TF coordinate transforms, and raw 2D costmap regions-of-interest (ROIs), binding navigation failures to specific execution regions and action identities while dynamically invalidating suppression upon verified sensory clearance. To ensure rigorous scientific evaluation and eliminate unverified synthetic abstractions, we implement an independent replay audit pipeline that recomputes sensory metrics directly from raw physical observations against SHA256 checksum manifests. Evaluated across 30 physical simulation runs in Gazebo 11 with ROS 2 Humble Nav2 ($n=3$ per condition under sequential fixed-seed execution), FailMem ($F$) eliminates redundant dead-end traversals relative to a constrained reactive baseline ($R$), reducing total travel distance by $-18.5\%$ ($14.03\,\text{m}$ vs. $17.22\,\text{m}$) and total execution time by $-22.3\%$ ($109.5\,\text{s}$ vs. $141.0\,\text{s}$). Furthermore, dynamic memory invalidation saves $-11.0\%$ total distance relative to permanent suppression ($M1$) upon environmental recovery ($16.25\,\text{m}$ vs. $18.25\,\text{m}$). In our exploratory single-agent benchmark under static 2D geometric blockages, FailMem and a spatial observation caching baseline ($O$) exhibited identical high-level route choices with $<1\%$ metric differences ($14.03\,\text{m}$ vs. $13.95\,\text{m}$ in D1; $16.25\,\text{m}$ vs. $16.40\,\text{m}$ in D2). In this exploratory dataset, route choices were identical and showed no additional benefit of $F$ over $O$; general scenarios and statistical equivalence have not been verified. Finally, an exploratory feasibility check ($n=4$) on candidate action-conditioned execution ($H_1$) revealed that local planners negotiated narrow inflation margins without controller abortion (4/4 Nav2 `SUCCEEDED`, 3/4 verified strict physical arrival), indicating that the tested scenario did not establish executability divergence and providing concrete guidance for future action-profiled memory designs.
 
 ---
 
@@ -20,11 +20,11 @@ To mitigate unguided re-exploration, two primary paradigms have been explored:
 
 However, existing frameworks present key operational and methodological limitations. In embodied AI, verbal reflection mechanisms typically store unstructured natural language strings in prompt contexts without physical sensor postcondition verification or spatial costmap expiration rules. Furthermore, robotics evaluation historically suffers from reproducibility challenges when relying on synthetic 2D mock state machines that omit real controller oscillation, sensor noise, and lifecycle timing delays.
 
-In this work, we present an auditable, event-driven failure memory framework and evaluate its operational boundaries in physical ROS 2 / Gazebo simulation. Specifically, we provide:
+In this work, we present an auditable, event-driven failure memory framework and evaluate its behavior in physical ROS 2 / Gazebo simulation. Specifically, we provide:
 1. **Authentic Action Client & Perception Architecture**: We implement FailMem on genuine ROS 2 Humble Nav2 action clients, capturing immutable observation bundles (untruncated laser scans, TF transforms, and raw 2D costmap ROI subgrids) prior to state classification.
-2. **Independent Replay Audit Pipeline**: We implement an independent offline replay engine that reconstructs memory lifecycles and physical trajectories directly from raw serialized sensor records against SHA256 checksum manifests, validating chronological causality ($t_{\text{rec}} \ge \max(t_{\text{act}}, t_{\text{obs}}) - 0.05\,\text{s}$).
+2. **Independent Replay Audit Pipeline**: We implement an independent offline replay engine that reconstructs memory lifecycles and physical trajectories directly from raw serialized sensor records against SHA256 checksum manifests, validating chronological causality ($t_{\text{rec}} \ge \max(t_{\text{act}}, t_{\text{obs}}) - 0.05\,\text{s}$) and physical halt stability.
 3. **Empirical Evaluation Across 30 Physical Runs**: Across 30 physical simulation runs in Gazebo 11 ($n=3$ per condition), we demonstrate that historical knowledge eliminates redundant dead-end exploration ($-18.5\%$ distance vs. Reactive $R$) and dynamic invalidation prevents permanent detour traps ($-11.0\%$ distance vs. Persistent $M1$).
-4. **Transparent Boundary & Negative Findings**: We report that under static 2D geometric blockages, FailMem and spatial caching ($O$) produce identical route choices ($<1\%$ difference). In this exploratory dataset, route choices were identical and showed no additional benefit of $F$ over $O$; general scenarios and statistical equivalence have not been verified. An exploratory feasibility trial ($n=4$) on action-conditioned navigation ($H_1$) further shows that the candidate scenario did not establish executability divergence, providing concrete guidance for future action-profiled memory designs ($F2$).
+4. **Calibrated Comparison with Spatial Caching**: We report that under static 2D geometric blockages, FailMem and spatial caching ($O$) produce identical route choices ($<1\%$ metric difference). In this exploratory dataset, route choices were identical and showed no additional benefit of $F$ over $O$; general scenarios and statistical equivalence have not been verified. An exploratory feasibility trial ($n=4$) on action-conditioned navigation ($H_1$) further shows that the candidate scenario did not establish executability divergence, clarifying the empirical boundaries for future action-profiled memory designs ($F2$).
 
 ---
 
@@ -63,25 +63,7 @@ In motion planning, the Lightning framework \cite{berenson2012lightning} and Exp
 
 ## 3. The FailMem Architecture & Verification Pipeline
 
-```
-                              +--------------------------+
-                              | High-Level Planner / Leg |
-                              +--------------------------+
-                                  |                  ^
-                 [1] Dispatch     |                  | [5] Invalidate
-                 Goal UUID        v                  |     on FREE
-                         +-------------------+   +--------------------+
-                         |    ROS 2 Nav2     |   |  Immutable Sensor  |
-                         |  NavigateToPose   |   | Observation Bundle |
-                         +-------------------+   +--------------------+
-                                  |                        ^
-                 [2] ABORTED /    |                        | [3] Raw TF / Laser /
-                     CANCELED     v                        |     Subgrid ROI
-                         +---------------------------------+
-                         |   Event-Driven Memory Store     |
-                         |   Record: (t_fail, UUID, ROI)   |
-                         +---------------------------------+
-```
+![FailMem Architecture and Verification Pipeline](figures/architecture.svg)
 
 ### 3.1 Immutable Observation Bundles
 Prior to evaluating passage clearance, FailMem constructs an immutable observation bundle $B$:
@@ -106,7 +88,7 @@ The passage state is evaluated according to the following strict hierarchical ru
    \text{FREE}, & \text{if } N_{\text{hits\_inside}} = 0 \text{ and } N_{\text{pass\_through}} \ge 8 \text{ and } \text{CostmapCleared}(B) \\ 
    \text{UNKNOWN}, & \text{otherwise} 
    \end{cases}$$
-   where $\text{CostmapCleared}(B) \iff (N_{\text{unknown\_cells}} = 0 \land N_{\text{occupied\_cells}} = 0)$ within the doorway ROI.
+   where $\text{CostmapCleared}(B) \iff (N_{\text{unknown\_cells}} = 0 \land N_{\text{occupied\_cells}} = 0)$ within the doorway ROI $[-0.15, 0.15, 0.95, 1.45]$.
 
 ### 3.3 Memory Lifecycle & Invalidation Mechanics
 - **Failure Registration**: When chokepoint traversal fails in an occupied region, an active entry is committed:
@@ -129,30 +111,30 @@ To eliminate reliance on self-reported runtime summaries, the independent replay
 
 ### 4.1 Physical Simulation Environment & Geometry
 Simulations are conducted in ROS 2 Humble with Gazebo 11 simulating a TurtleBot3 Waffle robot in an asymmetric dual-path environment (`configs/p2c_dualpath_world.model`).
-- **Path A (North Short Path)**: Nominal map shortest path length is $6.12\,\text{m}$ from Decision Junction $J_0 [-2.50, 0.00]$ to Goal $[2.50, 0.00]$ through a $0.80\,\text{m}$ doorway chokepoint at $y=1.20$.
-- **Path B (South Bypass Detour)**: Nominal map shortest path length is $9.11\,\text{m}$ from $J_0$ to Goal via open corridor at $y=-2.40$.
+- **Path A (North Short Path)**: Protocol waypoint polyline length is $6.124\,\text{m}$ from Decision Junction $J_0 [-2.50, 0.00]$ to Goal $[2.50, 0.00]$ through a $0.80\,\text{m}$ doorway chokepoint at $y=1.20$.
+- **Path B (South Bypass Detour)**: Protocol waypoint polyline length is $9.105\,\text{m}$ from $J_0$ to Goal via open corridor at $y=-2.40$.
 
 ### 4.2 Distance Metric Definitions
-To prevent ambiguity, distance metrics are defined as follows:
-1. **Nominal Map Path Length**: Ideal geometric shortest path distance from $J_0$ to Goal (Path A: $6.12\,\text{m}$, Path B: $9.11\,\text{m}$).
-2. **Decision-Phase Distance**: Distance traversed during Phase 2 after dispatch from $J_0$ (Path B direct: $\approx 7.54\,\text{m}$; Path A direct: $\approx 5.89 - 6.20\,\text{m}$).
-3. **Total Episode Distance**: Cumulative odometry distance spanning both the Phase 1 historical collection leg and Phase 2 decision leg.
+To prevent ambiguity across different evaluation granularities, distance metrics are defined as follows:
+1. **Protocol Waypoint Polyline Length**: Ideal piecewise linear distance connecting defined route waypoints (Path A: $6.124\,\text{m}$, Path B: $9.105\,\text{m}$).
+2. **Decision-Phase Traversed Distance**: Actual physical odometry distance traversed during Phase 2 after goal dispatch from Decision Junction $J_0$ (Path B direct: $\approx 7.54\,\text{m}$; Path A direct: $\approx 5.89\,\text{m}$).
+3. **Total Episode Distance**: Cumulative odometry distance spanning both the Phase 1 historical observation/attempt leg and the Phase 2 decision navigation leg ($14.03\,\text{m}$ for D1 F/O, $17.22\,\text{m}$ for D1 R, $16.25\,\text{m}$ for D2 F, $18.25\,\text{m}$ for D2 M1).
 
 ### 4.3 Evaluated Scenarios & Methods
 - **Scenario D0 (Unobstructed Baseline)**: Doorway is clear; robot navigates Path A without prior history.
-- **Scenario D1 (Confirmed Blockage)**: Doorway is blocked by a physical box obstacle. Phase 1 traverses from $J_0$ to chokepoint, encounters blockage, and retreats to $J_0$. Phase 2 evaluates routing from $J_0$.
-- **Scenario D2 (Cleared / Restored)**: Following D1, the obstacle is removed. Phase 1 observes `FREE` doorway clearance and retreats to $J_0$. Phase 2 evaluates routing from $J_0$.
+- **Scenario D1 (Confirmed Blockage)**: Doorway is blocked by a physical box obstacle. Phase 1 traverses from $J_0$ to chokepoint approach waypoint $[-1.50, 1.20]$, encounters blockage, and retreats to $J_0$. Phase 2 evaluates routing dispatched from $J_0$.
+- **Scenario D2 (Cleared / Restored)**: Following D1, the obstacle is removed. Phase 1 observes `FREE` doorway clearance from vantage waypoint $[-1.50, 1.20]$ and retreats to $J_0$. Phase 2 evaluates routing dispatched from $J_0$.
 
 **Evaluated Methods**:
-1. **Reactive Baseline ($R$)**: No cross-phase memory. In D1, enters Path A approach leg to waypoint `[-1.50, 1.20]`, detects blockage at entrance gate, and executes structured fallback retreat to $J_0$ before taking Path B. All methods share identical Nav2 costmap configurations.
-2. **Spatial Observation Cache ($O$)**: Caches 2D geometric occupancy observed at $J_0$.
+1. **Reactive Baseline ($R$)**: No cross-phase memory. In D1, enters Path A approach leg to gate waypoint `[-1.50, 1.20]`, detects blockage, and executes structured fallback retreat to $J_0$ before taking Path B. All methods share identical Nav2 costmap configurations.
+2. **Spatial Observation Cache ($O$)**: Caches 2D geometric occupancy observed from vantage waypoint `[-1.50, 1.20]` during Phase 1. Evaluated at $J_0$ during Phase 2 route dispatch.
 3. **FailMem ($F$)**: Event-driven failure memory with dynamic perception-driven invalidation.
 4. **Persistent Suppression ($M1$)**: Static failure memory permanently suppressing Path A without dynamic invalidation.
 
-### 4.4 Execution Constraints & Budget
+### 4.4 Execution Constraints & Halt Stability
 - **Sample Size & Order**: $n=3$ per condition, executed consecutively under fixed simulation seeds.
 - **Budget**: Total episode simulation budget is $180.0\,\text{s}$.
-- **Physical Halt Stability**: Upon goal completion, robot must maintain linear velocity $\le 0.05\,\text{m/s}$ and angular velocity $\le 0.08\,\text{rad/s}$ over a $2.0\,\text{s}$ stability recording window.
+- **Physical Halt Stability**: Upon goal completion, the robot must maintain linear velocity $|v_{\text{lin}}| \le 0.05\,\text{m/s}$ and angular velocity $|v_{\text{ang}}| \le 0.08\,\text{rad/s}$ over a nominal $2.0\,\text{s}$ stability recording window (with $2.3-2.4\,\text{s}$ sim time coverage in the active executor).
 
 ---
 
@@ -164,37 +146,37 @@ Table 1 presents condition-level performance across 30 physical simulation runs 
 
 | Scenario | Condition | $n$ | Actual Route | Dead-End Traversals | Decision Dist (m) | Decision Time (s) | Total Dist (m) | Total Time (s) | Replay Audit Pass |
 | :--- | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **D0** | $R$ | 3 | `Path_A` | $0.0 \pm 0.0$ | $6.160 \pm 0.040$ | $51.533 \pm 1.662$ | $6.160 \pm 0.040$ | $51.533 \pm 1.662$ | 3/3 (100%) |
-| **D0** | $O$ | 3 | `Path_A` | $0.0 \pm 0.0$ | $6.203 \pm 0.012$ | $49.967 \pm 0.850$ | $6.203 \pm 0.012$ | $49.967 \pm 0.850$ | 3/3 (100%) |
-| **D0** | $F$ | 3 | `Path_A` | $0.0 \pm 0.0$ | $6.196 \pm 0.031$ | $49.900 \pm 0.458$ | $6.196 \pm 0.031$ | $49.900 \pm 0.458$ | 3/3 (100%) |
-| **D1** | $R$ | 3 | `Path_A_then_Path_B` | $1.0 \pm 0.0$ | $10.816 \pm 0.067$ | $82.067 \pm 4.388$ | $17.220 \pm 0.243$ | $141.000 \pm 5.912$ | 3/3 (100%) |
-| **D1** | $O$ | 3 | `Path_B` | $0.0 \pm 0.0$ | $7.550 \pm 0.053$ | $50.033 \pm 1.986$ | $13.947 \pm 0.071$ | $108.700 \pm 2.718$ | 3/3 (100%) |
-| **D1** | $F$ | 3 | `Path_B` | $0.0 \pm 0.0$ | $7.536 \pm 0.005$ | $48.200 \pm 0.954$ | $14.027 \pm 0.252$ | $109.500 \pm 1.572$ | 3/3 (100%) |
-| **D2** | $R$ | 3 | `Path_A` | $0.0 \pm 0.0$ | $5.915 \pm 0.038$ | $49.567 \pm 1.595$ | $16.344 \pm 0.031$ | $148.167 \pm 3.156$ | 3/3 (100%) |
-| **D2** | $O$ | 3 | `Path_A` | $0.0 \pm 0.0$ | $5.939 \pm 0.070$ | $52.033 \pm 1.747$ | $16.396 \pm 0.237$ | $149.767 \pm 0.551$ | 3/3 (100%) |
-| **D2** | $F$ | 3 | `Path_A` | $0.0 \pm 0.0$ | $5.886 \pm 0.021$ | $51.100 \pm 0.954$ | $16.247 \pm 0.103$ | $151.100 \pm 7.763$ | 3/3 (100%) |
-| **D2** | $M1$ | 3 | `Path_B` | $0.0 \pm 0.0$ | $7.895 \pm 0.023$ | $51.300 \pm 2.000$ | $18.248 \pm 0.089$ | $148.833 \pm 2.401$ | 3/3 (100%) |
+| **D0** | $R$ | 3 | `Path_A` | 0.0 $\pm$ 0.0 | 6.160 $\pm$ 0.037 | 51.533 $\pm$ 1.656 | 6.160 $\pm$ 0.037 | 51.533 $\pm$ 1.656 | 3/3 (100\%) |
+| **D0** | $O$ | 3 | `Path_A` | 0.0 $\pm$ 0.0 | 6.203 $\pm$ 0.007 | 49.967 $\pm$ 0.850 | 6.203 $\pm$ 0.007 | 49.967 $\pm$ 0.850 | 3/3 (100\%) |
+| **D0** | $F$ | 3 | `Path_A` | 0.0 $\pm$ 0.0 | 6.196 $\pm$ 0.031 | 49.900 $\pm$ 0.458 | 6.196 $\pm$ 0.031 | 49.900 $\pm$ 0.458 | 3/3 (100\%) |
+| **D1** | $R$ | 3 | `Path_A_then_Path_B` | 1.0 $\pm$ 0.0 | 10.816 $\pm$ 0.072 | 82.067 $\pm$ 4.394 | 17.220 $\pm$ 0.242 | 141.000 $\pm$ 5.910 | 3/3 (100\%) |
+| **D1** | $O$ | 3 | `Path_B` | 0.0 $\pm$ 0.0 | 7.550 $\pm$ 0.052 | 50.033 $\pm$ 1.986 | 13.947 $\pm$ 0.070 | 108.700 $\pm$ 2.718 | 3/3 (100\%) |
+| **D1** | $F$ | 3 | `Path_B` | 0.0 $\pm$ 0.0 | 7.536 $\pm$ 0.003 | 48.200 $\pm$ 0.954 | 14.027 $\pm$ 0.252 | 109.500 $\pm$ 1.572 | 3/3 (100\%) |
+| **D2** | $R$ | 3 | `Path_A` | 0.0 $\pm$ 0.0 | 5.915 $\pm$ 0.044 | 49.567 $\pm$ 1.595 | 16.344 $\pm$ 0.032 | 148.167 $\pm$ 3.164 | 3/3 (100\%) |
+| **D2** | $O$ | 3 | `Path_A` | 0.0 $\pm$ 0.0 | 5.939 $\pm$ 0.066 | 52.033 $\pm$ 1.747 | 16.396 $\pm$ 0.240 | 149.767 $\pm$ 0.551 | 3/3 (100\%) |
+| **D2** | $F$ | 3 | `Path_A` | 0.0 $\pm$ 0.0 | 5.886 $\pm$ 0.022 | 51.100 $\pm$ 0.954 | 16.247 $\pm$ 0.098 | 151.100 $\pm$ 7.762 | 3/3 (100\%) |
+| **D2** | $M1$ | 3 | `Path_B` | 0.0 $\pm$ 0.0 | 7.895 $\pm$ 0.023 | 51.300 $\pm$ 1.997 | 18.248 $\pm$ 0.094 | 148.833 $\pm$ 2.397 | 3/3 (100\%) |
 
-### 5.2 Pairwise Contrasts & Behavioral Analysis
+### 5.2 Pairwise Contrasts & Trajectory Analysis
 
 Table 2 presents key pairwise contrast comparisons across evaluated methods.
 
 | Scenario | Comparison | Metric | Method A Mean | Method B Mean | Abs Diff ($A - B$) | Rel Diff (%) |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
-| **D1** | $F$ vs. $R$ | Total Distance (m) | $14.027$ | $17.220$ | $-3.193$ | **$-18.5\%$** |
-| **D1** | $F$ vs. $R$ | Total Time (s) | $109.500$ | $141.000$ | $-31.500$ | **$-22.3\%$** |
-| **D1** | $O$ vs. $R$ | Total Distance (m) | $13.947$ | $17.220$ | $-3.273$ | **$-19.0\%$** |
-| **D1** | $O$ vs. $R$ | Total Time (s) | $108.700$ | $141.000$ | $-32.300$ | **$-22.9\%$** |
-| **D1** | $F$ vs. $O$ | Total Distance (m) | $14.027$ | $13.947$ | $+0.080$ | **$+0.6\%$** |
-| **D1** | $F$ vs. $O$ | Total Time (s) | $109.500$ | $108.700$ | $+0.800$ | **$+0.7\%$** |
-| **D2** | $F$ vs. $M1$ | Total Distance (m) | $16.247$ | $18.248$ | $-2.001$ | **$-11.0\%$** |
-| **D2** | $F$ vs. $M1$ | Total Time (s) | $151.100$ | $148.833$ | $+2.267$ | **$+1.5\%$** |
-| **D2** | $F$ vs. $O$ | Total Distance (m) | $16.247$ | $16.396$ | $-0.149$ | **$-0.9\%$** |
-| **D2** | $F$ vs. $O$ | Total Time (s) | $151.100$ | $149.767$ | $+1.333$ | **$+0.9\%$** |
+| **D1** | $F$ vs. $R$ | Total Dist (m) | 14.027 | 17.220 | -3.193 | **-18.5\%** |
+| **D1** | $F$ vs. $R$ | Total Time (s) | 109.500 | 141.000 | -31.500 | **-22.3\%** |
+| **D1** | $F$ vs. $O$ | Total Dist (m) | 14.027 | 13.947 | +0.080 | +0.6\% |
+| **D1** | $F$ vs. $O$ | Total Time (s) | 109.500 | 108.700 | +0.800 | +0.7\% |
+| **D2** | $F$ vs. $M1$ | Total Dist (m) | 16.247 | 18.248 | -2.000 | **-11.0\%** |
+| **D2** | $F$ vs. $M1$ | Total Time (s) | 151.100 | 148.833 | +2.267 | +1.5\% |
+| **D2** | $F$ vs. $O$ | Total Dist (m) | 16.247 | 16.396 | -0.149 | -0.9\% |
+| **D2** | $F$ vs. $O$ | Total Time (s) | 151.100 | 149.767 | +1.333 | +0.9\% |
+
+![Representative Physical Trajectories Across Evaluated Conditions](figures/trajectories_map.png)
 
 1. **Elimination of Redundant Dead-End Exploration ($F$ vs. $R$)**: In D1, FailMem ($F$) eliminates redundant entrance into the blocked corridor ($0.0$ vs. $1.0$ dead ends), reducing total distance by $-18.5\%$ and time by $-22.3\%$ relative to Reactive $R$. Note that $R$'s dead-end traversal represents an unguided retry traversal to the entrance waypoint, not physical collision or Nav2 crash.
 2. **Prevention of Detour Overhead ($F$ vs. $M1$)**: In D2, dynamic invalidation upon observing `FREE` unsuppresses Path A, saving $2.00\,\text{m}$ ($-11.0\%$) total distance relative to persistent suppression ($M1$). Total execution times remain comparable ($151.1\,\text{s}$ vs. $148.8\,\text{s}$).
-3. **Parity with Spatial Caching in Static 2D Geometry ($F$ vs. $O$)**: In both D1 and D2, FailMem ($F$) and Spatial Cache ($O$) selected identical topological routes. *本次探索性数据中路线选择相同，未显示 F 的额外收益；尚未进行统计等效或一般化验证。*
+3. **Comparison with Spatial Caching in Static 2D Geometry ($F$ vs. $O$)**: In both D1 and D2, FailMem ($F$) and Spatial Cache ($O$) selected identical topological routes. *本次探索性数据中路线选择相同，未显示 F 的额外收益；尚未进行统计等效或一般化验证。*
 
 ### 5.3 Feasibility Check for Action-Conditioned Navigation ($H_1$)
 
@@ -202,10 +184,10 @@ To test whether action configurations (aligned $a_{\text{aligned}}$ vs. doorpost
 
 | Run Name | Action Profile | Target Goal | Doorway Perception | Nav2 Status (Code) | Est. Nav2 Nav Time ($s$) | Assumed Settling ($s$) | Stability Window ($s$) | Total Sim Duration ($s$) | Physical Arrival Verified |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `H1_aligned_run1` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` ($23$ rays) | `SUCCEEDED` (4) | $13.4$ (est.) | $3.0$ (nom.) | $2.4$ | $18.8$ | **False** (excess av: $0.1068 > 0.08$) |
-| `H1_aligned_run2` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` ($22$ rays) | `SUCCEEDED` (4) | $13.4$ (est.) | $3.0$ (nom.) | $2.4$ | $18.8$ | **True** |
-| `H1_oblique_run1` | `act_oblique` | `[0.50, 0.88, 0.0]` | `FREE` ($23$ rays) | `SUCCEEDED` (4) | $11.1$ (est.) | $3.0$ (nom.) | $2.3$ | $16.4$ | **True** |
-| `H1_oblique_run2` | `act_oblique` | `[0.50, 0.88, 0.0]` | `FREE` ($22$ rays) | `SUCCEEDED` (4) | $11.0$ (est.) | $3.0$ (nom.) | $2.3$ | $16.3$ | **True** |
+| `H1_aligned_run1` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` (23 rays) | `SUCCEEDED` (4) | $13.4$ (est.) | $3.0$ (nom.) | $2.4$ | $18.8$ | **False** (excess av: 0.1068 > 0.08) |
+| `H1_aligned_run2` | `act_aligned` | `[1.50, 1.20, 0.0]` | `FREE` (22 rays) | `SUCCEEDED` (4) | $13.4$ (est.) | $3.0$ (nom.) | $2.4$ | $18.8$ | **True** |
+| `H1_oblique_run1` | `act_oblique` | `[0.50, 0.88, 0.0]` | `FREE` (23 rays) | `SUCCEEDED` (4) | $11.1$ (est.) | $3.0$ (nom.) | $2.3$ | $16.4$ | **True** |
+| `H1_oblique_run2` | `act_oblique` | `[0.50, 0.88, 0.0]` | `FREE` (22 rays) | `SUCCEEDED` (4) | $11.0$ (est.) | $3.0$ (nom.) | $2.3$ | $16.3$ | **True** |
 
 *Findings & Decision*:
 - Nav2 returned `SUCCEEDED` (status code 4) in all 4/4 runs; strict physical arrival was verified in 3/4 runs (`H1_aligned_run1` failed angular velocity halt threshold during the stability window).
@@ -224,7 +206,7 @@ To test whether action configurations (aligned $a_{\text{aligned}}$ vs. doorpost
 
 ## 7. Conclusion
 
-This paper presented FailMem, an event-driven failure memory architecture for autonomous mobile robots. By binding execution failures to immutable observation bundles and providing an independent replay audit pipeline, FailMem establishes rigorous standards for reproducible robotics evaluation. Our empirical findings demonstrate that failure memory eliminates redundant dead-end exploration relative to reactive baselines and prevents permanent detour traps upon environmental recovery, while exhibiting functional parity with spatial caching under static 2D geometry. These results establish clear operational boundaries and provide a solid baseline for future research in action-conditioned and multi-agent failure memory systems.
+This paper presented FailMem, an event-driven failure memory architecture for autonomous mobile robots. By binding execution failures to immutable observation bundles and providing an independent replay audit pipeline, FailMem establishes rigorous standards for reproducible robotics evaluation. Our empirical findings demonstrate that failure memory eliminates redundant dead-end exploration relative to reactive baselines and prevents permanent detour traps upon environmental recovery, while exhibiting identical route selection with spatial caching under the tested static 2D geometry. These findings define concrete experimental benchmarks and provide a solid foundation for future research in action-conditioned and multi-agent failure memory systems.
 
 ---
 

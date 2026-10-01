@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Auditable Failure Memory for ROS 2 Navigation: An Exploratory Comparison with Spatial Caching</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    div.csl-bib-body { }
+    div.csl-entry {
+      clear: both;
+    }
+    .hanging div.csl-entry {
+      margin-left:2em;
+      text-indent:-2em;
+    }
+    div.csl-left-margin {
+      min-width:2em;
+      float:left;
+    }
+    div.csl-right-inline {
+      margin-left:2em;
+      padding-left:1em;
+    }
+    div.csl-indent {
+      margin-left: 2em;
+    }
+  </style>
+  <link rel="stylesheet" href="/code/failmem-ros2-agent/paper/paper_style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Auditable Failure Memory for ROS 2 Navigation: An Exploratory Comparison with Spatial Caching</h1>
+</header>
+<h1 id="auditable-failure-memory-for-ros-2-navigation-an-exploratory-comparison-with-spatial-caching">Auditable Failure Memory for ROS 2 Navigation: An Exploratory Comparison with Spatial Caching</h1>
+<p><strong>Anonymous Authors</strong></p>
+<hr />
+<h2 id="abstract">Abstract</h2>
+<p>Autonomous mobile robots navigating dynamic indoor environments frequently encounter execution failures at physical chokepoints, narrow passages, and transient blockages. Standard navigation architectures (e.g., ROS 2 Nav2) employ reactive intra-episode recovery behaviors, yet they lack structured cross-episode memory indexing, leading to repetitive dead-end retries across subsequent tasks. Conversely, verbal self-reflection frameworks in embodied AI store unstructured text logs in prompt contexts that lack physical sensor postcondition grounding and spatial expiration semantics. In this work, we present <strong>FailMem</strong>, an event-driven, causally bound failure memory architecture for autonomous mobile robots. FailMem records immutable observation bundles comprising raw LiDAR range arrays, TF coordinate transforms, and raw 2D costmap regions-of-interest (ROIs), binding navigation failures to specific execution regions and action identities while dynamically invalidating suppression upon verified sensory clearance. To ensure rigorous scientific evaluation and eliminate unverified synthetic abstractions, we implement an independent replay audit pipeline that recomputes sensory metrics directly from raw physical observations against SHA256 checksum manifests. Evaluated across 30 physical simulation runs in Gazebo 11 with ROS 2 Humble Nav2 (<span class="math inline">\(n=3\)</span> per condition under sequential fixed-seed execution), FailMem (<span class="math inline">\(F\)</span>) eliminates redundant dead-end traversals relative to a constrained reactive baseline (<span class="math inline">\(R\)</span>), reducing total travel distance by <span class="math inline">\(-18.5\%\)</span> (<span class="math inline">\(14.03\,\text{m}\)</span> vs. <span class="math inline">\(17.22\,\text{m}\)</span>) and total execution time by <span class="math inline">\(-22.3\%\)</span> (<span class="math inline">\(109.5\,\text{s}\)</span> vs. <span class="math inline">\(141.0\,\text{s}\)</span>). Furthermore, dynamic memory invalidation saves <span class="math inline">\(-11.0\%\)</span> total distance relative to permanent suppression (<span class="math inline">\(M1\)</span>) upon environmental recovery (<span class="math inline">\(16.25\,\text{m}\)</span> vs. <span class="math inline">\(18.25\,\text{m}\)</span>). In our exploratory single-agent benchmark under static 2D geometric blockages, FailMem and a spatial observation caching baseline (<span class="math inline">\(O\)</span>) exhibited identical high-level route choices with <span class="math inline">\(&lt;1\%\)</span> metric differences (<span class="math inline">\(14.03\,\text{m}\)</span> vs. <span class="math inline">\(13.95\,\text{m}\)</span> in D1; <span class="math inline">\(16.25\,\text{m}\)</span> vs. <span class="math inline">\(16.40\,\text{m}\)</span> in D2). In this exploratory dataset, route choices were identical and showed no additional benefit of <span class="math inline">\(F\)</span> over <span class="math inline">\(O\)</span>; general scenarios and statistical equivalence have not been verified. Finally, an exploratory feasibility check (<span class="math inline">\(n=4\)</span>) on candidate action-conditioned execution (<span class="math inline">\(H_1\)</span>) revealed that local planners negotiated narrow inflation margins without controller abortion (4/4 Nav2 <code>SUCCEEDED</code>, 3/4 verified strict physical arrival), indicating that the tested scenario did not establish executability divergence and providing concrete guidance for future action-profiled memory designs.</p>
+<hr />
+<h2 id="introduction">1. Introduction</h2>
+<p>Autonomous mobile robots deployed in complex indoor environments—such as fulfillment warehouses, clinical facilities, and office buildings—must repeatedly traverse structured corridors and shared doorways. In such environments, unmapped physical blockages (e.g., temporarily parked carts or closed security doors) frequently obstruct the nominal shortest path. Standard navigation systems, such as the ROS 2 Navigation Stack (Nav2) <span class="citation" data-cites="macenski2020marathon2 macenski2022ros2">(Steve Macenski et al. 2020; Steven Macenski et al. 2022)</span>, rely on layered 2D costmaps <span class="citation" data-cites="lu2014layered">(Lu, Hershberger, and Smart 2014)</span> and local recovery behaviors (e.g., in-place rotations, backup maneuvers, costmap clearing). While these recovery routines assist in negotiating transient obstacles during active trajectory tracking, they are bound to the execution lifetime of individual navigation actions. When a new navigation goal is dispatched from a distant decision junction, the robot has no structured representation of prior execution failures in occluded corridors, resulting in unguided retry traversals into known dead ends before local sensors can re-acquire line-of-sight.</p>
+<p>To mitigate unguided re-exploration, two primary paradigms have been explored: 1. <strong>Spatial Occupancy Mapping</strong>: Updating global geometric representations (e.g., Costmap2D <span class="citation" data-cites="lu2014layered">(Lu, Hershberger, and Smart 2014)</span>, OctoMap <span class="citation" data-cites="hornung2013octomap">(Hornung et al. 2013)</span>, Voxblox <span class="citation" data-cites="oleynikova2017voxblox">(Oleynikova et al. 2017)</span>) as sensor observations reveal occupied space. 2. <strong>Episodic Failure Memory &amp; Verbal Reflection</strong>: Storing execution traces, error diagnostics, or natural language self-reflections (e.g., Reflexion <span class="citation" data-cites="shinn2023reflexion">(Shinn et al. 2023)</span>, REFLECT <span class="citation" data-cites="liu2023reflect">(Liu, Bahety, and Song 2023)</span>) to inform subsequent planning.</p>
+<p>However, existing frameworks present key operational and methodological limitations. In embodied AI, verbal reflection mechanisms typically store unstructured natural language strings in prompt contexts without physical sensor postcondition verification or spatial costmap expiration rules. Furthermore, robotics evaluation historically suffers from reproducibility challenges when relying on synthetic 2D mock state machines that omit real controller oscillation, sensor noise, and lifecycle timing delays.</p>
+<p>In this work, we present an auditable, event-driven failure memory framework and evaluate its behavior in physical ROS 2 / Gazebo simulation. Specifically, we provide: 1. <strong>Authentic Action Client &amp; Perception Architecture</strong>: We implement FailMem on genuine ROS 2 Humble Nav2 action clients, capturing immutable observation bundles (untruncated laser scans, TF transforms, and raw 2D costmap ROI subgrids) prior to state classification. 2. <strong>Independent Replay Audit Pipeline</strong>: We implement an independent offline replay engine that reconstructs memory lifecycles and physical trajectories directly from raw serialized sensor records against SHA256 checksum manifests, validating chronological causality (<span class="math inline">\(t_{\text{rec}} \ge \max(t_{\text{act}}, t_{\text{obs}}) - 0.05\,\text{s}\)</span>) and physical halt stability. 3. <strong>Empirical Evaluation Across 30 Physical Runs</strong>: Across 30 physical simulation runs in Gazebo 11 (<span class="math inline">\(n=3\)</span> per condition), we demonstrate that historical knowledge eliminates redundant dead-end exploration (<span class="math inline">\(-18.5\%\)</span> distance vs. Reactive <span class="math inline">\(R\)</span>) and dynamic invalidation prevents permanent detour traps (<span class="math inline">\(-11.0\%\)</span> distance vs. Persistent <span class="math inline">\(M1\)</span>). 4. <strong>Calibrated Comparison with Spatial Caching</strong>: We report that under static 2D geometric blockages, FailMem and spatial caching (<span class="math inline">\(O\)</span>) produce identical route choices (<span class="math inline">\(&lt;1\%\)</span> metric difference). In this exploratory dataset, route choices were identical and showed no additional benefit of <span class="math inline">\(F\)</span> over <span class="math inline">\(O\)</span>; general scenarios and statistical equivalence have not been verified. An exploratory feasibility trial (<span class="math inline">\(n=4\)</span>) on action-conditioned navigation (<span class="math inline">\(H_1\)</span>) further shows that the candidate scenario did not establish executability divergence, clarifying the empirical boundaries for future action-profiled memory designs (<span class="math inline">\(F2\)</span>).</p>
+<hr />
+<h2 id="related-work-mechanism-taxonomy">2. Related Work &amp; Mechanism Taxonomy</h2>
+<h3 id="spatial-occupancy-mapping-dynamic-distance-fields">2.1 Spatial Occupancy Mapping &amp; Dynamic Distance Fields</h3>
+<p>Layered 2D costmaps <span class="citation" data-cites="lu2014layered macenski2020marathon2">(Lu, Hershberger, and Smart 2014; Steve Macenski et al. 2020)</span> maintain geometric obstacles by ray-casting sensor ranges into grid cells and propagating configuration-space inflation. 3D volumetric frameworks, such as OctoMap <span class="citation" data-cites="hornung2013octomap">(Hornung et al. 2013)</span>, employ hierarchical octrees with discrete probabilistic voxel occupancy updates. In contrast, distance-field frameworks such as Voxblox <span class="citation" data-cites="oleynikova2017voxblox">(Oleynikova et al. 2017)</span> incrementally construct continuous Euclidean Signed Distance Fields (ESDF) and Truncated Signed Distance Fields (TSDF) for smooth trajectory optimization. While spatial mapping accurately maintains geometric free and occupied space, it treats unobserved areas identically and does not capture action-specific execution failures (e.g., narrow doorpost inflation boundaries where space is free but specific controller trajectories abort).</p>
+<h3 id="execution-monitoring-plan-diagnosis">2.2 Execution Monitoring &amp; Plan Diagnosis</h3>
+<p>Deliberative robotics frameworks <span class="citation" data-cites="fikes1971strips simmons1998xavier ingrand2017deliberation">(Fikes and Nilsson 1971; Simmons et al. 1998; Ingrand and Ghallab 2017)</span> formalize plan execution monitoring and diagnostic repair. Modern navigation stacks <span class="citation" data-cites="macenski2020marathon2">(Steve Macenski et al. 2020)</span> execute recovery behaviors when local planners fail. However, standard recovery states are discarded upon goal termination, requiring explicit cross-phase or cross-task episodic memory stores to guide high-level routing.</p>
+<h3 id="llm-self-reflection-agent-memory">2.3 LLM Self-Reflection &amp; Agent Memory</h3>
+<p>Recent embodied AI systems investigate large language models for planning and error correction. Reflexion <span class="citation" data-cites="shinn2023reflexion">(Shinn et al. 2023)</span> prompts LLMs with scalar task feedback to generate natural language self-reflections. Inner Monologue <span class="citation" data-cites="huang2023inner">(Huang et al. 2023)</span> integrates success detectors and scene descriptions into closed-loop prompt chains. REFLECT <span class="citation" data-cites="liu2023reflect">(Liu, Bahety, and Song 2023)</span> queries multi-sensory video and audio logs to produce structured failure explanations and plan corrections. While these methods demonstrate prompt-level flexibility, they operate primarily in natural language spaces. FailMem complements these approaches by providing lightweight, causally bound execution records with deterministic sensor-driven invalidation rules.</p>
+<h3 id="experience-based-planning-no-good-learning">2.4 Experience-Based Planning &amp; No-Good Learning</h3>
+<p>In motion planning, the Lightning framework <span class="citation" data-cites="berenson2012lightning">(Berenson, Srinivasa, and Kuffner 2012)</span> and Experience Graphs (E-Graphs) <span class="citation" data-cites="phillips2012egraphs">(Phillips et al. 2012)</span> reuse libraries of prior successful paths to accelerate search. In discrete optimization, conflict-driven clause learning (e.g., GRASP <span class="citation" data-cites="marquessilva1999grasp">(Marques-Silva and Sakallah 1999)</span>) records “no-goods” from search dead ends to prune infeasible branches. FailMem adapts the principle of negative constraint recording to mobile robot navigation with explicit sensor-verified invalidation.</p>
+<pre><code>+---------------------------------------------------------------------------------------------------+
+|                                 Comparative Mechanism Taxonomy                                    |
++---------------------------------------------------------------------------------------------------+
+| Paradigm               | Representation         | Grounding Level   | Invalidation Trigger        |
++------------------------+------------------------+-------------------+-----------------------------+
+| Costmap2D / Nav2       | 2D Occupancy Grid      | Geometric cells   | Direct laser ray traversal  |
+| OctoMap                | 3D Voxel Octree        | Discrete 3D voxels| Direct laser ray traversal  |
+| Voxblox                | Continuous ESDF / TSDF | 3D Distance Field | Dynamic voxel integration   |
+| Experience Graphs      | Path Waypoints / Graph | Discrete Path     | Collision check on repair   |
+| Reflexion              | Natural Language Text  | Semantic tokens   | Manual context reset        |
+| REFLECT                | Natural Language Text  | Multi-modal logs  | Session termination         |
+| FailMem (Implemented)  | Event Tuple            | Raw sensor bundle | Sensor-verified FREE state  |
+| FailMem F2 (Proposed)  | Profile Tuple          | Bundle + Profile  | Profile capability check    |
++---------------------------------------------------------------------------------------------------+</code></pre>
+<hr />
+<h2 id="the-failmem-architecture-verification-pipeline">3. The FailMem Architecture &amp; Verification Pipeline</h2>
+<figure>
+<img src="figures/architecture.svg" alt="FailMem Architecture and Verification Pipeline" /><figcaption aria-hidden="true">FailMem Architecture and Verification Pipeline</figcaption>
+</figure>
+<h3 id="immutable-observation-bundles">3.1 Immutable Observation Bundles</h3>
+<p>Prior to evaluating passage clearance, FailMem constructs an immutable observation bundle <span class="math inline">\(B\)</span>: <span class="math display">\[B = \langle \text{obs\_id}, \mathbf{z}_{\text{scan}}, \mathbf{T}_{\text{map}\to\text{base}}, \mathbf{M}_{\text{costmap\_ROI}}, t_{\text{msg}}, t_{\text{capture}}, t_{\text{eval}} \rangle\]</span> where <span class="math inline">\(\mathbf{z}_{\text{scan}}\)</span> is the raw range array, <span class="math inline">\(\mathbf{T}_{\text{map}\to\text{base}}\)</span> is the TF transformation, and <span class="math inline">\(\mathbf{M}_{\text{costmap\_ROI}}\)</span> is the extracted <span class="math inline">\(2\text{D}\)</span> subgrid matrix.</p>
+<h3 id="geometric-costmap-clearance-formulation">3.2 Geometric &amp; Costmap Clearance Formulation</h3>
+<p>The passage state is evaluated according to the following strict hierarchical rules implemented in <code>src/doorway_evaluator.py</code>:</p>
+<ol type="1">
+<li><strong>Precondition Integrity Checks</strong>:
+<ul>
+<li>TF translation and yaw must be valid finite numbers.</li>
+<li>Timestamp alignment: <span class="math inline">\(|t_{\text{tf}} - t_{\text{scan}}| \le 0.80\,\text{s}\)</span>.</li>
+<li>Data freshness: <span class="math inline">\(t_{\text{sim}} - t_{\text{tf}} \le 1.0\,\text{s}\)</span> and <span class="math inline">\(t_{\text{sim}} - t_{\text{scan}} \le 1.5\,\text{s}\)</span>.</li>
+<li>Ray projection: Number of valid finite rays <span class="math inline">\(N_{\text{valid}} &gt; 0\)</span>.</li>
+<li>Visibility: Number of rays intersecting doorway bounding box <span class="math inline">\(N_{\text{intersect}} &gt; 0\)</span>.</li>
+<li>Costmap status (if provided): <span class="math inline">\(N_{\text{total\_cells}} &gt; 0\)</span>. If any precondition fails, <span class="math inline">\(\text{State}(B) = \text{UNKNOWN}\)</span>.</li>
+</ul></li>
+<li><strong>Classification Rules</strong>: <span class="math display">\[\text{State}(B) = \begin{cases} 
+\text{OCCUPIED}, &amp; \text{if } N_{\text{hits\_inside}} \ge 5 \text{ or } N_{\text{costmap\_occupied\_cells}} &gt; 0 \\ 
+\text{FREE}, &amp; \text{if } N_{\text{hits\_inside}} = 0 \text{ and } N_{\text{pass\_through}} \ge 8 \text{ and } \text{CostmapCleared}(B) \\ 
+\text{UNKNOWN}, &amp; \text{otherwise} 
+\end{cases}\]</span> where <span class="math inline">\(\text{CostmapCleared}(B) \iff (N_{\text{unknown\_cells}} = 0 \land N_{\text{occupied\_cells}} = 0)\)</span> within the doorway ROI <span class="math inline">\([-0.15, 0.15, 0.95, 1.45]\)</span>.</li>
+</ol>
+<h3 id="memory-lifecycle-invalidation-mechanics">3.3 Memory Lifecycle &amp; Invalidation Mechanics</h3>
+<ul>
+<li><strong>Failure Registration</strong>: When chokepoint traversal fails in an occupied region, an active entry is committed: <span class="math display">\[M = \langle \text{mem\_id}, t_{\text{fail}}, \text{goal\_uuid}, \text{action\_id}, \text{region\_id}, \mathbf{M}_{\text{costmap\_ROI}} \rangle\]</span></li>
+<li><strong>Dynamic Invalidation</strong>: When subsequent perception produces <span class="math inline">\(\text{State}(B) = \text{FREE}\)</span> with evidence timestamp <span class="math inline">\(t_{\text{free}} &gt; t_{\text{fail}}\)</span>, the memory entry is marked <span class="math inline">\(\text{INVALIDATED}\)</span>, unsuppressing the route.</li>
+<li><strong>Cross-Phase Scope Clarification</strong>: In the current experimental implementation, history collection, memory creation, decision dispatch, and memory reset occur within a single experimental runner session across sequential phases. This establishes phase-to-phase memory transfer within an experimental run, and has not yet been benchmarked as a persistent multi-task database across separate OS daemon lifetimes.</li>
+</ul>
+<h3 id="independent-replay-audit-pipeline">3.4 Independent Replay Audit Pipeline</h3>
+<p>To eliminate reliance on self-reported runtime summaries, the independent replayer (<code>scripts/replay_and_score_p2c.py</code>): 1. Verifies SHA256 hashes of all serialized files against <code>checksums.sha256</code>; 2. Re-computes subgrid ROI cell counts and 3-valued perception directly from raw <code>subgrid_matrix</code> and laser scans; 3. Integrates continuous odometry trajectory samples to verify path length and physical halt stability; 4. Enforces chronological causality with a <span class="math inline">\(0.05\,\text{s}\)</span> tolerance window: <span class="math display">\[t_{\text{rec}} \ge \max(t_{\text{tr1\_end}}, t_{\text{obs\_eval}}) - 0.05\,\text{s}, \quad t_{\text{inv}} \ge \max(t_{\text{fail}}, t_{\text{free\_eval}}) - 0.05\,\text{s}\]</span> Replay rejects empty strings, missing fields, and <code>"unknown"</code> placeholder values.</p>
+<hr />
+<h2 id="experimental-setup-benchmarking-protocol">4. Experimental Setup &amp; Benchmarking Protocol</h2>
+<h3 id="physical-simulation-environment-geometry">4.1 Physical Simulation Environment &amp; Geometry</h3>
+<p>Simulations are conducted in ROS 2 Humble with Gazebo 11 simulating a TurtleBot3 Waffle robot in an asymmetric dual-path environment (<code>configs/p2c_dualpath_world.model</code>). - <strong>Path A (North Short Path)</strong>: Protocol waypoint polyline length is <span class="math inline">\(6.124\,\text{m}\)</span> from Decision Junction <span class="math inline">\(J_0 [-2.50, 0.00]\)</span> to Goal <span class="math inline">\([2.50, 0.00]\)</span> through a <span class="math inline">\(0.80\,\text{m}\)</span> doorway chokepoint at <span class="math inline">\(y=1.20\)</span>. - <strong>Path B (South Bypass Detour)</strong>: Protocol waypoint polyline length is <span class="math inline">\(9.105\,\text{m}\)</span> from <span class="math inline">\(J_0\)</span> to Goal via open corridor at <span class="math inline">\(y=-2.40\)</span>.</p>
+<h3 id="distance-metric-definitions">4.2 Distance Metric Definitions</h3>
+<p>To prevent ambiguity across different evaluation granularities, distance metrics are defined as follows: 1. <strong>Protocol Waypoint Polyline Length</strong>: Ideal piecewise linear distance connecting defined route waypoints (Path A: <span class="math inline">\(6.124\,\text{m}\)</span>, Path B: <span class="math inline">\(9.105\,\text{m}\)</span>). 2. <strong>Decision-Phase Traversed Distance</strong>: Actual physical odometry distance traversed during Phase 2 after goal dispatch from Decision Junction <span class="math inline">\(J_0\)</span> (Path B direct: <span class="math inline">\(\approx 7.54\,\text{m}\)</span>; Path A direct: <span class="math inline">\(\approx 5.89\,\text{m}\)</span>). 3. <strong>Total Episode Distance</strong>: Cumulative odometry distance spanning both the Phase 1 historical observation/attempt leg and the Phase 2 decision navigation leg (<span class="math inline">\(14.03\,\text{m}\)</span> for D1 F/O, <span class="math inline">\(17.22\,\text{m}\)</span> for D1 R, <span class="math inline">\(16.25\,\text{m}\)</span> for D2 F, <span class="math inline">\(18.25\,\text{m}\)</span> for D2 M1).</p>
+<h3 id="evaluated-scenarios-methods">4.3 Evaluated Scenarios &amp; Methods</h3>
+<ul>
+<li><strong>Scenario D0 (Unobstructed Baseline)</strong>: Doorway is clear; robot navigates Path A without prior history.</li>
+<li><strong>Scenario D1 (Confirmed Blockage)</strong>: Doorway is blocked by a physical box obstacle. Phase 1 traverses from <span class="math inline">\(J_0\)</span> to chokepoint approach waypoint <span class="math inline">\([-1.50, 1.20]\)</span>, encounters blockage, and retreats to <span class="math inline">\(J_0\)</span>. Phase 2 evaluates routing dispatched from <span class="math inline">\(J_0\)</span>.</li>
+<li><strong>Scenario D2 (Cleared / Restored)</strong>: Following D1, the obstacle is removed. Phase 1 observes <code>FREE</code> doorway clearance from vantage waypoint <span class="math inline">\([-1.50, 1.20]\)</span> and retreats to <span class="math inline">\(J_0\)</span>. Phase 2 evaluates routing dispatched from <span class="math inline">\(J_0\)</span>.</li>
+</ul>
+<p><strong>Evaluated Methods</strong>: 1. <strong>Reactive Baseline (<span class="math inline">\(R\)</span>)</strong>: No cross-phase memory. In D1, enters Path A approach leg to gate waypoint <code>[-1.50, 1.20]</code>, detects blockage, and executes structured fallback retreat to <span class="math inline">\(J_0\)</span> before taking Path B. All methods share identical Nav2 costmap configurations. 2. <strong>Spatial Observation Cache (<span class="math inline">\(O\)</span>)</strong>: Caches 2D geometric occupancy observed from vantage waypoint <code>[-1.50, 1.20]</code> during Phase 1. Evaluated at <span class="math inline">\(J_0\)</span> during Phase 2 route dispatch. 3. <strong>FailMem (<span class="math inline">\(F\)</span>)</strong>: Event-driven failure memory with dynamic perception-driven invalidation. 4. <strong>Persistent Suppression (<span class="math inline">\(M1\)</span>)</strong>: Static failure memory permanently suppressing Path A without dynamic invalidation.</p>
+<h3 id="execution-constraints-halt-stability">4.4 Execution Constraints &amp; Halt Stability</h3>
+<ul>
+<li><strong>Sample Size &amp; Order</strong>: <span class="math inline">\(n=3\)</span> per condition, executed consecutively under fixed simulation seeds.</li>
+<li><strong>Budget</strong>: Total episode simulation budget is <span class="math inline">\(180.0\,\text{s}\)</span>.</li>
+<li><strong>Physical Halt Stability</strong>: Upon goal completion, the robot must maintain linear velocity <span class="math inline">\(|v_{\text{lin}}| \le 0.05\,\text{m/s}\)</span> and angular velocity <span class="math inline">\(|v_{\text{ang}}| \le 0.08\,\text{rad/s}\)</span> over a nominal <span class="math inline">\(2.0\,\text{s}\)</span> stability recording window (with <span class="math inline">\(2.3-2.4\,\text{s}\)</span> sim time coverage in the active executor).</li>
+</ul>
+<hr />
+<h2 id="empirical-results-boundary-analysis">5. Empirical Results &amp; Boundary Analysis</h2>
+<h3 id="condition-level-aggregated-metrics">5.1 Condition-Level Aggregated Metrics</h3>
+<p>Table 1 presents condition-level performance across 30 physical simulation runs (<span class="math inline">\(n=3\)</span> per condition, reporting mean <span class="math inline">\(\pm\)</span> sample standard deviation with Bessel correction <span class="math inline">\(ddof=1\)</span>).</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 8%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Scenario</th>
+<th style="text-align: left;">Condition</th>
+<th style="text-align: center;"><span class="math inline">\(n\)</span></th>
+<th style="text-align: left;">Actual Route</th>
+<th style="text-align: center;">Dead-End Traversals</th>
+<th style="text-align: center;">Decision Dist (m)</th>
+<th style="text-align: center;">Decision Time (s)</th>
+<th style="text-align: center;">Total Dist (m)</th>
+<th style="text-align: center;">Total Time (s)</th>
+<th style="text-align: center;">Replay Audit Pass</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>D0</strong></td>
+<td style="text-align: left;"><span class="math inline">\(R\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_A</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">6.160 <span class="math inline">\(\pm\)</span> 0.037</td>
+<td style="text-align: center;">51.533 <span class="math inline">\(\pm\)</span> 1.656</td>
+<td style="text-align: center;">6.160 <span class="math inline">\(\pm\)</span> 0.037</td>
+<td style="text-align: center;">51.533 <span class="math inline">\(\pm\)</span> 1.656</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D0</strong></td>
+<td style="text-align: left;"><span class="math inline">\(O\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_A</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">6.203 <span class="math inline">\(\pm\)</span> 0.007</td>
+<td style="text-align: center;">49.967 <span class="math inline">\(\pm\)</span> 0.850</td>
+<td style="text-align: center;">6.203 <span class="math inline">\(\pm\)</span> 0.007</td>
+<td style="text-align: center;">49.967 <span class="math inline">\(\pm\)</span> 0.850</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>D0</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_A</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">6.196 <span class="math inline">\(\pm\)</span> 0.031</td>
+<td style="text-align: center;">49.900 <span class="math inline">\(\pm\)</span> 0.458</td>
+<td style="text-align: center;">6.196 <span class="math inline">\(\pm\)</span> 0.031</td>
+<td style="text-align: center;">49.900 <span class="math inline">\(\pm\)</span> 0.458</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D1</strong></td>
+<td style="text-align: left;"><span class="math inline">\(R\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_A_then_Path_B</code></td>
+<td style="text-align: center;">1.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">10.816 <span class="math inline">\(\pm\)</span> 0.072</td>
+<td style="text-align: center;">82.067 <span class="math inline">\(\pm\)</span> 4.394</td>
+<td style="text-align: center;">17.220 <span class="math inline">\(\pm\)</span> 0.242</td>
+<td style="text-align: center;">141.000 <span class="math inline">\(\pm\)</span> 5.910</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>D1</strong></td>
+<td style="text-align: left;"><span class="math inline">\(O\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_B</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">7.550 <span class="math inline">\(\pm\)</span> 0.052</td>
+<td style="text-align: center;">50.033 <span class="math inline">\(\pm\)</span> 1.986</td>
+<td style="text-align: center;">13.947 <span class="math inline">\(\pm\)</span> 0.070</td>
+<td style="text-align: center;">108.700 <span class="math inline">\(\pm\)</span> 2.718</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D1</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_B</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">7.536 <span class="math inline">\(\pm\)</span> 0.003</td>
+<td style="text-align: center;">48.200 <span class="math inline">\(\pm\)</span> 0.954</td>
+<td style="text-align: center;">14.027 <span class="math inline">\(\pm\)</span> 0.252</td>
+<td style="text-align: center;">109.500 <span class="math inline">\(\pm\)</span> 1.572</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>D2</strong></td>
+<td style="text-align: left;"><span class="math inline">\(R\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_A</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">5.915 <span class="math inline">\(\pm\)</span> 0.044</td>
+<td style="text-align: center;">49.567 <span class="math inline">\(\pm\)</span> 1.595</td>
+<td style="text-align: center;">16.344 <span class="math inline">\(\pm\)</span> 0.032</td>
+<td style="text-align: center;">148.167 <span class="math inline">\(\pm\)</span> 3.164</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D2</strong></td>
+<td style="text-align: left;"><span class="math inline">\(O\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_A</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">5.939 <span class="math inline">\(\pm\)</span> 0.066</td>
+<td style="text-align: center;">52.033 <span class="math inline">\(\pm\)</span> 1.747</td>
+<td style="text-align: center;">16.396 <span class="math inline">\(\pm\)</span> 0.240</td>
+<td style="text-align: center;">149.767 <span class="math inline">\(\pm\)</span> 0.551</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>D2</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_A</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">5.886 <span class="math inline">\(\pm\)</span> 0.022</td>
+<td style="text-align: center;">51.100 <span class="math inline">\(\pm\)</span> 0.954</td>
+<td style="text-align: center;">16.247 <span class="math inline">\(\pm\)</span> 0.098</td>
+<td style="text-align: center;">151.100 <span class="math inline">\(\pm\)</span> 7.762</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D2</strong></td>
+<td style="text-align: left;"><span class="math inline">\(M1\)</span></td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;"><code>Path_B</code></td>
+<td style="text-align: center;">0.0 <span class="math inline">\(\pm\)</span> 0.0</td>
+<td style="text-align: center;">7.895 <span class="math inline">\(\pm\)</span> 0.023</td>
+<td style="text-align: center;">51.300 <span class="math inline">\(\pm\)</span> 1.997</td>
+<td style="text-align: center;">18.248 <span class="math inline">\(\pm\)</span> 0.094</td>
+<td style="text-align: center;">148.833 <span class="math inline">\(\pm\)</span> 2.397</td>
+<td style="text-align: center;">3/3 (100%)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pairwise-contrasts-trajectory-analysis">5.2 Pairwise Contrasts &amp; Trajectory Analysis</h3>
+<p>Table 2 presents key pairwise contrast comparisons across evaluated methods.</p>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Scenario</th>
+<th style="text-align: left;">Comparison</th>
+<th style="text-align: left;">Metric</th>
+<th style="text-align: center;">Method A Mean</th>
+<th style="text-align: center;">Method B Mean</th>
+<th style="text-align: center;">Abs Diff (<span class="math inline">\(A - B\)</span>)</th>
+<th style="text-align: center;">Rel Diff (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>D1</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span> vs. <span class="math inline">\(R\)</span></td>
+<td style="text-align: left;">Total Dist (m)</td>
+<td style="text-align: center;">14.027</td>
+<td style="text-align: center;">17.220</td>
+<td style="text-align: center;">-3.193</td>
+<td style="text-align: center;"><strong>-18.5%</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D1</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span> vs. <span class="math inline">\(R\)</span></td>
+<td style="text-align: left;">Total Time (s)</td>
+<td style="text-align: center;">109.500</td>
+<td style="text-align: center;">141.000</td>
+<td style="text-align: center;">-31.500</td>
+<td style="text-align: center;"><strong>-22.3%</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>D1</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span> vs. <span class="math inline">\(O\)</span></td>
+<td style="text-align: left;">Total Dist (m)</td>
+<td style="text-align: center;">14.027</td>
+<td style="text-align: center;">13.947</td>
+<td style="text-align: center;">+0.080</td>
+<td style="text-align: center;">+0.6%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D1</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span> vs. <span class="math inline">\(O\)</span></td>
+<td style="text-align: left;">Total Time (s)</td>
+<td style="text-align: center;">109.500</td>
+<td style="text-align: center;">108.700</td>
+<td style="text-align: center;">+0.800</td>
+<td style="text-align: center;">+0.7%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>D2</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span> vs. <span class="math inline">\(M1\)</span></td>
+<td style="text-align: left;">Total Dist (m)</td>
+<td style="text-align: center;">16.247</td>
+<td style="text-align: center;">18.248</td>
+<td style="text-align: center;">-2.000</td>
+<td style="text-align: center;"><strong>-11.0%</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D2</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span> vs. <span class="math inline">\(M1\)</span></td>
+<td style="text-align: left;">Total Time (s)</td>
+<td style="text-align: center;">151.100</td>
+<td style="text-align: center;">148.833</td>
+<td style="text-align: center;">+2.267</td>
+<td style="text-align: center;">+1.5%</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>D2</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span> vs. <span class="math inline">\(O\)</span></td>
+<td style="text-align: left;">Total Dist (m)</td>
+<td style="text-align: center;">16.247</td>
+<td style="text-align: center;">16.396</td>
+<td style="text-align: center;">-0.149</td>
+<td style="text-align: center;">-0.9%</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>D2</strong></td>
+<td style="text-align: left;"><span class="math inline">\(F\)</span> vs. <span class="math inline">\(O\)</span></td>
+<td style="text-align: left;">Total Time (s)</td>
+<td style="text-align: center;">151.100</td>
+<td style="text-align: center;">149.767</td>
+<td style="text-align: center;">+1.333</td>
+<td style="text-align: center;">+0.9%</td>
+</tr>
+</tbody>
+</table>
+<figure>
+<img src="figures/trajectories_map.png" alt="Representative Physical Trajectories Across Evaluated Conditions" /><figcaption aria-hidden="true">Representative Physical Trajectories Across Evaluated Conditions</figcaption>
+</figure>
+<ol type="1">
+<li><strong>Elimination of Redundant Dead-End Exploration (<span class="math inline">\(F\)</span> vs. <span class="math inline">\(R\)</span>)</strong>: In D1, FailMem (<span class="math inline">\(F\)</span>) eliminates redundant entrance into the blocked corridor (<span class="math inline">\(0.0\)</span> vs. <span class="math inline">\(1.0\)</span> dead ends), reducing total distance by <span class="math inline">\(-18.5\%\)</span> and time by <span class="math inline">\(-22.3\%\)</span> relative to Reactive <span class="math inline">\(R\)</span>. Note that <span class="math inline">\(R\)</span>’s dead-end traversal represents an unguided retry traversal to the entrance waypoint, not physical collision or Nav2 crash.</li>
+<li><strong>Prevention of Detour Overhead (<span class="math inline">\(F\)</span> vs. <span class="math inline">\(M1\)</span>)</strong>: In D2, dynamic invalidation upon observing <code>FREE</code> unsuppresses Path A, saving <span class="math inline">\(2.00\,\text{m}\)</span> (<span class="math inline">\(-11.0\%\)</span>) total distance relative to persistent suppression (<span class="math inline">\(M1\)</span>). Total execution times remain comparable (<span class="math inline">\(151.1\,\text{s}\)</span> vs. <span class="math inline">\(148.8\,\text{s}\)</span>).</li>
+<li><strong>Comparison with Spatial Caching in Static 2D Geometry (<span class="math inline">\(F\)</span> vs. <span class="math inline">\(O\)</span>)</strong>: In both D1 and D2, FailMem (<span class="math inline">\(F\)</span>) and Spatial Cache (<span class="math inline">\(O\)</span>) selected identical topological routes. <em>本次探索性数据中路线选择相同，未显示 F 的额外收益；尚未进行统计等效或一般化验证。</em></li>
+</ol>
+<h3 id="feasibility-check-for-action-conditioned-navigation-h_1">5.3 Feasibility Check for Action-Conditioned Navigation (<span class="math inline">\(H_1\)</span>)</h3>
+<p>To test whether action configurations (aligned <span class="math inline">\(a_{\text{aligned}}\)</span> vs. doorpost boundary-biased oblique <span class="math inline">\(a_{\text{oblique}}\)</span>) create executability differences in an unobstructed doorway, a fixed 4-run feasibility check was executed (<code>reports/evidence/p2d_h1_feasibility/</code>).</p>
+<table>
+<colgroup>
+<col style="width: 8%" />
+<col style="width: 8%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Run Name</th>
+<th style="text-align: left;">Action Profile</th>
+<th style="text-align: left;">Target Goal</th>
+<th style="text-align: center;">Doorway Perception</th>
+<th style="text-align: center;">Nav2 Status (Code)</th>
+<th style="text-align: center;">Est. Nav2 Nav Time (<span class="math inline">\(s\)</span>)</th>
+<th style="text-align: center;">Assumed Settling (<span class="math inline">\(s\)</span>)</th>
+<th style="text-align: center;">Stability Window (<span class="math inline">\(s\)</span>)</th>
+<th style="text-align: center;">Total Sim Duration (<span class="math inline">\(s\)</span>)</th>
+<th style="text-align: center;">Physical Arrival Verified</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>H1_aligned_run1</code></td>
+<td style="text-align: left;"><code>act_aligned</code></td>
+<td style="text-align: left;"><code>[1.50, 1.20, 0.0]</code></td>
+<td style="text-align: center;"><code>FREE</code> (23 rays)</td>
+<td style="text-align: center;"><code>SUCCEEDED</code> (4)</td>
+<td style="text-align: center;"><span class="math inline">\(13.4\)</span> (est.)</td>
+<td style="text-align: center;"><span class="math inline">\(3.0\)</span> (nom.)</td>
+<td style="text-align: center;"><span class="math inline">\(2.4\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(18.8\)</span></td>
+<td style="text-align: center;"><strong>False</strong> (excess av: 0.1068 &gt; 0.08)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>H1_aligned_run2</code></td>
+<td style="text-align: left;"><code>act_aligned</code></td>
+<td style="text-align: left;"><code>[1.50, 1.20, 0.0]</code></td>
+<td style="text-align: center;"><code>FREE</code> (22 rays)</td>
+<td style="text-align: center;"><code>SUCCEEDED</code> (4)</td>
+<td style="text-align: center;"><span class="math inline">\(13.4\)</span> (est.)</td>
+<td style="text-align: center;"><span class="math inline">\(3.0\)</span> (nom.)</td>
+<td style="text-align: center;"><span class="math inline">\(2.4\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(18.8\)</span></td>
+<td style="text-align: center;"><strong>True</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>H1_oblique_run1</code></td>
+<td style="text-align: left;"><code>act_oblique</code></td>
+<td style="text-align: left;"><code>[0.50, 0.88, 0.0]</code></td>
+<td style="text-align: center;"><code>FREE</code> (23 rays)</td>
+<td style="text-align: center;"><code>SUCCEEDED</code> (4)</td>
+<td style="text-align: center;"><span class="math inline">\(11.1\)</span> (est.)</td>
+<td style="text-align: center;"><span class="math inline">\(3.0\)</span> (nom.)</td>
+<td style="text-align: center;"><span class="math inline">\(2.3\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(16.4\)</span></td>
+<td style="text-align: center;"><strong>True</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>H1_oblique_run2</code></td>
+<td style="text-align: left;"><code>act_oblique</code></td>
+<td style="text-align: left;"><code>[0.50, 0.88, 0.0]</code></td>
+<td style="text-align: center;"><code>FREE</code> (22 rays)</td>
+<td style="text-align: center;"><code>SUCCEEDED</code> (4)</td>
+<td style="text-align: center;"><span class="math inline">\(11.0\)</span> (est.)</td>
+<td style="text-align: center;"><span class="math inline">\(3.0\)</span> (nom.)</td>
+<td style="text-align: center;"><span class="math inline">\(2.3\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(16.3\)</span></td>
+<td style="text-align: center;"><strong>True</strong></td>
+</tr>
+</tbody>
+</table>
+<p><em>Findings &amp; Decision</em>: - Nav2 returned <code>SUCCEEDED</code> (status code 4) in all 4/4 runs; strict physical arrival was verified in 3/4 runs (<code>H1_aligned_run1</code> failed angular velocity halt threshold during the stability window). - Nav2’s <code>DWBLocalPlanner</code> successfully navigated the doorpost inflation boundary without planner abortion in both oblique runs. - <strong>Conclusion</strong>: <em>本次候选场景未建立预期的动作可执行性差异，因此停止本轮 H1 探索；不构成对一般动作条件失败记忆假设的证伪。</em></p>
+<hr />
+<h2 id="threats-to-validity-limitations">6. Threats to Validity &amp; Limitations</h2>
+<ol type="1">
+<li><strong>Exploratory Sample Size</strong>: The 30-run comparative pilot (<span class="math inline">\(n=3\)</span> per condition) serves as an exploratory demonstration of mechanism functioning and auditability; it does not constitute large-sample asymptotic hypothesis testing.</li>
+<li><strong>Simulation Fidelity</strong>: Evaluated in Gazebo 11 simulation with nominal sensor models. Hardware deployments with real-world sensor dropout, dynamic obstacles, and adversarial conditions are subject to future research.</li>
+<li><strong>Conceptual Extensions (<span class="math inline">\(F2, O+\)</span>)</strong>: Action-profiled failure memory (<span class="math inline">\(F2\)</span>) and backoff spatial caching (<span class="math inline">\(O+\)</span>) are formalized as conceptual models in project documentation but have not yet been evaluated in simulation.</li>
+</ol>
+<hr />
+<h2 id="conclusion">7. Conclusion</h2>
+<p>This paper presented FailMem, an event-driven failure memory architecture for autonomous mobile robots. By binding execution failures to immutable observation bundles and providing an independent replay audit pipeline, FailMem establishes rigorous standards for reproducible robotics evaluation. Our empirical findings demonstrate that failure memory eliminates redundant dead-end exploration relative to reactive baselines and prevents permanent detour traps upon environmental recovery, while exhibiting identical route selection with spatial caching under the tested static 2D geometry. These findings define concrete experimental benchmarks and provide a solid foundation for future research in action-conditioned and multi-agent failure memory systems.</p>
+<hr />
+<h2 class="unnumbered" id="references">References</h2>
+<div id="refs" class="references csl-bib-body hanging-indent" role="doc-bibliography">
+<div id="ref-berenson2012lightning" class="csl-entry" role="doc-biblioentry">
+Berenson, Dmitry, Siddhartha S. Srinivasa, and James Kuffner. 2012. <span>“A Robot Path Planning Framework for Adaptive Experience Reuse.”</span> <em>The International Journal of Robotics Research</em> 31 (10): 1237–54. <a href="https://doi.org/10.1177/0278364912456311">https://doi.org/10.1177/0278364912456311</a>.
+</div>
+<div id="ref-fikes1971strips" class="csl-entry" role="doc-biblioentry">
+Fikes, Richard E., and Nils J. Nilsson. 1971. <span>“<span>STRIPS</span>: A New Approach to the Application of Theorem Proving to Problem Solving.”</span> <em>Artificial Intelligence</em> 2 (3-4): 189–208. <a href="https://doi.org/10.1016/0004-3702(71)90010-5">https://doi.org/10.1016/0004-3702(71)90010-5</a>.
+</div>
+<div id="ref-hornung2013octomap" class="csl-entry" role="doc-biblioentry">
+Hornung, Armin, Kai M. Wurm, Maren Bennewitz, Cyrill Stachniss, and Wolfram Burgard. 2013. <span>“<span>OctoMap</span>: An Efficient Probabilistic <span>3d</span> Mapping Framework Based on Octrees.”</span> <em>Autonomous Robots</em> 34 (3): 189–206. <a href="https://doi.org/10.1007/s10514-012-9321-0">https://doi.org/10.1007/s10514-012-9321-0</a>.
+</div>
+<div id="ref-huang2023inner" class="csl-entry" role="doc-biblioentry">
+Huang, Wenlong, Fei Xia, Ted Xiao, Harris Chan, Jacky Liang, Pete Florence, Andy Zeng, et al. 2023. <span>“Inner Monologue: Embodied Reasoning Through Planning with Language Models.”</span> In <em>Conference on Robot Learning (CoRL)</em>, 205:1769–82. Proceedings of Machine Learning Research. PMLR.
+</div>
+<div id="ref-ingrand2017deliberation" class="csl-entry" role="doc-biblioentry">
+Ingrand, Félix, and Malik Ghallab. 2017. <span>“Deliberation for Autonomous Robots: A Survey.”</span> <em>Artificial Intelligence</em> 247: 10–44. <a href="https://doi.org/10.1016/j.artint.2014.11.003">https://doi.org/10.1016/j.artint.2014.11.003</a>.
+</div>
+<div id="ref-liu2023reflect" class="csl-entry" role="doc-biblioentry">
+Liu, Zeyi, Arpit Bahety, and Shuran Song. 2023. <span>“<span>REFLECT</span>: Summarizing Robot Experiences for Failure Explanation and Correction.”</span> In <em>Conference on Robot Learning (CoRL)</em>, 229:3468–84. Proceedings of Machine Learning Research. PMLR.
+</div>
+<div id="ref-lu2014layered" class="csl-entry" role="doc-biblioentry">
+Lu, David V., Dave Hershberger, and William D. Smart. 2014. <span>“Layered Costmaps for Context-Sensitive Navigation.”</span> In <em>IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)</em>, 709–15. IEEE. <a href="https://doi.org/10.1109/IROS.2014.6942636">https://doi.org/10.1109/IROS.2014.6942636</a>.
+</div>
+<div id="ref-macenski2020marathon2" class="csl-entry" role="doc-biblioentry">
+Macenski, Steve, Francisco Martı́n, Ruediger White, and Jonatan Ginés Clavero. 2020. <span>“The <span>Marathon 2</span>: A Navigation System.”</span> In <em>IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)</em>, 2718–25. IEEE. <a href="https://doi.org/10.1109/IROS45743.2020.9341207">https://doi.org/10.1109/IROS45743.2020.9341207</a>.
+</div>
+<div id="ref-macenski2022ros2" class="csl-entry" role="doc-biblioentry">
+Macenski, Steven, Tully Foote, Brian Gerkey, Chris Lalancette, and William Woodall. 2022. <span>“Robot Operating System 2: Design, Architecture, and Uses in the Wild.”</span> <em>Science Robotics</em> 7 (66): eabm6074. <a href="https://doi.org/10.1126/scirobotics.abm6074">https://doi.org/10.1126/scirobotics.abm6074</a>.
+</div>
+<div id="ref-marquessilva1999grasp" class="csl-entry" role="doc-biblioentry">
+Marques-Silva, João P., and Karem A. Sakallah. 1999. <span>“<span>GRASP</span>: A Search Algorithm for Propositional Satisfiability.”</span> <em>IEEE Transactions on Computers</em> 48 (5): 506–21. <a href="https://doi.org/10.1109/12.769433">https://doi.org/10.1109/12.769433</a>.
+</div>
+<div id="ref-oleynikova2017voxblox" class="csl-entry" role="doc-biblioentry">
+Oleynikova, Helen, Zachary Taylor, Marius Fehr, Roland Siegwart, and Juan Nieto. 2017. <span>“<span>Voxblox</span>: Incremental <span>3d</span> Euclidean Signed Distance Fields for on-Robot Exploration.”</span> In <em>IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)</em>, 1366–73. IEEE. <a href="https://doi.org/10.1109/IROS.2017.8202315">https://doi.org/10.1109/IROS.2017.8202315</a>.
+</div>
+<div id="ref-phillips2012egraphs" class="csl-entry" role="doc-biblioentry">
+Phillips, Mike, Benjamin J. Cohen, Sachin Chitta, and Maxim Likhachev. 2012. <span>“<span>E-Graphs</span>: Bootstrapping Planning with Experience Graphs.”</span> <em>The International Journal of Robotics Research</em> 31 (10): 1159–75. <a href="https://doi.org/10.1177/0278364912461942">https://doi.org/10.1177/0278364912461942</a>.
+</div>
+<div id="ref-shinn2023reflexion" class="csl-entry" role="doc-biblioentry">
+Shinn, Noah, Federico Cassano, Ashwin Gopinath, Karthik Narasimhan, and Shunyu Yao. 2023. <span>“Reflexion: Language Agents with Verbal Reinforcement Learning.”</span> In <em>Advances in Neural Information Processing Systems (NeurIPS)</em>, 36:8634–52.
+</div>
+<div id="ref-simmons1998xavier" class="csl-entry" role="doc-biblioentry">
+Simmons, Reid, Richard Goodwin, Karen Zita Haigh, Sven Koenig, and Joseph O’Sullivan. 1998. <span>“The <span>Xavier</span> Mobile Robot: Autonomous Navigation in Human Environments.”</span> <em>IEEE Robotics &amp; Automation Magazine</em> 5 (1): 34–42. <a href="https://doi.org/10.1109/100.740882">https://doi.org/10.1109/100.740882</a>.
+</div>
+</div>
+</body>
+</html>

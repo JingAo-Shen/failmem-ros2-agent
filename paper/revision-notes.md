@@ -12,7 +12,7 @@
 ### 1.1 Reference Audit and Substantive Error Corrections
 1. **`macenski2022ros2` & `macenski2020marathon2`**:
    - Replaced previous erroneous DOI `10.1016/j.robot.2023.104510` (which corresponded to a Riemannian manifold paper) with verified primary citations:
-     - `macenski2022ros2`: *Science Robotics*, Vol. 7, No. 66, eadd6975, 2022, DOI: `10.1126/scirobotics.add6975`.
+     - `macenski2022ros2`: *Science Robotics*, Vol. 7, No. 66, eabm6074, 2022, DOI: `10.1126/scirobotics.abm6074`.
      - `macenski2020marathon2`: *IEEE/RSJ IROS 2020*, pp. 2718–2725, DOI: `10.1109/IROS45743.2020.9341207` (arXiv: `2003.00368`).
 2. **`liu2023reflect`**:
    - Corrected formal title to *"REFLECT: Summarizing Robot Experiences for Failure Explanation and Correction"*, published in *CoRL 2023 (PMLR 229:3468–3484)*.

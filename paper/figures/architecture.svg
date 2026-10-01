@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="100%" height="100%">
+  <defs>
+    <style>
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #1e293b; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; fill: #64748b; }
+      .box-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #0f172a; }
+      .box-desc { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; fill: #334155; line-height: 1.4; }
+      .code-text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10.5px; fill: #0369a1; }
+      .edge-label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 500; fill: #475569; }
+      .box { rx: 8; ry: 8; stroke-width: 1.5; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); }
+      .box-blue { fill: #f0f9ff; stroke: #0284c7; }
+      .box-purple { fill: #faf5ff; stroke: #9333ea; }
+      .box-amber { fill: #fffbeb; stroke: #d97706; }
+      .box-green { fill: #f0fdf4; stroke: #16a34a; }
+      .box-slate { fill: #f8fafc; stroke: #64748b; }
+      .edge { stroke: #64748b; stroke-width: 1.5; fill: none; }
+      .edge-accent { stroke: #0284c7; stroke-width: 2; fill: none; }
+      .edge-memory { stroke: #d97706; stroke-width: 2; fill: none; }
+      .edge-audit { stroke: #16a34a; stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748b" />
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0284c7" />
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#d97706" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#16a34a" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="#ffffff" />
+
+  <!-- Header -->
+  <text x="40" y="38" class="title">FailMem Architecture &amp; Independent Replay Verification Pipeline</text>
+  <text x="40" y="56" class="subtitle">Event-Driven Failure Memory with Immutable Observation Bundles and Physical Replay Audit</text>
+
+  <!-- Section 1: High-Level Planner / Phase Dispatcher -->
+  <g transform="translate(40, 80)">
+    <rect width="250" height="120" class="box box-slate" />
+    <text x="16" y="26" class="box-title">High-Level Policy Decider</text>
+    <text x="16" y="48" class="box-desc">• Multi-Phase Protocol Dispatcher</text>
+    <text x="16" y="66" class="box-desc">• Decision Junction Pose: <tspan class="code-text">J₀ [-2.50, 0.00]</tspan></text>
+    <text x="16" y="84" class="box-desc">• Memory Query: Filter <tspan class="code-text">ACTIVE</tspan> suppression</text>
+    <text x="16" y="102" class="box-desc">• Route Selection: <tspan class="code-text">Path_A</tspan> vs. <tspan class="code-text">Path_B</tspan></text>
+  </g>
+
+  <!-- Section 2: ROS 2 Nav2 Navigation Stack -->
+  <g transform="translate(360, 80)">
+    <rect width="260" height="120" class="box box-blue" />
+    <text x="16" y="26" class="box-title">ROS 2 Humble Nav2 Stack</text>
+    <text x="16" y="48" class="box-desc">• Action Server: <tspan class="code-text">NavigateToPose</tspan></text>
+    <text x="16" y="66" class="box-desc">• Local Controller: <tspan class="code-text">DWBLocalPlanner</tspan></text>
+    <text x="16" y="84" class="box-desc">• Global &amp; Local Costmaps (<tspan class="code-text">Costmap2D</tspan>)</text>
+    <text x="16" y="102" class="box-desc">• Status: <tspan class="code-text">SUCCEEDED / ABORTED / CANCELED</tspan></text>
+  </g>
+
+  <!-- Section 3: Immutable Observation Bundle -->
+  <g transform="translate(680, 80)">
+    <rect width="240" height="120" class="box box-purple" />
+    <text x="16" y="26" class="box-title">Immutable Observation Bundle</text>
+    <text x="16" y="48" class="box-desc">• Laser Ranges: <tspan class="code-text">z_scan (360 rays)</tspan></text>
+    <text x="16" y="66" class="box-desc">• TF Transform: <tspan class="code-text">T_map→base</tspan></text>
+    <text x="16" y="84" class="box-desc">• Costmap ROI: <tspan class="code-text">M_ROI subgrid</tspan></text>
+    <text x="16" y="102" class="box-desc">• Timestamps: <tspan class="code-text">⟨t_msg, t_cap, t_eval⟩</tspan></text>
+  </g>
+
+  <!-- Section 4: 3-Valued Perception Evaluator -->
+  <g transform="translate(680, 260)">
+    <rect width="240" height="110" class="box box-purple" />
+    <text x="16" y="26" class="box-title">Doorway Evaluator</text>
+    <text x="16" y="48" class="box-desc">• Precondition integrity &amp; TF staleness</text>
+    <text x="16" y="66" class="box-desc">• Geometric raycasting (min 8 pass)</text>
+    <text x="16" y="84" class="box-desc">• 3-Valued State: <tspan class="code-text">FREE / OCCUPIED / UNK</tspan></text>
+  </g>
+
+  <!-- Section 5: Event-Driven Failure Memory Store -->
+  <g transform="translate(360, 260)">
+    <rect width="260" height="110" class="box box-amber" />
+    <text x="16" y="26" class="box-title">Event-Driven Memory Store</text>
+    <text x="16" y="48" class="box-desc">• Record on ABORTED with ROI &amp; UUID</text>
+    <text x="16" y="66" class="box-desc">• Strict field validation (No empty/None)</text>
+    <text x="16" y="84" class="box-desc">• Dynamic Invalidation upon verified <tspan class="code-text">FREE</tspan></text>
+    <text x="16" y="100" class="box-desc">• Lifecycle: <tspan class="code-text">ACTIVE ⇄ INVALIDATED</tspan></text>
+  </g>
+
+  <!-- Section 6: Independent Replay & Scoring Auditor -->
+  <g transform="translate(40, 410)">
+    <rect width="880" height="105" class="box box-green" />
+    <text x="20" y="26" class="box-title">Independent Replay &amp; Objective Scoring Auditor (Offline)</text>
+    <text x="20" y="48" class="box-desc">• <tspan font-weight="600">Anti-Tamper</tspan>: Verifies SHA256 hashes against checksums.sha256 manifest</text>
+    <text x="20" y="66" class="box-desc">• <tspan font-weight="600">Raw Recomputation</tspan>: Re-casts rays and subgrids from raw arrays (does not trust online labels)</text>
+    <text x="20" y="84" class="box-desc">• <tspan font-weight="600">Causality &amp; Physics</tspan>: Verifies temporal causality (t_rec ≥ max(t_act, t_obs) - 0.05s) and strict halt stability (|v_lin| ≤ 0.05 m/s, |v_ang| ≤ 0.08 rad/s)</text>
+  </g>
+
+  <!-- Flow Arrows -->
+  <!-- 1. Planner to Nav2 -->
+  <path d="M 290 120 L 350 120" class="edge-accent" marker-end="url(#arrow-blue)" />
+  <text x="300" y="112" class="edge-label">[1] Goal</text>
+
+  <!-- 2. Nav2 to Bundle / Perception -->
+  <path d="M 620 120 L 670 120" class="edge" marker-end="url(#arrow)" />
+  <text x="626" y="112" class="edge-label">[2] Raw</text>
+
+  <!-- 3. Bundle to Evaluator -->
+  <path d="M 800 200 L 800 250" class="edge" marker-end="url(#arrow)" />
+  <text x="808" y="230" class="edge-label">[3] Evaluate</text>
+
+  <!-- 4. Evaluator to Memory Store (Invalidation / Perception) -->
+  <path d="M 680 315 L 630 315" class="edge-amber" marker-end="url(#arrow-amber)" />
+  <text x="635" y="305" class="edge-label">[4] State (FREE)</text>
+
+  <!-- 5. Nav2 Failure to Memory Store -->
+  <path d="M 490 200 L 490 250" class="edge-memory" marker-end="url(#arrow-amber)" />
+  <text x="498" y="230" class="edge-label">[5] ABORTED</text>
+
+  <!-- 6. Memory Store to Planner -->
+  <path d="M 360 315 L 165 315 L 165 210" class="edge-memory" marker-end="url(#arrow-amber)" />
+  <text x="180" y="305" class="edge-label">[6] Invalidate / Unsuppress Route</text>
+
+  <!-- 7. Audit Traces -->
+  <path d="M 165 200 L 165 400" class="edge-audit" marker-end="url(#arrow-green)" />
+  <path d="M 490 370 L 490 400" class="edge-audit" marker-end="url(#arrow-green)" />
+  <path d="M 800 370 L 800 400" class="edge-audit" marker-end="url(#arrow-green)" />
+</svg>

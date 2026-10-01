@@ -37,9 +37,40 @@ pytest
 
 ---
 
-### Step 2: Reproduce P2c Replay & Statistical Analysis
+### Step 2: One-Step Automated Offline Reproduction
+Run the end-to-end reproduction suite to verify checksums, stage raw datasets, execute independent replays, compute statistical summaries, compare against reference CSVs, and verify H1 feasibility:
 
-To reproduce the analysis into a dedicated output directory:
+```bash
+./scripts/reproduce_offline.sh --force
+```
+
+**What this executes**:
+1. Verifies 271/271 files against `checksums.sha256`.
+2. Replays all 30 episodes with strict temporal causality and physical halt stability checks (`scripts/replay_and_score_p2c.py`).
+3. Computes sample standard deviations ($ddof=1$) and pairwise contrast tables (`scripts/analyze_p2c_results.py`).
+4. Compares generated CSVs against baseline CSVs (`episodes.csv`, `condition_summary.csv`, `contrasts.csv`) for exact numeric parity.
+5. Re-evaluates H1 4-run feasibility evidence (`scripts/verify_h1_feasibility.py`).
+6. Generates `reports/evidence/p2c_pilot_reproduced/reproduction_report.json` and `reproduction_log.txt`.
+
+---
+
+### Step 3: Build Canonical Paper Draft & Figures
+To regenerate paper tables, trajectory maps, and compile `paper/paper.pdf`:
+
+```bash
+./paper/scripts/build_paper_pdf.sh
+```
+
+**Generated Artifacts**:
+- `paper/tables/`: Formatted LaTeX (`.tex`) and Markdown (`.md`) tables for condition summaries, pairwise contrasts, and H1 feasibility.
+- `paper/figures/trajectories_map.png` / `.pdf`: 2D environment layout and representative trajectories (`D1_F_ep1`, `D1_R_ep1`, `D2_F_ep1`, `D2_M1_ep1`).
+- `paper/figures/architecture.svg` / `.pdf`: Vector architecture diagram.
+- `paper/paper.pdf`: Full compiled paper with IEEE-style bibliography and academic styling.
+
+---
+
+### Step 4: Step-by-Step Manual Reproduction (Optional)
+If you prefer running individual sub-commands manually:
 
 ```bash
 # 1. Create a fresh reproduction working directory and copy raw evidence
