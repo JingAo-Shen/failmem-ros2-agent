@@ -8,14 +8,14 @@ This guide provides step-by-step instructions to reproduce the offline verificat
 
 ### Runtime Environment
 - **Operating System**: Ubuntu 22.04 LTS (Jammy Jellyfish)
-- **ROS Distribution**: ROS 2 Humble Hawksbill
+- **ROS Distribution**: ROS 2 Humble Hawksbill (Required only for physical simulation in Docker)
 - **Simulator**: Gazebo 11
 - **Robot Model**: TurtleBot3 Waffle (`TB3_MODEL=waffle`)
-- **Python Version**: Python 3.10+
+- **Python Version**: Python 3.10+ (Python 3.13.5 tested)
 
 ### Python Dependencies
 ```bash
-pip install -r requirements.txt  # Or: pip install numpy pandas matplotlib pytest
+pip install -r requirements.txt  # Or: pip install numpy pandas matplotlib pytest pyyaml scipy
 ```
 
 ---
@@ -37,24 +37,35 @@ pytest
 
 ---
 
-### Step 2: Run Statistical Analysis & Regenerate CSVs/Figures
-Runs the unified statistical analysis script over the 30-run physical pilot dataset:
+### Step 2: Reproduce P2c Replay & Statistical Analysis
+
+To reproduce the analysis into a dedicated output directory:
+
 ```bash
-python3 scripts/analyze_p2c_results.py reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35
+# 1. Create a fresh reproduction working directory and copy raw evidence
+mkdir -p reports/evidence/p2c_pilot_reproduced
+cp -r reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/* reports/evidence/p2c_pilot_reproduced/
+
+# 2. Verify SHA256 hashes against frozen checksum manifest
+cd reports/evidence/p2c_pilot_reproduced && sha256sum -c checksums.sha256 && cd ../../..
+
+# 3. Execute independent replay and objective scoring
+python3 scripts/replay_and_score_p2c.py reports/evidence/p2c_pilot_reproduced/
+
+# 4. Run statistical aggregation and generate CSV summaries and plots
+python3 scripts/analyze_p2c_results.py reports/evidence/p2c_pilot_reproduced/
 ```
 
-**Expected Outputs** (written to `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/analysis/`):
-1. `integrity_report.json`: Validates that all 30 episodes are present, data-complete, conflict-free, and audit-passed.
-2. `episodes.csv`: Complete per-episode record of 30 runs across 10 conditions.
-3. `condition_summary.csv`: Condition-level means, sample standard deviations ($ddof=1$), valid $n$ counts, and arrival rates.
-4. `contrasts.csv`: Pairwise contrast differences ($F-R$, $F-O$, $F-M1$).
-5. Figures:
+**Expected Outputs** (generated in `reports/evidence/p2c_pilot_reproduced/` and `reports/evidence/p2c_pilot_reproduced/analysis/`):
+1. `p2c_replay_summary.json`: Replay verdicts for all 30 episodes.
+2. `integrity_report.json`: Validates that all 30 episodes are present, data-complete, conflict-free, and audit-passed.
+3. `episodes.csv`: Complete per-episode record of 30 runs across 10 conditions.
+4. `condition_summary.csv`: Condition-level means, sample standard deviations ($ddof=1$), valid $n$ counts, and arrival rates.
+5. `contrasts.csv`: Pairwise contrast differences ($F-R$, $F-O$, $F-M1$).
+6. Figures:
    - `p2c_distances_by_condition.png`
    - `p2c_durations_by_condition.png`
    - `p2c_dead_ends_and_contrasts.png`
-
-**Failure Criteria**:
-- If any required field is missing, invalid type, or non-finite in `action_result.json`, `integrity_report.json` records the error and the CLI exits with non-zero exit code `1`.
 
 ---
 
@@ -84,13 +95,22 @@ docker exec failmem_humble bash -c "source /opt/ros/humble/setup.bash && cd /wor
 ## 4. Key Evidence & Reports Directory Structure
 
 ```text
+paper/                                        # Canonical paper draft and references
+├── draft.md                                  # Paper second draft
+├── references.bib                            # Verified BibTeX citations
+├── reference-verification.csv                # Primary literature verification audit table
+└── revision-notes.md                         # Detailed revision and boundary notes
+
 reports/
-├── research-summary.md                   # Synthesis of questions, results, negative findings, and positioning
-├── claim-evidence-matrix.md              # Traceability mapping claims to code, raw runs, and bounds
-├── P2c-feasibility-pilot.md              # Detailed P2c 30-run exploratory benchmark report
-├── P2c-research-decision.md              # Boundary analysis, F2 architecture, and O+ strong baseline
-├── P2d-h1-feasibility-check.md           # H1 4-run feasibility check protocol, results, and No-Go verdict
+├── research-summary.md                       # Synthesis of questions, results, negative findings, and positioning
+├── claim-evidence-matrix.md                  # Traceability mapping claims to code, raw runs, and bounds
+├── related-work-positioning.md               # Related work mechanisms and comparative taxonomy
+├── offline-reproduction-check.md             # Offline reproduction audit logs and comparison
+├── P2c-feasibility-pilot.md                  # Detailed P2c 30-run exploratory benchmark report
+├── P2c-research-decision.md                  # Boundary analysis, F2 architecture, and O+ baseline design
+├── P2d-h1-feasibility-check.md               # H1 4-run feasibility check protocol, results, and No-Go verdict
 └── evidence/
-    ├── p2c_pilot/p2c_pilot_20261001_022711_0d3c35/ # 30 raw physical runs and analysis outputs
-    └── p2d_h1_feasibility/               # 4 raw feasibility runs and derived parsed dataset
+    ├── p2c_pilot/p2c_pilot_20261001_022711_0d3c35/ # 30 raw physical runs
+    ├── p2c_pilot_reproduced/                 # Reproduced replay summary, CSVs, and logs
+    └── p2d_h1_feasibility/                   # 4 raw feasibility runs and derived parsed dataset
 ```
