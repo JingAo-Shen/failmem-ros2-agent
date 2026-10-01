@@ -539,6 +539,7 @@ def _create_valid_test_episode_bundle(
                 "region_id": chokepoint_region,
                 "map_version": map_version,
                 "target_goal": target_goal,
+                "failure_reason": "BUDGET_DEADLINE_EXCEEDED",
                 "initial_state": "ACTIVE",
                 "evidence_state": "OCCUPIED",
             }
@@ -607,6 +608,7 @@ def _create_valid_test_episode_bundle(
                 "region_id": chokepoint_region,
                 "map_version": map_version,
                 "target_goal": target_goal,
+                "failure_reason": "BUDGET_DEADLINE_EXCEEDED",
                 "initial_state": "ACTIVE",
                 "evidence_state": "OCCUPIED",
             },
@@ -1034,6 +1036,231 @@ def test_negative_pair_11_missing_decision_j0_snapshot(tmp_path):
     res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
     assert res["audit_pass"] is False
     assert any("MISSING_DECISION_J0_PERCEPTION_SNAPSHOT" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_12_empty_goal_uuid_binding(tmp_path):
+    """Negative Test 12: Empty goal_uuid in failure event -> REPLAY FAIL (MISSING_OR_EMPTY_EVENT_FIELD)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["goal_uuid"] = ""
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("MISSING_OR_EMPTY_EVENT_FIELD" in r and "goal_uuid" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_13_empty_observation_id_binding(tmp_path):
+    """Negative Test 13: Empty observation_id in failure event -> REPLAY FAIL (MISSING_OR_EMPTY_EVENT_FIELD)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["observation_id"] = ""
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("MISSING_OR_EMPTY_EVENT_FIELD" in r and "observation_id" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_14_empty_memory_id_binding(tmp_path):
+    """Negative Test 14: Empty memory_id in failure event -> REPLAY FAIL (MISSING_OR_EMPTY_EVENT_FIELD)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["memory_id"] = ""
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("MISSING_OR_EMPTY_EVENT_FIELD" in r and "memory_id" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_15_empty_region_binding(tmp_path):
+    """Negative Test 15: Empty region_id in failure event -> REPLAY FAIL (MISSING_OR_EMPTY_EVENT_FIELD)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["region_id"] = ""
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("MISSING_OR_EMPTY_EVENT_FIELD" in r and "region_id" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_16_empty_map_version_binding(tmp_path):
+    """Negative Test 16: Empty map_version in failure event -> REPLAY FAIL (MISSING_OR_EMPTY_EVENT_FIELD)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["map_version"] = ""
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("MISSING_OR_EMPTY_EVENT_FIELD" in r and "map_version" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_17_placeholder_unknown_memory_id(tmp_path):
+    """Negative Test 17: Placeholder memory_id='unknown' in failure event -> REPLAY FAIL (INVALID_PLACEHOLDER_MEMORY_ID)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["memory_id"] = "unknown"
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("INVALID_PLACEHOLDER_MEMORY_ID" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_18_d2_failure_before_action_end(tmp_path):
+    """Negative Test 18: D2 failure event timestamp before traversal action ends -> REPLAY FAIL (FAILURE_EVENT_BEFORE_ACTION_END)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D2_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D2", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Mutate RECORD_FAILURE sim_time to 15.0s (action ends at 20.0s)
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[0]["sim_time"] = 15.0
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("FAILURE_EVENT_BEFORE_ACTION_END" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_19_invalidation_before_free_observation(tmp_path):
+    """Negative Test 19: Invalidation timestamp before clearance observation -> REPLAY FAIL (INVALIDATION_BEFORE_FREE_OBSERVATION)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D2_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D2", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Mutate INVALIDATE_MEMORY sim_time to 35.0s (clearance observation is at 40.0s, failure at 20.0s)
+    with open(ep_dir / "memory_events.json", "r") as f:
+        events = json.load(f)
+    events[1]["sim_time"] = 35.0
+    with open(ep_dir / "memory_events.json", "w") as f:
+        json.dump(events, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("INVALIDATION_BEFORE_FREE_OBSERVATION" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_20_duplicate_observation_id(tmp_path):
+    """Negative Test 20: Duplicate observation_id across scan snapshots -> REPLAY FAIL (DUPLICATE_OBSERVATION_ID)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Set duplicate observation_id on STEP3_RETREAT_J0 to match STEP1_VANTAGE1
+    with open(ep_dir / "scan_snapshots.json", "r") as f:
+        snaps = json.load(f)
+    snaps[2]["observation_id"] = snaps[0]["observation_id"]
+    with open(ep_dir / "scan_snapshots.json", "w") as f:
+        json.dump(snaps, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("DUPLICATE_OBSERVATION_ID" in r for r in res["failure_reasons"])
+
+
+def test_negative_pair_21_duplicate_stage_snapshot(tmp_path):
+    """Negative Test 21: Duplicate stage name across scan snapshots -> REPLAY FAIL (DUPLICATE_STAGE_SNAPSHOT)."""
+    from scripts.replay_and_score_p2c import replay_p2c_episode
+
+    ep_dir = tmp_path / "D1_F_ep1"
+    chks = _create_valid_test_episode_bundle(ep_dir, scenario="D1", method="F")
+
+    base_res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks, checksum_file_present=True)
+    assert base_res["audit_pass"] is True
+
+    # Duplicate STEP1_VANTAGE1 stage name on STEP2_POST_TRAVERSAL
+    with open(ep_dir / "scan_snapshots.json", "r") as f:
+        snaps = json.load(f)
+    snaps[1]["stage"] = "STEP1_VANTAGE1"
+    with open(ep_dir / "scan_snapshots.json", "w") as f:
+        json.dump(snaps, f, indent=2)
+
+    chks_new = _recompute_episode_checksums(ep_dir)
+    res = replay_p2c_episode(ep_dir, fallback_thresholds={}, checksums=chks_new, checksum_file_present=True)
+    assert res["audit_pass"] is False
+    assert any("DUPLICATE_STAGE_SNAPSHOT" in r for r in res["failure_reasons"])
+
 
 
 

@@ -1,0 +1,184 @@
+{
+  "protocol_version": "4.2",
+  "protocol_sha256": "fdbe35c90e53b0e80fa106cdee06d942033491cb212a616df815efc7c0b37a5f",
+  "protocol_config": {
+    "protocol_version": "4.2",
+    "benchmark_phase": "P2c_feasibility_pilot",
+    "created_date": "2026-10-01",
+    "environment": {
+      "world_model": "configs/p2c_dualpath_world.model",
+      "map_yaml": "configs/p2c_dualpath_world.yaml",
+      "map_pgm": "configs/p2c_dualpath_world.pgm",
+      "map_version": "p2c_dualpath_world_v1",
+      "params_file": "configs/nav2_params.yaml",
+      "spawn_pose": {
+        "x": -2.5,
+        "y": 0.0,
+        "z": 0.01,
+        "yaw": 0.0,
+        "frame_id": "map"
+      }
+    },
+    "decision_junction": {
+      "pose": {
+        "x": -2.5,
+        "y": 0.0,
+        "yaw": 0.0,
+        "frame_id": "map"
+      },
+      "description": "Decision junction J0 where local sensor observations of Chokepoint A are UNKNOWN due to interior wall occlusion."
+    },
+    "obstacle_channel": {
+      "entity_name": "chokepoint_blockage_box",
+      "obstacle_sdf": "configs/chokepoint_box.sdf",
+      "pose": {
+        "x": 0.0,
+        "y": 1.2,
+        "z": 0.3
+      },
+      "doorway_bbox": {
+        "x_min": -0.25,
+        "x_max": 0.25,
+        "y_min": 0.9,
+        "y_max": 1.5
+      }
+    },
+    "navigation_task": {
+      "goal_pose": {
+        "x": 2.5,
+        "y": 0.0,
+        "yaw": 0.0,
+        "frame_id": "map"
+      },
+      "target_region": "north_corridor_chokepoint",
+      "action_sim_timeout_sec": 45.0,
+      "action_wall_watchdog_sec": 90.0,
+      "episode_total_sim_budget_sec": 180.0,
+      "observation_period_sim_sec": 2.0
+    },
+    "routes": {
+      "path_a": {
+        "name": "north_short_path",
+        "nominal_length_m": 6.124,
+        "via_region": "north_corridor_chokepoint",
+        "waypoints": [
+          [
+            -2.5,
+            0.0,
+            0.0
+          ],
+          [
+            -1.5,
+            1.2,
+            0.0
+          ],
+          [
+            0.0,
+            1.2,
+            0.0
+          ],
+          [
+            1.5,
+            1.2,
+            0.0
+          ],
+          [
+            2.5,
+            0.0,
+            0.0
+          ]
+        ]
+      },
+      "path_b": {
+        "name": "south_bypass_detour",
+        "nominal_length_m": 9.105,
+        "via_region": "south_open_corridor",
+        "waypoints": [
+          [
+            -2.5,
+            0.0,
+            0.0
+          ],
+          [
+            -2.5,
+            -2.0,
+            0.0
+          ],
+          [
+            -1.0,
+            -2.4,
+            0.0
+          ],
+          [
+            0.0,
+            -2.4,
+            0.0
+          ],
+          [
+            1.0,
+            -2.4,
+            0.0
+          ],
+          [
+            2.5,
+            -2.0,
+            0.0
+          ],
+          [
+            2.5,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    "evaluation_methods": {
+      "R": {
+        "name": "reactive_only",
+        "description": "Evaluates only instantaneous local perception; explores Path A on UNKNOWN."
+      },
+      "O": {
+        "name": "spatial_observation_cache",
+        "description": "Maintains spatial cache of OCCUPIED/FREE without short TTL decay; routes Path B if Chokepoint A cached OCCUPIED."
+      },
+      "F": {
+        "name": "failmem_failure_memory",
+        "description": "Maintains causal failure precondition and action binding lifecycle; suppresses Path A on failure, invalidates on verified FREE."
+      },
+      "M1": {
+        "name": "persistent_memory_baseline",
+        "description": "Permanently suppresses Path A upon failure; permanently routes via Path B."
+      }
+    },
+    "diagnostic_scenarios": {
+      "D0": {
+        "name": "fresh_untried",
+        "description": "No prior traversal. Chokepoint A is UNKNOWN at J0."
+      },
+      "D1": {
+        "name": "confirmed_blocked_return",
+        "description": "Physically traversed Path A, detected blockage at Chokepoint A, physically retreated to J0."
+      },
+      "D2": {
+        "name": "cleared_restored_return",
+        "description": "Following D1, obstacle cleared, physically observed FREE at Chokepoint A, returned to J0."
+      }
+    },
+    "scoring_thresholds": {
+      "position_tolerance_m": 0.3,
+      "yaw_tolerance_rad": 0.35,
+      "max_linear_velocity_mps": 0.05,
+      "max_angular_velocity_radps": 0.08,
+      "stability_window_duration_sim_sec": 2.0,
+      "max_gt_displacement_m": 0.03,
+      "max_sensor_staleness_sim_sec": 0.5,
+      "max_costmap_staleness_sec": 3.0,
+      "max_stationary_amcl_staleness_sec": 30.0,
+      "online_position_tolerance_m": 0.45,
+      "online_yaw_tolerance_rad": 0.55,
+      "online_max_linear_velocity_mps": 0.03,
+      "online_max_angular_velocity_radps": 0.05,
+      "max_amcl_covariance_variance": 0.5
+    }
+  }
+}

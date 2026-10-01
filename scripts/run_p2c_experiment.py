@@ -610,6 +610,7 @@ def run_physical_episode(
                     "region_id": chokepoint_region,
                     "map_version": map_version,
                     "target_goal": list(target_goal),
+                    "failure_reason": str(fail_cause or trav1_outcome or "BUDGET_DEADLINE_EXCEEDED"),
                     "initial_state": "ACTIVE",
                     "evidence_state": linked_obs.get("doorway_state"),
                     "evidence": linked_obs,
@@ -1205,6 +1206,7 @@ def main():
     parser.add_argument("--condition", default=None, help="Filter by specific condition ID (e.g. D1_R)")
     parser.add_argument("--scenario", default=None, help="Filter by scenario (e.g. D0, D1, D2)")
     parser.add_argument("--method", default=None, help="Filter by method (e.g. R, O, F, M1)")
+    parser.add_argument("--repeats", type=int, default=1, help="Number of repetitions per condition (default: 1)")
     args = parser.parse_args()
 
     protocol_yaml_path = Path(args.protocol)
@@ -1232,6 +1234,7 @@ def main():
     print(f"Evidence Directory: {run_dir}")
     print(f"Protocol: {protocol_yaml_path} (SHA256: {protocol_sha256})")
     print(f"Total Sim Budget: {proto_cfg.total_sim_budget_sec}s")
+    print(f"Repeats per Condition: {args.repeats}")
     print("=======================================================================")
 
     all_conditions = [
@@ -1258,17 +1261,18 @@ def main():
     results: List[Dict[str, Any]] = []
 
     for cond in conditions:
-        res = run_physical_episode(
-            condition_id=cond["cond_id"],
-            scenario_name=cond["scenario"],
-            method_name=cond["method"],
-            ep_num=1,
-            run_dir=run_dir,
-            proto_cfg=proto_cfg,
-            protocol_sha256=protocol_sha256,
-            run_id=run_id,
-        )
-        results.append(res)
+        for ep in range(1, args.repeats + 1):
+            res = run_physical_episode(
+                condition_id=cond["cond_id"],
+                scenario_name=cond["scenario"],
+                method_name=cond["method"],
+                ep_num=ep,
+                run_dir=run_dir,
+                proto_cfg=proto_cfg,
+                protocol_sha256=protocol_sha256,
+                run_id=run_id,
+            )
+            results.append(res)
 
     summary_matrix = {
         "run_id": run_id,

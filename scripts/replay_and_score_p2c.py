@@ -104,6 +104,335 @@ def get_action_id(act: Dict[str, Any]) -> str:
     return ""
 
 
+def verify_memory_events_lifecycle(
+    scenario: str,
+    method: str,
+    memory_events: List[Dict[str, Any]],
+    actions: List[Dict[str, Any]],
+    scan_snapshots: List[Dict[str, Any]],
+    recomputed_perceptions: Dict[str, Dict[str, Any]],
+    target_goal: List[float],
+    region_id: str,
+    map_version: str,
+    t_dec: Optional[float],
+    history_aborted: bool,
+    time_tolerance_sec: float = 0.05,
+) -> Tuple[bool, bool, List[str], List[str], FailureMemoryStore, bool]:
+    """Strictly verify schema, ID bindings, causal temporal ordering, and reconstruct memory lifecycle."""
+    tamper_reasons: List[str] = []
+    history_reasons: List[str] = []
+    memory_lifecycle_verified = True
+    history_valid = not history_aborted
+    replayed_fail_store = FailureMemoryStore()
+    m1_suppressed = False
+
+    if history_aborted:
+        history_reasons.append("HISTORY_ABORTED_DUE_TO_INCOMPLETE_OR_INVALID_EVIDENCE")
+
+    # Step 1: Scenario D0 check
+    if scenario == "D0":
+        if len(memory_events) > 0:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("UNEXPECTED_MEMORY_EVENTS_IN_D0")
+        return memory_lifecycle_verified, history_valid, tamper_reasons, history_reasons, replayed_fail_store, m1_suppressed
+
+    # Step 2: Global Monotonicity and Event Type check
+    prev_t = -1.0
+    for idx, ev in enumerate(memory_events):
+        if not isinstance(ev, dict):
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALID_EVENT_OBJECT_AT_INDEX_{idx}")
+            continue
+
+        t_ev = ev.get("sim_time")
+        if not is_finite_number(t_ev) or float(t_ev) <= 0:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("MISSING_OR_INVALID_MEMORY_EVENT_TIMESTAMP")
+        elif float(t_ev) < prev_t - time_tolerance_sec:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"UNSORTED_OR_PREMATURE_MEMORY_EVENT (time {t_ev} < {prev_t})")
+        prev_t = float(t_ev) if is_finite_number(t_ev) else prev_t
+
+        ev_type = ev.get("event_type")
+        if ev_type not in ["RECORD_FAILURE", "INVALIDATE_MEMORY"]:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"UNKNOWN_MEMORY_EVENT_TYPE ({ev_type})")
+
+    # Step 3: Event Count and Scenario Separation
+    rec_events = [e for e in memory_events if e.get("event_type") == "RECORD_FAILURE"]
+    inv_events = [e for e in memory_events if e.get("event_type") == "INVALIDATE_MEMORY"]
+
+    if scenario == "D1":
+        if len(inv_events) > 0:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("UNEXPECTED_INVALIDATION_IN_D1")
+        if len(rec_events) > 1:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"DUPLICATE_RECORD_FAILURE_EVENT (found {len(rec_events)} events in D1)")
+        if not history_aborted and len(rec_events) == 0:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("MISSING_RECORD_FAILURE_IN_MEMORY_EVENTS")
+
+    elif scenario == "D2":
+        if len(rec_events) > 1:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"DUPLICATE_RECORD_FAILURE_EVENT (found {len(rec_events)} events in D2)")
+        if len(inv_events) > 1:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"DUPLICATE_INVALIDATE_EVENT (found {len(inv_events)} events in D2)")
+        if not history_aborted:
+            if len(rec_events) != 1:
+                memory_lifecycle_verified = False
+                tamper_reasons.append(f"INVALID_RECORD_FAILURE_COUNT_IN_D2 (expected 1, got {len(rec_events)})")
+            if len(inv_events) != 1:
+                memory_lifecycle_verified = False
+                tamper_reasons.append(f"INVALID_INVALIDATE_EVENT_COUNT_IN_D2 (expected 1, got {len(inv_events)})")
+
+    # Step 4: Extract physical history actions and observations
+    act_v1 = next((a for a in actions if get_action_id(a) == "hist_reach_obs_vantage"), None)
+    act_tr1 = next((a for a in actions if get_action_id(a) == "hist_attempt_chokepoint_traversal"), None)
+    act_r1 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0"), None)
+
+    post_tr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP2_POST_TRAVERSAL"), None)
+    v1_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP1_VANTAGE1"), None)
+    post_tr_recomp = recomputed_perceptions.get("STEP2_POST_TRAVERSAL", {})
+    v1_recomp = recomputed_perceptions.get("STEP1_VANTAGE1", {})
+
+    linked_snap = post_tr_snap if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_snap
+    linked_recomp = post_tr_recomp if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_recomp
+    probe_occ_st = linked_recomp.get("doorway_state")
+    expected_fail_obs_id = str(linked_snap.get("observation_id", "")) if linked_snap else ""
+    real_goal_uuid = str(act_tr1.get("dispatch", {}).get("goal_uuid", "")) if act_tr1 else ""
+
+    if scenario in ["D1", "D2"] and not history_aborted:
+        if not (act_v1 and act_tr1 and act_r1 and linked_snap):
+            history_valid = False
+            memory_lifecycle_verified = False
+            history_reasons.append("MISSING_D1_HISTORY_ACTIONS")
+        else:
+            v1_ok = (act_v1.get("terminal_status_name") == "SUCCEEDED" and act_v1.get("execution_outcome") == "BUDGET_SUCCESS")
+            tr1_failed = (act_tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or act_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
+            r1_ok = (act_r1.get("terminal_status_name") == "SUCCEEDED" and act_r1.get("execution_outcome") == "BUDGET_SUCCESS")
+            if not (v1_ok and tr1_failed and r1_ok and probe_occ_st == "OCCUPIED"):
+                history_valid = False
+                history_reasons.append(f"D1_OUTCOME_MISMATCH (v1={v1_ok}, tr1_fail={tr1_failed}, r1={r1_ok}, probe_occ={probe_occ_st})")
+
+    act_p2 = next((a for a in actions if get_action_id(a) == "hist_probe_clearance_vantage"), None)
+    act_r2 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0_clear"), None)
+    clr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP4_CLEARANCE_VANTAGE"), None)
+    clear_recomp = recomputed_perceptions.get("STEP4_CLEARANCE_VANTAGE", {})
+    clear_st = clear_recomp.get("doorway_state")
+    expected_clear_obs_id = str(clr_snap.get("observation_id", "")) if clr_snap else ""
+
+    if scenario == "D2" and not history_aborted:
+        if not (act_p2 and act_r2 and clr_snap):
+            history_valid = False
+            memory_lifecycle_verified = False
+            history_reasons.append("MISSING_D2_HISTORY_ACTIONS_OR_CLEARANCE_PERCEPTION")
+        else:
+            p2_ok = (act_p2.get("terminal_status_name") == "SUCCEEDED" and act_p2.get("execution_outcome") == "BUDGET_SUCCESS")
+            r2_ok = (act_r2.get("terminal_status_name") == "SUCCEEDED" and act_r2.get("execution_outcome") == "BUDGET_SUCCESS")
+            if not (p2_ok and r2_ok and clear_st == "FREE"):
+                history_valid = False
+                history_reasons.append(f"D2_OUTCOME_MISMATCH (p2={p2_ok}, r2={r2_ok}, clear_st={clear_st})")
+
+    # Step 5: Strict Schema & Binding Validation for RECORD_FAILURE
+    if len(rec_events) >= 1:
+        rec_ev = rec_events[0]
+        required_rec_fields = [
+            "event_seq", "event_type", "sim_time", "memory_id",
+            "failed_action_id", "goal_uuid", "observation_id",
+            "region_id", "map_version", "target_goal", "initial_state", "evidence_state"
+        ]
+        for rf in required_rec_fields:
+            v = rec_ev.get(rf)
+            if v is None or (isinstance(v, str) and not v.strip()) or (isinstance(v, list) and len(v) == 0):
+                memory_lifecycle_verified = False
+                tamper_reasons.append(f"MISSING_OR_EMPTY_EVENT_FIELD ({rf} in RECORD_FAILURE)")
+
+        ev_mem_id = str(rec_ev.get("memory_id", "")).strip()
+        if ev_mem_id in ["unknown", "None", "null"]:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("INVALID_PLACEHOLDER_MEMORY_ID (RECORD_FAILURE memory_id cannot be 'unknown')")
+
+        ev_failed_action = str(rec_ev.get("failed_action_id", "")).strip()
+        if ev_failed_action and ev_failed_action != "hist_attempt_chokepoint_traversal":
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"MISMATCHED_FAILED_ACTION_BINDING (expected 'hist_attempt_chokepoint_traversal', got '{ev_failed_action}')")
+
+        ev_goal_uuid = str(rec_ev.get("goal_uuid", "")).strip()
+        if ev_goal_uuid in ["unknown", "None", "null"]:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("INVALID_PLACEHOLDER_GOAL_UUID (goal_uuid cannot be 'unknown')")
+        elif real_goal_uuid and ev_goal_uuid and ev_goal_uuid != real_goal_uuid:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"MISMATCHED_GOAL_UUID_BINDING (expected '{real_goal_uuid}', got '{ev_goal_uuid}')")
+
+        ev_obs_id = str(rec_ev.get("observation_id", "")).strip()
+        if ev_obs_id in ["unknown", "None", "null"]:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("INVALID_PLACEHOLDER_OBSERVATION_ID (observation_id cannot be 'unknown')")
+        elif expected_fail_obs_id and ev_obs_id and ev_obs_id != expected_fail_obs_id:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"MISMATCHED_OBSERVATION_ID_BINDING (expected '{expected_fail_obs_id}', got '{ev_obs_id}')")
+
+        ev_region = str(rec_ev.get("region_id", "")).strip()
+        if ev_region and ev_region != region_id:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"MISMATCHED_REGION_BINDING (expected '{region_id}', got '{ev_region}')")
+
+        ev_map_ver = str(rec_ev.get("map_version", "")).strip()
+        if ev_map_ver and ev_map_ver != map_version:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"MISMATCHED_MAP_VERSION_BINDING (expected '{map_version}', got '{ev_map_ver}')")
+
+        ev_target_goal = rec_ev.get("target_goal")
+        if isinstance(ev_target_goal, list) and len(ev_target_goal) >= 2:
+            if abs(ev_target_goal[0] - target_goal[0]) > 0.01 or abs(ev_target_goal[1] - target_goal[1]) > 0.01:
+                memory_lifecycle_verified = False
+                tamper_reasons.append(f"MISMATCHED_TARGET_GOAL_BINDING (expected {target_goal}, got {ev_target_goal})")
+
+        init_st = rec_ev.get("initial_state")
+        if init_st and init_st != "ACTIVE":
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALID_EVENT_STATE (RECORD_FAILURE initial_state expected 'ACTIVE', got '{init_st}')")
+
+        ev_st = rec_ev.get("evidence_state")
+        if ev_st and ev_st != "OCCUPIED":
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALID_EVENT_EVIDENCE_STATE (RECORD_FAILURE evidence_state expected 'OCCUPIED', got '{ev_st}')")
+
+        # Causal Temporal Ordering for RECORD_FAILURE
+        t_rec = float(rec_ev.get("sim_time", 0.0))
+        t_tr1_end = float(act_tr1.get("timestamp_sim") or act_tr1.get("evaluation", {}).get("timestamp_sim") or 0.0) if act_tr1 else 0.0
+        t_obs_eval = float(linked_snap.get("evaluation_sim_time_sec", linked_snap.get("sim_time_sec", 0.0))) if linked_snap else 0.0
+
+        if act_tr1 and t_rec < (t_tr1_end - time_tolerance_sec):
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"FAILURE_EVENT_BEFORE_ACTION_END (rec_time={t_rec:.2f}s < action_end={t_tr1_end:.2f}s)")
+        if linked_snap and t_rec < (t_obs_eval - time_tolerance_sec):
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"FAILURE_EVENT_BEFORE_OBSERVATION (rec_time={t_rec:.2f}s < obs_eval={t_obs_eval:.2f}s)")
+
+    # Step 6: Strict Schema & Binding Validation for INVALIDATE_MEMORY
+    if len(inv_events) >= 1:
+        inv_ev = inv_events[0]
+        required_inv_fields = [
+            "event_seq", "event_type", "sim_time", "memory_id",
+            "invalidated_by_observation_id", "region_id", "map_version",
+            "target_goal", "previous_state", "resulting_state", "evidence_state"
+        ]
+        for rf in required_inv_fields:
+            v = inv_ev.get(rf)
+            if v is None or (isinstance(v, str) and not v.strip()) or (isinstance(v, list) and len(v) == 0):
+                memory_lifecycle_verified = False
+                tamper_reasons.append(f"MISSING_OR_EMPTY_EVENT_FIELD ({rf} in INVALIDATE_MEMORY)")
+
+        inv_mem_id = str(inv_ev.get("memory_id", "")).strip()
+        if inv_mem_id in ["unknown", "None", "null"]:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("INVALID_PLACEHOLDER_MEMORY_ID (INVALIDATE_MEMORY memory_id cannot be 'unknown')")
+
+        inv_obs_id = str(inv_ev.get("invalidated_by_observation_id", "")).strip()
+        if inv_obs_id in ["unknown", "None", "null"]:
+            memory_lifecycle_verified = False
+            tamper_reasons.append("INVALID_PLACEHOLDER_OBSERVATION_ID (invalidated_by_observation_id cannot be 'unknown')")
+        elif expected_clear_obs_id and inv_obs_id and inv_obs_id != expected_clear_obs_id:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"MISMATCHED_INVALIDATION_OBS_BINDING (expected '{expected_clear_obs_id}', got '{inv_obs_id}')")
+
+        inv_region = str(inv_ev.get("region_id", "")).strip()
+        if inv_region and inv_region != region_id:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"MISMATCHED_REGION_BINDING (invalidation expected '{region_id}', got '{inv_region}')")
+
+        inv_map_ver = str(inv_ev.get("map_version", "")).strip()
+        if inv_map_ver and inv_map_ver != map_version:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"MISMATCHED_MAP_VERSION_BINDING (invalidation expected '{map_version}', got '{inv_map_ver}')")
+
+        inv_target_goal = inv_ev.get("target_goal")
+        if isinstance(inv_target_goal, list) and len(inv_target_goal) >= 2:
+            if abs(inv_target_goal[0] - target_goal[0]) > 0.01 or abs(inv_target_goal[1] - target_goal[1]) > 0.01:
+                memory_lifecycle_verified = False
+                tamper_reasons.append(f"MISMATCHED_TARGET_GOAL_BINDING (invalidation expected {target_goal}, got {inv_target_goal})")
+
+        res_st = inv_ev.get("resulting_state")
+        if res_st and res_st != "INVALIDATED":
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALID_EVENT_STATE (invalidation resulting_state expected 'INVALIDATED', got '{res_st}')")
+
+        inv_ev_st = inv_ev.get("evidence_state")
+        if inv_ev_st and inv_ev_st != "FREE":
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALIDATION_EVIDENCE_NOT_FREE (expected 'FREE', got '{inv_ev_st}')")
+
+        # Causal Temporal Ordering for INVALIDATE_MEMORY
+        t_inv = float(inv_ev.get("sim_time", 0.0))
+        t_rec = float(rec_events[0].get("sim_time", 0.0)) if len(rec_events) >= 1 else 0.0
+        if t_inv <= t_rec:
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALIDATION_BEFORE_FAILURE_EVENT (invalidation at {t_inv:.2f}s <= failure at {t_rec:.2f}s)")
+
+        t_clr_obs_eval = float(clr_snap.get("evaluation_sim_time_sec", clr_snap.get("sim_time_sec", 0.0))) if clr_snap else 0.0
+        if clr_snap and t_inv < (t_clr_obs_eval - time_tolerance_sec):
+            memory_lifecycle_verified = False
+            tamper_reasons.append(f"INVALIDATION_BEFORE_FREE_OBSERVATION (inv_time={t_inv:.2f}s < free_obs_time={t_clr_obs_eval:.2f}s)")
+
+    # Step 7: Chronological Replay State Reconstruction (filtered by t_dec)
+    sorted_events = sorted(memory_events, key=lambda e: float(e.get("sim_time", 0.0)))
+    for ev in sorted_events:
+        ev_t = float(ev.get("sim_time", 0.0))
+        if t_dec is not None and ev_t > (t_dec + time_tolerance_sec):
+            continue  # Future events cannot affect past decision state
+
+        ev_type = ev.get("event_type")
+        if ev_type == "RECORD_FAILURE":
+            real_fail_reason = str(ev.get("failure_reason") or (act_tr1.get("failure_cause") if act_tr1 else "") or (act_tr1.get("execution_outcome") if act_tr1 else "") or "BUDGET_DEADLINE_EXCEEDED")
+            entry = replayed_fail_store.record_failure(
+                goal=target_goal,
+                region_id=region_id,
+                failure_reason=real_fail_reason,
+                sim_time=ev_t,
+                failed_action_id=str(ev.get("failed_action_id", "hist_attempt_chokepoint_traversal")),
+                failure_evidence_id=str(ev.get("observation_id", expected_fail_obs_id)),
+                failure_evidence=linked_recomp,
+                map_version=map_version,
+                metadata={"goal_uuid": str(ev.get("goal_uuid", real_goal_uuid))},
+            )
+            if not entry or entry.state != MemoryState.ACTIVE:
+                memory_lifecycle_verified = False
+                tamper_reasons.append("FAILURE_MEMORY_RECORDING_FAILED")
+            elif entry.memory_id != str(ev.get("memory_id", "")):
+                memory_lifecycle_verified = False
+                tamper_reasons.append(f"MISMATCHED_MEMORY_ID_BINDING (reconstructed '{entry.memory_id}' vs recorded '{ev.get('memory_id')}')")
+            m1_suppressed = True
+
+        elif ev_type == "INVALIDATE_MEMORY":
+            ev_check = dict(clear_recomp)
+            ev_check["timestamp_sim"] = ev_t
+            inv_res = replayed_fail_store.evaluate_perception_for_invalidation(
+                perception_evidence=ev_check,
+                sim_time=ev_t,
+                evidence_id=str(ev.get("invalidated_by_observation_id", expected_clear_obs_id)),
+                map_version=map_version,
+                region_id=region_id,
+            )
+            if not inv_res or len(inv_res) == 0:
+                memory_lifecycle_verified = False
+                tamper_reasons.append("INVALIDATION_EXECUTION_FAILED (no memory entry invalidated)")
+            else:
+                inv_entry = inv_res[0]
+                if inv_entry.state != MemoryState.INVALIDATED:
+                    memory_lifecycle_verified = False
+                    tamper_reasons.append(f"INVALIDATION_STATE_TRANSITION_FAILED (entry state is {inv_entry.state})")
+                if inv_entry.memory_id != str(ev.get("memory_id", "")):
+                    memory_lifecycle_verified = False
+                    tamper_reasons.append(f"MISMATCHED_INVALIDATED_MEMORY_ID (reconstructed '{inv_entry.memory_id}' vs recorded '{ev.get('memory_id')}')")
+
+    return memory_lifecycle_verified, history_valid, tamper_reasons, history_reasons, replayed_fail_store, m1_suppressed
+
+
 def replay_p2c_episode(
     ep_dir: Path,
     fallback_thresholds: Dict[str, Any],
@@ -214,8 +543,32 @@ def replay_p2c_episode(
     # 1. Raw Perception Recomputation from First Principles (using Immutable Observation Bundles)
     raw_evidence_verified = True
     recomputed_perceptions: Dict[str, Dict[str, Any]] = {}
+    seen_stages = set()
+    seen_observation_ids = set()
     for snap in scan_snapshots:
         stg = snap.get("stage", "")
+        obs_id = snap.get("observation_id", "")
+        if not stg or not isinstance(stg, str) or not stg.strip():
+            raw_evidence_verified = False
+            tamper_reasons.append("MISSING_STAGE_IN_OBSERVATION_SNAPSHOT")
+        elif stg in seen_stages:
+            raw_evidence_verified = False
+            tamper_reasons.append(f"DUPLICATE_STAGE_SNAPSHOT ({stg})")
+        else:
+            seen_stages.add(stg)
+
+        if not obs_id or not isinstance(obs_id, str) or not obs_id.strip():
+            raw_evidence_verified = False
+            tamper_reasons.append(f"MISSING_OBSERVATION_ID ({stg})")
+        elif obs_id.strip() in ["unknown", "None", "null"]:
+            raw_evidence_verified = False
+            tamper_reasons.append(f"INVALID_PLACEHOLDER_OBSERVATION_ID ({stg})")
+        elif obs_id in seen_observation_ids:
+            raw_evidence_verified = False
+            tamper_reasons.append(f"DUPLICATE_OBSERVATION_ID ({obs_id})")
+        else:
+            seen_observation_ids.add(obs_id)
+
         sdata = snap.get("scan_data")
         tfdata = snap.get("tf_transform")
         cm_roi = snap.get("costmap_roi")
@@ -385,288 +738,23 @@ def replay_p2c_episode(
                 replayed_cache.update_observation(region_id, st, ts, recomp)
 
     # 4. Strict Chronological Memory Lifecycle & History Audit
-    memory_lifecycle_verified = True
-    replayed_fail_store = FailureMemoryStore()
-    m1_suppressed = False
-    history_valid = not history_aborted
-    history_reasons: List[str] = []
-
-    if history_aborted:
-        history_reasons.append("HISTORY_ABORTED_DUE_TO_INCOMPLETE_OR_INVALID_EVIDENCE")
-        if action_res.get("decision_dispatches", 0) > 0:
-            history_valid = False
-            tamper_reasons.append("DISPATCHED_GOALS_AFTER_INVALID_HISTORY")
-
-    # Step 1: Check memory_events timestamps ordering
-    prev_t = -1.0
-    for ev in memory_events:
-        t_ev = ev.get("sim_time")
-        if not is_finite_number(t_ev) or float(t_ev) <= 0:
-            memory_lifecycle_verified = False
-            tamper_reasons.append("MISSING_OR_INVALID_MEMORY_EVENT_TIMESTAMP")
-        elif float(t_ev) < prev_t:
-            memory_lifecycle_verified = False
-            tamper_reasons.append(f"UNSORTED_OR_PREMATURE_MEMORY_EVENT (time {t_ev} < {prev_t})")
-        prev_t = float(t_ev) if is_finite_number(t_ev) else prev_t
-
-    # Step 2: Event checks per scenario
-    if scenario == "D0":
-        if len(memory_events) > 0:
-            memory_lifecycle_verified = False
-            tamper_reasons.append("UNEXPECTED_MEMORY_EVENTS_IN_D0")
-
-    elif scenario == "D1":
-        rec_events = [e for e in memory_events if e.get("event_type") == "RECORD_FAILURE"]
-        inv_events = [e for e in memory_events if e.get("event_type") == "INVALIDATE_MEMORY"]
-        other_events = [e for e in memory_events if e.get("event_type") not in ["RECORD_FAILURE", "INVALIDATE_MEMORY"]]
-
-        if len(inv_events) > 0:
-            memory_lifecycle_verified = False
-            tamper_reasons.append("UNEXPECTED_INVALIDATION_IN_D1")
-        if len(other_events) > 0:
-            memory_lifecycle_verified = False
-            tamper_reasons.append(f"UNKNOWN_MEMORY_EVENT_TYPE ({[e.get('event_type') for e in other_events]})")
-        if len(rec_events) > 1:
-            memory_lifecycle_verified = False
-            tamper_reasons.append(f"DUPLICATE_RECORD_FAILURE_EVENT (found {len(rec_events)} events in D1)")
-
-        if not history_aborted:
-            act_v1 = next((a for a in actions if get_action_id(a) == "hist_reach_obs_vantage"), None)
-            act_tr1 = next((a for a in actions if get_action_id(a) == "hist_attempt_chokepoint_traversal"), None)
-            act_r1 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0"), None)
-
-            if not (act_v1 and act_tr1 and act_r1):
-                history_valid = False
-                memory_lifecycle_verified = False
-                history_reasons.append("MISSING_D1_HISTORY_ACTIONS")
-            else:
-                v1_ok = (act_v1.get("terminal_status_name") == "SUCCEEDED" and act_v1.get("execution_outcome") == "BUDGET_SUCCESS")
-                tr1_failed = (act_tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or act_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
-                r1_ok = (act_r1.get("terminal_status_name") == "SUCCEEDED" and act_r1.get("execution_outcome") == "BUDGET_SUCCESS")
-
-                t_tr1 = act_tr1.get("timestamp_sim") or act_tr1.get("evaluation", {}).get("timestamp_sim")
-                t_tr1_start = act_tr1.get("timestamp_sim_start", t_tr1)
-                real_goal_uuid = str(act_tr1.get("dispatch", {}).get("goal_uuid", ""))
-
-                post_tr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP2_POST_TRAVERSAL"), None)
-                v1_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP1_VANTAGE1"), None)
-                post_tr_recomp = recomputed_perceptions.get("STEP2_POST_TRAVERSAL", {})
-                v1_recomp = recomputed_perceptions.get("STEP1_VANTAGE1", {})
-
-                linked_snap = post_tr_snap if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_snap
-                linked_recomp = post_tr_recomp if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_recomp
-                probe_occ_st = linked_recomp.get("doorway_state")
-                expected_obs_id = str(linked_snap.get("observation_id", "")) if linked_snap else ""
-
-                if not (v1_ok and tr1_failed and r1_ok and probe_occ_st == "OCCUPIED"):
-                    history_valid = False
-                    history_reasons.append(f"D1_OUTCOME_MISMATCH (v1={v1_ok}, tr1_fail={tr1_failed}, r1={r1_ok}, probe_occ={probe_occ_st})")
-
-                if len(rec_events) == 0:
-                    memory_lifecycle_verified = False
-                    tamper_reasons.append("MISSING_RECORD_FAILURE_IN_MEMORY_EVENTS")
-                else:
-                    rec_ev = rec_events[0]
-                    ev_failed_action = str(rec_ev.get("failed_action_id", ""))
-                    ev_goal_uuid = str(rec_ev.get("goal_uuid", ""))
-                    ev_obs_id = str(rec_ev.get("observation_id", ""))
-                    ev_mem_id = str(rec_ev.get("memory_id", ""))
-                    ev_region = str(rec_ev.get("region_id", ""))
-                    ev_map_ver = str(rec_ev.get("map_version", ""))
-                    ev_time = float(rec_ev.get("sim_time", 0.0))
-
-                    if ev_failed_action and ev_failed_action != "hist_attempt_chokepoint_traversal":
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_FAILED_ACTION_BINDING (expected 'hist_attempt_chokepoint_traversal', got '{ev_failed_action}')")
-                    if real_goal_uuid and ev_goal_uuid and ev_goal_uuid != real_goal_uuid:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_GOAL_UUID_BINDING (expected '{real_goal_uuid}', got '{ev_goal_uuid}')")
-                    if expected_obs_id and ev_obs_id and ev_obs_id != expected_obs_id:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_OBSERVATION_ID_BINDING (expected '{expected_obs_id}', got '{ev_obs_id}')")
-                    if ev_region and ev_region != region_id:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_REGION_BINDING (expected '{region_id}', got '{ev_region}')")
-                    if ev_map_ver and ev_map_ver != map_version:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_MAP_VERSION_BINDING (expected '{map_version}', got '{ev_map_ver}')")
-
-                    t_start_val = float(t_tr1_start) if is_finite_number(t_tr1_start) else (float(t_tr1) if t_tr1 else 0.0)
-                    t_end_val = float(t_tr1) if t_tr1 else t_start_val
-                    if ev_time < (t_start_val - 2.0) or ev_time > (t_end_val + 2.0):
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"STALE_FAILURE_EVENT_TIMESTAMP (ev_time={ev_time:.2f}s outside action window [{t_start_val:.2f}s, {t_end_val:.2f}s])")
-
-                    entry = replayed_fail_store.record_failure(
-                        goal=target_goal,
-                        region_id=region_id,
-                        failure_reason="BLOCKED_AT_DOORWAY",
-                        sim_time=ev_time,
-                        failed_action_id=ev_failed_action or "hist_attempt_chokepoint_traversal",
-                        failure_evidence_id=ev_obs_id or expected_obs_id,
-                        failure_evidence=linked_recomp,
-                        map_version=map_version,
-                        metadata={"goal_uuid": ev_goal_uuid or real_goal_uuid},
-                    )
-                    if not entry or entry.state != MemoryState.ACTIVE:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append("FAILURE_MEMORY_RECORDING_FAILED")
-                    elif ev_mem_id and entry.memory_id != ev_mem_id and ev_mem_id != "unknown":
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_MEMORY_ID_BINDING (reconstructed '{entry.memory_id}' vs recorded '{ev_mem_id}')")
-                    m1_suppressed = True
-
-    elif scenario == "D2":
-        rec_events = [e for e in memory_events if e.get("event_type") == "RECORD_FAILURE"]
-        inv_events = [e for e in memory_events if e.get("event_type") == "INVALIDATE_MEMORY"]
-        other_events = [e for e in memory_events if e.get("event_type") not in ["RECORD_FAILURE", "INVALIDATE_MEMORY"]]
-
-        if len(other_events) > 0:
-            memory_lifecycle_verified = False
-            tamper_reasons.append(f"UNKNOWN_MEMORY_EVENT_TYPE ({[e.get('event_type') for e in other_events]})")
-        if len(rec_events) != 1:
-            memory_lifecycle_verified = False
-            tamper_reasons.append(f"INVALID_RECORD_FAILURE_COUNT_IN_D2 (expected 1, got {len(rec_events)})")
-        if len(inv_events) != 1:
-            memory_lifecycle_verified = False
-            tamper_reasons.append(f"INVALID_INVALIDATE_EVENT_COUNT_IN_D2 (expected 1, got {len(inv_events)})")
-
-        if len(rec_events) == 1 and len(inv_events) == 1:
-            t_rec = float(rec_events[0].get("sim_time", 0.0))
-            t_inv = float(inv_events[0].get("sim_time", 0.0))
-            if t_inv <= t_rec:
-                memory_lifecycle_verified = False
-                tamper_reasons.append(f"INVALIDATION_BEFORE_FAILURE_EVENT (invalidation at {t_inv:.2f}s <= failure at {t_rec:.2f}s)")
-
-        if not history_aborted:
-            act_v1 = next((a for a in actions if get_action_id(a) == "hist_reach_obs_vantage"), None)
-            act_tr1 = next((a for a in actions if get_action_id(a) == "hist_attempt_chokepoint_traversal"), None)
-            act_r1 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0"), None)
-
-            act_p2 = next((a for a in actions if get_action_id(a) == "hist_probe_clearance_vantage"), None)
-            act_r2 = next((a for a in actions if get_action_id(a) == "hist_retreat_to_j0_clear"), None)
-            clr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP4_CLEARANCE_VANTAGE"), None)
-            clear_recomp = recomputed_perceptions.get("STEP4_CLEARANCE_VANTAGE", {})
-            clear_st = clear_recomp.get("doorway_state")
-
-            if not (act_v1 and act_tr1 and act_r1 and act_p2 and act_r2 and clr_snap):
-                history_valid = False
-                memory_lifecycle_verified = False
-                history_reasons.append("MISSING_D2_HISTORY_ACTIONS_OR_CLEARANCE_PERCEPTION")
-            else:
-                v1_ok = (act_v1.get("terminal_status_name") == "SUCCEEDED" and act_v1.get("execution_outcome") == "BUDGET_SUCCESS")
-                tr1_failed = (act_tr1.get("execution_outcome") in ["BUDGET_DEADLINE_EXCEEDED", "BUDGET_ABORTED", "FAILED"] or act_tr1.get("terminal_status_name") in ["ABORTED", "CANCELED"])
-                r1_ok = (act_r1.get("terminal_status_name") == "SUCCEEDED" and act_r1.get("execution_outcome") == "BUDGET_SUCCESS")
-                p2_ok = (act_p2.get("terminal_status_name") == "SUCCEEDED" and act_p2.get("execution_outcome") == "BUDGET_SUCCESS")
-                r2_ok = (act_r2.get("terminal_status_name") == "SUCCEEDED" and act_r2.get("execution_outcome") == "BUDGET_SUCCESS")
-
-                t_tr1 = act_tr1.get("timestamp_sim") or act_tr1.get("evaluation", {}).get("timestamp_sim")
-                t_tr1_start = act_tr1.get("timestamp_sim_start", t_tr1)
-                real_goal_uuid = str(act_tr1.get("dispatch", {}).get("goal_uuid", ""))
-
-                t_p2 = act_p2.get("timestamp_sim") or act_p2.get("evaluation", {}).get("timestamp_sim")
-                t_p2_start = act_p2.get("timestamp_sim_start", t_p2)
-                t_clr_p = float(clr_snap.get("evaluation_sim_time_sec", clr_snap.get("sim_time_sec", 0.0)))
-                expected_clear_obs_id = str(clr_snap.get("observation_id", ""))
-
-                post_tr_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP2_POST_TRAVERSAL"), None)
-                v1_snap = next((s for s in scan_snapshots if s.get("stage") == "STEP1_VANTAGE1"), None)
-                post_tr_recomp = recomputed_perceptions.get("STEP2_POST_TRAVERSAL", {})
-                v1_recomp = recomputed_perceptions.get("STEP1_VANTAGE1", {})
-                linked_snap = post_tr_snap if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_snap
-                linked_recomp = post_tr_recomp if (post_tr_recomp.get("doorway_state") in ["OCCUPIED", "FREE"]) else v1_recomp
-                probe_occ_st = linked_recomp.get("doorway_state")
-                expected_fail_obs_id = str(linked_snap.get("observation_id", "")) if linked_snap else ""
-
-                if not (v1_ok and tr1_failed and r1_ok and probe_occ_st == "OCCUPIED" and p2_ok and r2_ok and clear_st == "FREE"):
-                    history_valid = False
-                    history_reasons.append(f"D2_OUTCOME_MISMATCH (tr1_fail={tr1_failed}, p2={p2_ok}, r2={r2_ok}, clear_st={clear_st})")
-
-                # Replay failure first
-                if len(rec_events) >= 1:
-                    rec_ev = rec_events[0]
-                    ev_failed_action = str(rec_ev.get("failed_action_id", ""))
-                    ev_goal_uuid = str(rec_ev.get("goal_uuid", ""))
-                    ev_obs_id = str(rec_ev.get("observation_id", ""))
-                    ev_mem_id = str(rec_ev.get("memory_id", ""))
-                    ev_time = float(rec_ev.get("sim_time", 0.0))
-
-                    if ev_failed_action and ev_failed_action != "hist_attempt_chokepoint_traversal":
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_FAILED_ACTION_BINDING (expected 'hist_attempt_chokepoint_traversal', got '{ev_failed_action}')")
-                    if real_goal_uuid and ev_goal_uuid and ev_goal_uuid != real_goal_uuid:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_GOAL_UUID_BINDING (expected '{real_goal_uuid}', got '{ev_goal_uuid}')")
-                    if expected_fail_obs_id and ev_obs_id and ev_obs_id != expected_fail_obs_id:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_OBSERVATION_ID_BINDING (expected '{expected_fail_obs_id}', got '{ev_obs_id}')")
-
-                    entry = replayed_fail_store.record_failure(
-                        goal=target_goal,
-                        region_id=region_id,
-                        failure_reason="BLOCKED_AT_DOORWAY",
-                        sim_time=ev_time,
-                        failed_action_id=ev_failed_action or "hist_attempt_chokepoint_traversal",
-                        failure_evidence_id=ev_obs_id or expected_fail_obs_id,
-                        failure_evidence=linked_recomp,
-                        map_version=map_version,
-                        metadata={"goal_uuid": ev_goal_uuid or real_goal_uuid},
-                    )
-                    if not entry or entry.state != MemoryState.ACTIVE:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append("FAILURE_MEMORY_RECORDING_FAILED")
-                    elif ev_mem_id and entry.memory_id != ev_mem_id and ev_mem_id != "unknown":
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_MEMORY_ID_BINDING (reconstructed '{entry.memory_id}' vs recorded '{ev_mem_id}')")
-
-                # Replay invalidation
-                if len(inv_events) >= 1:
-                    inv_ev = inv_events[0]
-                    inv_mem_id = str(inv_ev.get("memory_id", ""))
-                    inv_obs_id = str(inv_ev.get("invalidated_by_observation_id", ""))
-                    inv_time = float(inv_ev.get("sim_time", 0.0))
-
-                    if expected_clear_obs_id and inv_obs_id and inv_obs_id != expected_clear_obs_id:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"MISMATCHED_INVALIDATION_OBS_BINDING (expected '{expected_clear_obs_id}', got '{inv_obs_id}')")
-
-                    if clear_st != "FREE":
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append("INVALIDATION_WITHOUT_VERIFIED_FREE_PERCEPTION")
-
-                    t_p2_s = float(t_p2_start) if is_finite_number(t_p2_start) else float(t_p2)
-                    t_p2_e = float(t_p2)
-                    if inv_time < (t_p2_s - 2.0) or inv_time > (t_p2_e + 2.0):
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append(f"STALE_CLEARANCE_PERCEPTION_TIMESTAMP (inv_time={inv_time:.2f}s outside action window [{t_p2_s:.2f}s, {t_p2_e:.2f}s])")
-
-                    ev_check = dict(clear_recomp)
-                    ev_check["timestamp_sim"] = inv_time
-                    inv_res = replayed_fail_store.evaluate_perception_for_invalidation(
-                        perception_evidence=ev_check,
-                        sim_time=inv_time,
-                        evidence_id=inv_obs_id or expected_clear_obs_id,
-                        map_version=map_version,
-                        region_id=region_id,
-                    )
-                    if not inv_res or len(inv_res) == 0:
-                        memory_lifecycle_verified = False
-                        tamper_reasons.append("INVALIDATION_EXECUTION_FAILED (no memory entry invalidated)")
-                    else:
-                        inv_entry = inv_res[0]
-                        if inv_entry.state != MemoryState.INVALIDATED:
-                            memory_lifecycle_verified = False
-                            tamper_reasons.append(f"INVALIDATION_STATE_TRANSITION_FAILED (entry state is {inv_entry.state})")
-                        if inv_mem_id and inv_entry.memory_id != inv_mem_id and inv_mem_id != "unknown":
-                            memory_lifecycle_verified = False
-                            tamper_reasons.append(f"MISMATCHED_INVALIDATED_MEMORY_ID (reconstructed '{inv_entry.memory_id}' vs recorded '{inv_mem_id}')")
-
-    if scenario == "D0" and len(memory_events) > 0:
-        memory_lifecycle_verified = False
-        tamper_reasons.append("UNEXPECTED_MEMORY_EVENTS_IN_D0")
-    if scenario == "D1" and any(e.get("event_type") == "INVALIDATE_MEMORY" for e in memory_events):
-        memory_lifecycle_verified = False
-        tamper_reasons.append("UNEXPECTED_INVALIDATION_IN_D1")
+    mem_ok, hist_ok, mem_tamper, hist_reasons, replayed_fail_store, m1_suppressed = verify_memory_events_lifecycle(
+        scenario=scenario,
+        method=method,
+        memory_events=memory_events,
+        actions=actions,
+        scan_snapshots=scan_snapshots,
+        recomputed_perceptions=recomputed_perceptions,
+        target_goal=target_goal,
+        region_id=region_id,
+        map_version=map_version,
+        t_dec=t_dec,
+        history_aborted=history_aborted,
+    )
+    memory_lifecycle_verified = mem_ok
+    tamper_reasons.extend(mem_tamper)
+    history_reasons = list(hist_reasons)
+    history_valid = hist_ok and memory_lifecycle_verified
 
     # 5. Trajectory Continuity & Classification
     odom_samples = traj_data.get("odom_trajectory", [])
