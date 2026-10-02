@@ -7,7 +7,8 @@ import time
 from .llm_backend import LLMBackend
 from .planner import AgentPlanner
 from ..env.task_env import DeliveryTaskEnv
-from ..memory.baselines import BaseMemoryAdapter, F_ConditionAwareMemory
+from ..env.tools import StatusCode, ActionResult
+from ..memory.baselines import BaseMemoryAdapter
 
 
 class AgentRunner:
@@ -39,10 +40,12 @@ class AgentRunner:
         llm_traces: List[Dict[str, Any]] = []
         consecutive_failures = 0
         last_failed_sig = None
+        known_state: Dict[str, Any] = {}
 
         t_wall_start = time.time()
 
         while not env.is_terminated and len(step_history) < self.max_tool_calls and len(llm_traces) < self.max_llm_calls:
+            step_idx = len(step_history) + 1
             current_state = {
                 "robot_location": env.robot_location,
                 "battery": env.battery,
@@ -58,21 +61,47 @@ class AgentRunner:
             decision, meta = self.planner.decide_next_action(
                 task_instruction=instruction,
                 current_state=current_state,
+                known_state=known_state,
                 step_history=step_history,
                 task_id=task_id,
             )
             llm_traces.append(meta)
 
-            tool_name = decision.get("action", "navigate")
+            tool_name = decision.get("action", "parse_error")
             params = decision.get("params", {})
+            event_id = f"evt_t{task_index}_s{step_idx:02d}_{tool_name}"
 
-            # 2. Execute on Environment
-            result = env.step(tool_name, params)
+            # 2. Execute on Environment or Handle Parse Error
+            if tool_name == "parse_error":
+                env._consume_resources(1.0, 1)
+                result = ActionResult(
+                    status=StatusCode.PARSE_ERROR,
+                    success=False,
+                    message="Decision JSON parsing failed after retry.",
+                    time_cost_s=1.0,
+                    battery_cost_pct=1,
+                    error_code="PARSE_ERROR",
+                )
+            else:
+                result = env.step(tool_name, params)
+
             sim_time = env.sim_time_s
 
+            # Update known state from direct observations
+            if result.observation:
+                if "door" in result.observation and "passage_state" in result.observation:
+                    door_k = f"{result.observation['door']}_state"
+                    known_state[door_k] = result.observation["passage_state"]
+                if "credentials" in result.observation:
+                    known_state["credentials"] = result.observation["credentials"]
+                if "recipient" in result.observation and "status" in result.observation:
+                    rec_k = f"{result.observation['recipient']}_status"
+                    known_state[rec_k] = result.observation["status"]
+
             step_entry = {
-                "step": len(step_history) + 1,
-                "thought": decision.get("thought", ""),
+                "step": step_idx,
+                "event_id": event_id,
+                "decision_summary": decision.get("decision_summary", ""),
                 "tool": tool_name,
                 "params": params,
                 "result": result.to_dict(),
@@ -86,6 +115,7 @@ class AgentRunner:
             if not result.success:
                 error_code = result.error_code or result.status.value
                 self.memory.record_action_failure(
+                    event_id=event_id,
                     task_id=task_id,
                     action_name=tool_name,
                     target=target_str,
@@ -103,13 +133,12 @@ class AgentRunner:
             else:
                 consecutive_failures = 0
                 last_failed_sig = None
-                # On success / observation: update memory (e.g. dynamic invalidation)
                 if result.observation:
-                    self.memory.record_observation(result.observation, sim_time)
+                    self.memory.record_observation(event_id, result.observation, sim_time)
 
-            # Check consecutive failure abort
+            # Dead-loop check
             if consecutive_failures >= 3:
-                env.constraint_violations.append(f"REPEATED_ACTION_ABORT: Stuck in loop on {last_failed_sig}")
+                env.constraint_violations.append(f"DEAD_LOOP_ABORT: Repeatedly executed failing action: {last_failed_sig}")
                 env.is_terminated = True
                 break
 
@@ -126,7 +155,7 @@ class AgentRunner:
             "delivered_count": env_summary["delivered_count"],
             "total_packages": env_summary["total_packages"],
             "final_battery": env_summary["final_battery"],
-            "battery_consumed": 100 - env_summary["final_battery"],
+            "battery_consumed": env_summary["cumulative_battery_consumed"],
             "sim_time_s": env_summary["final_sim_time_s"],
             "wall_time_s": round(t_wall_end - t_wall_start, 3),
             "step_count": len(step_history),

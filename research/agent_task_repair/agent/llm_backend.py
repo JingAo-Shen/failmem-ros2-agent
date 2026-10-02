@@ -1,7 +1,9 @@
 """
 Unified LLM Backend for FailMem Stage 2 Planning Agent.
-Supports local HuggingFace / Transformers models on GPU with token & latency tracking.
-Includes a deterministic fallback engine for fast unit tests and environments without weights.
+Enforces:
+  - Mandatory real neural model loading for evaluation runs (fails fast if missing).
+  - Fallback engine strictly isolated to unit testing mode with explicit flag.
+  - Comprehensive token, call count, and latency tracking.
 """
 from typing import Dict, Any, List, Optional
 import time
@@ -15,15 +17,17 @@ class LLMBackend:
         model_path: Optional[str] = None,
         device: str = "cuda",
         torch_dtype: str = "float16",
-        max_new_tokens: int = 96,
+        max_new_tokens: int = 128,
         temperature: float = 0.0,
+        allow_fallback: bool = False,
     ):
         self.model_path = model_path
         self.device = device
         self.torch_dtype = torch_dtype
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
-        
+        self.allow_fallback = allow_fallback
+
         self.model = None
         self.tokenizer = None
         self.total_prompt_tokens = 0
@@ -33,12 +37,17 @@ class LLMBackend:
 
         if model_path:
             self._load_model()
+        elif not allow_fallback:
+            raise RuntimeError(
+                "[LLMBackend] No model_path provided and allow_fallback=False. "
+                "Evaluation runs must explicitly load a real local model."
+            )
 
     def _load_model(self):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        print(f"[LLMBackend] Loading model from {self.model_path} onto {self.device}...")
+        print(f"[LLMBackend] Loading neural model from {self.model_path} onto {self.device}...")
         t0 = time.time()
         dtype = torch.float16 if self.torch_dtype == "float16" else torch.bfloat16
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
@@ -53,14 +62,15 @@ class LLMBackend:
 
     def generate(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """
-        Executes chat completion given messages.
+        Executes chat completion given conversation messages.
         Returns: {"content": str, "prompt_tokens": int, "generated_tokens": int, "latency_s": float}
         """
         t0 = time.time()
         self.total_calls += 1
 
         if self.model is None or self.tokenizer is None:
-            # Deterministic fallback engine for testing / rule-based planning
+            if not self.allow_fallback:
+                raise RuntimeError("[LLMBackend] Neural model is not loaded and fallback is disabled.")
             res = self._fallback_generate(messages)
             t1 = time.time()
             res["latency_s"] = t1 - t0
@@ -103,36 +113,40 @@ class LLMBackend:
 
     def _fallback_generate(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """
-        Deterministic, rule-based planner for test suites when neural model is not loaded.
-        Parses state from user message and emits valid JSON decisions following ReAct principles.
+        Deterministic rule-based solver restricted strictly to unit tests.
         """
         user_msg = messages[-1]["content"] if messages else ""
-        
-        # Rule-based logic reflecting ReAct decisions
         decision: Dict[str, Any]
-        if "recharge" in user_msg.lower() and "Lobby" in user_msg and "battery" in user_msg:
-            decision = {
-                "thought": "Battery is low, recharging at Lobby.",
-                "action": "recharge",
-                "params": {}
-            }
-        elif "deliver" in user_msg.lower() and "pkg_docs" in user_msg and "Office_A" in user_msg:
-            if "pkg_docs" in user_msg and "holding" in user_msg.lower() or "inventory: ['pkg_docs']" in user_msg or "inventory: [\"pkg_docs\"]" in user_msg:
+
+        if "Lobby" in user_msg and "holding" not in user_msg and "inventory: []" in user_msg:
+            # Pickup package
+            if "pkg_docs" in user_msg:
                 decision = {
-                    "thought": "Currently at Office_A holding pkg_docs, delivering to Alice.",
-                    "action": "deliver",
-                    "params": {"package_id": "pkg_docs", "recipient": "Alice"}
-                }
-            else:
-                decision = {
-                    "thought": "Picking up pkg_docs from current location.",
+                    "decision_summary": "Picking up pkg_docs at Lobby.",
                     "action": "pickup",
                     "params": {"package_id": "pkg_docs", "from_location": "Lobby"}
                 }
-        else:
-            # Default structured navigation
+            elif "pkg_hardware" in user_msg:
+                decision = {
+                    "decision_summary": "Picking up pkg_hardware at Lobby.",
+                    "action": "pickup",
+                    "params": {"package_id": "pkg_hardware", "from_location": "Lobby"}
+                }
+            else:
+                decision = {
+                    "decision_summary": "Navigating to Corridor_North.",
+                    "action": "navigate",
+                    "params": {"target_zone": "Corridor_North"}
+                }
+        elif "pkg_docs" in user_msg and "Office_A" in user_msg:
             decision = {
-                "thought": "Proceeding with task plan.",
+                "decision_summary": "Delivering pkg_docs to Alice at Office_A.",
+                "action": "deliver",
+                "params": {"package_id": "pkg_docs", "recipient": "Alice"}
+            }
+        else:
+            decision = {
+                "decision_summary": "Navigating towards goal.",
                 "action": "navigate",
                 "params": {"target_zone": "Corridor_North"}
             }
@@ -146,9 +160,14 @@ class LLMBackend:
 
     def get_aggregate_stats(self) -> Dict[str, Any]:
         return {
+            "model_path": self.model_path,
+            "device": self.device,
+            "temperature": self.temperature,
+            "max_new_tokens": self.max_new_tokens,
             "total_calls": self.total_calls,
             "total_prompt_tokens": self.total_prompt_tokens,
             "total_generated_tokens": self.total_generated_tokens,
+            "total_tokens": self.total_prompt_tokens + self.total_generated_tokens,
             "total_latency_s": round(self.total_latency_s, 3),
             "avg_latency_s": round(self.total_latency_s / max(1, self.total_calls), 3),
         }

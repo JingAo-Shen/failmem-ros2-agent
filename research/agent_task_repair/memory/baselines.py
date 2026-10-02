@@ -1,17 +1,18 @@
 """
-Five Standardized Memory Baseline Modules for FailMem Stage 2:
+Standardized Memory Baseline Modules for FailMem Stage 2:
   - B0: No Cross-Task Memory
   - B1: Unstructured Natural Language Retrieval
   - B2: Static Condition-Aware Memory (No Invalidation)
   - B3: Unstructured Memory with TTL / Step-Decay
-  - F:  Full Condition-Aware Memory with Perceptual Invalidation & Plan Repair
+  - F:  Full Condition-Aware Memory with Perceptual Invalidation
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from .memory_store import (
     ConditionAwareMemoryStore,
     FailureMemoryItem,
     EpistemicLevel,
     MemoryStatus,
+    ConditionMatchResult,
 )
 
 
@@ -19,12 +20,16 @@ class BaseMemoryAdapter:
     """Standardized memory interface used by the Agent Planner."""
     def __init__(self, method_name: str):
         self.method_name = method_name
+        self.current_task_index: int = 0
+        self.current_task_id: str = ""
 
     def on_task_start(self, task_id: str, task_index: int):
-        pass
+        self.current_task_id = task_id
+        self.current_task_index = task_index
 
     def record_action_failure(
         self,
+        event_id: str,
         task_id: str,
         action_name: str,
         target: str,
@@ -35,13 +40,22 @@ class BaseMemoryAdapter:
     ):
         pass
 
-    def record_observation(self, observation: Dict[str, Any], sim_time: float):
+    def record_observation(self, event_id: str, observation: Dict[str, Any], sim_time: float):
         pass
 
-    def record_repair_success(self, failed_action: str, target: str, repair_action: Dict[str, Any]):
+    def record_repair_success(
+        self,
+        failed_event_id: str,
+        repair_event_id: str,
+        repair_action: Dict[str, Any],
+    ):
         pass
 
-    def retrieve_relevant_memories(self, current_action_context: Dict[str, Any]) -> List[str]:
+    def retrieve_relevant_memories(
+        self,
+        known_state: Dict[str, Any],
+        context_query: Dict[str, Any],
+    ) -> List[str]:
         """Returns formatted string prompts to be injected into the LLM context."""
         return []
 
@@ -53,14 +67,15 @@ class BaseMemoryAdapter:
 # B0: No Cross-Task Memory
 # =============================================================================
 class B0_NoMemory(BaseMemoryAdapter):
-    """B0 maintains zero cross-task memory. Memory is cleared between tasks."""
+    """B0 maintains zero cross-task memory."""
     def __init__(self):
         super().__init__("B0_NoMemory")
 
-    def on_task_start(self, task_id: str, task_index: int):
-        pass
-
-    def retrieve_relevant_memories(self, current_action_context: Dict[str, Any]) -> List[str]:
+    def retrieve_relevant_memories(
+        self,
+        known_state: Dict[str, Any],
+        context_query: Dict[str, Any],
+    ) -> List[str]:
         return []
 
 
@@ -70,7 +85,7 @@ class B0_NoMemory(BaseMemoryAdapter):
 class B1_UnstructuredNLMemory(BaseMemoryAdapter):
     """
     Stores free-text descriptions of failures.
-    Retrieves top matches based on token/keyword overlap without checking conditions or invalidating.
+    Retrieves matches based on keyword/entity overlap without condition checking or invalidation.
     """
     def __init__(self):
         super().__init__("B1_UnstructuredNLMemory")
@@ -78,6 +93,7 @@ class B1_UnstructuredNLMemory(BaseMemoryAdapter):
 
     def record_action_failure(
         self,
+        event_id: str,
         task_id: str,
         action_name: str,
         target: str,
@@ -87,22 +103,41 @@ class B1_UnstructuredNLMemory(BaseMemoryAdapter):
         sim_time: float,
     ):
         entry = {
-            "text": f"FAILED {action_name}({target}) with error '{error_code}': {raw_message}",
+            "event_id": event_id,
+            "task_id": task_id,
             "action": action_name,
             "target": target,
-            "task_id": task_id,
+            "error_code": error_code,
+            "message": raw_message,
+            "text": f"[{event_id}] FAILED {action_name}({target}) with error '{error_code}': {raw_message}",
         }
         self.text_records.append(entry)
 
-    def retrieve_relevant_memories(self, current_action_context: Dict[str, Any]) -> List[str]:
-        target = current_action_context.get("target_zone") or current_action_context.get("target") or ""
+    def retrieve_relevant_memories(
+        self,
+        known_state: Dict[str, Any],
+        context_query: Dict[str, Any],
+    ) -> List[str]:
+        query_targets = set()
+        for v in context_query.values():
+            if isinstance(v, str) and v:
+                query_targets.add(v.lower())
+            elif isinstance(v, list):
+                for item in v:
+                    if isinstance(item, str) and item:
+                        query_targets.add(item.lower())
+
         results = []
         for r in self.text_records:
-            # Semantic keyword overlap
-            if target and target.lower() in r["text"].lower():
+            # Check if any query term appears in text record
+            matched = False
+            for term in query_targets:
+                if term in r["text"].lower():
+                    matched = True
+                    break
+            if matched or not query_targets:
                 results.append(f"[Past Experience] {r['text']}")
-            elif r["action"] == current_action_context.get("action_name"):
-                results.append(f"[Past Experience] {r['text']}")
+
         return results[:3]
 
     def get_stats(self) -> Dict[str, Any]:
@@ -115,7 +150,7 @@ class B1_UnstructuredNLMemory(BaseMemoryAdapter):
 class B2_StaticConditionalMemory(BaseMemoryAdapter):
     """
     Stores condition-aware structured failure records.
-    Filters by conditions at retrieval time, but NEVER updates or invalidates entries.
+    Filters by conditions at retrieval time using 3-valued matching, but NEVER updates or invalidates entries.
     """
     def __init__(self):
         super().__init__("B2_StaticConditionalMemory")
@@ -123,6 +158,7 @@ class B2_StaticConditionalMemory(BaseMemoryAdapter):
 
     def record_action_failure(
         self,
+        event_id: str,
         task_id: str,
         action_name: str,
         target: str,
@@ -142,6 +178,7 @@ class B2_StaticConditionalMemory(BaseMemoryAdapter):
             conditions[f"{rec}_status"] = observation["recipient_status"]
 
         self.store.record_failure(
+            event_id=event_id,
             task_id=task_id,
             action_name=action_name,
             target=target,
@@ -150,20 +187,21 @@ class B2_StaticConditionalMemory(BaseMemoryAdapter):
             raw_message=raw_message,
             epistemic_level=EpistemicLevel.FACT,
             sim_time=sim_time,
+            task_index=self.current_task_index,
         )
 
-    def record_observation(self, observation: Dict[str, Any], sim_time: float):
+    def record_observation(self, event_id: str, observation: Dict[str, Any], sim_time: float):
         # B2 explicitly IGNORES new observations and never invalidates!
         pass
 
-    def retrieve_relevant_memories(self, current_action_context: Dict[str, Any]) -> List[str]:
-        target = current_action_context.get("target_zone") or current_action_context.get("target") or ""
-        active = self.store.get_active_memories(current_action_context)
-        res = []
-        for m in active:
-            if not target or m.target == target or target in m.observable_conditions:
-                res.append(m.format_for_prompt())
-        return res[:3]
+    def retrieve_relevant_memories(
+        self,
+        known_state: Dict[str, Any],
+        context_query: Dict[str, Any],
+    ) -> List[str]:
+        target = context_query.get("target_zone") or context_query.get("target") or None
+        matches = self.store.retrieve_memories(known_state, query_target=target)
+        return [item.format_for_prompt(match_res) for item, match_res in matches[:3]]
 
     def get_stats(self) -> Dict[str, Any]:
         return {"method": self.method_name, "total_memories": len(self.store.get_all_memories())}
@@ -174,19 +212,17 @@ class B2_StaticConditionalMemory(BaseMemoryAdapter):
 # =============================================================================
 class B3_DecayMemory(BaseMemoryAdapter):
     """
-    Unstructured memory that automatically expires after a fixed TTL (calibrated to 1 episode/task).
+    Unstructured memory that automatically expires after a fixed TTL (calibrated to 1 task).
+    Records created in Task T expire when current_task_index > T + ttl_tasks.
     """
     def __init__(self, ttl_tasks: int = 1):
         super().__init__("B3_DecayMemory")
         self.ttl_tasks = ttl_tasks
-        self.current_task_index: int = 0
         self.records: List[Dict[str, Any]] = []
-
-    def on_task_start(self, task_id: str, task_index: int):
-        self.current_task_index = task_index
 
     def record_action_failure(
         self,
+        event_id: str,
         task_id: str,
         action_name: str,
         target: str,
@@ -196,38 +232,63 @@ class B3_DecayMemory(BaseMemoryAdapter):
         sim_time: float,
     ):
         self.records.append({
-            "text": f"FAILED {action_name}({target}) with error '{error_code}': {raw_message}",
+            "event_id": event_id,
+            "task_id": task_id,
             "action": action_name,
             "target": target,
+            "error_code": error_code,
+            "message": raw_message,
             "created_task_index": self.current_task_index,
+            "text": f"[{event_id}] FAILED {action_name}({target}) with error '{error_code}': {raw_message}",
         })
 
-    def retrieve_relevant_memories(self, current_action_context: Dict[str, Any]) -> List[str]:
-        target = current_action_context.get("target_zone") or current_action_context.get("target") or ""
+    def retrieve_relevant_memories(
+        self,
+        known_state: Dict[str, Any],
+        context_query: Dict[str, Any],
+    ) -> List[str]:
+        query_targets = set()
+        for v in context_query.values():
+            if isinstance(v, str) and v:
+                query_targets.add(v.lower())
+            elif isinstance(v, list):
+                for item in v:
+                    if isinstance(item, str) and item:
+                        query_targets.add(item.lower())
+
         results = []
         for r in self.records:
-            # Check TTL
             age_in_tasks = self.current_task_index - r["created_task_index"]
+            # Check TTL: active only while age <= ttl_tasks
             if age_in_tasks <= self.ttl_tasks:
-                if target and target.lower() in r["text"].lower():
-                    results.append(f"[Recent Memory (Age: {age_in_tasks} task)] {r['text']}")
-                elif r["action"] == current_action_context.get("action_name"):
-                    results.append(f"[Recent Memory (Age: {age_in_tasks} task)] {r['text']}")
+                matched = False
+                for term in query_targets:
+                    if term in r["text"].lower():
+                        matched = True
+                        break
+                if matched or not query_targets:
+                    results.append(f"[Active Memory (Age: {age_in_tasks} tasks)] {r['text']}")
+
         return results[:3]
 
     def get_stats(self) -> Dict[str, Any]:
-        return {"method": self.method_name, "total_records": len(self.records), "ttl_tasks": self.ttl_tasks}
+        return {
+            "method": self.method_name,
+            "total_records": len(self.records),
+            "ttl_tasks": self.ttl_tasks,
+        }
 
 
 # =============================================================================
-# F: Full Condition-Aware Memory with Perceptual Invalidation & Plan Repair
+# F: Full Condition-Aware Memory with Perceptual Invalidation
 # =============================================================================
 class F_ConditionAwareMemory(BaseMemoryAdapter):
     """
-    Full FailMem implementation:
+    Full Condition-Aware Memory:
       - Epistemic tagging (FACT vs CONJECTURE)
-      - Dynamic invalidation on verified sensor/tool observations
-      - Tracks verified repair actions and injects repair guidance
+      - 3-valued condition matching
+      - Observation-driven active invalidation
+      - Traceable event linking
     """
     def __init__(self):
         super().__init__("F_ConditionAwareMemory")
@@ -236,6 +297,7 @@ class F_ConditionAwareMemory(BaseMemoryAdapter):
 
     def record_action_failure(
         self,
+        event_id: str,
         task_id: str,
         action_name: str,
         target: str,
@@ -245,25 +307,17 @@ class F_ConditionAwareMemory(BaseMemoryAdapter):
         sim_time: float,
     ):
         conditions = {}
-        suggested_repair = None
-
         if "passage_state" in observation:
             door = observation.get("door", target)
             conditions[f"{door}_state"] = observation["passage_state"]
-            # Suggest detour if door north is blocked
-            if door == "door_north":
-                suggested_repair = {"action": "navigate", "target_zone": "Corridor_South", "note": "Use southern corridor detour"}
-
         if "access_status" in observation:
             conditions["required_credential"] = observation.get("required_credential", "security_badge")
-            suggested_repair = {"action": "navigate", "target_zone": "Office_A", "note": "Acquire security_badge from Office_A first"}
-
         if "recipient_status" in observation:
             rec = observation.get("recipient", target)
             conditions[f"{rec}_status"] = observation["recipient_status"]
-            suggested_repair = {"action": "query_status", "entity": rec, "note": "Check recipient calendar before re-attempting"}
 
         self.store.record_failure(
+            event_id=event_id,
             task_id=task_id,
             action_name=action_name,
             target=target,
@@ -272,30 +326,40 @@ class F_ConditionAwareMemory(BaseMemoryAdapter):
             raw_message=raw_message,
             epistemic_level=EpistemicLevel.FACT,
             sim_time=sim_time,
-            suggested_repair=suggested_repair,
+            task_index=self.current_task_index,
             evidence_ref=f"obs_{int(sim_time*10)}",
         )
 
-    def record_observation(self, observation: Dict[str, Any], sim_time: float):
-        invalidated_ids = self.store.update_with_observation(observation, sim_time)
+    def record_observation(self, event_id: str, observation: Dict[str, Any], sim_time: float):
+        invalidated_ids = self.store.update_with_observation(
+            observation=observation,
+            current_sim_time=sim_time,
+            obs_event_id=event_id,
+        )
         if invalidated_ids:
             self.invalidation_log.append({
                 "sim_time": sim_time,
+                "event_id": event_id,
                 "invalidated_memories": invalidated_ids,
                 "trigger_observation": observation,
             })
 
-    def record_repair_success(self, failed_action: str, target: str, repair_action: Dict[str, Any]):
-        self.store.mark_repair_success(failed_action, target, repair_action)
+    def record_repair_success(
+        self,
+        failed_event_id: str,
+        repair_event_id: str,
+        repair_action: Dict[str, Any],
+    ):
+        self.store.mark_repair_success(failed_event_id, repair_event_id, repair_action)
 
-    def retrieve_relevant_memories(self, current_action_context: Dict[str, Any]) -> List[str]:
-        target = current_action_context.get("target_zone") or current_action_context.get("target") or ""
-        active = self.store.get_active_memories(current_action_context)
-        res = []
-        for m in active:
-            if not target or m.target == target or target in m.observable_conditions:
-                res.append(m.format_for_prompt())
-        return res[:3]
+    def retrieve_relevant_memories(
+        self,
+        known_state: Dict[str, Any],
+        context_query: Dict[str, Any],
+    ) -> List[str]:
+        target = context_query.get("target_zone") or context_query.get("target") or None
+        matches = self.store.retrieve_memories(known_state, query_target=target)
+        return [item.format_for_prompt(match_res) for item, match_res in matches[:3]]
 
     def get_stats(self) -> Dict[str, Any]:
         return {

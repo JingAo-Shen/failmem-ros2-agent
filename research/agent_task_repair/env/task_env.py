@@ -82,6 +82,7 @@ class DeliveryTaskEnv:
 
         # Simulation metrics & accounting
         self.sim_time_s: float = 0.0
+        self.cumulative_battery_consumed: int = 0
         self.time_limit_s: float = float(cfg.get("time_limit_s", 300.0))
         self.step_count: int = 0
         self.consecutive_failed_actions: int = 0
@@ -109,6 +110,7 @@ class DeliveryTaskEnv:
     def _consume_resources(self, time_cost: float, battery_cost: int):
         self.sim_time_s += time_cost
         self.battery = max(0, self.battery - battery_cost)
+        self.cumulative_battery_consumed += battery_cost
         if self.battery == 0 and not any("BATTERY_DEPLETED" in v for v in self.constraint_violations):
             self.constraint_violations.append("BATTERY_DEPLETED: Robot ran out of battery during operation.")
 
@@ -580,6 +582,7 @@ class DeliveryTaskEnv:
             "delivered_count": sum(1 for p in self.packages.values() if p["delivered"]),
             "total_packages": len(self.packages),
             "final_battery": self.battery,
+            "cumulative_battery_consumed": self.cumulative_battery_consumed,
             "final_sim_time_s": self.sim_time_s,
             "total_steps": self.step_count,
             "constraint_violations": list(self.constraint_violations),

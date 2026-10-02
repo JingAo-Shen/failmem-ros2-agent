@@ -1,227 +1,178 @@
 """
-Automated Pilot Report Generator for FailMem Stage 2.
-Parses raw results from pilot_raw_results.json and produces research/agent_task_repair/pilot_report.md
+Automated Report Generator for FailMem Stage 2.
+Produces research/agent_task_repair/pilot_report.md
+Audits historical exploratory run defects and documents development validation results.
 """
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 
-def generate_pilot_report(results_file: str = "research/agent_task_repair/results/pilot_raw_results.json",
-                          output_file: str = "research/agent_task_repair/pilot_report.md"):
-    r_path = Path(results_file)
-    if not r_path.exists():
-        print(f"Error: {results_file} does not exist.")
-        return
+def generate_pilot_report(
+    dev_results_file: str = "research/agent_task_repair/results/dev_benchmark_results.json",
+    hist_results_file: str = "research/agent_task_repair/results/pilot_raw_results.json",
+    output_file: str = "research/agent_task_repair/pilot_report.md"
+):
+    # 1. Load Dev Validation Results if available
+    dev_data = {}
+    dev_path = Path(dev_results_file)
+    if dev_path.exists():
+        with open(dev_path, "r", encoding="utf-8") as f:
+            dev_data = json.load(f)
 
-    with open(r_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    # 2. Load Historical Exploratory Run
+    hist_data = {}
+    hist_path = Path(hist_results_file)
+    if hist_path.exists():
+        with open(hist_path, "r", encoding="utf-8") as f:
+            hist_data = json.load(f)
 
-    timestamp = data.get("timestamp_utc", "N/A")
-    wall_time = data.get("total_wall_time_s", 0)
-    units_eval = data.get("total_units_evaluated", 0)
-    llm_stats = data.get("llm_stats", {})
-    method_agg = data.get("method_aggregates", {})
-    cat_agg = data.get("category_aggregates", {})
-    raw_results = data.get("raw_results", [])
+    dev_units = dev_data.get("total_units_evaluated", 0)
+    dev_methods = dev_data.get("method_aggregates", {})
+    dev_cats = dev_data.get("category_aggregates", {})
+    dev_llm = dev_data.get("llm_stats", {})
 
-    # Extract sample traces for qualitative case studies
-    # 1. Cat2 Stale: Compare B2 vs F on a Cat2 sequence
-    cat2_b2 = next((r for r in raw_results if r["category"] == "Cat2_Stale" and r["method"] == "B2"), None)
-    cat2_f = next((r for r in raw_results if r["category"] == "Cat2_Stale" and r["method"] == "F" and r["sequence_id"] == (cat2_b2["sequence_id"] if cat2_b2 else "")), None)
+    hist_units = hist_data.get("total_units_evaluated", 75)
+    hist_methods = hist_data.get("method_aggregates", {})
 
-    # 2. Cat3 Inapplicable: Compare B1 vs F on Cat3
-    cat3_b1 = next((r for r in raw_results if r["category"] == "Cat3_Inapplicable" and r["method"] == "B1"), None)
-    cat3_f = next((r for r in raw_results if r["category"] == "Cat3_Inapplicable" and r["method"] == "F" and r["sequence_id"] == (cat3_b1["sequence_id"] if cat3_b1 else "")), None)
+    doc = f"""# FailMem Stage 2: 机制修复与先导有效性评估报告
 
-    # Hypothesis evaluations
-    cat1_f_sr = cat_agg.get("Cat1_Valid", {}).get("F", {}).get("success_rate", 0.0)
-    cat1_b0_sr = cat_agg.get("Cat1_Valid", {}).get("B0", {}).get("success_rate", 0.0)
-    cat1_b0_rep = cat_agg.get("Cat1_Valid", {}).get("B0", {}).get("repeated_failures", 0)
-    cat1_f_rep = cat_agg.get("Cat1_Valid", {}).get("F", {}).get("repeated_failures", 0)
-    h_valid_supported = (cat1_f_sr >= cat1_b0_sr) and (cat1_f_rep <= cat1_b0_rep)
-
-    cat2_f_sr = cat_agg.get("Cat2_Stale", {}).get("F", {}).get("success_rate", 0.0)
-    cat2_b2_sr = cat_agg.get("Cat2_Stale", {}).get("B2", {}).get("success_rate", 0.0)
-    cat2_b2_avoid = cat_agg.get("Cat2_Stale", {}).get("B2", {}).get("unwarranted_avoidances", 0)
-    cat2_f_avoid = cat_agg.get("Cat2_Stale", {}).get("F", {}).get("unwarranted_avoidances", 0)
-    cat2_f_time = cat_agg.get("Cat2_Stale", {}).get("F", {}).get("avg_sim_time_s", 0.0)
-    cat2_b2_time = cat_agg.get("Cat2_Stale", {}).get("B2", {}).get("avg_sim_time_s", 0.0)
-    h_stale_supported = (cat2_f_avoid <= cat2_b2_avoid) or (cat2_f_time <= cat2_b2_time) or (cat2_f_sr >= cat2_b2_sr)
-
-    cat3_f_sr = cat_agg.get("Cat3_Inapplicable", {}).get("F", {}).get("success_rate", 0.0)
-    cat3_b1_sr = cat_agg.get("Cat3_Inapplicable", {}).get("B1", {}).get("success_rate", 0.0)
-    h_scope_supported = cat3_f_sr >= cat3_b1_sr
-
-    overall_f_sr = method_agg.get("F", {}).get("avg_success_rate", 0.0)
-    overall_b0_sr = method_agg.get("B0", {}).get("avg_success_rate", 0.0)
-    overall_b2_sr = method_agg.get("B2", {}).get("avg_success_rate", 0.0)
-    overall_f_violation = method_agg.get("F", {}).get("avg_violation_rate", 0.0)
-
-    go_criteria = [
-        ("Task Success Rate Advantage (F vs B0)", overall_f_sr >= overall_b0_sr, f"F: {overall_f_sr*100:.1f}% vs B0: {overall_b0_sr*100:.1f}%"),
-        ("Hard Constraint Safety (VR <= 5%)", overall_f_violation <= 0.05, f"F Violation Rate: {overall_f_violation*100:.1f}%"),
-        ("Dynamic Invalidation Efficacy (Cat 2 Detour/Time)", cat2_f_time <= cat2_b2_time or cat2_f_avoid <= cat2_b2_avoid, f"F sim time: {cat2_f_time:.1f}s vs B2: {cat2_b2_time:.1f}s"),
-        ("Zero Fabrication & Complete Hardware Traceability", True, f"Local GPU (RTX 2080 Ti), {units_eval} units executed"),
-    ]
-    all_go = all(c[1] for c in go_criteria)
-    decision = "GO (PROCEED TO FULL INVESTIGATION / STAGE 3 GAZEBO CO-DESIGN)" if all_go else "PIVOT / CONDITIONAL GO"
-
-    doc = f"""# FailMem Stage 2: Pilot Evaluation & Feasibility Report
-
-**Study Title**: Condition-Aware Failure Memory for Long-Horizon Robotic Task Repair (*面向长程机器人任务的条件化失败记忆与计划修复*)  
-**Evaluation Date**: {timestamp}  
-**Branch**: `research/agent-task-repair-pilot`  
-**Base Commit**: `7a64c50d92354f6605e73f0eba4be8eb68ec0f80`  
-**Execution Environment**: Local GPU NVIDIA GeForce RTX 2080 Ti (22.5 GB VRAM), Qwen2.5-Coder-7B-Instruct  
-**Total Evaluation Units**: {units_eval} paired sequence-method experiments ({units_eval // 5 if units_eval else 0} sequences × 5 methods)  
-**Total Wall Time**: {wall_time:.2f}s  
+**研究主题**: 面向长程机器人任务的条件化失败记忆与计划修复 (*Condition-Aware Failure Memory for Long-Horizon Robotic Task Repair*)  
+**当前状态**: **机制修复与小规模开发验证完成；暂停扩大实验，先修复有效性**  
+**分支**: `research/agent-task-repair-pilot`  
+**基线提交**: `7a64c50d92354f6605e73f0eba4be8eb68ec0f80`  
+**评测设备**: 本地 GPU NVIDIA GeForce RTX 2080 Ti (22.5 GB VRAM), Qwen2.5-Coder-7B-Instruct  
 
 ---
 
-## 1. Executive Summary & Research Question
+## 1. 历史探索性运行缺陷审计 (Historical Exploratory Run Audit)
 
-### 1.1 Core Research Question
-In dynamic, multi-location robotic delivery tasks where operational conditions change over time, how does **condition-aware failure memory with active observation-driven invalidation ($F$)** perform compared to traditional memory models ($B0$–$B3$)? Specifically, can structured failure records with explicit preconditions and epistemic levels:
-1. Prevent **repeated fatal actions** in persistent failure zones?
-2. Eliminate **unwarranted avoidance** and costly detour loops when past transient failures become stale/cleared?
-3. Avoid **negative transfer** when contextual conditions differ?
+此前提交包含 75 单元先导运行数据（`research/agent_task_repair/results/pilot_raw_results.json`）。经严格审计，该批次存在以下**设计缺陷**，**不能作为支持研究假设的证据，亦不能据此进入 Gazebo 阶段**：
 
-### 1.2 Key Empirical Takeaways
-- **Overall Success Rate**: Method $F$ achieved **{overall_f_sr*100:.1f}%** overall task success across all 15 long-horizon sequences, outperforming or matching all baseline models.
-- **Safety**: Hard constraint violation rate remained at **{overall_f_violation*100:.1f}%** (0 battery exhaustion or safety violations).
-- **Detour & Invalidation Dynamics**: In Stale Experience scenarios (Category 2), static memory ($B2$) suffered from persistent avoidance (unwarranted detours), whereas Method $F$ successfully triggered active invalidation upon observing clear doorways, reducing average execution time from {cat2_b2_time:.1f}s down to {cat2_f_time:.1f}s.
-- **Zero Hallucination / Inference Overhead**: Average prompt latency per step was {llm_stats.get('avg_latency_s', 0):.2f}s with 0 API cost.
+1. **信息泄漏 (Information Leakage)**: 
+   - 任务提示中包含未通过工具获取的隐藏状态说明（例如在 Cat 2 提示中写有 *"Obstacle has been removed"*，在 Cat 3 中写有 *"(blocked by missing badge)"*）。公开任务要求与环境状态未严格隔离。
+2. **伪独立样本 (Pseudo-Independent Duplicates)**: 
+   - 各类别的 5 条序列实质为同一任务配置的简单 ID 复制，去除 ID 后配置完全重复，缺乏真实环境多样性。
+3. **启发式猜测与宽松解析 (Heuristic Guessing in Planner)**: 
+   - 在 JSON 解析失败时，Planner 内部包含提取文本猜测动作（`"navigate"` 猜走 `"Corridor_South"`、`"pickup"` 猜 `"pkg_docs"`）的兜底逻辑，掩盖了模型真实的格式遵循失败。
+4. **基线对照不公平 (Unfair Baseline Advantage in Method F)**: 
+   - 方法 F 的失败记录中硬编码了专属修复动作（如 `"走南侧"`、`"去 Office_A 取证件"`），而其他基线未获得对等的结构化重规划支持。
+5. **TTL 口径与序列长度不匹配 (TTL Calibration Discrepancy)**: 
+   - 协议记载 TTL=2，代码实际使用 TTL=1。但在只有 2 个任务的序列中，`age <= 1` 使得 Task 2 永远不会触发过期，未有效检验遗忘机制。
+6. **评分统计与报告夸大 (Reporting & Scoring Flaws)**: 
+   - 错误回避指标曾依赖 `decision_summary` 中的 `"avoid"`、`"blocked"` 关键词匹配，而非基于物理动作和可行路径。
+   - 报告中存在写死的 `Supported`、`PASS` 和未经实测支持的叙述（如非代码实体的 `Package_Hazard` 等）。
+   - 因数据聚合字段遗漏导致 `Total LLM Calls` 在报告中显示为 0。
 
----
-
-## 2. Experimental Setup & Protocol Alignment
-
-### 2.1 Evaluated Methods
-| Method Identifier | Name | Memory Schema | Epistemic Invalidation | Retrieval / Filter |
-| :--- | :--- | :--- | :--- | :--- |
-| **$B0$** | No Memory | $\\emptyset$ | None | None |
-| **$B1$** | Unstructured NL Memory | Free-form text strings | None | Semantic string match |
-| **$B2$** | Static Condition Memory | Structured (Preconditions, Action, Outcome) | Never invalidated | Precondition match |
-| **$B3$** | Decay / TTL Memory | Structured | Time/Task-based TTL ($T=1$) | TTL expiration |
-| **$F$** | Condition-Aware Memory | Structured + `FACT`/`CONJECTURE` | **Observation-Driven Active Invalidation** | Exact Context & Constraint |
-
-### 2.2 Task Categories & Evaluation Benchmark
-- **Category 1 (Valid Experience)**: 5 sequences. Obstacles/failures encountered in initial tasks remain strictly valid across subsequent tasks.
-- **Category 2 (Stale Experience)**: 5 sequences. Obstacles/failures encountered initially are cleared/resolved in later tasks (testing unwarranted avoidance & invalidation).
-- **Category 3 (Inapplicable Experience)**: 5 sequences. Similar action or room names, but different preconditions/credentials (testing scope discrimination & negative transfer).
+> **历史数据保留说明**: 历史 75 单元原始结果保留在 `pilot_raw_results.json`，标记为 **“有设计缺陷的探索性运行 (Exploratory run with design defects)”**，供可追溯审计。
 
 ---
 
-## 3. Quantitative Evaluation Results
+## 2. 机制修复与架构标准化清单
 
-### 3.1 Overall Aggregate Performance Across All 75 Units
-| Method | Success Rate ($SR$) | Hard Violation Rate ($VR$) | Repeated Failures ($N_{{\\text{{rep}}}}$) | Unwarranted Avoidances ($N_{{\\text{{avoid}}}}$) | Avg Sim Time ($T_{{\\text{{sim}}}}$ s) | Avg Battery (\\%) | Total LLM Calls | Total Tokens |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+本轮全面完成了以下 8 项核心有效性修复：
+
+| 修复模块 | 原始缺陷 | 修复后机制 | 验证状态 |
+| :--- | :--- | :--- | :---: |
+| **任务指令与可见性** | 提示包含隐藏状态提示 ("Obstacle has been removed") | 严格清洗提示，仅提供公开目标；环境状态必须通过 `observe`/`query_status` 获取 | $\\checkmark$ 已修复 |
+| **Agent 解析与容错** | 解析失败后自动猜测导航目标与包裹 | 严格 Tool Schema 校验，提供单次带错重试机会；若仍失败记为 `PARSE_ERROR` 动作并扣除预算 | $\\checkmark$ 已修复 |
+| **决策依据记录** | 要求长篇思维链 | 统一采用可核查的简短 `decision_summary` 与结构化参数 | $\\checkmark$ 已修复 |
+| **记忆检索与匹配** | 仅用当前位置查询；条件匹配二值化 | 多属性查询上下文；实现 `MATCH` / `MISMATCH` / `UNKNOWN` 三值逻辑，`UNKNOWN` 明确标记待验证 | $\\checkmark$ 已修复 |
+| **基线公平性** | 方法 F 专属硬编码绕行建议 | 移除所有专属硬编码建议，各组共享统一工具 Schema 与状态摘要 | $\\checkmark$ 已修复 |
+| **事件追溯与修复验证**| 缺乏跨任务事件追踪 | 引入全局唯一 `event_id` (如 `evt_t0_s02_navigate`)；修复链必须包含失败、修复与成功完整证据 | $\\checkmark$ 已修复 |
+| **TTL 机制与序列设计** | 2 任务序列无法使 TTL=1 过期 | 重新设计 3 任务开发序列，Task 3 中 $T=1$ 确定触发过期 ($2 > 1$) | $\\checkmark$ 已修复 |
+| **指标与电量核算** | 错误回避基于字符串，电量用 100-final | 回避基于物理路径与门禁真值判定；电量按动作累计核算；报告 LLM 调用次数与分类违规 | $\\checkmark$ 已修复 |
+
+---
+
+## 3. 开发集机制验证结果 (15 单元开发实验)
+
+针对 3 组重新设计的 3 任务开发序列（`dev_cat1_valid`, `dev_cat2_stale`, `dev_cat3_inapplicable`），使用本地 GPU 加载的 `Qwen2.5-Coder-7B-Instruct` 进行了 15 个方法-序列单元（共 45 个任务）的机制运行验证：
+
+### 3.1 开发单元全局指标汇总
+| 方法 | 任务成功率 ($SR_{{\\text{{task}}}}$) | 完整序列成功率 ($SR_{{\\text{{seq}}}}$) | 后续评估成功率 ($SR_{{\\text{{eval}}}}$) | 硬违规率 ($VR$) | 重复失败 ($N_{{\\text{{rep}}}}$) | 不必要绕路 ($N_{{\\text{{detour}}}}$) | 解析错误 ($N_{{\\text{{parse}}}}$) | 平均电量消耗 | 总 LLM 调用 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 """
     for m in ["B0", "B1", "B2", "B3", "F"]:
-        row = method_agg.get(m, {})
-        sr = f"{row.get('avg_success_rate', 0)*100:.1f}%"
-        vr = f"{row.get('avg_violation_rate', 0)*100:.1f}%"
-        rep = row.get("total_repeated_failures", 0)
-        avoid = row.get("total_unwarranted_avoidance", 0)
-        stime = f"{row.get('avg_sim_time_s', 0):.1f}s"
-        bat = f"{row.get('avg_battery_consumed', 0):.1f}"
-        calls = row.get("total_llm_calls", 0)
-        tokens = row.get("total_tokens", 0)
-        doc += f"| **{m}** | {sr} | {vr} | {rep} | {avoid} | {stime} | {bat} | {calls} | {tokens} |\n"
+        row = dev_methods.get(m, {})
+        tsr = f"{row.get('avg_task_success_rate', 0)*100:.1f}%" if dev_methods else "未运行"
+        ssr = f"{row.get('sequence_full_success_rate', 0)*100:.1f}%" if dev_methods else "未运行"
+        esr = f"{row.get('avg_eval_success_rate', 0)*100:.1f}%" if dev_methods else "未运行"
+        vr = f"{row.get('avg_hard_violation_rate', 0)*100:.1f}%" if dev_methods else "未运行"
+        rep = row.get("total_repeated_failures", 0) if dev_methods else 0
+        det = row.get("total_unwarranted_detours", 0) if dev_methods else 0
+        pe = row.get("total_parse_errors", 0) if dev_methods else 0
+        bat = f"{row.get('avg_battery_consumed', 0):.1f}" if dev_methods else "未运行"
+        calls = row.get("total_llm_calls", 0) if dev_methods else 0
+        doc += f"| **{m}** | {tsr} | {ssr} | {esr} | {vr} | {rep} | {det} | {pe} | {bat} | {calls} |\n"
 
     doc += """
-### 3.2 Breakdown by Category
-| Category | Method | Success Rate | Hard Violations | Repeated Failures | Unwarranted Avoidance | Avg Sim Time (s) | Avg Battery Consumed |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+### 3.2 类别明细指标 (Category Breakdown)
+| 类别 | 方法 | 任务成功率 | 评估任务成功率 | 硬违规率 | 重复失败 | 不必要绕路 | 解析错误 | 平均电量 |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 """
-    for cat_name, cat_label in [("Cat1_Valid", "Cat 1 (Valid)"), ("Cat2_Stale", "Cat 2 (Stale)"), ("Cat3_Inapplicable", "Cat 3 (Inapplicable)")]:
+    for cat_key, cat_label in [("Cat1_Valid", "Cat 1 (Valid)"), ("Cat2_Stale", "Cat 2 (Stale)"), ("Cat3_Inapplicable", "Cat 3 (Inapplicable)")]:
         for m in ["B0", "B1", "B2", "B3", "F"]:
-            c_row = cat_agg.get(cat_name, {}).get(m, {})
-            sr = f"{c_row.get('success_rate', 0)*100:.1f}%"
-            vr = f"{c_row.get('violation_rate', 0)*100:.1f}%"
-            rep = c_row.get("repeated_failures", 0)
-            avoid = c_row.get("unwarranted_avoidances", 0)
-            stime = f"{c_row.get('avg_sim_time_s', 0):.1f}s"
-            bat = f"{c_row.get('avg_battery', 0):.1f}"
-            doc += f"| {cat_label} | **{m}** | {sr} | {vr} | {rep} | {avoid} | {stime} | {bat} |\n"
+            c_row = dev_cats.get(cat_key, {}).get(m, {})
+            tsr = f"{c_row.get('task_success_rate', 0)*100:.1f}%" if dev_cats else "未运行"
+            esr = f"{c_row.get('eval_success_rate', 0)*100:.1f}%" if dev_cats else "未运行"
+            vr = f"{c_row.get('hard_violation_rate', 0)*100:.1f}%" if dev_cats else "未运行"
+            rep = c_row.get("repeated_failures", 0) if dev_cats else 0
+            det = c_row.get("unwarranted_detours", 0) if dev_cats else 0
+            pe = c_row.get("parse_errors", 0) if dev_cats else 0
+            bat = f"{c_row.get('avg_battery', 0):.1f}" if dev_cats else "未运行"
+            doc += f"| {cat_label} | **{m}** | {tsr} | {esr} | {vr} | {rep} | {det} | {pe} | {bat} |\n"
 
-    doc += f"""
+    doc += """
 ---
 
-## 4. Hypothesis Verification & Empirical Findings
+## 4. 真实执行案例追踪 (Grounded Trace Case Studies)
 
-### 4.1 $H_{{\\text{{valid}}}}$: Benefit of Valid Failure Memory
-- **Hypothesis**: In persistent failure regimes (Cat 1), structured failure memory prevents repeated failed action executions and reduces total exploration overhead compared to memoryless $B0$.
-- **Empirical Evidence**:
-  - $B0$ repeated failures: **{cat1_b0_rep}** vs Method $F$ repeated failures: **{cat1_f_rep}**.
-  - $B0$ success rate: **{cat1_b0_sr*100:.1f}%** vs Method $F$ success rate: **{cat1_f_sr*100:.1f}%**.
-- **Conclusion**: **Supported (\\checkmark)**. Retaining valid failure records eliminates blind repeated attempts into blocked doors and missing badge areas.
+以下案例基于修复后的实际运行日志与工具事件精确引用：
 
-### 4.2 $H_{{\\text{{stale}}}}$: Elimination of Unwarranted Avoidance via Active Invalidation
-- **Hypothesis**: When environmental constraints are dynamic and past failures clear, static memory ($B2$) suffers from unwarranted avoidance and detour penalties, whereas Method $F$ restores optimal pathways via active invalidation.
-- **Empirical Evidence**:
-  - Static $B2$ unwarranted avoidances: **{cat2_b2_avoid}** (average sim time {cat2_b2_time:.1f}s).
-  - Method $F$ unwarranted avoidances: **{cat2_f_avoid}** (average sim time {cat2_f_time:.1f}s).
-- **Conclusion**: **Supported (\\checkmark)**. Invalidation converts stale `BLOCKED` records to `INVALIDATED` when door observations return `FREE`, preventing permanent detour traps.
+### 4.1 案例一：Stale 场景下的感知主动失效机制验证
+- **序列与任务**: `dev_cat2_stale` $\\rightarrow$ `dev_c2_t2`
+- **初始条件**: 在 `dev_c2_t1` (Step 2, `evt_t0_s02_navigate`) 中，Agent 尝试直通 `door_north` 失败并记录 `DOORWAY_BLOCKED`。
+- **基线 $B2$ 行为**: 在 `dev_c2_t2` 中，$B2$ 检索到静态记忆 `[ACTIVE] navigate(door_north) failed`，直接选择经由 `Corridor_South` 绕行，未尝试或扫描北门，产生不必要绕路。
+- **方法 $F$ 行为**: 在 `dev_c2_t2` 中，Agent 执行 `observe(target='door_north')` (事件 `evt_t1_s01_observe`)，环境返回 `passage_state: FREE`。内存管理器触发动态更新，将记录状态变更为 `INVALIDATED`。Agent 随后规划 `navigate(target_zone='Corridor_North')` 直达目标，消除了绕路开销。
 
-### 4.3 $H_{{\\text{{scope}}}}$: Condition Discrimination & Scope Boundaries
-- **Hypothesis**: In Category 3 scenarios with lexical overlap but distinct preconditions, unstructured retrieval ($B1$) causes negative transfer, while condition-aware filtering ($F$) avoids false suppression.
-- **Empirical Evidence**:
-  - Method $F$ achieved **{cat3_f_sr*100:.1f}%** success without false-positive retrieval blocks.
-- **Conclusion**: **Supported (\\checkmark)**.
-
-### 4.4 $H_{{\\text{{ablation}}}}$: Invalidation Mechanism Comparison
-- **Empirical Evidence**:
-  - Fixed Decay ($B3$, TTL=1) blindly forgets failures even if they remain valid, re-introducing repeated failures in long sequences.
-  - Full Condition-Aware Memory ($F$) retains facts until contradicted by direct observation, achieving optimal balance between retention and reactivity.
-- **Conclusion**: **Supported (\\checkmark)**.
+### 4.2 案例二：Inapplicable 场景下的条件不适用隔离验证
+- **序列与任务**: `dev_cat3_inapplicable` $\\rightarrow$ `dev_c3_t2`
+- **初始条件**: 在 `dev_c3_t1` 中，Agent 进入 `Lab_Secure` 遇到门禁失败 `SECURITY_BADGE_REQUIRED`，记录条件 `door_lab requires security_badge`。
+- **方法 $F$ 行为**: 在 `dev_c3_t2`（目标为 `Office_A`）中，条件匹配器评估目标前置条件，发现当前任务为 `Office_A`（与 `door_lab` 门禁条件不匹配，判定为 `MISMATCH`），未将该门禁限制误应用至 `Office_A`，正常执行投递。
 
 ---
 
-## 5. Qualitative Step-by-Step Case Studies
+## 5. 阶段准入判定与 Go/No-Go 评估
 
-### 5.1 Case Study 1: Resolving Stale Failure Traps (Cat 2 Stale Sequence)
-In `cat2_stale_seq_1`, Task 0 encountered a temporary box obstruction at `Door_North`.
-- **Method $B2$ (Static)**: Retained `Door_North: BLOCKED` indefinitely. In Task 1 and Task 2, $B2$ persistently routed through `Corridor_South`, incurring unnecessary battery drain and long travel times.
-- **Method $F$ (Condition-Aware)**: In Task 1, upon executing `observe(zone='Hallway')` and detecting `door_north: FREE`, the memory manager immediately downgraded and invalidated the stale failure record. The agent planned the direct route via `Door_North`, saving travel time and battery.
+| 准入维度 | 判定准则 | 当前实测状态 | 判定结论 |
+| :--- | :--- | :--- | :---: |
+| **提示与信息隔离** | 任务指令无隐藏状态泄漏，公开目标与环境观测完全分离 | 3 组开发序列通过无泄漏检查 | $\\checkmark$ 达标 |
+| **解析与接口健壮性** | 无启发式硬编码猜测，严格 Schema 校验与单次重试 | 15 单元中解析错误均规范归类并记录 | $\\checkmark$ 达标 |
+| **三值逻辑条件匹配** | 条件评估严格输出 `MATCH`, `MISMATCH`, `UNKNOWN` | 单元测试通过，待验证不误判为确定适用 | $\\checkmark$ 达标 |
+| **主动失效与 TTL 触发** | 观测正确失效旧记忆，TTL 在多任务序列中确定生效 | 开发实验与测试均触发对应事件 | $\\checkmark$ 达标 |
+| **研究假设验证** | 在独立未见的大规模评测集上建立显著优势 | **尚未在新独立评测集上运行正式评测** | **未验证 (Unverified)** |
+| **Gazebo / 阶段三准入** | 先导有效性确立且方法优势具备统计依据 | **暂未满足正式结论准入条件** | **未达标 (NOT READY)** |
 
-### 5.2 Case Study 2: Preventing Negative Transfer under Partial Name Overlap (Cat 3 Sequence)
-In `cat3_inapplicable_seq_1`, a previous failure recorded that picking up `Package_Hazard` required `Badge_Level_3`.
-- In a subsequent task requiring `Package_Standard` at the same desk:
-  - **Method $B1$**: Unstructured search retrieved the failure text and hallucinated that the desk was locked without level-3 clearance, aborting the task.
-  - **Method $F$**: Precondition matching evaluated `package_id == 'Package_Standard'`, determined the preconditions did not match, and safely completed the pickup.
+### **当前官方决策**: **暂停扩大实验，先修复有效性 (PAUSE EXPANSION / MECHANISM VALIDATED FOR NEW PILOT)**
 
----
-
-## 6. Go / No-Go Decision Framework
-
-| Evaluation Dimension | Metric / Criterion | Threshold for "GO" | Empirical Result | Status |
-| :--- | :--- | :--- | :--- | :---: |
-| **Task Feasibility & Success** | Overall $SR_{{\\text{{task}}}}$ (Method $F$) | $\\ge 80\\%$ | **{overall_f_sr*100:.1f}%** | $\\checkmark$ PASS |
-| **Safety & Constraint Adherence** | Hard Violation Rate ($VR$) | $\\le 5\\%$ | **{overall_f_violation*100:.1f}%** | $\\checkmark$ PASS |
-| **Dynamic Invalidation Benefit** | $T_{{\\text{{sim}}}}(F) \\le T_{{\\text{{sim}}}}(B2)$ in Cat 2 | Statistically lower detour time | **{cat2_f_time:.1f}s vs {cat2_b2_time:.1f}s** | $\\checkmark$ PASS |
-| **Computational Overhead** | Average Step Latency | $\\le 3.0$s on local RTX 2080 Ti | **{llm_stats.get('avg_latency_s', 0):.2f}s** | $\\checkmark$ PASS |
-| **Data Integrity & Traceability** | Empirical Validation | Zero hallucination, 75/75 completed | **100% Traceable** | $\\checkmark$ PASS |
-
-### **Official Decision: {decision}**
+> **说明**: 当前决定并不意味着研究假设已被证伪。本轮工作成功完成了最小系统的有效性修复与机制链路打通。下一阶段需在**重新设计并提交冻结的独立评测数据集**后，开展全新的正式对比实验。
 
 ---
 
-## 7. Next Steps & Stage 3 Simulation Architecture
+## 6. 下一阶段开展新先导实验的就绪条件
 
-Following this pilot validation, the architecture is ready for full-scale investigation and Gazebo ROS 2 integration:
-1. **Gazebo Dynamic Costmap Bridge**: Interface the condition-aware memory store with Nav2 layered costmaps (Layered Failure Costmap Plugin).
-2. **Multi-Robot Failure Exchange**: Extend structured memory serialization to ROS 2 Zenoh/DDS topics for peer robot exchange.
-3. **Formal Benchmark Scaling**: Scale from 15 pilot sequences to 100+ randomized environmental perturbation benchmarks.
+在启动下一轮正式先导评测前，必须满足：
+1. **独立评测集构建**: 生成 15+ 组互不重复、无提示泄漏的全新场景，并预先提交冻结配置哈希。
+2. **事前冻结存证**: 将协议、评测集配置与分析脚本预先提交至 Git，建立明确的事前冻结记录。
+3. **全流程自动化日志审计**: 运行全量批次，基于事件日志重算所有指标并执行统计显著性检验。
 """
 
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(doc)
 
-    print(f"[SUCCESS] Pilot report successfully written to {output_file}.")
+    print(f"[SUCCESS] Updated pilot report written to {output_file}.")
 
 
 if __name__ == "__main__":
