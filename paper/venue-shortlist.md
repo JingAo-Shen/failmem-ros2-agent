@@ -13,9 +13,9 @@ The candidate list for formal submission is strictly limited to three journals:
 
 | Venue | Publisher / Archival Status | Article Format & Review Model | Submission Deadline | Page Limits & Length Rules | Mandatory vs. Optional Fees | Data & Code Policy | Official Author Guide Source |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. IEEE Robotics and Automation Letters (RA-L)** | Formal Archival Journal (IEEE RAS) | Standard Letter; **Double-anonymous (Double-blind)** review mandatory | Continuous / Rolling (No fixed cutoff for standalone journal submissions) | 6 pages base included in publication; Maximum 8 pages total | **Subscription model: $0 mandatory fee** (≤6 pages). Overlength pages 7–8: **$175/page (mandatory)**. Optional Gold OA APC: **$2,490 USD + tax**（待核实最新具体折扣与税费） | Strongly encourages open code, benchmark datasets, and multimedia video attachments | [IEEE RAS RA-L Author Guide](https://www.ieee-ras.org/publications/ra-l/information-for-authors-ra-l) |
-| **2. SoftwareX (Elsevier)** *(备选：需另行批准工程扩展)* | Formal Archival Journal (Elsevier) | Original Software Publication (OSP); **Single-blind** review | Continuous / Rolling | Structured 4–6 page format (Motivation, Architecture, Examples, Impact) | **Mandatory Gold OA APC: 约 $1,100 USD**（待核实最新汇率与税费条款，不作为最终预算确定值） | **Mandatory open-source repository** (OSI-approved license, GitHub/GitLab, test suite, release tag) | [Elsevier SoftwareX Guide](https://www.elsevier.com/journals/softwarex/2352-7110/guide-for-authors) |
-| **3. IEEE Access** | Formal Archival Journal (IEEE) | Regular Research Article; **Single-blind** review | Continuous / Rolling | Flexible length (typically 8–12 pages, no strict overlength fee) | **Mandatory Gold OA APC: $2,160 USD**（待核实最新生效日期与税费条款，不作为最终预算确定值） | Encourages Open Data and Code statements | [IEEE Access Author Center](https://ieeeaccess.ieee.org/) |
+| **1. IEEE Robotics and Automation Letters (RA-L)** | Formal Archival Journal (IEEE RAS) | Standard Letter; **Double-anonymous (Double-blind)** review mandatory | Continuous / Rolling (No fixed cutoff for standalone journal submissions) | 6 pages base included in publication; Maximum 8 pages total | **Subscription model: $0 mandatory fee** (≤6 pages). Overlength pages 7–8: **$175/page (mandatory)**. 可选 Gold OA APC：待按投稿时官方政策核实，本轮不形成预算。 | Strongly encourages open code, benchmark datasets, and multimedia video attachments | [IEEE RAS RA-L Author Guide](https://www.ieee-ras.org/publications/ra-l/information-for-authors-ra-l) |
+| **2. SoftwareX (Elsevier)** *(备选：需另行批准工程扩展)* | Formal Archival Journal (Elsevier) | Original Software Publication (OSP); **Single-blind** review | Continuous / Rolling | Structured 4–6 page format (Motivation, Architecture, Examples, Impact) | 强制 Gold OA APC：待按投稿时官方政策核实，本轮不形成预算。 | **Mandatory open-source repository** (OSI-approved license, GitHub/GitLab, test suite, release tag) | [Elsevier SoftwareX Guide](https://www.elsevier.com/journals/softwarex/2352-7110/guide-for-authors) |
+| **3. IEEE Access** | Formal Archival Journal (IEEE) | Regular Research Article; **Single-blind** review | Continuous / Rolling | Flexible length (typically 8–12 pages, no strict overlength fee) | 强制 Gold OA APC：待按投稿时官方政策核实，本轮不形成预算。 | Encourages Open Data and Code statements | [IEEE Access Author Center](https://ieeeaccess.ieee.org/) |
 
 ---
 
@@ -28,7 +28,7 @@ The candidate list for formal submission is strictly limited to three journals:
 - **Financial Structure**:
   - Traditional subscription publishing model: **$0 mandatory fees** for manuscripts up to 6 published pages.
   - Overlength charges: Pages 7 and 8 incur a mandatory fee of **$175 per page**.
-  - Gold Open Access: Optional APC of **$2,490 USD** (plus local taxes, 待核实具体适用折扣).
+  - Gold Open Access: 可选 Gold OA APC：待按投稿时官方政策核实，本轮不形成预算。
 - **Distinction Between Official Requirements and Project Fit**:
   - *Official Requirements*: RA-L author guidelines do **not** formally mandate physical hardware trials or algorithmic superiority proofs as submission prerequisites.
   - *Project Suitability Assessment*: In standard peer review, reviewers evaluate technical contribution and experimental validation. In our study, FailMem ($F$) achieved identical topological route selection to spatial caching ($O$) in static 2D geometry ($<1\%$ metric difference), evaluated in simulation on a single dual-path layout with $n=3$. Without hardware trials or demonstrated routing superiority, there is substantial risk that reviewers may evaluate the empirical findings as insufficient for an RA-L Letter.
@@ -40,7 +40,7 @@ The candidate list for formal submission is strictly limited to three journals:
 - **Review Policy**: **Single-Blind**. Author identities and affiliations are visible to reviewers.
 - **Article Structure & Scope**: Publishes "Original Software Publications" (OSPs) using a structured template: Motivation and significance, Software description, Illustrative examples, Impact.
 - **Repository Requirements**: Requires an active, publicly accessible repository with an OSI-approved license, automated test suite, documentation, and a versioned release tag.
-- **Financial Structure**: Mandatory Gold Open Access APC of **约 $1,100 USD**（待核实最新汇率与税费条款，不作为最终预算确定值）。
+- **Financial Structure**: 强制 Gold OA APC：待按投稿时官方政策核实，本轮不形成预算。
 - **Scope & Project Fit**:
   - Evaluates software engineering quality, reproducibility, and general reusability across the research community.
   - *Current Status*: Retained strictly as a conditional backup requiring separate project authorization. The current codebase was implemented and tested on ROS 2 Humble as a dual-path evaluation benchmark. Decoupling into an independent, general-purpose ROS 2 package and verifying compatibility across other distributions is not part of the current milestone and would require dedicated engineering approval.
@@ -51,9 +51,9 @@ The candidate list for formal submission is strictly limited to three journals:
 - **Official Policy URL**: [`https://ieeeaccess.ieee.org/`](https://ieeeaccess.ieee.org/)
 - **Review Policy**: **Single-Blind**.
 - **Scope & Deadlines**: Broad multidisciplinary Open Access journal with rolling submissions and rapid review cycles. Does not have a dedicated negative results track.
-- **Financial Structure**: Mandatory Gold Open Access APC of **$2,160 USD**（待核实最新生效日期与税费条款，不作为最终预算确定值）。
+- **Financial Structure**: 强制 Gold OA APC：待按投稿时官方政策核实，本轮不形成预算。
 - **Project Fit Assessment**:
-  - The mandatory APC represents a substantial financial commitment. Given that the current study is an exploratory simulation benchmark showing comparable routing between $F$ and $O$, the cost-benefit ratio of this route is considered unfavorable.
+  - 该渠道涉及强制 Gold OA 版面费（待按投稿时官方政策核实，本轮不形成预算）。鉴于当前研究为探索性仿真基准且未显示相对 $O$ 的额外路由增量，以纯投入产出比考量，该出口性价比不高。
 
 ---
 
@@ -76,10 +76,10 @@ The candidate list for formal submission is strictly limited to three journals:
 | :--- | :--- | :--- | :--- | :--- |
 | **Official Scope** | Concise, significant letters in robotics and automation | Peer-reviewed original research software and tools | Broad multidisciplinary engineering research | Archival technical reports and preprints |
 | **Requirements Satisfied by Current Deliverables** | 9 页中性格式内部审阅稿，尚未适配投稿模板；strict replay auditability; empirical stopping criteria clearly documented | Comprehensive pytest suite (191 passed); complete repository; cryptographic checksums | Extensive tabular data; detailed methodological documentation; full reproducibility scripts | Complete offline verification bundle; transparent negative finding; zero financial overhead |
-| **Project Review Vulnerabilities** | Evaluated on single-layout simulation ($n=3$); route selection identical to spatial cache ($O$); no hardware trials | Current code is organized as a benchmark harness rather than a decoupled generic ROS 2 package | High mandatory APC ($2,160 USD，待核实) for an exploratory single-scenario simulation finding | Non-peer-reviewed (does not count as formal journal publication) |
+| **Project Review Vulnerabilities** | Evaluated on single-layout simulation ($n=3$); route selection identical to spatial cache ($O$); no hardware trials | Current code is organized as a benchmark harness rather than a decoupled generic ROS 2 package | 涉及强制 Gold OA 版面费（待按投稿时官方政策核实，本轮不形成预算），对单场景仿真探索性结果性价比不高 | Non-peer-reviewed (does not count as formal journal publication) |
 | **Gaps Resolvable via Writing Alone** | • Anonymize manuscript for double-blind review.<br>• Reframe as empirical boundary analysis.<br>• Trim to exact 6-page limit. | • Reformat paper into SoftwareX structured 4-section OSP template. | • Expand literature review and contextual discussion. | • Package manuscript into technical report format. |
 | **Gaps Requiring Substantive Engineering / Research** | • Multi-environment benchmark layout suite.<br>• Physical robot hardware trials.<br>• Higher-dimensional action spaces demonstrating divergence. | • Decouple `src/failure_memory.py` into a standalone, general ROS 2 package.<br>• Package testing and documentation. | • Substantial experimental expansion across varied floorplans or robots. | **None** (Current codebase, data, and draft fully support this deliverable). |
-| **Mandatory Financial Commitment** | **$0** (if kept within 6 pages under subscription model) | **约 $1,100 USD** (待核实最新款项) | **$2,160 USD** (待核实最新款项) | **$0** (Free open dissemination) |
+| **Mandatory Financial Commitment** | **$0** (订阅模式 ≤6 页；超页费第 7–8 页每页 $175；可选 OA 待按投稿时核实，本轮不形成预算) | 待按投稿时官方政策核实，本轮不形成预算。 | 待按投稿时官方政策核实，本轮不形成预算。 | **$0** (Free open dissemination) |
 | **Feasibility & Recommendation Status** | **Review Risk High**. Not recommended for immediate submission without experimental expansion. | **Conditionally Viable**, requiring separate authorization for package decoupling. | **Not Cost-Effective**. Unfavorable cost-benefit profile. | **Recommended Immediate Step**. Serves as the baseline for internal review. |
 
 ---
