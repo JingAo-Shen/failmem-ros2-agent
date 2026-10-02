@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-from ..env.scenarios import get_development_scenarios, get_exploratory_pilot_scenarios
+from ..env.scenarios import get_development_scenarios, get_pre_registered_pilot_scenarios
 from ..memory.baselines import (
     B0_NoMemory,
     B1_UnstructuredNLMemory,
@@ -45,6 +45,7 @@ def run_benchmark(
     device: str = "cuda",
     scenarios: Optional[List[Dict[str, Any]]] = None,
     allow_fallback: bool = False,
+    benchmark_type: str = "development_validation",
 ) -> Dict[str, Any]:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -147,7 +148,7 @@ def run_benchmark(
                 }
 
     final_payload = {
-        "benchmark_type": "development_validation",
+        "benchmark_type": benchmark_type,
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "total_wall_time_s": round(t1_global - t0_global, 2),
         "total_units_evaluated": len(all_sequence_results),
@@ -172,13 +173,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default=None, help="Path to local HuggingFace model")
     parser.add_argument("--output", type=str, default="research/agent_task_repair/results", help="Output directory")
-    parser.add_argument("--output_file", type=str, default="dev_benchmark_results.json", help="Output JSON filename")
+    parser.add_argument("--output_file", type=str, default=None, help="Output JSON filename")
+    parser.add_argument("--pilot", action="store_true", help="Run 75-unit pre-registered pilot benchmark")
     parser.add_argument("--fallback", action="store_true", help="Allow fallback engine (unit test only)")
     args = parser.parse_args()
+
+    if args.pilot:
+        scenarios = get_pre_registered_pilot_scenarios()
+        outfile = args.output_file or "pilot_75_results.json"
+        b_type = "pre_registered_pilot_75"
+    else:
+        scenarios = get_development_scenarios()
+        outfile = args.output_file or "dev_benchmark_results.json"
+        b_type = "development_validation"
 
     run_benchmark(
         model_path=args.model,
         output_dir=args.output,
-        output_filename=args.output_file,
+        output_filename=outfile,
+        scenarios=scenarios,
         allow_fallback=args.fallback,
+        benchmark_type=b_type,
     )

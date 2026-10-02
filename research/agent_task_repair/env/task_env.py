@@ -270,11 +270,15 @@ class DeliveryTaskEnv:
         battery_cost = edge["battery"]
         self._consume_resources(time_cost, battery_cost)
         self.robot_location = target_zone
+        obs = {"current_location": self.robot_location, "battery": self.battery}
+        if door_id:
+            obs["door"] = door_id
+            obs["passage_state"] = "FREE"
         return ActionResult(
             status=StatusCode.SUCCESS,
             success=True,
             message=f"Successfully navigated to {target_zone}.",
-            observation={"current_location": self.robot_location, "battery": self.battery},
+            observation=obs,
             time_cost_s=time_cost,
             battery_cost_pct=battery_cost,
         )
