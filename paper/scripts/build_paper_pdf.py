@@ -238,6 +238,8 @@ def inspect_pdf_pages(pdf_path: Path) -> Dict[str, Any]:
         "extracted_char_count": len(res),
         "raw_tex_leaks": raw_tex_leaks,
         "math_clean": len(raw_tex_leaks) == 0,
+        "inspection_executor": "Antigravity AI Agent (Automated rasterization & regex analysis)",
+        "human_verified": False,
     }
 
 
@@ -269,6 +271,28 @@ def build_pdf() -> Dict[str, Any]:
     from datetime import datetime, timezone
 
     print(f"Building paper PDF from {DRAFT_MD}...")
+
+    # Capture source git state prior to any build actions
+    try:
+        source_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True).strip()
+        source_branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=REPO_ROOT, text=True).strip()
+        source_status_raw = subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO_ROOT, text=True).strip()
+        source_dirty = bool(source_status_raw)
+        source_status_lines = [line.strip() for line in source_status_raw.splitlines() if line.strip()]
+    except Exception:
+        source_commit, source_branch, source_dirty, source_status_lines = "unknown", "unknown", False, []
+
+    # Record source inputs hashes before build
+    input_files = [
+        DRAFT_MD,
+        REFERENCES_BIB,
+        STYLE_CSS,
+        TABLES_DIR / "table1_condition_summary.md",
+        TABLES_DIR / "table2_pairwise_contrasts.md",
+        TABLES_DIR / "table3_h1_feasibility.md",
+        PAPER_DIR / "figures" / "trajectories_map.png",
+    ]
+    source_input_hashes = {p.name: compute_file_sha256(p) for p in input_files if p.exists()}
 
     # 1. Process Markdown with dynamic table injection
     processed_md_path = PAPER_DIR / ".draft_processed.md"
@@ -314,33 +338,43 @@ def build_pdf() -> Dict[str, Any]:
     inspection = inspect_pdf_pages(OUTPUT_PDF)
     print(f"\n[PDF INSPECTION] Total Pages: {inspection['total_pages']}, Math Clean: {inspection['math_clean']}")
 
-    # 7. Collect metadata and generate build_report.json
+    # 7. Capture post-build workspace state and generated artifact hashes
     try:
-        git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True).strip()
-        git_branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=REPO_ROOT, text=True).strip()
-        git_status = subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO_ROOT, text=True).strip()
-        git_dirty = bool(git_status)
+        post_status_raw = subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO_ROOT, text=True).strip()
+        post_dirty = bool(post_status_raw)
+        post_changed_files = [line.strip() for line in post_status_raw.splitlines() if line.strip()]
     except Exception:
-        git_commit, git_branch, git_dirty = "unknown", "unknown", False
+        post_dirty, post_changed_files = False, []
 
-    input_files = [
-        DRAFT_MD,
-        REFERENCES_BIB,
-        STYLE_CSS,
-        TABLES_DIR / "table1_condition_summary.md",
-        TABLES_DIR / "table2_pairwise_contrasts.md",
-        TABLES_DIR / "table3_h1_feasibility.md",
+    artifact_files = [
+        OUTPUT_PDF,
+        OUTPUT_HTML,
         PAPER_DIR / "figures" / "trajectories_map.png",
+        PAPER_DIR / "figures" / "trajectories_map.pdf",
+        TABLES_DIR / "table1_condition_summary.md",
+        TABLES_DIR / "table1_condition_summary.tex",
+        TABLES_DIR / "table2_pairwise_contrasts.md",
+        TABLES_DIR / "table2_pairwise_contrasts.tex",
+        TABLES_DIR / "table3_h1_feasibility.md",
+        TABLES_DIR / "table3_h1_feasibility.tex",
     ]
-    input_hashes = {p.name: compute_file_sha256(p) for p in input_files if p.exists()}
+    generated_artifact_hashes = {p.name: compute_file_sha256(p) for p in artifact_files if p.exists()}
 
     build_report = {
         "build_timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "git_commit": git_commit,
-        "git_branch": git_branch,
-        "git_dirty": git_dirty,
+        "pre_build_git": {
+            "source_commit": source_commit,
+            "source_branch": source_branch,
+            "source_dirty": source_dirty,
+            "uncommitted_pre_build_changes": source_status_lines,
+        },
+        "post_build_workspace": {
+            "post_build_dirty": post_dirty,
+            "changed_files": post_changed_files,
+        },
         "tool_versions": get_tool_versions(),
-        "input_hashes": input_hashes,
+        "source_input_hashes": source_input_hashes,
+        "generated_artifact_hashes": generated_artifact_hashes,
         "table_validation": table_validation,
         "math_rendering": {
             "engine": "mathjax-full (SVG vector)",
@@ -353,6 +387,11 @@ def build_pdf() -> Dict[str, Any]:
             "sha256": compute_file_sha256(OUTPUT_PDF),
             "total_pages": inspection["total_pages"],
             "page_images": inspection["page_images"],
+        },
+        "inspection": {
+            "executor": inspection.get("inspection_executor", "Antigravity AI Agent (Automated rasterization & regex analysis)"),
+            "human_verified": False,
+            "note": "Automated rasterization and text inspection executed by AI Agent; not certified as human visual examination.",
         },
         "build_status": "SUCCESS",
     }

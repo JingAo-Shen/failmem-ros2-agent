@@ -12,7 +12,7 @@
 
 This report documents the final release candidate consistency verification, machine-independent build audit, and offline reproduction check for the FailMem project. All code modifications, table generation pipelines, MathJax SVG pre-rendering steps, offline reproduction guardrails, and reference metadata updates are frozen at commit `e3cce9d94469217757e249392f9e40a6f86e23ae`. 
 
-An independent end-to-end reproduction was executed into a dedicated timestamped evidence directory (`reports/evidence/p2c_pilot_reproduced_20261002_142300/`), achieving $100\%$ verification pass across all checksums, replay audits, baseline statistical tables, and $H_1$ feasibility checks. The manuscript build pipeline was refactored for complete machine independence with local Node.js MathJax dependencies, automated table row validation, raw TeX leak assertions, visual inspection of rendered pages, and a machine-readable build report.
+An independent end-to-end reproduction was executed into a dedicated timestamped evidence directory (`reports/evidence/p2c_pilot_reproduced_20261002_142300/`), achieving $100\%$ verification pass across all checksums, replay audits, baseline statistical tables, and $H_1$ feasibility checks. The manuscript build pipeline was refactored to eliminate hardcoded user environment paths via project-local Node.js MathJax dependencies (verified on Ubuntu 22.04 / Linux x86_64; portability across other OS environments has not been verified), automated table row validation, raw TeX leak assertions, Agent-driven visual inspection of rendered pages, and a machine-readable build report.
 
 ---
 
@@ -120,7 +120,9 @@ Every claim, test, table, and figure has been classified into four explicit veri
 
 ---
 
-### 4.2 [HUMAN VISUAL PASSED] (人工视觉核对通过)
+### 4.2 [AGENT VISUAL INSPECTION PASSED] (由 Agent 检查光栅化页面与图表布局)
+
+*注：本项检查由 Antigravity AI Agent 提取并核对光栅化 PNG 页面与图表排版；不冒称为人工审查。*
 
 All 9 pages of `paper/paper.pdf` were rasterized at $150\,\text{dpi}$ to PNG (`paper/figures/pdf_pages/page-[1-9].png`) and inspected:
 
@@ -150,7 +152,7 @@ All 9 pages of `paper/paper.pdf` were rasterized at $150\,\text{dpi}$ to PNG (`p
 ### 4.3 [NOT EXECUTED] (未执行/研究范围边界)
 
 The following items were explicitly scoped out and NOT executed in this release candidate:
-1. **20-Run Formal Comparative Experiment**: Terminated under pre-registered protocol because candidate $H_1$ feasibility runs showed no executability divergence (Nav2 succeeded in both aligned and oblique runs).
+1. **20-Run Formal Comparative Experiment**: 依据本轮探索的停止规则，未启动后续比较实验（因候选场景可行性检查未建立动作可执行性差异，Nav2 在 aligned 与 oblique 目标下均成功执行，未出现预期分化）。
 2. **Physical Hardware Deployment**: Experiments conducted in Gazebo 11 simulation with TurtleBot3 Waffle; hardware deployment on physical robots remains future work.
 3. **Phase F2 Algorithmic Implementation**: Action-profiled failure memory architecture ($F2$) and backoff spatial caching ($O+$) are documented as formal conceptual specifications, but not implemented in code.
 4. **Alternative Controller Comparison**: Original $H_1$ design planned fast vs. slow controller profiles; actual feasibility check evaluated aligned vs. oblique doorway target goals under default DWB controller.
@@ -198,4 +200,4 @@ The following items were explicitly scoped out and NOT executed in this release 
 
 > **RELEASE CANDIDATE STATUS: VERIFIED, AUDITED, AND FROZEN**
 > 
-> All delivery consistency checks, table generation interfaces, machine-independent build requirements, offline reproduction verifications, reference primary sources, and PDF vector typesetting are fully validated and reproducible from commit `e3cce9d94469217757e249392f9e40a6f86e23ae`.
+> All delivery consistency checks, table generation interfaces, project-local build requirements, offline reproduction verifications, reference primary sources, and PDF vector typesetting are verified within the tested Linux x86_64 environment and reproducible from commit `e3cce9d94469217757e249392f9e40a6f86e23ae`.
