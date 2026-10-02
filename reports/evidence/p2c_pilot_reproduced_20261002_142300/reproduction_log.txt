@@ -1,0 +1,45 @@
+[2026-10-02 06:22:48 UTC] =======================================================================
+[2026-10-02 06:22:48 UTC] Starting FailMem P2c Offline Reproduction Pipeline
+[2026-10-02 06:22:48 UTC] =======================================================================
+[2026-10-02 06:22:48 UTC] Source Directory:   /code/failmem-ros2-agent/reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35
+[2026-10-02 06:22:48 UTC] Output Directory:   reports/evidence/p2c_pilot_reproduced_20261002_142300
+[2026-10-02 06:22:48 UTC] Baseline Directory: /code/failmem-ros2-agent/reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/analysis
+[2026-10-02 06:22:48 UTC] H1 Directory:       /code/failmem-ros2-agent/reports/evidence/p2d_h1_feasibility
+[2026-10-02 06:22:48 UTC] Platform:           Linux-6.8.0-83-generic-x86_64-with-glibc2.35
+[2026-10-02 06:22:48 UTC] Python:             3.13.5 (/root/anaconda3/bin/python3)
+[2026-10-02 06:22:48 UTC] Git Commit:         e3cce9d94469217757e249392f9e40a6f86e23ae (branch: audit/r0-authenticity)
+[2026-10-02 06:22:48 UTC] 
+--- Step 0: Path & Safety Validation ---
+[2026-10-02 06:22:48 UTC] Path safety check PASSED.
+[2026-10-02 06:22:48 UTC] 
+--- Step 1: SHA256 Checksum Verification ---
+[2026-10-02 06:22:48 UTC] Checksums Verified: 271/271 files
+[2026-10-02 06:22:48 UTC] Checksum verification PASSED.
+[2026-10-02 06:22:48 UTC] 
+--- Step 2: Staging Dataset to Dedicated Reproduction Directory ---
+[2026-10-02 06:22:48 UTC] Dataset successfully staged at 'reports/evidence/p2c_pilot_reproduced_20261002_142300'.
+[2026-10-02 06:22:48 UTC] 
+--- Step 3: Independent Replay & Objective Scoring ---
+[2026-10-02 06:22:49 UTC] Replayed Episodes:  30
+[2026-10-02 06:22:49 UTC] All Valid:          True
+[2026-10-02 06:22:49 UTC] All Audit Passed:   True
+[2026-10-02 06:22:49 UTC] Replay scoring PASSED.
+[2026-10-02 06:22:49 UTC] 
+--- Step 4: Statistical Analysis & Aggregation ---
+[2026-10-02 06:22:50 UTC] Integrity Passed:   True (Audited: 0/30)
+[2026-10-02 06:22:50 UTC] Statistical analysis completed and CSVs generated in output_dir/analysis/.
+[2026-10-02 06:22:50 UTC] 
+--- Step 5: Baseline CSV Comparison ---
+[2026-10-02 06:22:50 UTC] episodes.csv Match: True (Diffs: [])
+[2026-10-02 06:22:50 UTC] condition_summary.csv Match: True (Diffs: [])
+[2026-10-02 06:22:50 UTC] contrasts.csv Match: True (Diffs: [])
+[2026-10-02 06:22:50 UTC] Baseline comparison checks PASSED.
+[2026-10-02 06:22:50 UTC] 
+--- Step 6: H1 Feasibility Re-Verification ---
+[2026-10-02 06:22:50 UTC] H1 Raw Evidence Verification PASSED.
+[2026-10-02 06:22:50 UTC] H1 Evaluated: 4 runs
+[2026-10-02 06:22:50 UTC] H1 Nav2 Succeeded: 4/4
+[2026-10-02 06:22:50 UTC] H1 Arrival Verified: 3/4
+[2026-10-02 06:22:50 UTC] H1 Go/No-Go Decision: GO=False (NO-GO (Scenario Not Established - 本场景未建立))
+[2026-10-02 06:22:50 UTC] 
+Reproduction Pipeline Completed in 2.34 seconds. Overall Success: True
