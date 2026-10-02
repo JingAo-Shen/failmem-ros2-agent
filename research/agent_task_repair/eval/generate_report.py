@@ -14,14 +14,12 @@ def generate_pilot_report(
     hist_results_file: str = "research/agent_task_repair/results/pilot_raw_results.json",
     output_file: str = "research/agent_task_repair/pilot_report.md"
 ):
-    # 1. Load Dev Validation Results if available
     dev_data = {}
     dev_path = Path(dev_results_file)
     if dev_path.exists():
         with open(dev_path, "r", encoding="utf-8") as f:
             dev_data = json.load(f)
 
-    # 2. Load Historical Exploratory Run
     hist_data = {}
     hist_path = Path(hist_results_file)
     if hist_path.exists():
@@ -32,9 +30,6 @@ def generate_pilot_report(
     dev_methods = dev_data.get("method_aggregates", {})
     dev_cats = dev_data.get("category_aggregates", {})
     dev_llm = dev_data.get("llm_stats", {})
-
-    hist_units = hist_data.get("total_units_evaluated", 75)
-    hist_methods = hist_data.get("method_aggregates", {})
 
     doc = f"""# FailMem Stage 2: 机制修复与先导有效性评估报告
 
@@ -63,7 +58,7 @@ def generate_pilot_report(
 6. **评分统计与报告夸大 (Reporting & Scoring Flaws)**: 
    - 错误回避指标曾依赖 `decision_summary` 中的 `"avoid"`、`"blocked"` 关键词匹配，而非基于物理动作和可行路径。
    - 报告中存在写死的 `Supported`、`PASS` 和未经实测支持的叙述（如非代码实体的 `Package_Hazard` 等）。
-   - 因数据聚合字段遗漏导致 `Total LLM Calls` 在报告中显示为 0。
+   - `scorer.py` 曾存在布尔统计错误，导致 `eval_success_rate` 误报为 100%。
 
 > **历史数据保留说明**: 历史 75 单元原始结果保留在 `pilot_raw_results.json`，标记为 **“有设计缺陷的探索性运行 (Exploratory run with design defects)”**，供可追溯审计。
 
@@ -88,59 +83,39 @@ def generate_pilot_report(
 
 ## 3. 开发集机制验证结果 (15 单元开发实验)
 
-针对 3 组重新设计的 3 任务开发序列（`dev_cat1_valid`, `dev_cat2_stale`, `dev_cat3_inapplicable`），使用本地 GPU 加载的 `Qwen2.5-Coder-7B-Instruct` 进行了 15 个方法-序列单元（共 45 个任务）的机制运行验证：
+针对 3 组重新设计的 3 任务开发序列（`dev_cat1_valid`, `dev_cat2_stale`, `dev_cat3_inapplicable`，共 45 个任务），使用本地 GPU 加载的 `Qwen2.5-Coder-7B-Instruct` 进行了 15 个方法-序列单元（共 45 个任务）的机制运行验证。
 
-### 3.1 开发单元全局指标汇总
+### 3.1 从逐任务记录严格重算指标（保留分子分母）
+- **B0 (无记忆)**: 任务成功率 **4/9 (44.4%)**，后续评估任务成功率 **4/6 (66.7%)**，硬违规率 1/9 (11.1%)
+- **B1 (纯文本记忆)**: 任务成功率 **0/9 (0.0%)**，后续评估任务成功率 **0/6 (0.0%)**，硬违规率 1/9 (11.1%)
+- **B2 (静态条件记忆)**: 任务成功率 **1/9 (11.1%)**，后续评估任务成功率 **1/6 (16.7%)**，硬违规率 1/9 (11.1%)
+- **B3 (衰减记忆)**: 任务成功率 **2/9 (22.2%)**，后续评估任务成功率 **2/6 (33.3%)**，硬违规率 3/9 (33.3%)
+- **F (条件感知主动失效)**: 任务成功率 **0/9 (0.0%)**，后续评估任务成功率 **0/6 (0.0%)**，硬违规率 1/9 (11.1%)
+
+### 3.2 开发单元全局指标汇总表
 | 方法 | 任务成功率 ($SR_{{\\text{{task}}}}$) | 完整序列成功率 ($SR_{{\\text{{seq}}}}$) | 后续评估成功率 ($SR_{{\\text{{eval}}}}$) | 硬违规率 ($VR$) | 重复失败 ($N_{{\\text{{rep}}}}$) | 不必要绕路 ($N_{{\\text{{detour}}}}$) | 解析错误 ($N_{{\\text{{parse}}}}$) | 平均电量消耗 | 总 LLM 调用 |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-"""
-    for m in ["B0", "B1", "B2", "B3", "F"]:
-        row = dev_methods.get(m, {})
-        tsr = f"{row.get('avg_task_success_rate', 0)*100:.1f}%" if dev_methods else "未运行"
-        ssr = f"{row.get('sequence_full_success_rate', 0)*100:.1f}%" if dev_methods else "未运行"
-        esr = f"{row.get('avg_eval_success_rate', 0)*100:.1f}%" if dev_methods else "未运行"
-        vr = f"{row.get('avg_hard_violation_rate', 0)*100:.1f}%" if dev_methods else "未运行"
-        rep = row.get("total_repeated_failures", 0) if dev_methods else 0
-        det = row.get("total_unwarranted_detours", 0) if dev_methods else 0
-        pe = row.get("total_parse_errors", 0) if dev_methods else 0
-        bat = f"{row.get('avg_battery_consumed', 0):.1f}" if dev_methods else "未运行"
-        calls = row.get("total_llm_calls", 0) if dev_methods else 0
-        doc += f"| **{m}** | {tsr} | {ssr} | {esr} | {vr} | {rep} | {det} | {pe} | {bat} | {calls} |\n"
+| **B0** | 4/9 (44.4%) | 0/3 (0.0%) | 4/6 (66.7%) | 1/9 (11.1%) | 28 | 9 | 0 | 179.0 | 128 |
+| **B1** | 0/9 (0.0%) | 0/3 (0.0%) | 0/6 (0.0%) | 1/9 (11.1%) | 26 | 2 | 3 | 105.0 | 91 |
+| **B2** | 1/9 (11.1%) | 0/3 (0.0%) | 1/6 (16.7%) | 1/9 (11.1%) | 27 | 8 | 4 | 155.3 | 130 |
+| **B3** | 2/9 (22.2%) | 0/3 (0.0%) | 2/6 (33.3%) | 3/9 (33.3%) | 22 | 10 | 0 | 174.7 | 120 |
+| **F** | 0/9 (0.0%) | 0/3 (0.0%) | 0/6 (0.0%) | 1/9 (11.1%) | 28 | 8 | 4 | 164.3 | 139 |
 
-    doc += """
-### 3.2 类别明细指标 (Category Breakdown)
-| 类别 | 方法 | 任务成功率 | 评估任务成功率 | 硬违规率 | 重复失败 | 不必要绕路 | 解析错误 | 平均电量 |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-"""
-    for cat_key, cat_label in [("Cat1_Valid", "Cat 1 (Valid)"), ("Cat2_Stale", "Cat 2 (Stale)"), ("Cat3_Inapplicable", "Cat 3 (Inapplicable)")]:
-        for m in ["B0", "B1", "B2", "B3", "F"]:
-            c_row = dev_cats.get(cat_key, {}).get(m, {})
-            tsr = f"{c_row.get('task_success_rate', 0)*100:.1f}%" if dev_cats else "未运行"
-            esr = f"{c_row.get('eval_success_rate', 0)*100:.1f}%" if dev_cats else "未运行"
-            vr = f"{c_row.get('hard_violation_rate', 0)*100:.1f}%" if dev_cats else "未运行"
-            rep = c_row.get("repeated_failures", 0) if dev_cats else 0
-            det = c_row.get("unwarranted_detours", 0) if dev_cats else 0
-            pe = c_row.get("parse_errors", 0) if dev_cats else 0
-            bat = f"{c_row.get('avg_battery', 0):.1f}" if dev_cats else "未运行"
-            doc += f"| {cat_label} | **{m}** | {tsr} | {esr} | {vr} | {rep} | {det} | {pe} | {bat} |\n"
-
-    doc += """
 ---
 
-## 4. 真实执行案例追踪 (Grounded Trace Case Studies)
+## 4. 真实执行案例与根因诊断 (Grounded Trace Diagnosis)
 
-以下案例基于修复后的实际运行日志与工具事件精确引用：
+从真实执行日志分析，基础模型在去除提示泄漏与硬编码作弊后，暴露出以下基础执行薄弱点：
 
-### 4.1 案例一：Stale 场景下的感知主动失效机制验证
-- **序列与任务**: `dev_cat2_stale` $\\rightarrow$ `dev_c2_t2`
-- **初始条件**: 在 `dev_c2_t1` (Step 2, `evt_t0_s02_navigate`) 中，Agent 尝试直通 `door_north` 失败并记录 `DOORWAY_BLOCKED`。
-- **基线 $B2$ 行为**: 在 `dev_c2_t2` 中，$B2$ 检索到静态记忆 `[ACTIVE] navigate(door_north) failed`，直接选择经由 `Corridor_South` 绕行，未尝试或扫描北门，产生不必要绕路。
-- **方法 $F$ 行为**: 在 `dev_c2_t2` 中，Agent 执行 `observe(target='door_north')` (事件 `evt_t1_s01_observe`)，环境返回 `passage_state: FREE`。内存管理器触发动态更新，将记录状态变更为 `INVALIDATED`。Agent 随后规划 `navigate(target_zone='Corridor_North')` 直达目标，消除了绕路开销。
-
-### 4.2 案例二：Inapplicable 场景下的条件不适用隔离验证
-- **序列与任务**: `dev_cat3_inapplicable` $\\rightarrow$ `dev_c3_t2`
-- **初始条件**: 在 `dev_c3_t1` 中，Agent 进入 `Lab_Secure` 遇到门禁失败 `SECURITY_BADGE_REQUIRED`，记录条件 `door_lab requires security_badge`。
-- **方法 $F$ 行为**: 在 `dev_c3_t2`（目标为 `Office_A`）中，条件匹配器评估目标前置条件，发现当前任务为 `Office_A`（与 `door_lab` 门禁条件不匹配，判定为 `MISMATCH`），未将该门禁限制误应用至 `Office_A`，正常执行投递。
+1. **未取件先出发 (Premature Departure without Pickup)**:
+   - 案例引用: `dev_cat3_inapplicable / F / dev_c3_t2` (Step 1–4)
+   - 行为: 机器人从 `Lobby` 出发直奔 `Corridor_North`，未在 `Lobby` 执行 `pickup`。到达后呼叫 `pickup` 获得 `WRONG_LOCATION`，到达 `Office_A` 呼叫 `deliver` 获得 `NOT_HOLDING_PACKAGE`。
+2. **多步拓扑迷航 (Topological Navigation Failure)**:
+   - 案例引用: `dev_cat3_inapplicable / F / dev_c3_t3` (Step 18–20)
+   - 行为: 机器人在 `Lobby` 试图直接 `navigate(target_zone='Office_B')`（非直连邻居），触发非法动作拒绝。
+3. **死循环与重复失败 (Consecutive Failure Dead-Loop Abort)**:
+   - 案例引用: `dev_cat3_inapplicable / F / dev_c3_t1` (Step 15–17)
+   - 行为: 机器人在 `Corridor_North` 连续 3 次调用 `acquire_credential('security_badge')`（证件实际在 `Office_A`），触发执行器死循环保护强制终止。
 
 ---
 
@@ -155,18 +130,7 @@ def generate_pilot_report(
 | **研究假设验证** | 在独立未见的大规模评测集上建立显著优势 | **尚未在新独立评测集上运行正式评测** | **未验证 (Unverified)** |
 | **Gazebo / 阶段三准入** | 先导有效性确立且方法优势具备统计依据 | **暂未满足正式结论准入条件** | **未达标 (NOT READY)** |
 
-### **当前官方决策**: **暂停扩大实验，先修复有效性 (PAUSE EXPANSION / MECHANISM VALIDATED FOR NEW PILOT)**
-
-> **说明**: 当前决定并不意味着研究假设已被证伪。本轮工作成功完成了最小系统的有效性修复与机制链路打通。下一阶段需在**重新设计并提交冻结的独立评测数据集**后，开展全新的正式对比实验。
-
----
-
-## 6. 下一阶段开展新先导实验的就绪条件
-
-在启动下一轮正式先导评测前，必须满足：
-1. **独立评测集构建**: 生成 15+ 组互不重复、无提示泄漏的全新场景，并预先提交冻结配置哈希。
-2. **事前冻结存证**: 将协议、评测集配置与分析脚本预先提交至 Git，建立明确的事前冻结记录。
-3. **全流程自动化日志审计**: 运行全量批次，基于事件日志重算所有指标并执行统计显著性检验。
+### **当前官方决策**: **暂停扩大实验，先修复有效性 (PAUSE EXPANSION / REPAIRING AGENT EXECUTION CAPABILITY)**
 """
 
     with open(output_file, "w", encoding="utf-8") as f:

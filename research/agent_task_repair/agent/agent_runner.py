@@ -4,6 +4,7 @@ Logs all decisions, tool results, memory updates, and environment violations.
 """
 from typing import Dict, Any, List, Optional
 import time
+import copy
 from .llm_backend import LLMBackend
 from .planner import AgentPlanner
 from ..env.task_env import DeliveryTaskEnv
@@ -19,6 +20,7 @@ class AgentRunner:
         max_tool_calls: int = 25,
         max_llm_calls: int = 20,
         max_sim_time_s: float = 300.0,
+        run_id: str = "run_default",
     ):
         self.llm = llm_backend
         self.memory = memory_adapter
@@ -26,8 +28,14 @@ class AgentRunner:
         self.max_tool_calls = max_tool_calls
         self.max_llm_calls = max_llm_calls
         self.max_sim_time_s = max_sim_time_s
+        self.run_id = run_id
 
-    def run_task(self, task_spec: Dict[str, Any], task_index: int = 0) -> Dict[str, Any]:
+    def run_task(
+        self,
+        task_spec: Dict[str, Any],
+        task_index: int = 0,
+        seq_id: str = "seq_default",
+    ) -> Dict[str, Any]:
         task_id = task_spec.get("task_id", f"task_{task_index}")
         instruction = task_spec.get("instruction", "")
         env_config = task_spec.get("env_config", {})
@@ -46,6 +54,9 @@ class AgentRunner:
 
         while not env.is_terminated and len(step_history) < self.max_tool_calls and len(llm_traces) < self.max_llm_calls:
             step_idx = len(step_history) + 1
+            robot_loc_before = env.robot_location
+
+            # Visible public state only
             current_state = {
                 "robot_location": env.robot_location,
                 "battery": env.battery,
@@ -64,12 +75,23 @@ class AgentRunner:
                 known_state=known_state,
                 step_history=step_history,
                 task_id=task_id,
+                run_id=self.run_id,
+                method_name=self.memory.method_name,
+                seq_id=seq_id,
+                task_index=task_index,
+                step_index=step_idx,
             )
             llm_traces.append(meta)
 
             tool_name = decision.get("action", "parse_error")
             params = decision.get("params", {})
-            event_id = f"evt_t{task_index}_s{step_idx:02d}_{tool_name}"
+            event_id = f"evt_{self.run_id}_{self.memory.method_name}_{seq_id}_{task_id}_s{step_idx:02d}"
+
+            # Capture environment ground truth snapshot for offline scoring (never exposed to Agent)
+            env_state_snapshot = {
+                "doors": copy.deepcopy(env.doors),
+                "robot_location": env.robot_location,
+            }
 
             # 2. Execute on Environment or Handle Parse Error
             if tool_name == "parse_error":
@@ -104,6 +126,9 @@ class AgentRunner:
                 "decision_summary": decision.get("decision_summary", ""),
                 "tool": tool_name,
                 "params": params,
+                "robot_location_before": robot_loc_before,
+                "robot_location_after": env.robot_location,
+                "env_state_snapshot": env_state_snapshot,
                 "result": result.to_dict(),
                 "sim_time_s": sim_time,
                 "battery": env.battery,

@@ -219,10 +219,9 @@ class DeliveryTaskEnv:
         if target_zone == self.robot_location:
             self._consume_resources(0.5, 0)
             return ActionResult(
-                status=StatusCode.SUCCESS,
-                success=True,
-                message=f"Already at {target_zone}.",
-                observation={"current_location": self.robot_location},
+                status=StatusCode.INVALID_PARAMETER,
+                success=False,
+                message=f"Robot is already at {target_zone}. Choose a different adjacent zone.",
                 time_cost_s=0.5,
                 battery_cost_pct=0,
             )

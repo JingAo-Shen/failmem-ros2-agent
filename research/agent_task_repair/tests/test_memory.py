@@ -138,3 +138,75 @@ def test_baselines_comparative_retrieval():
     known_free = {"door_north_state": "FREE"}
     assert len(b2.retrieve_relevant_memories(known_free, ctx)) == 0  # Precondition mismatch in retrieval
     assert len(f.retrieve_relevant_memories(known_free, ctx)) == 0   # Active invalidation in store
+
+
+def test_repair_verification_tracking():
+    """Verify that verified repairs update status and suggested repair payload."""
+    store = ConditionAwareMemoryStore()
+    mem = store.record_failure(
+        event_id="evt_t0_s02_fail",
+        task_id="t0",
+        action_name="navigate",
+        target="Corridor_North",
+        error_code="DOORWAY_BLOCKED",
+        observable_conditions={"door_north_state": "OCCUPIED"},
+        raw_message="door_north blocked",
+    )
+    assert not mem.repair_verified
+    assert mem.suggested_repair is None
+
+    store.mark_repair_success(
+        failed_event_id="evt_t0_s02_fail",
+        repair_event_id="evt_t0_s05_success",
+        repair_action={"tool": "navigate", "params": {"target_zone": "Corridor_South"}},
+    )
+    assert mem.repair_verified
+    assert mem.suggested_repair == {"tool": "navigate", "params": {"target_zone": "Corridor_South"}}
+    assert mem.repair_event_id == "evt_t0_s05_success"
+    prompt_str = mem.format_for_prompt()
+    assert "VERIFIED" in prompt_str
+    assert "Corridor_South" in prompt_str
+
+
+def test_credential_and_recipient_invalidation():
+    """Verify dynamic invalidation on credentials and recipient availability."""
+    f = F_ConditionAwareMemory()
+    f.on_task_start("t0", 0)
+
+    # Record credential failure
+    f.record_action_failure(
+        event_id="evt_t0_s01",
+        task_id="t0",
+        action_name="enter_lab",
+        target="Lab_Secure",
+        error_code="CREDENTIAL_REQUIRED",
+        raw_message="Missing badge",
+        observation={"access_status": "DENIED", "required_credential": "security_badge"},
+        sim_time=5.0,
+    )
+
+    # Record recipient meeting failure
+    f.record_action_failure(
+        event_id="evt_t0_s02",
+        task_id="t0",
+        action_name="deliver",
+        target="Office_B",
+        error_code="RECIPIENT_UNAVAILABLE",
+        raw_message="Recipient in meeting",
+        observation={"recipient_status": "in_meeting", "recipient": "Bob"},
+        sim_time=8.0,
+    )
+
+    assert len(f.store.get_all_memories()) == 2
+    assert all(m.status == MemoryStatus.ACTIVE for m in f.store.get_all_memories())
+
+    # Observe credential acquisition
+    f.record_observation("evt_t1_s01", {"credentials": ["security_badge"]}, sim_time=15.0)
+    m_badge = [m for m in f.store.get_all_memories() if "required_credential" in m.observable_conditions][0]
+    assert m_badge.status == MemoryStatus.INVALIDATED
+
+    # Observe recipient available
+    f.record_observation("evt_t1_s02", {"recipient": "Bob", "status": "available"}, sim_time=18.0)
+    m_bob = [m for m in f.store.get_all_memories() if "Bob_status" in m.observable_conditions][0]
+    assert m_bob.status == MemoryStatus.INVALIDATED
+

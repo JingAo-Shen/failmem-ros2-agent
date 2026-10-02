@@ -2,8 +2,9 @@
 ReAct-style Structured Planner for FailMem Stage 2 Robot Agent.
 Enforces:
   - Strict JSON tool schemas with verifiable decision_summary.
-  - No heuristic guessing on parse failure (strict format validation & 1-shot retry).
+  - Comprehensive operational topology and checklist shared across all methods.
   - Multi-attribute memory retrieval over shared known state.
+  - Zero heuristic guessing on parse failure (strict format validation & 1-shot retry).
 """
 from typing import Dict, Any, List, Optional, Tuple
 import json
@@ -22,33 +23,65 @@ VALID_TOOLS = {
     "acquire_credential": ["credential_name"],
 }
 
-SYSTEM_PROMPT = """You are an autonomous mobile delivery robot operating in an indoor office environment.
-Your objective is to complete the specified delivery task safely, efficiently, and without violating constraints.
+MAP_ADJACENCY = {
+    "Lobby": ["Corridor_North", "Corridor_South"],
+    "Corridor_North": ["Lobby", "Office_A", "Office_B", "Corridor_South"],
+    "Corridor_South": ["Lobby", "Corridor_North", "Office_A", "Lab_Secure"],
+    "Office_A": ["Corridor_North", "Corridor_South"],
+    "Office_B": ["Corridor_North"],
+    "Lab_Secure": ["Corridor_South"],
+}
 
-### Available Tools:
-1. `navigate(target_zone)`: Move to an adjacent room/corridor.
-   - Known zones: Lobby, Corridor_North, Corridor_South, Office_A, Office_B, Lab_Secure.
-   - Adjacencies:
-     * Lobby <-> Corridor_North (via door_north), Lobby <-> Corridor_South (via door_south)
-     * Corridor_North <-> Office_A (via door_office_a), Corridor_North <-> Office_B (via door_office_b), Corridor_North <-> Corridor_South
-     * Corridor_South <-> Office_A, Corridor_South <-> Lab_Secure (via door_lab, REQUIRES security_badge)
-2. `observe(target)`: Perform sensor scan on a door ('door_north', 'door_south', 'door_lab', 'door_office_a', 'door_office_b') or inspect current room.
-3. `query_status(entity)`: Query directory service for recipient availability ('Alice', 'Bob', 'Charlie') or 'battery'.
-4. `pickup(package_id, from_location)`: Pick up package from current room.
-5. `deliver(package_id, recipient)`: Hand over package to recipient in target room.
-6. `recharge()`: Fully recharge battery (only works at 'Lobby').
-7. `acquire_credential(credential_name)`: Pick up key/badge (e.g. 'security_badge' from Office_A).
+SYSTEM_PROMPT = """You are an autonomous mobile delivery robot operating in an indoor office and lab environment.
+Your goal is to complete all delivery tasks step-by-step safely, efficiently, and without violating constraints.
 
-### Response Format:
-You must output strictly a single JSON object inside ```json ... ``` codeblock:
+### Map Topology & Routing:
+- Lobby <-> Corridor_North (via door_north), Lobby <-> Corridor_South (via door_south)
+- Corridor_North <-> Office_A, Corridor_North <-> Office_B, Corridor_North <-> Corridor_South
+- Corridor_South <-> Office_A, Corridor_South <-> Lab_Secure (REQUIRES security_badge)
+- Key Connectivity:
+  * Office_A is reachable from BOTH Corridor_North and Corridor_South.
+  * Office_B is reachable ONLY from Corridor_North.
+  * Lab_Secure is reachable ONLY from Corridor_South (and requires security_badge from Office_A).
+  * You cannot jump between rooms directly without going through the connecting corridor.
+
+### Available Tools (You MUST use ONLY these 7 tools; never use noop, none, or check_inventory):
+1. `pickup(package_id, from_location)`: Pick up package from current room into your inventory bag (max capacity: 2).
+   * Example: `{"action": "pickup", "params": {"package_id": "pkg_docs", "from_location": "Lobby"}}`
+2. `deliver(package_id, recipient)`: Hand over package from inventory bag to recipient in current room.
+   * Example: `{"action": "deliver", "params": {"package_id": "pkg_docs", "recipient": "Alice"}}`
+3. `navigate(target_zone)`: Move to an adjacent zone.
+   * Example: `{"action": "navigate", "params": {"target_zone": "Corridor_North"}}`
+4. `observe(target)`: Scan door or inspect room.
+   * Example: `{"action": "observe", "params": {"target": "door_north"}}`
+5. `query_status(entity)`: Query recipient availability ('Alice', 'Bob', 'Charlie') or 'battery'.
+   * Example: `{"action": "query_status", "params": {"entity": "Alice"}}`
+6. `acquire_credential(credential_name)`: Pick up badge in current room (e.g. 'security_badge' in Office_A).
+   * Example: `{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}`
+7. `recharge()`: Fully recharge battery at Lobby charging station.
+   * Example: `{"action": "recharge", "params": {}}`
+
+### Action Selection Protocol:
+1. Deliver Now: If you are holding a package whose target room is your current location (see Deliverable Packages), execute `deliver` immediately! (NEVER leave room or call noop without delivering first).
+2. Pickup Now: If there are pickable packages in your current room (see Pickable Packages) and bag has space (< 2), execute `pickup` immediately! (Pick up all available packages at current location before leaving).
+3. Target Navigation:
+   - If holding package for Room X and Room X is in Allowed Adjacent Zones, execute `navigate(Room X)`.
+   - If holding package for Office_B, navigate to Corridor_North.
+   - If holding package for Lab_Secure, navigate to Corridor_South (with security_badge).
+   - If not holding packages, navigate to the room where undelivered packages are located.
+   - Choose target_zone ONLY from Allowed Adjacent Zones. Never navigate to your current zone.
+4. Blockage Detour: If `navigate` fails with `DOORWAY_BLOCKED`, take the other corridor (e.g. Corridor_South).
+5. Credentials: If entering `Lab_Secure`, visit `Office_A` to call `acquire_credential('security_badge')` first.
+
+### Output JSON Format:
+Output strictly a single JSON codeblock:
 ```json
 {
-  "decision_summary": "Brief 1-2 sentence verifiable ground for choosing this action.",
+  "decision_summary": "1-2 sentence verifiable ground for choosing this action.",
   "action": "<tool_name>",
   "params": { "<param_name>": "<param_value>" }
 }
-```
-Ground-truth environment state is hidden. Rely only on visible robot status, tool feedback, and verified past experiences."""
+```"""
 
 
 class AgentPlanner:
@@ -63,29 +96,61 @@ class AgentPlanner:
         known_state: Dict[str, Any],
         step_history: List[Dict[str, Any]],
         task_id: str,
+        run_id: str = "run_default",
+        method_name: str = "B0",
+        seq_id: str = "seq_default",
+        task_index: int = 0,
+        step_index: int = 1,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Plans the next action.
         Returns: (parsed_decision_dict, llm_metadata)
         """
+        robot_loc = current_state.get("robot_location", "Lobby")
+        inventory = current_state.get("inventory", [])
+        avail_pkgs = current_state.get("available_packages", [])
+        adjacent_zones = MAP_ADJACENCY.get(robot_loc, [])
+
+        # Check immediate affordances in current room (public logic)
+        pickable_here = [
+            {"package_id": p["id"], "pickup_location": p["pickup_location"], "target_room": p["target_room"], "recipient": p["recipient"]}
+            for p in avail_pkgs
+            if p.get("pickup_location") == robot_loc and p["id"] not in inventory
+        ]
+        deliverable_here = [
+            {"package_id": p["id"], "recipient": p["recipient"], "target_room": p["target_room"]}
+            for p in avail_pkgs
+            if p["id"] in inventory and p.get("target_room") == robot_loc
+        ]
+        held_packages_destinations = [
+            {"package_id": p["id"], "target_room": p["target_room"], "recipient": p["recipient"]}
+            for p in avail_pkgs
+            if p["id"] in inventory
+        ]
+
         # 1. Multi-attribute memory query context
         context_query = {
-            "current_location": current_state.get("robot_location"),
-            "inventory": current_state.get("inventory", []),
-            "target": current_state.get("robot_location"),
+            "current_location": robot_loc,
+            "inventory": inventory,
+            "target": robot_loc,
             "credentials": current_state.get("credentials", []),
+            "task_instruction": task_instruction,
+            "undelivered_packages": [p.get("id") for p in avail_pkgs],
         }
         retrieved_memories = self.memory.retrieve_relevant_memories(known_state, context_query)
 
-        # 2. Build User Prompt
+        # 2. Build User Prompt with explicit public state
         user_prompt_lines = [
-            f"### Current Task: {task_instruction}",
+            f"### Current Delivery Task: {task_instruction}",
             f"### Current Robot Status:",
-            f"- Location: {current_state.get('robot_location')}",
-            f"- Battery: {current_state.get('battery')}%",
-            f"- Inventory: {current_state.get('inventory')}",
-            f"- Credentials: {current_state.get('credentials')}",
-            f"- Undelivered Packages: {current_state.get('available_packages')}",
+            f"- Current Location: {robot_loc}",
+            f"- Allowed Adjacent Zones for 'navigate': {adjacent_zones}",
+            f"- Packages Currently Held in Bag (Capacity {len(inventory)}/2): {held_packages_destinations}",
+            f"- Deliverable Packages at Current Location ({robot_loc}): {deliverable_here}",
+            f"- Pickable Packages Available at Current Location ({robot_loc}): {pickable_here}",
+            f"- Undelivered Packages in Environment: {avail_pkgs}",
+            f"- Held Credentials: {current_state.get('credentials')}",
+            f"- Battery Level: {current_state.get('battery')}%",
         ]
 
         if known_state:
@@ -110,7 +175,7 @@ class AgentPlanner:
             {"role": "user", "content": user_prompt},
         ]
 
-        # 3. Call LLM
+        # 3. Call LLM (Attempt 1)
         gen_res = self.llm.generate(messages)
         content = gen_res.get("content", "")
 
@@ -124,24 +189,25 @@ class AgentPlanner:
             retry_messages.append({"role": "assistant", "content": content})
             retry_messages.append({
                 "role": "user",
-                "content": f"Formatting Error: Could not parse output as valid JSON matching schema. Please output ONLY the JSON object with keys 'decision_summary', 'action', and 'params'."
+                "content": f"Formatting Error: Output could not be parsed as valid JSON matching schema. Please output ONLY a valid JSON object matching the format:\n```json\n{{\"decision_summary\": \"...\", \"action\": \"<tool_name>\", \"params\": {{...}}}}\n```"
             })
             retry_res = self.llm.generate(retry_messages)
             retry_content = retry_res.get("content", "")
             decision, parse_ok = self._strict_parse_json(retry_content)
-            
+
             gen_res["prompt_tokens"] += retry_res.get("prompt_tokens", 0)
             gen_res["generated_tokens"] += retry_res.get("generated_tokens", 0)
             gen_res["latency_s"] += retry_res.get("latency_s", 0.0)
 
             if not parse_ok:
                 decision = {
-                    "decision_summary": "PARSE_FAILURE: LLM failed to produce valid JSON tool call after retry.",
+                    "decision_summary": "PARSE_FAILURE: Failed to produce valid JSON tool call after retry.",
                     "action": "parse_error",
                     "params": {"raw_output": retry_content or content},
                 }
 
         metadata = {
+            "event_id": f"evt_{run_id}_{method_name}_{seq_id}_{task_id}_s{step_index:02d}_att1",
             "prompt_tokens": gen_res.get("prompt_tokens", 0),
             "generated_tokens": gen_res.get("generated_tokens", 0),
             "latency_s": gen_res.get("latency_s", 0.0),

@@ -60,9 +60,9 @@ def test_scorer_grounded_metrics():
             "llm_calls": 3,
             "step_history": [
                 # Unwarranted detour: navigating via Corridor_South in task 1
-                {"step": 1, "tool": "navigate", "params": {"target_zone": "Corridor_South"}, "result": {"success": True}},
-                {"step": 2, "tool": "navigate", "params": {"target_zone": "Office_A"}, "result": {"success": True}},
-                {"step": 3, "tool": "deliver", "params": {"package_id": "pkg_docs", "recipient": "Alice"}, "result": {"success": True}},
+                {"step": 1, "tool": "navigate", "params": {"target_zone": "Corridor_South"}, "robot_location_before": "Lobby", "env_state_snapshot": {"doors": {"door_north": {"blocked": False}}}, "result": {"success": True}},
+                {"step": 2, "tool": "navigate", "params": {"target_zone": "Office_A"}, "robot_location_before": "Corridor_South", "result": {"success": True}},
+                {"step": 3, "tool": "deliver", "params": {"package_id": "pkg_docs", "recipient": "Alice"}, "robot_location_before": "Office_A", "result": {"success": True}},
             ],
             "llm_traces": [{"prompt_tokens": 100, "generated_tokens": 20}],
         },
