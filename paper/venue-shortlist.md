@@ -2,105 +2,94 @@
 
 **Document Type**: Target Venue Screening & Policy Audit  
 **Verification Date**: 2026-10-02  
-**Target Positioning**: Auditable Exploratory Comparison & Verifiable Robotics Framework (Positioning B / A)  
-**Policy Compliance**: All policies verified against official publisher author guides as of October 2026. No submissions, fees, or editorial inquiries have been initiated.
+**Target Positioning**: Auditable Exploratory Comparison (Positioning B)  
+**Policy Audit Status**: Documented policies are cross-referenced with official publisher author guidelines as of October 2026; unverified details are explicitly marked "待核实". No formal submissions, fee payments, or editorial inquiries have been initiated.
 
 ---
 
-## 1. Candidate Comparison Matrix
+## 1. Formal Candidate Comparison Matrix
+
+The candidate list for formal submission is strictly limited to three journals:
 
 | Venue | Publisher / Archival Status | Article Format & Review Model | Submission Deadline | Page Limits & Length Rules | Mandatory vs. Optional Fees | Data & Code Policy | Official Author Guide Source |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. IEEE Robotics and Automation Letters (RA-L)** | Formal Archival Journal (IEEE RAS) | Standard Letter; **Double-anonymous (Double-blind)** review mandatory | Continuous / Rolling (No fixed cutoff for standalone journal submissions) | 6 pages base included in publication; Maximum 8 pages total | **Subscription model: $0 mandatory fee** (≤6 pages). Overlength pages 7–8: **$175/page (mandatory)**. Optional Gold Open Access APC: **$2,490 USD + tax** | Strongly encourages open code, benchmark datasets, and multimedia video attachments | [IEEE RAS RA-L Author Guide](https://www.ieee-ras.org/publications/ra-l) (Verified 2026-10-02) |
-| **2. SoftwareX (Elsevier)** | Formal Archival Journal (Elsevier) | Original Software Publication (OSP); **Single-blind** review | Continuous / Rolling | Structured 4–6 page format (Motivation, Architecture, Examples, Impact) | **Mandatory Gold OA APC: $1,100 USD** (excluding local tax upon acceptance) | **Mandatory open-source repository** (OSI-approved license, GitHub/GitLab, test suite, release tag) | [Elsevier SoftwareX Guide](https://www.elsevier.com/journals/softwarex/2352-7110/guide-for-authors) (Verified 2026-10-02) |
-| **3. IEEE Access (Robotics Track)** | Formal Archival Journal (IEEE) | Regular Research Article; **Single-blind** review | Continuous / Rolling | Flexible length (typically 8–12 pages, no strict overlength fee) | **Mandatory Gold OA APC: $2,160 USD** (+ local tax upon acceptance) | Encourages Open Data and Code statements | [IEEE Access Author Center](https://ieeeaccess.ieee.org/) (Verified 2026-10-02) |
-| **4. Archival Technical Report / Workshop (e.g. arXiv / ROSCon / ICRA Workshop)** | Archival Preprint / Peer-reviewed Workshop | Extended Abstract / Short Paper (2–4 pages) or Full Technical Report; Single- or Double-blind depending on call | Rolling (arXiv) / Annual Workshop cycles | Flexible (2–8 pages) | **$0 (Free)** | Fully compatible with public Git repository and cryptographic replay bundle | [arXiv Computer Science](https://arxiv.org/archive/cs) / ROSCon / IEEE RAS Workshop Calls (Verified 2026-10-02) |
+| **1. IEEE Robotics and Automation Letters (RA-L)** | Formal Archival Journal (IEEE RAS) | Standard Letter; **Double-anonymous (Double-blind)** review mandatory | Continuous / Rolling (No fixed cutoff for standalone journal submissions) | 6 pages base included in publication; Maximum 8 pages total | **Subscription model: $0 mandatory fee** (≤6 pages). Overlength pages 7–8: **$175/page (mandatory)**. Optional Gold Open Access APC: **$2,490 USD + tax** | Strongly encourages open code, benchmark datasets, and multimedia video attachments | [IEEE RAS RA-L Author Guide](https://www.ieee-ras.org/publications/ra-l/information-for-authors-ra-l) |
+| **2. SoftwareX (Elsevier)** *(备选：需另行批准工程扩展)* | Formal Archival Journal (Elsevier) | Original Software Publication (OSP); **Single-blind** review | Continuous / Rolling | Structured 4–6 page format (Motivation, Architecture, Examples, Impact) | **Mandatory Gold OA APC: $1,100 USD** (excluding local tax upon acceptance) | **Mandatory open-source repository** (OSI-approved license, GitHub/GitLab, test suite, release tag) | [Elsevier SoftwareX Guide](https://www.elsevier.com/journals/softwarex/2352-7110/guide-for-authors) |
+| **3. IEEE Access (Robotics Track)** | Formal Archival Journal (IEEE) | Regular Research Article; **Single-blind** review | Continuous / Rolling | Flexible length (typically 8–12 pages, no strict overlength fee) | **Mandatory Gold OA APC: $2,160 USD** (+ local tax upon acceptance) | Encourages Open Data and Code statements | [IEEE Access Author Center](https://ieeeaccess.ieee.org/) |
 
 ---
 
 ## 2. Fact-Checked Venue Profiles & Policy Clauses
 
 ### Candidate 1: IEEE Robotics and Automation Letters (RA-L)
-- **Official Policy URL**: `https://www.ieee-ras.org/publications/ra-l/information-for-authors-ra-l` (Accessed 2026-10-02)
-- **Review Policy**: **Strict Double-Anonymous (Double-Blind)**. RA-L policy explicitly requires that author names, institutions, acknowledgments, and direct links to non-anonymized public repositories (e.g., personal GitHub usernames) must be removed from the initial submission PDF. Failure to anonymize triggers immediate administrative rejection.
-- **Track Scope**: RA-L accepts standard Letters presenting concise, original, and significant contributions in robotics and automation. *Note*: RA-L does **not** host a dedicated "Lessons Learned" track or a specialized "Negative Results" category. Letters are evaluated against general peer-review standards of novelty, technical depth, and experimental rigor.
+- **Official Policy URL**: [`https://www.ieee-ras.org/publications/ra-l/information-for-authors-ra-l`](https://www.ieee-ras.org/publications/ra-l/information-for-authors-ra-l)
+- **Review Policy**: **Strict Double-Anonymous (Double-Blind)**. RA-L guidelines require that author names, institutions, acknowledgments, and non-anonymized repository links be omitted from the initial submission PDF.
+- **Track Scope**: Accepts standard Letters presenting concise, original contributions in robotics and automation. RA-L does **not** host a dedicated "Lessons Learned" track or a "Negative Results" category.
 - **Financial Structure**:
   - Traditional subscription publishing model: **$0 mandatory fees** for manuscripts up to 6 published pages.
   - Overlength charges: Pages 7 and 8 incur a mandatory fee of **$175 per page**.
-  - Gold Open Access: Authors may optionally elect Gold OA at an APC of **$2,490 USD** (plus local taxes).
-- **Core Reviewer Vulnerabilities**:
-  1. *Lack of Algorithmic Superiority*: FailMem ($F$) produces identical topological route choices to spatial caching ($O$) with $<1\%$ metric variation ($14.03\,\text{m}$ vs $13.95\,\text{m}$ in D1; $16.25\,\text{m}$ vs $16.40\,\text{m}$ in D2). Reviewers expecting a novel navigation algorithm outperforming standard spatial representations will assess technical novelty as insufficient.
-  2. *Single-Layout Simulation Benchmark*: Experiments are conducted strictly in Gazebo 11 on a single dual-path topological layout with $n=3$ fixed-seed runs per condition, lacking multi-environment diversity or physical hardware trials.
+  - Gold Open Access: Optional APC of **$2,490 USD** (plus local taxes).
+- **Distinction Between Official Requirements and Project Fit**:
+  - *Official Requirements*: RA-L author guidelines do **not** formally mandate physical hardware trials or algorithmic superiority proofs as submission prerequisites.
+  - *Project Suitability Assessment*: In standard peer review, reviewers evaluate technical contribution and experimental validation. In our study, FailMem ($F$) achieved identical topological route selection to spatial caching ($O$) in static 2D geometry ($<1\%$ metric difference), evaluated in simulation on a single dual-path layout with $n=3$. Without hardware trials or demonstrated routing superiority, there is substantial risk that reviewers may evaluate the empirical findings as insufficient for an RA-L Letter.
 
 ---
 
-### Candidate 2: SoftwareX (Elsevier)
-- **Official Policy URL**: `https://www.elsevier.com/journals/softwarex/2352-7110/guide-for-authors` (Accessed 2026-10-02)
+### Candidate 2: SoftwareX (Elsevier) — 备选（需另行批准工程扩展）
+- **Official Policy URL**: [`https://www.elsevier.com/journals/softwarex/2352-7110/guide-for-authors`](https://www.elsevier.com/journals/softwarex/2352-7110/guide-for-authors)
 - **Review Policy**: **Single-Blind**. Author identities and affiliations are visible to reviewers.
-- **Article Structure & Scope**: Publishes "Original Software Publications" (OSPs). Manuscripts must follow Elsevier’s structured software paper template:
-  1. Motivation and significance
-  2. Software description (architecture, software functionalities)
-  3. Illustrative examples
-  4. Impact and conclusions
-- **Repository Requirements**: SoftwareX requires an active, publicly accessible repository (GitHub, GitLab, or Bitbucket) with:
-  - An OSI-approved open-source license (e.g., Apache 2.0, MIT).
-  - Versioned release tag matching the paper submission.
-  - Comprehensive documentation and installation guides.
-  - Executable automated test suite (e.g., CI workflow, pytest suite).
-- **Financial Structure**:
-  - SoftwareX is a pure Gold Open Access journal.
-  - Mandatory Article Publishing Charge (APC): **$1,100 USD** (excluding local sales tax) upon acceptance.
-- **Core Reviewer Vulnerabilities**:
-  1. *Software Generality vs. Benchmark Coupling*: The current codebase is organized around a dual-path Gazebo evaluation runner. Reviewers will evaluate whether the failure memory module is packaged as an installable, decoupled ROS 2 library reusable across general navigation stacks, or remains tightly coupled to the benchmark harness.
-  2. *Audience Fit*: SoftwareX prioritizes software utility and general reusability; empirical findings regarding costmap vs. memory boundaries are secondary to software engineering quality.
+- **Article Structure & Scope**: Publishes "Original Software Publications" (OSPs) using a structured template: Motivation and significance, Software description, Illustrative examples, Impact.
+- **Repository Requirements**: Requires an active, publicly accessible repository with an OSI-approved license, automated test suite, documentation, and a versioned release tag.
+- **Financial Structure**: Mandatory Gold Open Access APC of **$1,100 USD** (excluding tax) upon acceptance.
+- **Scope & Project Fit**:
+  - Evaluates software engineering quality, reproducibility, and general reusability across the research community.
+  - *Current Status*: Retained strictly as a conditional backup requiring separate project authorization. The current codebase was implemented and tested on ROS 2 Humble as a dual-path evaluation benchmark. Decoupling into an independent, general-purpose ROS 2 package and verifying compatibility across other distributions is not part of the current milestone and would require dedicated engineering approval.
 
 ---
 
-### Candidate 3: IEEE Access (Robotics Section)
-- **Official Policy URL**: `https://ieeeaccess.ieee.org/` (Accessed 2026-10-02)
+### Candidate 3: IEEE Access (Robotics Track)
+- **Official Policy URL**: [`https://ieeeaccess.ieee.org/`](https://ieeeaccess.ieee.org/)
 - **Review Policy**: **Single-Blind**.
-- **Scope & Deadlines**: Multidisciplinary Gold Open Access journal with rolling submissions and rapid peer-review cycles (typically 4–6 weeks). Welcomes comprehensive engineering implementations and empirical system evaluations. *Note*: IEEE Access does not feature a dedicated negative results track; articles must demonstrate sound engineering methodology and practical value.
-- **Financial Structure**:
-  - Mandatory Gold Open Access Article Processing Charge (APC): **$2,160 USD** (plus local taxes, verified October 2026).
-- **Core Reviewer Vulnerabilities**:
-  1. *High Cost-to-Impact Ratio*: A mandatory charge of $2,160 USD is required for an exploratory, simulation-only study that does not establish headline performance gains.
-  2. *Experimental Scale*: Reviewers frequently request multi-scenario generalization or physical robot deployments when evaluating standard journal-length engineering papers.
+- **Scope & Deadlines**: Broad multidisciplinary Open Access journal with rolling submissions and rapid review cycles. Does not have a dedicated negative results track.
+- **Financial Structure**: Mandatory Gold Open Access APC of **$2,160 USD** (plus local taxes, verified October 2026).
+- **Project Fit Assessment**:
+  - The mandatory APC ($2,160 USD) represents a substantial financial commitment. Given that the current study is an exploratory simulation benchmark showing comparable routing between $F$ and $O$, the cost-benefit ratio of this route is considered unfavorable.
 
 ---
 
-## 3. Venue Suitability Decision Table
+## 3. Non-Journal Archival & Dissemination Paths
 
-The following decision analysis evaluates each candidate against actual project evidence, identifying structural gaps and realistic publication prospects.
+### Path A: Internal Review & Open Technical Report / Preprint (e.g., arXiv / Institutional Repository)
+- **Characteristics**: Archival dissemination without peer-review overhead.
+- **Cost**: **$0 (Free)**.
+- **Fit**: Completely transparent venue for establishing provenance of exploratory benchmark results, negative findings, and cryptographic replay datasets without requiring novel algorithmic superiority or physical fleet experiments.
 
-| Evaluation Dimension | Candidate 1: IEEE RA-L | Candidate 2: SoftwareX | Candidate 3: IEEE Access | Recommended Path: Tech Report / Workshop |
+### Path B: Peer-Reviewed Workshops & Conferences (e.g., ROSCon / ICRA/IROS Workshops)
+- **Current Status**: **未列入即时投稿目标**。
+- **Rationale**: Specific upcoming workshop editions or conference tracks with published, active Calls for Papers (CFPs) matching this work have not been identified or verified in the current workspace. If a suitable CFP specifically targeting robotic failure recovery, reproducibility, or benchmarking is identified in the future, it can be evaluated as an independent target.
+
+---
+
+## 4. Venue Suitability Decision Table
+
+| Evaluation Dimension | Candidate 1: IEEE RA-L | Candidate 2: SoftwareX (备选) | Candidate 3: IEEE Access | Dissemination Path: Tech Report / Preprint |
 | :--- | :--- | :--- | :--- | :--- |
-| **Target Positioning Fit** | Low–Medium (Expects positive algorithmic novelty or physical robotics breakthrough) | High (Evaluates reproducible research software and verifiable tools) | Medium (Accepts broad engineering studies, but expects broader empirical scale) | **High** (Ideal for auditable exploratory comparisons, benchmarks, and negative findings) |
-| **Requirements Satisfied by Current Deliverables** | 6-page draft available; strict replay auditability; empirical stopping criteria clearly documented | Comprehensive pytest suite (191 passed); complete repository; cryptographic checksums; clear architecture | Extensive tabular data; detailed methodological documentation; full reproducibility scripts | Complete offline verification bundle; transparent negative finding; zero financial overhead |
-| **Fatal Review Risks / Critical Vulnerabilities** | **Very High Risk**: <br>1. Zero routing advantage of $F$ over $O$ in 2D geometry.<br>2. Single-layout simulation ($n=3$), no physical robot validation.<br>3. No dedicated negative results track in RA-L. | **Moderate Risk**: <br>Current code is structured as an experimental evaluation workspace rather than a plug-and-play ROS 2 navigation package. | **High Risk / Poor ROI**: <br>1. High mandatory APC ($2,160 USD).<br>2. Limited scientific return for a single-environment negative result. | **Low Risk**: <br>Directly meets reader expectations for exploratory studies, negative result disclosure, and benchmark methodology. |
-| **Gaps Resolvable via Writing Alone** | • Anonymize manuscript for double-blind review.<br>• Reframe as empirical boundary analysis.<br>• Trim to exact 6-page limit. | • Reformat paper into SoftwareX structured 4-section OSP template. | • Expand literature review and contextual discussion. | • Package report into standard tech report or workshop short paper format. |
-| **Gaps Requiring New Substantive Research / Engineering** | • Multi-environment benchmark layout suite.<br>• Physical robot hardware trials.<br>• Extension to high-dimensional 3D/action spaces where $F$ demonstrably outperforms $O$. | • Decouple `src/failure_memory.py` into a standalone, pip/colcon-installable ROS 2 package with generic action hooks. | • Substantial experimental scale expansion across varied floorplans or robots. | **None** (Current codebase, data, and draft fully support this deliverable). |
-| **Financial Commitment** | **$0** (if kept within 6 pages under subscription model) | **$1,100 USD** (mandatory OA APC) | **$2,160 USD** (mandatory OA APC) | **$0** (Free open dissemination) |
-| **Final Feasibility Assessment** | **High Desk / Review Rejection Probability**. Not recommended as primary submission in current form. | **Conditionally Viable**, provided 1–2 weeks of software packaging refactoring is performed. | **Not Cost-Effective**. Unfavorable cost-benefit profile. | **Primary Recommended Route**. Preserves scientific integrity and establishes open provenance immediately. |
+| **Official Scope** | Concise, significant letters in robotics and automation | Peer-reviewed original research software and tools | Broad multidisciplinary engineering research | Archival technical reports and preprints |
+| **Requirements Satisfied by Current Deliverables** | 6-page draft available; strict replay auditability; empirical stopping criteria clearly documented | Comprehensive pytest suite (191 passed); complete repository; cryptographic checksums | Extensive tabular data; detailed methodological documentation; full reproducibility scripts | Complete offline verification bundle; transparent negative finding; zero financial overhead |
+| **Project Review Vulnerabilities** | Evaluated on single-layout simulation ($n=3$); route selection identical to spatial cache ($O$); no hardware trials | Current code is organized as a benchmark harness rather than a decoupled generic ROS 2 package | High mandatory APC ($2,160 USD) for an exploratory single-scenario simulation finding | Non-peer-reviewed (does not count as formal journal publication) |
+| **Gaps Resolvable via Writing Alone** | • Anonymize manuscript for double-blind review.<br>• Reframe as empirical boundary analysis.<br>• Trim to exact 6-page limit. | • Reformat paper into SoftwareX structured 4-section OSP template. | • Expand literature review and contextual discussion. | • Package manuscript into technical report format. |
+| **Gaps Requiring Substantive Engineering / Research** | • Multi-environment benchmark layout suite.<br>• Physical robot hardware trials.<br>• Higher-dimensional action spaces demonstrating divergence. | • Decouple `src/failure_memory.py` into a standalone, general ROS 2 package.<br>• Package testing and documentation. | • Substantial experimental expansion across varied floorplans or robots. | **None** (Current codebase, data, and draft fully support this deliverable). |
+| **Mandatory Financial Commitment** | **$0** (if kept within 6 pages under subscription model) | **$1,100 USD** (mandatory OA APC) | **$2,160 USD** (mandatory OA APC) | **$0** (Free open dissemination) |
+| **Feasibility & Recommendation Status** | **Review Risk High**. Not recommended for immediate submission without experimental expansion. | **Conditionally Viable**, requiring separate authorization for package decoupling. | **Not Cost-Effective**. Unfavorable cost-benefit profile. | **Recommended Immediate Step**. Serves as the baseline for internal review. |
 
 ---
 
-## 4. Strategic Submission Decision & Roadmap
+## 5. Strategic Summary
 
-### Primary Recommendation: Archival Technical Report & Robotics Workshop Short Paper
-- **Core Rationale**:
-  The empirical evidence in FailMem establishes two key truths:
-  1. In static 2D indoor environments, explicit episodic failure memory does **not** provide routing advantages over spatial costmap observation caching ($<1\%$ difference).
-  2. Action-conditioned failure semantics ($H_1$) did not exhibit divergence in candidate narrow-aperture tests because the underlying local planner successfully cleared the margin.
-  
-  These are valuable negative and exploratory findings that prevent researchers from designing redundant memory architectures. However, top-tier robotics journals like IEEE RA-L evaluate submissions on technical superiority, generalizable algorithmic theorems, or extensive physical fleet evaluations. Attempting to force an exploratory $n=3$ simulation study into RA-L carries an extremely high likelihood of rejection.
-  
-  Disseminating this work immediately as an **archival technical report (e.g., arXiv / institutional repository)** alongside submission to a focused venue (such as **ROSCon** or an **ICRA/IROS Workshop on Failure Recovery and Benchmarking**) guarantees rapid, peer-recognized attribution with zero financial cost and complete scientific honesty.
-
-### Secondary Journal Route: SoftwareX (Elsevier)
-- **Prerequisite Engineering Work**:
-  If a formal SCIE journal publication is strictly required by institutional stakeholders, **SoftwareX** represents the most plausible avenue. Rather than claiming theoretical routing superiority, the contribution is framed as an *open-source, causally bound failure memory and cryptographic replay audit framework for ROS 2 navigation*.
-- **Required Tasks Before Submission**:
-  1. Decouple `src/failure_memory.py` and `src/doorway_evaluator.py` from the dual-path benchmark runner into an independent ROS 2 package (`failmem_ros2`).
-  2. Provide a standard `setup.py` / `CMakeLists.txt` enabling straightforward installation in arbitrary ROS 2 Humble/Iron/Jazzy workspaces.
-  3. Reformat `paper/draft.md` into the SoftwareX OSP structured format (Motivation, Architecture, Examples, Impact).
-  4. Allocate the mandatory $1,100 USD APC budget.
+1. **Immediate Step**: Complete internal review of the technical report / manuscript bundle.
+2. **Subsequent Dissemination Choice**:
+   - If the goal is rapid, zero-cost dissemination of reproducible negative/exploratory findings, an **archival technical report / preprint** is the most direct path.
+   - If a peer-reviewed publication is required:
+     - **SoftwareX** is the primary journal candidate, provided that project leadership approves a dedicated engineering phase to decouple and package the software.
+     - Formal submission to **IEEE RA-L** should only be pursued if the team decides to expand the experimental scope (e.g., physical robot trials or multi-environment layouts).
+     - Workshops/ROSCon remain conditional on identifying an active, officially verified CFP.
