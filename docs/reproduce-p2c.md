@@ -6,16 +6,22 @@ This guide provides step-by-step instructions to reproduce the offline verificat
 
 ## 1. Environment & Dependencies
 
-### Runtime Environment
-- **Operating System**: Ubuntu 22.04 LTS (Jammy Jellyfish)
+### System & Build Dependencies
+- **Operating System**: Ubuntu 22.04 LTS (Jammy Jellyfish) / Linux x86_64
 - **ROS Distribution**: ROS 2 Humble Hawksbill (Required only for physical simulation in Docker)
 - **Simulator**: Gazebo 11
 - **Robot Model**: TurtleBot3 Waffle (`TB3_MODEL=waffle`)
-- **Python Version**: Python 3.10+ (Python 3.13.5 tested)
+- **Python Version**: Python 3.10+ (tested on Python 3.13.5)
+- **Node.js**: Node.js 18+ with project-local `npm install` (installs `mathjax-full` locally)
+- **Document Toolchain**: Pandoc 2.17+, WeasyPrint 53+, Poppler utilities (`pdftoppm` for visual inspection)
 
-### Python Dependencies
+### Python & Node Dependencies
 ```bash
-pip install -r requirements.txt  # Or: pip install numpy pandas matplotlib pytest pyyaml scipy
+# Python dependencies
+pip install -r requirements.txt  # Or: pip install numpy pandas matplotlib pytest pyyaml scipy weasyprint
+
+# Project-local MathJax dependencies (in repository root)
+npm install
 ```
 
 ---
@@ -27,30 +33,32 @@ All raw evidence datasets are archived with raw sensor and costmap snapshots. Yo
 ### Step 1: Run Full Automated Test Suite
 Executes unit tests, event-driven replay audits, schema validations, and analysis script tests:
 ```bash
-pytest
+pytest tests/
 ```
 **Expected Output**:
 ```text
-176 passed, 8 xfailed in ~2.0s
+190 passed, 8 xfailed in ~2.5s
 ```
 *(8 xfailed tests in `tests/test_audit_reproductions.py` are permanent regression fixtures reproducing legacy Phase R0 mock defects under strict failure assertions; see [`reports/offline-reproduction-check.md`](../reports/offline-reproduction-check.md) for details)*.
 
 ---
 
 ### Step 2: One-Step Automated Offline Reproduction
-Run the end-to-end reproduction suite to verify checksums, stage raw datasets, execute independent replays, compute statistical summaries, compare against reference CSVs, and verify H1 feasibility:
+Run the end-to-end reproduction suite to verify checksums, stage raw datasets, execute independent replays, compute statistical summaries, compare against reference CSVs, and verify H1 feasibility into a dedicated fresh output directory:
 
 ```bash
-./scripts/reproduce_offline.sh --force
+# Provide a fresh timestamped directory (to prevent accidental overwrites)
+./scripts/reproduce_offline.sh --output-dir "reports/evidence/p2c_pilot_reproduced_$(date +%Y%m%d_%H%M%S)"
 ```
 
 **What this executes**:
-1. Verifies 271/271 files against `checksums.sha256`.
-2. Replays all 30 episodes with strict temporal causality and physical halt stability checks (`scripts/replay_and_score_p2c.py`).
-3. Computes sample standard deviations ($ddof=1$) and pairwise contrast tables (`scripts/analyze_p2c_results.py`).
-4. Compares generated CSVs against baseline CSVs (`episodes.csv`, `condition_summary.csv`, `contrasts.csv`) for exact numeric parity.
-5. Re-evaluates H1 4-run feasibility evidence (`scripts/verify_h1_feasibility.py`).
-6. Generates `reports/evidence/p2c_pilot_reproduced/reproduction_report.json` and `reproduction_log.txt`.
+1. Path collision and ancestor guardrail validation (prevents dangerous overwrite/nesting).
+2. Verifies 271/271 files against `checksums.sha256`.
+3. Replays all 30 episodes with strict temporal causality and physical halt stability checks (`scripts/replay_and_score_p2c.py`).
+4. Computes sample standard deviations ($ddof=1$) and pairwise contrast tables (`scripts/analyze_p2c_results.py`).
+5. Compares generated CSVs against baseline CSVs (`episodes.csv`, `condition_summary.csv`, `contrasts.csv`) for exact numeric parity.
+6. Re-evaluates H1 4-run feasibility evidence (`scripts/verify_h1_feasibility.py`).
+7. Generates structured reproduction report `reproduction_report.json` and `reproduction_log.txt`.
 
 ---
 

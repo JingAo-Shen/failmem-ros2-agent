@@ -103,7 +103,7 @@ content = content.replace(/<span class="math inline">\\\\\\(([\\s\\S]*?)\\\\\\)<
         return adaptor.innerHTML(node);
     } catch (e) {
         console.error('Error rendering inline math:', mathStr, e.message);
-        return match;
+        process.exit(1);
     }
 });
 
@@ -115,32 +115,105 @@ content = content.replace(/<span class="math display">\\\\\\[([\\s\\S]*?)\\\\\\]
         return '<div class="math-display-svg" style="text-align: center; margin: 10px 0;">' + adaptor.innerHTML(node) + '</div>';
     } catch (e) {
         console.error('Error rendering display math:', mathStr, e.message);
-        return match;
+        process.exit(1);
     }
 });
 
 fs.writeFileSync(htmlPath, content, 'utf8');
 console.log('Successfully pre-rendered LaTeX math into vector SVGs.');
 """
-    env = os.environ.copy()
-    node_path = "/root/.nvm/versions/node/v24.21.0/lib/node_modules"
-    if "NODE_PATH" in env:
-        env["NODE_PATH"] = f"{node_path}:{env['NODE_PATH']}"
-    else:
-        env["NODE_PATH"] = node_path
-
-    subprocess.run(
+    # Execute node with REPO_ROOT as cwd so local node_modules is automatically resolved
+    res = subprocess.run(
         ["node", "-e", node_script, str(html_path)],
-        check=True,
-        env=env,
-        cwd=PAPER_DIR,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
     )
+    if res.returncode != 0:
+        print(res.stderr, file=sys.stderr)
+        raise RuntimeError(f"Node.js math pre-rendering failed with code {res.returncode}: {res.stderr}")
+    print(res.stdout.strip())
+
+    # Verify no unrendered math tags remained
+    with open(html_path, "r", encoding="utf-8") as f:
+        rendered_content = f.read()
+    if '<span class="math inline">' in rendered_content or '<span class="math display">' in rendered_content:
+        raise RuntimeError("Unrendered math spans remained in HTML after MathJax rendering.")
+
+
+def validate_html_tables(html_path: Path) -> Dict[str, Any]:
+    """Strictly validate that all three required tables are present in HTML with exact row counts."""
+    with open(html_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    tables = re.findall(r"<table[\s\S]*?</table>", content)
+    if len(tables) < 3:
+        raise ValueError(f"Expected at least 3 HTML tables, found {len(tables)}")
+
+    t1_found = False
+    t2_found = False
+    t3_found = False
+    t1_rows = 0
+    t2_rows = 0
+    t3_rows = 0
+
+    for tbl in tables:
+        rows = re.findall(r"<tr[\s\S]*?</tr>", tbl)
+        data_rows = [r for r in rows if "<th" not in r]
+
+        if "Actual Route" in tbl or "Replay Audit Pass" in tbl:
+            t1_found = True
+            t1_rows = len(data_rows)
+            if t1_rows != 10:
+                raise ValueError(f"Table 1 (Condition Summary) must have exactly 10 data rows, found {t1_rows}")
+        elif "Comparison" in tbl and "Abs Diff" in tbl:
+            t2_found = True
+            t2_rows = len(data_rows)
+            if t2_rows != 10:
+                raise ValueError(f"Table 2 (Pairwise Contrasts) must have exactly 10 data rows, found {t2_rows}")
+        elif "Action Profile" in tbl and "Target Goal" in tbl:
+            t3_found = True
+            t3_rows = len(data_rows)
+            if t3_rows != 4:
+                raise ValueError(f"Table 3 (H1 Feasibility) must have exactly 4 data rows, found {t3_rows}")
+
+    if not t1_found:
+        raise ValueError("Table 1 (Condition Summary) not found in generated HTML")
+    if not t2_found:
+        raise ValueError("Table 2 (Pairwise Contrasts) not found in generated HTML")
+    if not t3_found:
+        raise ValueError("Table 3 (H1 Feasibility) not found in generated HTML")
+
+    return {
+        "total_tables": len(tables),
+        "table1_rows": t1_rows,
+        "table2_rows": t2_rows,
+        "table3_rows": t3_rows,
+        "all_tables_verified": True,
+    }
+
+
+def compute_file_sha256(file_path: Path) -> str:
+    """Compute SHA256 hex digest of a file."""
+    import hashlib
+    hasher = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(65536):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def inspect_pdf_pages(pdf_path: Path) -> Dict[str, Any]:
     """Render PDF pages to PNG and extract text for inspection."""
     PAGE_INSPECT_DIR.mkdir(parents=True, exist_ok=True)
-    
+
+    # Clean old pagination images before rendering to prevent stale page count
+    for old_p in PAGE_INSPECT_DIR.glob("page-*.png"):
+        try:
+            old_p.unlink()
+        except OSError:
+            pass
+
     # Run pdftoppm to generate PNGs
     prefix = str(PAGE_INSPECT_DIR / "page")
     subprocess.run(["pdftoppm", "-png", "-r", "150", str(pdf_path), prefix], check=True)
@@ -156,17 +229,45 @@ def inspect_pdf_pages(pdf_path: Path) -> Dict[str, Any]:
         if re.search(pattern, res):
             raw_tex_leaks.append(pattern)
 
+    if raw_tex_leaks:
+        raise RuntimeError(f"Raw TeX leaks detected in compiled PDF: {raw_tex_leaks}")
+
     return {
         "total_pages": len(pages),
-        "page_images": [str(p) for p in pages],
+        "page_images": [str(p.name) for p in pages],
         "extracted_char_count": len(res),
         "raw_tex_leaks": raw_tex_leaks,
         "math_clean": len(raw_tex_leaks) == 0,
     }
 
 
+def get_tool_versions() -> Dict[str, str]:
+    """Extract versions of build toolchain."""
+    tools = {"python": sys.version.split()[0]}
+    try:
+        tools["node"] = subprocess.check_output(["node", "-v"], text=True).strip()
+    except Exception:
+        tools["node"] = "unavailable"
+    try:
+        tools["pandoc"] = subprocess.check_output(["pandoc", "-v"], text=True).splitlines()[0].strip()
+    except Exception:
+        tools["pandoc"] = "unavailable"
+    try:
+        tools["weasyprint"] = subprocess.check_output(["weasyprint", "--version"], text=True).strip()
+    except Exception:
+        tools["weasyprint"] = "unavailable"
+    try:
+        tools["pdftoppm"] = subprocess.check_output(["pdftoppm", "-v"], stderr=subprocess.STDOUT, text=True).splitlines()[0].strip()
+    except Exception:
+        tools["pdftoppm"] = "unavailable"
+    return tools
+
+
 def build_pdf() -> Dict[str, Any]:
     """Execute complete PDF generation pipeline."""
+    import json
+    from datetime import datetime, timezone
+
     print(f"Building paper PDF from {DRAFT_MD}...")
 
     # 1. Process Markdown with dynamic table injection
@@ -189,17 +290,14 @@ def build_pdf() -> Dict[str, Any]:
     print(f"Running pandoc: {' '.join(pandoc_cmd)}")
     subprocess.run(pandoc_cmd, check=True, cwd=PAPER_DIR)
 
-    # Verify all tables are present in generated HTML
-    with open(OUTPUT_HTML, "r", encoding="utf-8") as f:
-        html_text = f.read()
-    for tbl_marker in ["Condition-Level Navigation Performance", "Key Pairwise Contrasts", "Action-Conditioned Navigation"]:
-        if tbl_marker not in html_text and "table" not in html_text.lower():
-            raise ValueError(f"Generated HTML missing expected table content for: {tbl_marker}")
-
     # 3. Pre-render math into inline SVGs via MathJax-full
     render_math_to_svg(OUTPUT_HTML)
 
-    # 4. Run WeasyPrint to generate PDF
+    # 4. Strictly validate all tables in HTML
+    table_validation = validate_html_tables(OUTPUT_HTML)
+    print(f"[TABLE VALIDATION] Verified tables: {table_validation}")
+
+    # 5. Run WeasyPrint to generate PDF
     weasyprint_cmd = [
         "weasyprint",
         str(OUTPUT_HTML),
@@ -212,22 +310,72 @@ def build_pdf() -> Dict[str, Any]:
     if processed_md_path.exists():
         processed_md_path.unlink()
 
-    # 5. Inspect generated PDF
+    # 6. Inspect generated PDF
     inspection = inspect_pdf_pages(OUTPUT_PDF)
     print(f"\n[PDF INSPECTION] Total Pages: {inspection['total_pages']}, Math Clean: {inspection['math_clean']}")
-    if not inspection["math_clean"]:
-        print(f"[WARNING] Detected raw TeX leaks in PDF: {inspection['raw_tex_leaks']}")
-    else:
-        print("[SUCCESS] Zero raw TeX leaks detected in compiled PDF.")
 
-    print(f"[SUCCESS] Successfully compiled {OUTPUT_PDF} ({OUTPUT_PDF.stat().st_size / 1024:.1f} KB)")
-    return inspection
+    # 7. Collect metadata and generate build_report.json
+    try:
+        git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True).strip()
+        git_branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=REPO_ROOT, text=True).strip()
+        git_status = subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO_ROOT, text=True).strip()
+        git_dirty = bool(git_status)
+    except Exception:
+        git_commit, git_branch, git_dirty = "unknown", "unknown", False
+
+    input_files = [
+        DRAFT_MD,
+        REFERENCES_BIB,
+        STYLE_CSS,
+        TABLES_DIR / "table1_condition_summary.md",
+        TABLES_DIR / "table2_pairwise_contrasts.md",
+        TABLES_DIR / "table3_h1_feasibility.md",
+        PAPER_DIR / "figures" / "trajectories_map.png",
+    ]
+    input_hashes = {p.name: compute_file_sha256(p) for p in input_files if p.exists()}
+
+    build_report = {
+        "build_timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "git_commit": git_commit,
+        "git_branch": git_branch,
+        "git_dirty": git_dirty,
+        "tool_versions": get_tool_versions(),
+        "input_hashes": input_hashes,
+        "table_validation": table_validation,
+        "math_rendering": {
+            "engine": "mathjax-full (SVG vector)",
+            "math_clean": inspection["math_clean"],
+            "raw_tex_leaks": inspection["raw_tex_leaks"],
+        },
+        "pdf_output": {
+            "path": str(OUTPUT_PDF),
+            "file_size_bytes": OUTPUT_PDF.stat().st_size,
+            "sha256": compute_file_sha256(OUTPUT_PDF),
+            "total_pages": inspection["total_pages"],
+            "page_images": inspection["page_images"],
+        },
+        "build_status": "SUCCESS",
+    }
+
+    report_path = PAPER_DIR / "build_report.json"
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(build_report, f, indent=2)
+
+    print(f"[SUCCESS] Build report saved to {report_path}")
+    print(f"[SUCCESS] Successfully compiled {OUTPUT_PDF} ({OUTPUT_PDF.stat().st_size / 1024:.1f} KB, {inspection['total_pages']} pages)")
+    return build_report
 
 
 def main():
     parser = argparse.ArgumentParser(description="Build FailMem Paper PDF")
     args = parser.parse_args()
-    build_pdf()
+    try:
+        build_pdf()
+    except Exception as e:
+        print(f"\n[ERROR] Paper build failed: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -49,9 +49,9 @@ def generate_table1(analysis_dir: Path, output_dir: Path) -> Tuple[str, str]:
         r"\caption{Condition-Level Navigation Performance Across 30 Physical Simulation Runs ($n=3$ per condition, mean $\pm$ sample std dev, $ddof=1$).}",
         r"\label{tab:condition_summary}",
         r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{llclccccc}",
+        r"\begin{tabular}{llclcccccc}",
         r"\hline",
-        r"Scenario & Method & $n$ & Actual Route & Dead-Ends & Decision Dist (m) & Decision Time (s) & Total Dist (m) & Total Time (s) \\",
+        r"Scenario & Method & $n$ & Actual Route & Dead-Ends & Decision Dist (m) & Decision Time (s) & Total Dist (m) & Total Time (s) & Replay Audit Pass \\",
         r"\hline",
     ]
 
@@ -63,27 +63,43 @@ def generate_table1(analysis_dir: Path, output_dir: Path) -> Tuple[str, str]:
 
         # Aggregate actual route from episodes.csv
         sub_ep = df_episodes[df_episodes["condition_id"] == cond_id]
-        if not sub_ep.empty and "actual_route" in sub_ep.columns:
-            actual_routes = sub_ep["actual_route"].dropna().unique()
-            if len(actual_routes) == 1:
-                route_str = f"`{actual_routes[0]}`"
-                tex_route_str = str(actual_routes[0]).replace("_", r"\_")
-            else:
-                route_counts = sub_ep["actual_route"].value_counts()
-                route_str = ", ".join(f"`{k}` ({v})" for k, v in route_counts.items())
-                tex_route_str = ", ".join(f"{str(k).replace('_', r'\_')} ({v})" for k, v in route_counts.items())
-        else:
-            route_str = f"`{row.get('requested_routes', 'NA')}`"
-            tex_route_str = str(row.get("requested_routes", "NA")).replace("_", r"\_")
+        if sub_ep.empty:
+            raise ValueError(f"No episode records found in episodes.csv for condition_id '{cond_id}'")
 
-        # Compute audit pass rate from episodes.csv
-        if not sub_ep.empty and "audit_pass" in sub_ep.columns:
-            n_total = len(sub_ep)
-            n_pass = int(sub_ep["audit_pass"].astype(bool).sum())
-            pct = (n_pass / n_total * 100.0) if n_total > 0 else 0.0
-            audit_str = f"{n_pass}/{n_total} ({pct:.0f}\\%)"
+        if "actual_route" not in sub_ep.columns:
+            raise KeyError("Required column 'actual_route' missing from episodes.csv")
+
+        actual_routes = [r for r in sub_ep["actual_route"].dropna().unique() if str(r).strip() not in ("", "nan", "NA")]
+        if not actual_routes:
+            raise ValueError(f"Missing actual_route records for condition '{cond_id}' in episodes.csv")
+
+        if len(actual_routes) == 1:
+            route_str = f"`{actual_routes[0]}`"
+            tex_route_str = str(actual_routes[0]).replace("_", r"\_")
         else:
-            audit_str = "NA"
+            route_counts = sub_ep["actual_route"].value_counts()
+            route_str = ", ".join(f"`{k}` ({v})" for k, v in route_counts.items())
+            tex_route_str = ", ".join(f"{str(k).replace('_', r'\_')} ({v})" for k, v in route_counts.items())
+
+        # Compute audit pass rate strictly from episodes.csv replay_audit_pass
+        if "replay_audit_pass" not in sub_ep.columns:
+            raise KeyError("Required column 'replay_audit_pass' missing from episodes.csv")
+
+        n_total = len(sub_ep)
+        n_pass = 0
+        for val in sub_ep["replay_audit_pass"]:
+            if pd.isna(val):
+                continue
+            if isinstance(val, (bool, np.bool_)):
+                if bool(val):
+                    n_pass += 1
+            elif isinstance(val, str) and val.strip().lower() in ("true", "1", "yes"):
+                n_pass += 1
+            elif isinstance(val, (int, float)) and not isinstance(val, bool) and val == 1:
+                n_pass += 1
+
+        pct = (n_pass / n_total * 100.0) if n_total > 0 else 0.0
+        audit_str = f"{n_pass}/{n_total} ({pct:.0f}\\%)"
 
         de = f"{row['dead_end_traversals_mean']:.1f} $\\pm$ {row['dead_end_traversals_std_ddof1']:.1f}"
         dec_d = f"{row['decision_distance_m_mean']:.3f} $\\pm$ {row['decision_distance_m_std_ddof1']:.3f}"
@@ -96,7 +112,7 @@ def generate_table1(analysis_dir: Path, output_dir: Path) -> Tuple[str, str]:
         )
 
         tex_lines.append(
-            f"{scen} & {meth} & {n} & {tex_route_str} & {row['dead_end_traversals_mean']:.1f} $\\pm$ {row['dead_end_traversals_std_ddof1']:.1f} & {row['decision_distance_m_mean']:.2f} $\\pm$ {row['decision_distance_m_std_ddof1']:.2f} & {row['decision_sim_time_sec_mean']:.1f} $\\pm$ {row['decision_sim_time_sec_std_ddof1']:.1f} & {row['total_distance_m_mean']:.2f} $\\pm$ {row['total_distance_m_std_ddof1']:.2f} & {row['total_sim_time_sec_mean']:.1f} $\\pm$ {row['total_sim_time_sec_std_ddof1']:.1f} \\\\"
+            f"{scen} & {meth} & {n} & {tex_route_str} & {row['dead_end_traversals_mean']:.1f} $\\pm$ {row['dead_end_traversals_std_ddof1']:.1f} & {row['decision_distance_m_mean']:.2f} $\\pm$ {row['decision_distance_m_std_ddof1']:.2f} & {row['decision_sim_time_sec_mean']:.1f} $\\pm$ {row['decision_sim_time_sec_std_ddof1']:.1f} & {row['total_distance_m_mean']:.2f} $\\pm$ {row['total_distance_m_std_ddof1']:.2f} & {row['total_sim_time_sec_mean']:.1f} $\\pm$ {row['total_sim_time_sec_std_ddof1']:.1f} & {audit_str} \\\\"
         )
 
     tex_lines.extend([

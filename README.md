@@ -28,17 +28,17 @@
 
 ## Quick Offline Reproduction (快速离线复现)
 
-无需启动 ROS 2 或 Gazebo 守护进程，可在纯 Python 环境下复现全量审计与统计：
+无需启动 ROS 2 或 Gazebo 守护进程，在具有 Python 3.10+、Node.js 18+ (`npm install`)、Pandoc 与 WeasyPrint 的环境下可一键复现全量审计、统计分析与论文编译：
 
 ```bash
 # 1. 运行一键全量离线复现（自动校验 SHA256、回放 30 个 episode、计算统计、比对基准 CSV、复核 H1）
-./scripts/reproduce_offline.sh --force
+./scripts/reproduce_offline.sh --output-dir "reports/evidence/p2c_pilot_reproduced_$(date +%Y%m%d_%H%M%S)"
 
-# 2. 重新生成论文表格、轨迹地图与编译 PDF 论文
+# 2. 重新生成论文表格、轨迹地图与编译 PDF 论文 (包含 MathJax 矢量公式预渲染与表格行数校验)
 ./paper/scripts/build_paper_pdf.sh
 
-# 3. 运行完整自动化测试套件 (包含 176 项通过单测与 8 项历史缺陷回归夹具)
-pytest
+# 3. 运行完整自动化测试套件 (包含 190 项通过单测与 8 项历史缺陷回归夹具)
+pytest tests/
 ```
 
 ---

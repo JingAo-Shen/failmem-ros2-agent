@@ -47,10 +47,10 @@ def main():
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), sharex=True, sharey=True)
 
     episodes = [
-        ("D1_F_ep1", "Scenario D1: FailMem ($F$)", "#d97706", axes[0, 0], "Avoids dead end; directs via South Path B ($13.84\\,\\text{m}$)"),
-        ("D1_R_ep1", "Scenario D1: Reactive ($R$)", "#dc2626", axes[0, 1], "Uninformed retry to gate, retreats, takes Path B ($17.50\\,\\text{m}$)"),
-        ("D2_F_ep1", "Scenario D2: FailMem ($F$)", "#16a34a", axes[1, 0], "Dynamic invalidation on FREE; directs via North Path A ($16.23\\,\\text{m}$)"),
-        ("D2_M1_ep1", "Scenario D2: Persistent ($M1$)", "#9333ea", axes[1, 1], "Permanent suppression forces detour via South Path B ($18.34\\,\\text{m}$)"),
+        ("D1_F_ep1", "Scenario D1: FailMem ($F$)", "#d97706", axes[0, 0], "Avoids dead end;\ndirects via South Path B ($13.84\\,\\text{m}$)"),
+        ("D1_R_ep1", "Scenario D1: Reactive ($R$)", "#dc2626", axes[0, 1], "Uninformed retry to gate;\nretreats, takes Path B ($17.50\\,\\text{m}$)"),
+        ("D2_F_ep1", "Scenario D2: FailMem ($F$)", "#16a34a", axes[1, 0], "Dynamic invalidation on FREE;\ndirects via North Path A ($16.23\\,\\text{m}$)"),
+        ("D2_M1_ep1", "Scenario D2: Persistent ($M1$)", "#9333ea", axes[1, 1], "Permanent suppression;\ndetour via South Path B ($18.34\\,\\text{m}$)"),
     ]
 
     for ep_id, title, color, ax, subtitle in episodes:

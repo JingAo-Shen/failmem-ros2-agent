@@ -3,20 +3,20 @@
 \caption{Condition-Level Navigation Performance Across 30 Physical Simulation Runs ($n=3$ per condition, mean $\pm$ sample std dev, $ddof=1$).}
 \label{tab:condition_summary}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{llclccccc}
+\begin{tabular}{llclcccccc}
 \hline
-Scenario & Method & $n$ & Actual Route & Dead-Ends & Decision Dist (m) & Decision Time (s) & Total Dist (m) & Total Time (s) \\
+Scenario & Method & $n$ & Actual Route & Dead-Ends & Decision Dist (m) & Decision Time (s) & Total Dist (m) & Total Time (s) & Replay Audit Pass \\
 \hline
-D0 & R & 3 & Path\_A & 0.0 $\pm$ 0.0 & 6.16 $\pm$ 0.04 & 51.5 $\pm$ 1.7 & 6.16 $\pm$ 0.04 & 51.5 $\pm$ 1.7 \\
-D0 & O & 3 & Path\_A & 0.0 $\pm$ 0.0 & 6.20 $\pm$ 0.01 & 50.0 $\pm$ 0.8 & 6.20 $\pm$ 0.01 & 50.0 $\pm$ 0.8 \\
-D0 & F & 3 & Path\_A & 0.0 $\pm$ 0.0 & 6.20 $\pm$ 0.03 & 49.9 $\pm$ 0.5 & 6.20 $\pm$ 0.03 & 49.9 $\pm$ 0.5 \\
-D1 & R & 3 & Path\_A\_then\_Path\_B & 1.0 $\pm$ 0.0 & 10.82 $\pm$ 0.07 & 82.1 $\pm$ 4.4 & 17.22 $\pm$ 0.24 & 141.0 $\pm$ 5.9 \\
-D1 & O & 3 & Path\_B & 0.0 $\pm$ 0.0 & 7.55 $\pm$ 0.05 & 50.0 $\pm$ 2.0 & 13.95 $\pm$ 0.07 & 108.7 $\pm$ 2.7 \\
-D1 & F & 3 & Path\_B & 0.0 $\pm$ 0.0 & 7.54 $\pm$ 0.00 & 48.2 $\pm$ 1.0 & 14.03 $\pm$ 0.25 & 109.5 $\pm$ 1.6 \\
-D2 & R & 3 & Path\_A & 0.0 $\pm$ 0.0 & 5.92 $\pm$ 0.04 & 49.6 $\pm$ 1.6 & 16.34 $\pm$ 0.03 & 148.2 $\pm$ 3.2 \\
-D2 & O & 3 & Path\_A & 0.0 $\pm$ 0.0 & 5.94 $\pm$ 0.07 & 52.0 $\pm$ 1.7 & 16.40 $\pm$ 0.24 & 149.8 $\pm$ 0.6 \\
-D2 & F & 3 & Path\_A & 0.0 $\pm$ 0.0 & 5.89 $\pm$ 0.02 & 51.1 $\pm$ 1.0 & 16.25 $\pm$ 0.10 & 151.1 $\pm$ 7.8 \\
-D2 & M1 & 3 & Path\_B & 0.0 $\pm$ 0.0 & 7.89 $\pm$ 0.02 & 51.3 $\pm$ 2.0 & 18.25 $\pm$ 0.09 & 148.8 $\pm$ 2.4 \\
+D0 & R & 3 & Path\_A & 0.0 $\pm$ 0.0 & 6.16 $\pm$ 0.04 & 51.5 $\pm$ 1.7 & 6.16 $\pm$ 0.04 & 51.5 $\pm$ 1.7 & 3/3 (100\%) \\
+D0 & O & 3 & Path\_A & 0.0 $\pm$ 0.0 & 6.20 $\pm$ 0.01 & 50.0 $\pm$ 0.8 & 6.20 $\pm$ 0.01 & 50.0 $\pm$ 0.8 & 3/3 (100\%) \\
+D0 & F & 3 & Path\_A & 0.0 $\pm$ 0.0 & 6.20 $\pm$ 0.03 & 49.9 $\pm$ 0.5 & 6.20 $\pm$ 0.03 & 49.9 $\pm$ 0.5 & 3/3 (100\%) \\
+D1 & R & 3 & Path\_A\_then\_Path\_B & 1.0 $\pm$ 0.0 & 10.82 $\pm$ 0.07 & 82.1 $\pm$ 4.4 & 17.22 $\pm$ 0.24 & 141.0 $\pm$ 5.9 & 3/3 (100\%) \\
+D1 & O & 3 & Path\_B & 0.0 $\pm$ 0.0 & 7.55 $\pm$ 0.05 & 50.0 $\pm$ 2.0 & 13.95 $\pm$ 0.07 & 108.7 $\pm$ 2.7 & 3/3 (100\%) \\
+D1 & F & 3 & Path\_B & 0.0 $\pm$ 0.0 & 7.54 $\pm$ 0.00 & 48.2 $\pm$ 1.0 & 14.03 $\pm$ 0.25 & 109.5 $\pm$ 1.6 & 3/3 (100\%) \\
+D2 & R & 3 & Path\_A & 0.0 $\pm$ 0.0 & 5.92 $\pm$ 0.04 & 49.6 $\pm$ 1.6 & 16.34 $\pm$ 0.03 & 148.2 $\pm$ 3.2 & 3/3 (100\%) \\
+D2 & O & 3 & Path\_A & 0.0 $\pm$ 0.0 & 5.94 $\pm$ 0.07 & 52.0 $\pm$ 1.7 & 16.40 $\pm$ 0.24 & 149.8 $\pm$ 0.6 & 3/3 (100\%) \\
+D2 & F & 3 & Path\_A & 0.0 $\pm$ 0.0 & 5.89 $\pm$ 0.02 & 51.1 $\pm$ 1.0 & 16.25 $\pm$ 0.10 & 151.1 $\pm$ 7.8 & 3/3 (100\%) \\
+D2 & M1 & 3 & Path\_B & 0.0 $\pm$ 0.0 & 7.89 $\pm$ 0.02 & 51.3 $\pm$ 2.0 & 18.25 $\pm$ 0.09 & 148.8 $\pm$ 2.4 & 3/3 (100\%) \\
 \hline
 \end{tabular}%
 }
