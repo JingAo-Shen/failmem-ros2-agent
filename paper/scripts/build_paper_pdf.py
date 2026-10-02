@@ -338,7 +338,29 @@ def build_pdf() -> Dict[str, Any]:
     inspection = inspect_pdf_pages(OUTPUT_PDF)
     print(f"\n[PDF INSPECTION] Total Pages: {inspection['total_pages']}, Math Clean: {inspection['math_clean']}")
 
-    # 7. Capture post-build workspace state and generated artifact hashes
+    # 7. Build and inspect supplementary PDF
+    supp_md_path = PAPER_DIR / "supplementary.md"
+    supp_html_path = PAPER_DIR / "supplementary.html"
+    supp_pdf_path = PAPER_DIR / "supplementary.pdf"
+    print(f"Building supplementary PDF from {supp_md_path}...")
+    supp_pandoc_cmd = [
+        "pandoc",
+        str(supp_md_path),
+        f"--css={STYLE_CSS}",
+        "--standalone",
+        "--mathjax",
+        "--metadata", "title=FailMem Supplementary Materials",
+        "-o", str(supp_html_path),
+    ]
+    subprocess.run(supp_pandoc_cmd, check=True, cwd=PAPER_DIR)
+    render_math_to_svg(supp_html_path)
+    subprocess.run(["weasyprint", str(supp_html_path), str(supp_pdf_path)], check=True, cwd=PAPER_DIR)
+
+    supp_info_raw = subprocess.check_output(["pdfinfo", str(supp_pdf_path)], text=True)
+    supp_pages_match = re.search(r"Pages:\s+(\d+)", supp_info_raw)
+    supp_total_pages = int(supp_pages_match.group(1)) if supp_pages_match else 2
+
+    # 8. Capture post-build workspace state and generated artifact hashes
     try:
         post_status_raw = subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO_ROOT, text=True).strip()
         post_dirty = bool(post_status_raw)
@@ -349,6 +371,8 @@ def build_pdf() -> Dict[str, Any]:
     artifact_files = [
         OUTPUT_PDF,
         OUTPUT_HTML,
+        supp_pdf_path,
+        supp_html_path,
         PAPER_DIR / "figures" / "trajectories_map.png",
         PAPER_DIR / "figures" / "trajectories_map.pdf",
         TABLES_DIR / "table1_condition_summary.md",
@@ -388,10 +412,17 @@ def build_pdf() -> Dict[str, Any]:
             "total_pages": inspection["total_pages"],
             "page_images": inspection["page_images"],
         },
+        "supplementary_pdf_output": {
+            "path": str(supp_pdf_path),
+            "file_size_bytes": supp_pdf_path.stat().st_size,
+            "sha256": compute_file_sha256(supp_pdf_path),
+            "total_pages": supp_total_pages,
+        },
         "inspection": {
             "executor": inspection.get("inspection_executor", "Antigravity AI Agent (Automated rasterization & regex analysis)"),
             "human_verified": False,
-            "note": "Automated rasterization and text inspection executed by AI Agent; not certified as human visual examination.",
+            "visual_examination": False,
+            "note": "Automated rasterization and text regex inspection executed by AI Agent. Visual layout examination by human eye has NOT been performed.",
         },
         "build_status": "SUCCESS",
     }
@@ -402,6 +433,7 @@ def build_pdf() -> Dict[str, Any]:
 
     print(f"[SUCCESS] Build report saved to {report_path}")
     print(f"[SUCCESS] Successfully compiled {OUTPUT_PDF} ({OUTPUT_PDF.stat().st_size / 1024:.1f} KB, {inspection['total_pages']} pages)")
+    print(f"[SUCCESS] Successfully compiled {supp_pdf_path} ({supp_pdf_path.stat().st_size / 1024:.1f} KB, {supp_total_pages} pages)")
     return build_report
 
 

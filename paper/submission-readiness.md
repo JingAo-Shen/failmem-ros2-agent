@@ -29,18 +29,18 @@
 
 ## 2. Evidence Datasets & Code Versioning
 
-To ensure scientific integrity and provenance traceability, the codebase and documentation versions are strictly distinguished:
+To ensure scientific integrity and provenance traceability, the codebase and documentation versions are strictly distinguished across experimental and manuscript stages:
 
-- **Git Branch**: `audit/r0-authenticity`
-- **Frozen Experimental Execution Commit**: `e3cce9d94469217757e249392f9e40a6f86e23ae`  
-  *(The immutable codebase state under which all physical Gazebo 11 simulations, raw evidence logging, offline reproductions, and pytest suite baselines were executed).*
-- **Current Manuscript & Policy Review Commit**: `e5b5240` (and subsequent text calibration commits)  
-  *(Tracks finalized manuscript draft, supplementary files, verified venue policies, and compiled PDF deliverables).*
-- **Baseline Raw Evidence**: `reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/` (271 raw files verified against `checksums.sha256`).
-- **Independent Reproduction Evidence**: `reports/evidence/p2c_pilot_reproduced_20261002_142300/` (reproduced 30 runs with exact 0 numeric diffs against baseline CSVs).
-- **H1 Feasibility Evidence**: `reports/evidence/p2d_h1_feasibility/` (25 raw files across 4 physical runs).
-- **Project Node Dependencies**: `./package.json` (`mathjax-full@3.2.2`).
-- **Python Test Suite**: `pytest tests/` (191 passed, 8 historical regression fixtures xfailed).
+1. **Original Physical Simulation Execution Phase**:
+   - **Main Comparative Benchmark (P2c, 30 runs)**: Executed under protocol v4.2 freeze in the original simulation environment (`reports/evidence/p2c_pilot/p2c_pilot_20261001_022711_0d3c35/`, 271 raw files verified against `checksums.sha256`).
+   - **Action-Conditioned Feasibility Trial ($H_1$, 4 runs)**: Executed under the $H_1$ exploratory protocol (`reports/evidence/p2d_h1_feasibility/`, 25 raw files across 4 physical runs).
+2. **Independent Offline Reproduction Version**:
+   - Executed offline on commit `e3cce9d` / `351c2de` (`reports/evidence/p2c_pilot_reproduced_20261002_142300/`), independently rescoring all trajectories and achieving exact 0 numeric diffs against baseline CSVs without running Gazebo.
+3. **Current Manuscript & Policy Review Version**:
+   - Tracks the 9-page internal review manuscript, supplementary material, verified venue policies, and compiled PDF deliverables.
+4. **Environment & Regression Baselines**:
+   - **Project Node Dependencies**: `./package.json` (`mathjax-full@3.2.2`).
+   - **Python Test Suite**: `pytest tests/` (191 passed, 8 historical regression fixtures xfailed).
 
 ---
 
@@ -49,7 +49,7 @@ To ensure scientific integrity and provenance traceability, the codebase and doc
 The following items are deferred pending internal review and target venue selection. **No information has been invented**:
 
 1. **Official Template Adaptation**:
-   - The manuscript is currently compiled in a neutral, highly readable Markdown/HTML/PDF format.
+   - The manuscript is currently compiled as a 9-page neutral internal review draft.
    - Once a venue is formally selected (e.g., IEEE RA-L `IEEEtran.cls` or Elsevier `SoftwareX`), final column formatting, bibstyle, and author blocks will be styled according to that publisher's official LaTeX template.
 2. **Author Names & Order**:
    - Currently formatted as `Anonymous Authors`.
@@ -82,31 +82,35 @@ The following items are deferred pending internal review and target venue select
 ### Justification:
 1. **Scientific Integrity**: The manuscript strictly adheres to Positioning B (Exploratory Boundary Analysis & Negative Findings). It does not overclaim algorithmic superiority over spatial caching in static 2D geometry, acknowledges the exploratory sample size ($n=3$), reports comparable duration in D2 without speculative speed claims, and transparently documents the No-Go outcome of candidate action profiles ($H_1$).
 2. **Reviewer Readability**: The abstract follows the structured "Problem–Implementation–Experiment–Results–Limitations" format. Methodological implementation details and mathematical definitions are preserved in [`paper/supplementary.md`](supplementary.md), leaving the main text concise and accessible.
-3. **Technical Reproducibility**: Every number reported in Tables 1, 2, and 3 is directly tied to serialized physical evidence through the cryptographic hash chain. The build pipeline runs deterministically with project-local dependencies.
+3. **Technical Reproducibility**: Every number reported in the numerical result tables (Tables 2–4) is directly tied to serialized physical evidence through the cryptographic hash chain (Table 1 is a qualitative mechanism taxonomy table). The build pipeline runs deterministically with project-local dependencies.
 
 ---
 
 ## 6. 决策摘要（作者团队审阅参考）
 
 ### 1. 当前已证实的事实（Firmly Confirmed）
-- **死胡同消除（D1）**：在通道受阻时，历史记忆（$F$ 与 $O$）消除了无指导的重复死胡同试探（$0.0$ 次 vs $1.0$ 次），相对反应式重试基线（$R$）减少了约 $18.5\%$ 的行进距离与 $22.3\%$ 的仿真耗时。
-- **动态失效避免永久绕路（D2）**：障碍移除后，基于传感器感知的动态失效使得 $F$ 恢复走主通道，相对永久抑制基线（$M1$）减少了约 $11.0\%$ 的物理行进距离（$16.25\,\text{m}$ vs $18.25\,\text{m}$）；但平均总仿真耗时增加了约 $1.5\%$（$151.1\,\text{s}$ vs $148.8\,\text{s}$），本实验未观察到耗时收益。
-- **完全可审计的离线回放契约**：全套 30 次实验运行及 4 次 $H_1$ 运行的原始日志均通过密码学哈希清单与离线停机稳定性评分校验（通过率 $100\%$）。
+- **死胡同消除（D1）**：在通道受阻场景（D1）中，FailMem ($F$) 消除了无指导的重复死胡同试探（$0.0$ 次 vs $1.0$ 次），相对反应式重试基线（$R$）减少了约 $18.5\%$ 的行进距离（$14.03\,\text{m}$ vs $17.22\,\text{m}$）与 $22.3\%$ 的仿真耗时（$109.5\,\text{s}$ vs $141.0\,\text{s}$）。空间缓存基线（$O$）在 D1 中同样避免了死胡同试探（总距离 $13.95\,\text{m}$，总耗时 $108.7\,\text{s}$）。
+- **动态失效避免永久绕路（D2）**：障碍移除后，基于传感器感知的动态失效使得 $F$ 恢复选择主通道，相对永久抑制基线（$M1$）减少了约 $11.0\%$ 的物理行进距离（$16.25\,\text{m}$ vs $18.25\,\text{m}$）；但平均总仿真耗时增加了约 $1.5\%$（$151.1\,\text{s}$ vs $148.8\,\text{s}$），本实验未观察到耗时收益，具体原因未经验证。
+- **实验数据与审计指标分别核验情况**：
+  - *文件哈希完整性*：主实验目录 271 个文件与 $H_1$ 目录 25 个文件均 $100\%$ 通过 `checksums.sha256` 完整性校验，无篡改或丢失。
+  - *主实验离线回放评分（P2c，30 次运行）*：全部 10 种条件（每种 3 次运行）的离线轨迹回放均满足物理停机与稳定性判据（$|v_{\text{lin}}| \le 0.05\,\text{m/s}, |v_{\text{ang}}| \le 0.08\,\text{rad/s}$），回放审计通过率为 $30/30$（$100\%$）。
+  - *动作条件可行性检查（$H_1$，4 次运行）Nav2 状态*：Nav2 局部规划器在全部 4 次运行中均返回 `SUCCEEDED`（状态码 4，通过率 4/4）。
+  - *动作条件可行性检查（$H_1$，4 次运行）严格物理到达与稳定性*：严格物理到达与稳定检查通过率为 3/4；其中 `H1_aligned_run1` 运行在停机窗口内的最大角速度为 $0.1068\,\text{rad/s}$，超过了 $0.08\,\text{rad/s}$ 的静止阈值，未计入严格物理到达成功。
 
 ### 2. 当前未证实/已主动排除的事实（Unconfirmed / Disclaimed）
 - **未证实 F 相对 O 的额外收益**：在当前二维静态几何布局与样本中，$F$ 与空间代价地图缓存（$O$）选择了完全相同的拓扑路径，距离与耗时差异 $<1\%$。不能据此断言普遍无效，亦未证明统计等价。
 - **D2 时间差异原因未证实**：关于通过窄门与走长廊之间的速度、加减速差异，当前未采集速度轨迹分析，不作定论。
-- **动作条件记忆优势未证实（H1）**：在 4 次可行性检查中，Nav2 局部规划器以 4/4 `SUCCEEDED` 通过门框膨胀层，候选场景未建立可执行性差异，已依规则停止。
+- **动作条件记忆优势未证实（H1）**：在 4 次可行性检查中，Nav2 局部规划器以 4/4 `SUCCEEDED` 通过门框膨胀层，候选场景未建立可执行性差异，已依规则停止本轮探索。
 - **动态失效非 F 独占**：空间缓存基线（$O$）在观测到空闲空间后同样会更新代价地图并解除阻塞。
 
 ### 3. 现有可供审阅的交付物
-- 主文手稿及 PDF：[`paper/draft.md`](draft.md) 与 [`paper/paper.pdf`](paper.pdf)（9 页排版，矢量公式）。
-- 附录材料及 PDF：[`paper/supplementary.md`](supplementary.md) 与 [`paper/supplementary.pdf`](supplementary.pdf)。
-- 投稿渠道政策核验表：[`paper/venue-shortlist.md`](venue-shortlist.md)（含 RA-L、SoftwareX、IEEE Access 详细政策与决策对比表）。
+- 主文手稿及 PDF：[`paper/draft.md`](draft.md) 与 [`paper/paper.pdf`](paper.pdf)（9 页中性格式内部审阅稿，尚未适配投稿模板，含 Tables 2–4 与矢量公式）。
+- 附录材料及 PDF：[`paper/supplementary.md`](supplementary.md) 与 [`paper/supplementary.pdf`](supplementary.pdf)（2 页排版，含预条件、回放算法与参数映射）。
+- 投稿渠道政策核验表：[`paper/venue-shortlist.md`](venue-shortlist.md)（含 RA-L、SoftwareX、IEEE Access 政策与决策对比表）。
 - 完整可复现实验证据库与代码套件（191 个单元测试全部通过）。
 
-### 4. 需作者团队决定的后续路线
-- **路线 A（开源技术报告 / arXiv 预印本）**：直接以当前可审计实证基准发布，完整公开负结果与边界，零费用、零拒稿摩擦。
-- **路线 B（Elsevier SoftwareX 软件期刊）**：需团队批准 1–2 周工程解耦工作，将算法独立打包为通用 ROS 2 软件包并准备 $1,100 美元 APC 预算。
-- **路线 C（IEEE RA-L 机器人顶刊）**：需团队立项开展实质性实验扩展（补充真实物理机器人实验或多场景/动作故障分化基准），否则当前负结果与仿真规模极难通过严格双盲同行评审。
-- **当前建议**：先在团队内部完成本套技术报告包的审阅，再决定后续具体出口。
+### 4. 需作者团队决定的后续路线（保持待选）
+- **路线 A（开源技术报告 / arXiv 预印本）**：以当前可审计实证基准发布，完整公开负结果与边界，无强制版面费用。
+- **路线 B（Elsevier SoftwareX 软件期刊）**：需团队批准专用工程解耦工作（将算法独立打包为通用 ROS 2 软件包），并在核实官方现行政策后评估 APC 预算。
+- **路线 C（IEEE RA-L 机器人期刊）**：需团队立项开展实质性实验扩展（补充真实物理机器人实验或多场景/动作故障分化基准），以应对常规同行评审中的质疑风险。
+- **当前建议**：先在团队内部完成本套技术报告包的审阅；是否公开发布、选择期刊或扩展研究，由作者团队决定。

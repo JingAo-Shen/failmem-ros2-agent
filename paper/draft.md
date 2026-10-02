@@ -146,7 +146,7 @@ To investigate whether action configurations (aligned $a_{\text{aligned}}$ vs. d
 <!-- TABLE:table3_h1_feasibility -->
 
 Table 4 summarizes the feasibility trial outcomes. Nav2 returned `SUCCEEDED` (status code 4) in all 4/4 runs, and strict physical arrival was verified in 3/4 runs (`H1_aligned_run1` exceeded the angular velocity halt threshold during the stability window: $0.1068 > 0.08\,\text{rad/s}$). Nav2's `DWBLocalPlanner` navigated the passage without planner abortion across all runs.  
-**Decision & Conclusion**: *本次候选场景未建立预期的动作可执行性差异，因此停止本轮 H1 探索；不构成对一般动作条件失败记忆假设的证伪。*
+**Decision & Conclusion**: *The candidate scenario did not establish the expected executability divergence across actions; exploration for this hypothesis was therefore stopped per protocol, which does not constitute a refutation of the general action-conditioned failure memory hypothesis.*
 
 ---
 
