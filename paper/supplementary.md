@@ -36,7 +36,7 @@ To avoid reliance on self-reported runtime metrics, the independent replay audit
 
 ### S2.1 Replay Integrity Verification Steps
 1. **Manifest Audit**: Verifies every serialized file against `checksums.sha256`.
-2. **Trajectory Integration**: Computes traversed distance by trapezoidal integration of odometry position tuples $\langle x_k, y_k \rangle_{k=1}^K$:
+2. **Trajectory Distance**: Computes traversed distance by summing Euclidean distances between consecutive odometry sample positions $\langle x_k, y_k \rangle_{k=1}^K$:
    $$d = \sum_{k=2}^K \sqrt{(x_k - x_{k-1})^2 + (y_k - y_{k-1})^2}$$
 3. **Halt Stability Verification**: Verifies that upon goal completion, the robot remains stationary over a minimum nominal window of $2.0\,\text{s}$:
    $$\max_{t \in [t_{\text{goal}}, t_{\text{goal}} + \Delta t_{\text{stab}}]} |v_{\text{lin}}(t)| \le 0.05\,\text{m/s}, \quad \max_{t \in [t_{\text{goal}}, t_{\text{goal}} + \Delta t_{\text{stab}}]} |v_{\text{ang}}(t)| \le 0.08\,\text{rad/s}$$

@@ -18,7 +18,7 @@
 | **Venue Shortlist Assessment** | [`paper/venue-shortlist.md`](venue-shortlist.md) | Comparison matrix of 3 real venues (RA-L, SoftwareX, IEEE Access). |
 | **Build Report** | [`paper/build_report.json`](build_report.json) | Tool versions, pre-build git status, post-build changes, and file SHA256 digests. |
 | **Doorway Evaluator** | [`src/doorway_evaluator.py`](../src/doorway_evaluator.py) | Precondition checks and 3-valued clearance evaluation logic. |
-| **Failure Memory Store** | [`src/failmem.py`](../src/failmem.py) | Event-driven failure recording and dynamic sensor invalidation. |
+| **Failure Memory Store** | [`src/failure_memory.py`](../src/failure_memory.py) | Event-driven failure recording and dynamic sensor invalidation. |
 | **Cryptographic Replay Auditor** | [`scripts/replay_and_score_p2c.py`](../scripts/replay_and_score_p2c.py) | Independent offline replay and physical halt stability scoring. |
 | **Statistical Analysis Engine** | [`scripts/analyze_p2c_results.py`](../scripts/analyze_p2c_results.py) | Aggregation script generating `episodes.csv`, `condition_summary.csv`, and `contrasts.csv`. |
 | **One-Step Reproduction** | [`scripts/reproduce_offline.sh`](../scripts/reproduce_offline.sh) | End-to-end checksum verification, replay scoring, and baseline comparison. |
