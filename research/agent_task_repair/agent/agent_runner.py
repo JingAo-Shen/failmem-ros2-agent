@@ -69,7 +69,7 @@ class AgentRunner:
             }
 
             # 1. Plan next step
-            decision, meta = self.planner.decide_next_action(
+            decision, meta_traces = self.planner.decide_next_action(
                 task_instruction=instruction,
                 current_state=current_state,
                 known_state=known_state,
@@ -81,7 +81,10 @@ class AgentRunner:
                 task_index=task_index,
                 step_index=step_idx,
             )
-            llm_traces.append(meta)
+            if isinstance(meta_traces, list):
+                llm_traces.extend(meta_traces)
+            else:
+                llm_traces.append(meta_traces)
 
             tool_name = decision.get("action", "parse_error")
             params = decision.get("params", {})
@@ -135,20 +138,21 @@ class AgentRunner:
             }
             step_history.append(step_entry)
 
-            # 3. Update Memory
+            # 3. Update Memory (Do not record system parsing / syntax errors into environmental memory)
             target_str = str(params.get("target_zone") or params.get("target") or params.get("package_id") or params.get("recipient") or "")
             if not result.success:
                 error_code = result.error_code or result.status.value
-                self.memory.record_action_failure(
-                    event_id=event_id,
-                    task_id=task_id,
-                    action_name=tool_name,
-                    target=target_str,
-                    error_code=error_code,
-                    raw_message=result.message,
-                    observation=result.observation,
-                    sim_time=sim_time,
-                )
+                if result.status not in (StatusCode.PARSE_ERROR, StatusCode.INVALID_PARAMETER):
+                    self.memory.record_action_failure(
+                        event_id=event_id,
+                        task_id=task_id,
+                        action_name=tool_name,
+                        target=target_str,
+                        error_code=error_code,
+                        raw_message=result.message,
+                        observation=result.observation,
+                        sim_time=sim_time,
+                    )
                 sig = f"{tool_name}:{params}"
                 if sig == last_failed_sig:
                     consecutive_failures += 1

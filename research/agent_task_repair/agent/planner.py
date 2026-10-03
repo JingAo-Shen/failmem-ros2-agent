@@ -13,14 +13,42 @@ from .llm_backend import LLMBackend
 from ..memory.baselines import BaseMemoryAdapter
 
 
-VALID_TOOLS = {
-    "navigate": ["target_zone"],
-    "observe": ["target"],
-    "query_status": ["entity"],
-    "pickup": ["package_id", "from_location"],
-    "deliver": ["package_id", "recipient"],
-    "recharge": [],
-    "acquire_credential": ["credential_name"],
+TOOL_SCHEMAS = {
+    "navigate": {
+        "required": ["target_zone"],
+        "types": {"target_zone": str},
+        "allowed_extra": [],
+    },
+    "observe": {
+        "required": ["target"],
+        "types": {"target": str},
+        "allowed_extra": [],
+    },
+    "query_status": {
+        "required": ["entity"],
+        "types": {"entity": str},
+        "allowed_extra": [],
+    },
+    "pickup": {
+        "required": ["package_id", "from_location"],
+        "types": {"package_id": str, "from_location": str},
+        "allowed_extra": [],
+    },
+    "deliver": {
+        "required": ["package_id", "recipient"],
+        "types": {"package_id": str, "recipient": str},
+        "allowed_extra": [],
+    },
+    "recharge": {
+        "required": [],
+        "types": {},
+        "allowed_extra": [],
+    },
+    "acquire_credential": {
+        "required": ["credential_name"],
+        "types": {"credential_name": str},
+        "allowed_extra": [],
+    },
 }
 
 MAP_ADJACENCY = {
@@ -32,46 +60,33 @@ MAP_ADJACENCY = {
     "Lab_Secure": ["Corridor_South"],
 }
 
+
+def format_map_topology_description(adjacency_map: Optional[Dict[str, List[str]]] = None) -> str:
+    """Dynamically generates a declarative topological description from environment adjacency."""
+    adj = adjacency_map or MAP_ADJACENCY
+    lines = ["### Environmental Map Topology:"]
+    for zone, neighbors in adj.items():
+        lines.append(f"- Zone '{zone}' connects directly to: {neighbors}")
+    return "\n".join(lines)
+
+
 SYSTEM_PROMPT = """You are an autonomous mobile delivery robot operating in an indoor office and lab environment.
 Your goal is to complete all delivery tasks step-by-step safely, efficiently, and without violating constraints.
 
-### Map Topology & Routing:
-- Lobby <-> Corridor_North (via door_north), Lobby <-> Corridor_South (via door_south)
-- Corridor_North <-> Office_A, Corridor_North <-> Office_B, Corridor_North <-> Corridor_South
-- Corridor_South <-> Office_A, Corridor_South <-> Lab_Secure (REQUIRES security_badge)
-- Key Connectivity:
-  * Office_A is reachable from BOTH Corridor_North and Corridor_South.
-  * Office_B is reachable ONLY from Corridor_North.
-  * Lab_Secure is reachable ONLY from Corridor_South (and requires security_badge from Office_A).
-  * You cannot jump between rooms directly without going through the connecting corridor.
-
-### Available Tools (You MUST use ONLY these 7 tools; never use noop, none, or check_inventory):
-1. `pickup(package_id, from_location)`: Pick up package from current room into your inventory bag (max capacity: 2).
-   * Example: `{"action": "pickup", "params": {"package_id": "pkg_docs", "from_location": "Lobby"}}`
-2. `deliver(package_id, recipient)`: Hand over package from inventory bag to recipient in current room.
-   * Example: `{"action": "deliver", "params": {"package_id": "pkg_docs", "recipient": "Alice"}}`
-3. `navigate(target_zone)`: Move to an adjacent zone.
-   * Example: `{"action": "navigate", "params": {"target_zone": "Corridor_North"}}`
-4. `observe(target)`: Scan door or inspect room.
-   * Example: `{"action": "observe", "params": {"target": "door_north"}}`
-5. `query_status(entity)`: Query recipient availability ('Alice', 'Bob', 'Charlie') or 'battery'.
-   * Example: `{"action": "query_status", "params": {"entity": "Alice"}}`
-6. `acquire_credential(credential_name)`: Pick up badge in current room (e.g. 'security_badge' in Office_A).
-   * Example: `{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}`
+### Available Tools:
+1. `pickup(package_id, from_location)`: Pick up package from current room into inventory (max capacity: 2).
+2. `deliver(package_id, recipient)`: Hand over package from inventory to recipient in current room.
+3. `navigate(target_zone)`: Move to an allowed adjacent zone.
+4. `observe(target)`: Scan door or inspect room contents.
+5. `query_status(entity)`: Query recipient availability or battery.
+6. `acquire_credential(credential_name)`: Pick up credential in current room.
 7. `recharge()`: Fully recharge battery at Lobby charging station.
-   * Example: `{"action": "recharge", "params": {}}`
 
 ### Action Selection Protocol:
-1. Deliver Now: If you are holding a package whose target room is your current location (see Deliverable Packages), execute `deliver` immediately! (NEVER leave room or call noop without delivering first).
-2. Pickup Now: If there are pickable packages in your current room (see Pickable Packages) and bag has space (< 2), execute `pickup` immediately! (Pick up all available packages at current location before leaving).
-3. Target Navigation:
-   - If holding package for Room X and Room X is in Allowed Adjacent Zones, execute `navigate(Room X)`.
-   - If holding package for Office_B, navigate to Corridor_North.
-   - If holding package for Lab_Secure, navigate to Corridor_South (with security_badge).
-   - If not holding packages, navigate to the room where undelivered packages are located.
-   - Choose target_zone ONLY from Allowed Adjacent Zones. Never navigate to your current zone.
-4. Blockage Detour: If `navigate` fails with `DOORWAY_BLOCKED`, take the other corridor (e.g. Corridor_South).
-5. Credentials: If entering `Lab_Secure`, visit `Office_A` to call `acquire_credential('security_badge')` first.
+1. Deliver: If you are holding a package whose target room is your current location, execute `deliver` immediately.
+2. Pickup: If there are pickable packages in your current room and inventory has space (< 2), execute `pickup`.
+3. Navigate: Move towards target locations using allowed adjacent zones. Do not navigate to current zone.
+4. Experience & Conditions: Inspect retrieved failure memories and current known facts to avoid known obstacles or satisfy missing preconditions.
 
 ### Output JSON Format:
 Output strictly a single JSON codeblock:
@@ -85,9 +100,15 @@ Output strictly a single JSON codeblock:
 
 
 class AgentPlanner:
-    def __init__(self, llm_backend: LLMBackend, memory_adapter: BaseMemoryAdapter):
+    def __init__(
+        self,
+        llm_backend: LLMBackend,
+        memory_adapter: BaseMemoryAdapter,
+        adjacency_map: Optional[Dict[str, List[str]]] = None,
+    ):
         self.llm = llm_backend
         self.memory = memory_adapter
+        self.adjacency_map = adjacency_map or MAP_ADJACENCY
 
     def decide_next_action(
         self,
@@ -101,17 +122,17 @@ class AgentPlanner:
         seq_id: str = "seq_default",
         task_index: int = 0,
         step_index: int = 1,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """
         Plans the next action.
-        Returns: (parsed_decision_dict, llm_metadata)
+        Returns: (parsed_decision_dict, list_of_llm_trace_dicts)
         """
         robot_loc = current_state.get("robot_location", "Lobby")
         inventory = current_state.get("inventory", [])
         avail_pkgs = current_state.get("available_packages", [])
-        adjacent_zones = MAP_ADJACENCY.get(robot_loc, [])
+        adjacent_zones = self.adjacency_map.get(robot_loc, [])
 
-        # Check immediate affordances in current room (public logic)
+        # Check immediate affordances in current room
         pickable_here = [
             {"package_id": p["id"], "pickup_location": p["pickup_location"], "target_room": p["target_room"], "recipient": p["recipient"]}
             for p in avail_pkgs
@@ -128,11 +149,18 @@ class AgentPlanner:
             if p["id"] in inventory
         ]
 
-        # 1. Multi-attribute memory query context
+        # 1. Decoupled Multi-Attribute Memory Query Context
+        # Separates current location from candidate target entities (adjacent zones, package targets, recipients)
+        task_targets = [p["target_room"] for p in avail_pkgs if p["id"] in inventory] or [p["pickup_location"] for p in avail_pkgs]
+        task_recipients = [p.get("recipient") for p in avail_pkgs if p.get("recipient")]
+        candidate_action_entities = list(set(adjacent_zones + task_targets + task_recipients + [robot_loc]))
+
         context_query = {
             "current_location": robot_loc,
+            "adjacent_zones": adjacent_zones,
+            "task_targets": task_targets,
+            "candidate_entities": candidate_action_entities,
             "inventory": inventory,
-            "target": robot_loc,
             "credentials": current_state.get("credentials", []),
             "task_instruction": task_instruction,
             "undelivered_packages": [p.get("id") for p in avail_pkgs],
@@ -142,6 +170,7 @@ class AgentPlanner:
         # 2. Build User Prompt with explicit public state
         user_prompt_lines = [
             f"### Current Delivery Task: {task_instruction}",
+            format_map_topology_description(self.adjacency_map),
             f"### Current Robot Status:",
             f"- Current Location: {robot_loc}",
             f"- Allowed Adjacent Zones for 'navigate': {adjacent_zones}",
@@ -175,52 +204,65 @@ class AgentPlanner:
             {"role": "user", "content": user_prompt},
         ]
 
+        llm_traces_recorded = []
+
         # 3. Call LLM (Attempt 1)
         gen_res = self.llm.generate(messages)
         content = gen_res.get("content", "")
 
-        # 4. Strict JSON Parse with 1-shot retry
-        decision, parse_ok = self._strict_parse_json(content)
-        retry_used = False
-
-        if not parse_ok:
-            retry_used = True
-            retry_messages = list(messages)
-            retry_messages.append({"role": "assistant", "content": content})
-            retry_messages.append({
-                "role": "user",
-                "content": f"Formatting Error: Output could not be parsed as valid JSON matching schema. Please output ONLY a valid JSON object matching the format:\n```json\n{{\"decision_summary\": \"...\", \"action\": \"<tool_name>\", \"params\": {{...}}}}\n```"
-            })
-            retry_res = self.llm.generate(retry_messages)
-            retry_content = retry_res.get("content", "")
-            decision, parse_ok = self._strict_parse_json(retry_content)
-
-            gen_res["prompt_tokens"] += retry_res.get("prompt_tokens", 0)
-            gen_res["generated_tokens"] += retry_res.get("generated_tokens", 0)
-            gen_res["latency_s"] += retry_res.get("latency_s", 0.0)
-
-            if not parse_ok:
-                decision = {
-                    "decision_summary": "PARSE_FAILURE: Failed to produce valid JSON tool call after retry.",
-                    "action": "parse_error",
-                    "params": {"raw_output": retry_content or content},
-                }
-
-        metadata = {
-            "event_id": f"evt_{run_id}_{method_name}_{seq_id}_{task_id}_s{step_index:02d}_att1",
+        trace_att1 = {
+            "event_id": f"evt_{run_id}_{method_name}_{seq_id}_{task_id}_s{step_index:02d}_call1",
             "prompt_tokens": gen_res.get("prompt_tokens", 0),
             "generated_tokens": gen_res.get("generated_tokens", 0),
             "latency_s": gen_res.get("latency_s", 0.0),
             "raw_response": content,
-            "retry_used": retry_used,
-            "parse_ok": parse_ok,
+            "retry_used": False,
+            "parse_ok": False,
             "retrieved_memories": list(retrieved_memories),
         }
 
-        return decision, metadata
+        # 4. Strict Schema & JSON Validation
+        decision, parse_ok, parse_err = self._strict_validate_schema(content)
+        trace_att1["parse_ok"] = parse_ok
+        llm_traces_recorded.append(trace_att1)
 
-    def _strict_parse_json(self, text: str) -> Tuple[Dict[str, Any], bool]:
-        """Strict JSON parser validating required keys and tool schema."""
+        if not parse_ok:
+            # Attempt 2: Strict format retry (recorded as independent LLM invocation)
+            retry_messages = list(messages)
+            retry_messages.append({"role": "assistant", "content": content})
+            retry_messages.append({
+                "role": "user",
+                "content": f"Schema Validation Error: {parse_err}. Please output ONLY a valid JSON object matching the format:\n```json\n{{\"decision_summary\": \"...\", \"action\": \"<tool_name>\", \"params\": {{...}}}}\n```"
+            })
+            retry_res = self.llm.generate(retry_messages)
+            retry_content = retry_res.get("content", "")
+
+            trace_att2 = {
+                "event_id": f"evt_{run_id}_{method_name}_{seq_id}_{task_id}_s{step_index:02d}_call2_retry",
+                "prompt_tokens": retry_res.get("prompt_tokens", 0),
+                "generated_tokens": retry_res.get("generated_tokens", 0),
+                "latency_s": retry_res.get("latency_s", 0.0),
+                "raw_response": retry_content,
+                "retry_used": True,
+                "parse_ok": False,
+                "retrieved_memories": list(retrieved_memories),
+            }
+
+            decision, parse_ok, retry_err = self._strict_validate_schema(retry_content)
+            trace_att2["parse_ok"] = parse_ok
+            llm_traces_recorded.append(trace_att2)
+
+            if not parse_ok:
+                decision = {
+                    "decision_summary": f"PARSE_FAILURE: Schema validation failed after retry ({retry_err}).",
+                    "action": "parse_error",
+                    "params": {"raw_output": retry_content or content},
+                }
+
+        return decision, llm_traces_recorded
+
+    def _strict_validate_schema(self, text: str) -> Tuple[Dict[str, Any], bool, str]:
+        """Strict JSON and schema validation ensuring tool name, required parameters, and types."""
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
         if json_match:
             raw_json = json_match.group(1)
@@ -230,13 +272,48 @@ class AgentPlanner:
 
         try:
             parsed = json.loads(raw_json)
-            if isinstance(parsed, dict) and "action" in parsed and "params" in parsed:
-                action = parsed["action"]
-                if action in VALID_TOOLS and isinstance(parsed["params"], dict):
-                    if "decision_summary" not in parsed:
-                        parsed["decision_summary"] = parsed.get("thought", "Action planned.")
-                    return parsed, True
-        except Exception:
-            pass
+        except Exception as e:
+            return {}, False, f"Invalid JSON syntax: {e}"
 
-        return {}, False
+        if not isinstance(parsed, dict):
+            return {}, False, "Output is not a JSON dictionary"
+
+        if "action" not in parsed:
+            return {}, False, "Missing 'action' key in JSON"
+
+        action = parsed["action"]
+        if action not in TOOL_SCHEMAS:
+            return {}, False, f"Unknown tool action '{action}'. Allowed: {list(TOOL_SCHEMAS.keys())}"
+
+        if "params" not in parsed or not isinstance(parsed["params"], dict):
+            return {}, False, "'params' must be a dictionary"
+
+        schema = TOOL_SCHEMAS[action]
+        params = parsed["params"]
+
+        # Check required fields
+        for req_key in schema["required"]:
+            if req_key not in params:
+                return {}, False, f"Missing required parameter '{req_key}' for tool '{action}'"
+            if not isinstance(params[req_key], str) or not params[req_key].strip():
+                return {}, False, f"Parameter '{req_key}' must be a non-empty string"
+
+        # Check type correctness
+        for param_key, val in params.items():
+            if param_key in schema["types"]:
+                expected_type = schema["types"][param_key]
+                if not isinstance(val, expected_type):
+                    return {}, False, f"Parameter '{param_key}' has type {type(val).__name__}, expected {expected_type.__name__}"
+            elif param_key not in schema.get("allowed_extra", []):
+                return {}, False, f"Unexpected extra parameter '{param_key}' for tool '{action}'"
+
+        if "decision_summary" not in parsed:
+            parsed["decision_summary"] = parsed.get("thought", "Action planned.")
+
+        return parsed, True, ""
+
+    def _strict_parse_json(self, raw_text: str) -> Tuple[Dict[str, Any], bool]:
+        """Wrapper around schema validation returning (decision, parse_ok)."""
+        decision, parse_ok, _ = self._strict_validate_schema(raw_text)
+        return decision, parse_ok
+

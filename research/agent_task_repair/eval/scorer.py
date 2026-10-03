@@ -116,12 +116,17 @@ class PilotScorer:
                     failed_action_signatures.add(sig)
 
                 # Grounded Unwarranted Detour:
-                # Robot is at Lobby, goal is Office_A or Office_B,
+                # Robot is at Lobby, goal is Office_A or Office_B (not Lab_Secure),
                 # door_north is physically FREE (unblocked), but robot navigates to Corridor_South.
-                # If door_north is blocked, taking Corridor_South is a LEGAL required detour (not unwarranted).
+                # If door_north is blocked or target is Lab_Secure, taking Corridor_South is direct/legal (not unwarranted).
                 door_north_state = step.get("env_state_snapshot", {}).get("doors", {}).get("door_north", {}).get("blocked", None)
                 robot_loc = step.get("robot_location_before") or step.get("robot_location")
-                if door_north_state is False and robot_loc == "Lobby" and tool == "navigate" and params.get("target_zone") == "Corridor_South":
+                task_inst = r.get("instruction", "")
+                is_lab_target = ("Lab_Secure" in task_inst) or any(
+                    s.get("params", {}).get("target_zone") == "Lab_Secure" or s.get("params", {}).get("recipient") == "Bob"
+                    for s in step_hist
+                )
+                if not is_lab_target and door_north_state is False and robot_loc == "Lobby" and tool == "navigate" and params.get("target_zone") == "Corridor_South":
                     unwarranted_detours += 1
 
             if task_had_parse_error:

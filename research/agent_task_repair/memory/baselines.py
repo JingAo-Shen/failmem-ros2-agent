@@ -199,8 +199,9 @@ class B2_StaticConditionalMemory(BaseMemoryAdapter):
         known_state: Dict[str, Any],
         context_query: Dict[str, Any],
     ) -> List[str]:
+        candidate_entities = context_query.get("candidate_entities") or []
         target = context_query.get("target_zone") or context_query.get("target") or None
-        matches = self.store.retrieve_memories(known_state, query_target=target)
+        matches = self.store.retrieve_memories(known_state, candidate_entities=candidate_entities, query_target=target)
         return [item.format_for_prompt(match_res) for item, match_res in matches[:3]]
 
     def get_stats(self) -> Dict[str, Any]:
@@ -357,8 +358,9 @@ class F_ConditionAwareMemory(BaseMemoryAdapter):
         known_state: Dict[str, Any],
         context_query: Dict[str, Any],
     ) -> List[str]:
+        candidate_entities = context_query.get("candidate_entities") or []
         target = context_query.get("target_zone") or context_query.get("target") or None
-        matches = self.store.retrieve_memories(known_state, query_target=target)
+        matches = self.store.retrieve_memories(known_state, candidate_entities=candidate_entities, query_target=target)
         return [item.format_for_prompt(match_res) for item, match_res in matches[:3]]
 
     def get_stats(self) -> Dict[str, Any]:

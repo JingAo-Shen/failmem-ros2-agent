@@ -1,0 +1,175 @@
+{
+  "recomputed_method_stats": {
+    "B0": {
+      "total_tasks": 45,
+      "successful_tasks": 44,
+      "eval_tasks": 30,
+      "eval_successful_tasks": 30,
+      "seq_total": 15,
+      "seq_full_success": 14,
+      "hard_violation_tasks": 1,
+      "repeated_failures": 18,
+      "unwarranted_detours": 5,
+      "parse_errors": 1,
+      "total_battery": 1166,
+      "total_sim_time": 1502.0,
+      "total_llm_calls": 265
+    },
+    "B1": {
+      "total_tasks": 45,
+      "successful_tasks": 37,
+      "eval_tasks": 30,
+      "eval_successful_tasks": 26,
+      "seq_total": 15,
+      "seq_full_success": 9,
+      "hard_violation_tasks": 8,
+      "repeated_failures": 16,
+      "unwarranted_detours": 5,
+      "parse_errors": 1,
+      "total_battery": 2048,
+      "total_sim_time": 2613.5,
+      "total_llm_calls": 376
+    },
+    "B2": {
+      "total_tasks": 45,
+      "successful_tasks": 42,
+      "eval_tasks": 30,
+      "eval_successful_tasks": 30,
+      "seq_total": 15,
+      "seq_full_success": 12,
+      "hard_violation_tasks": 3,
+      "repeated_failures": 24,
+      "unwarranted_detours": 5,
+      "parse_errors": 1,
+      "total_battery": 1284,
+      "total_sim_time": 1659.5,
+      "total_llm_calls": 289
+    },
+    "B3": {
+      "total_tasks": 45,
+      "successful_tasks": 37,
+      "eval_tasks": 30,
+      "eval_successful_tasks": 29,
+      "seq_total": 15,
+      "seq_full_success": 8,
+      "hard_violation_tasks": 8,
+      "repeated_failures": 21,
+      "unwarranted_detours": 5,
+      "parse_errors": 1,
+      "total_battery": 1632,
+      "total_sim_time": 2085.5,
+      "total_llm_calls": 319
+    },
+    "F": {
+      "total_tasks": 45,
+      "successful_tasks": 42,
+      "eval_tasks": 30,
+      "eval_successful_tasks": 30,
+      "seq_total": 15,
+      "seq_full_success": 12,
+      "hard_violation_tasks": 3,
+      "repeated_failures": 24,
+      "unwarranted_detours": 5,
+      "parse_errors": 1,
+      "total_battery": 1308,
+      "total_sim_time": 1691.5,
+      "total_llm_calls": 293
+    }
+  },
+  "b2_vs_f_divergence_analysis": {
+    "identical_sequences": 11,
+    "divergent_sequences": 4,
+    "divergences_list": [
+      {
+        "sequence_id": "pilot_cat1_seq01",
+        "category": "Cat1_Valid",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat1_seq02",
+        "category": "Cat1_Valid",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat1_seq03",
+        "category": "Cat1_Valid",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat1_seq04",
+        "category": "Cat1_Valid",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat1_seq05",
+        "category": "Cat1_Valid",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat2_seq01",
+        "category": "Cat2_Stale",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat2_seq02",
+        "category": "Cat2_Stale",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat2_seq03",
+        "category": "Cat2_Stale",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat2_seq04",
+        "category": "Cat2_Stale",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat2_seq05",
+        "category": "Cat2_Stale",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat3_seq01",
+        "category": "Cat3_Inapplicable",
+        "first_diff_step": "T1_S9",
+        "detail": "Mem B2=[\"[ACTIVE[UNKNOWN]] navigate(Lab_Secure) failed (SECURITY_BADGE_REQUIRED). Conditions: {'required_credential': 'security_badge'} (Level: FACT)\"] vs F=[] | Act B2=('deliver', {'package_id': 'pkg_c3_01', 'recipient': 'Bob'}) vs F=('deliver', {'package_id': 'pkg_c3_01', 'recipient': 'Bob'})"
+      },
+      {
+        "sequence_id": "pilot_cat3_seq02",
+        "category": "Cat3_Inapplicable",
+        "first_diff_step": "T1_S9",
+        "detail": "Mem B2=[\"[ACTIVE[UNKNOWN]] navigate(Lab_Secure) failed (SECURITY_BADGE_REQUIRED). Conditions: {'required_credential': 'security_badge'} (Level: FACT)\"] vs F=[] | Act B2=('deliver', {'package_id': 'pkg_c3_04', 'recipient': 'Bob'}) vs F=('deliver', {'package_id': 'pkg_c3_04', 'recipient': 'Bob'})"
+      },
+      {
+        "sequence_id": "pilot_cat3_seq03",
+        "category": "Cat3_Inapplicable",
+        "first_diff_step": "NO_DIFF",
+        "detail": ""
+      },
+      {
+        "sequence_id": "pilot_cat3_seq04",
+        "category": "Cat3_Inapplicable",
+        "first_diff_step": "T2_S11",
+        "detail": "Mem B2=[\"[ACTIVE[UNKNOWN]] navigate(Lab_Secure) failed (SECURITY_BADGE_REQUIRED). Conditions: {'required_credential': 'security_badge'} (Level: FACT)\", '[ACTIVE] acquire_credential() failed (PACKAGE_NOT_FOUND). Conditions: {} (Level: FACT)'] vs F=['[ACTIVE] acquire_credential() failed (PACKAGE_NOT_FOUND). Conditions: {} (Level: FACT)'] | Act B2=('deliver', {'package_id': 'pkg_c3_11', 'recipient': 'Bob'}) vs F=('navigate', {'target_zone': 'Corridor_South'})"
+      },
+      {
+        "sequence_id": "pilot_cat3_seq05",
+        "category": "Cat3_Inapplicable",
+        "first_diff_step": "T1_S9",
+        "detail": "Mem B2=[\"[ACTIVE[UNKNOWN]] navigate(Lab_Secure) failed (SECURITY_BADGE_REQUIRED). Conditions: {'required_credential': 'security_badge'} (Level: FACT)\"] vs F=[] | Act B2=('deliver', {'package_id': 'pkg_c3_13', 'recipient': 'Bob'}) vs F=('deliver', {'package_id': 'pkg_c3_13', 'recipient': 'Bob'})"
+      }
+    ]
+  }
+}

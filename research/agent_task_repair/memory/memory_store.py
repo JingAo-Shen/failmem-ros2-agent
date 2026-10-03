@@ -60,7 +60,15 @@ class FailureMemoryItem:
 
         has_unknown = False
         for k, expected_v in self.observable_conditions.items():
-            if k not in known_state:
+            if k == "required_credential":
+                if "credentials" in known_state:
+                    held = set(known_state["credentials"])
+                    if expected_v in held:
+                        # Credential acquired -> condition no longer holds
+                        return ConditionMatchResult.MISMATCH
+                else:
+                    has_unknown = True
+            elif k not in known_state:
                 has_unknown = True
             elif known_state[k] != expected_v:
                 return ConditionMatchResult.MISMATCH
@@ -209,6 +217,7 @@ class ConditionAwareMemoryStore:
     def retrieve_memories(
         self,
         known_state: Dict[str, Any],
+        candidate_entities: Optional[List[str]] = None,
         query_target: Optional[str] = None,
     ) -> List[Tuple[FailureMemoryItem, ConditionMatchResult]]:
         """
@@ -216,6 +225,14 @@ class ConditionAwareMemoryStore:
         Returns list of (item, match_result). Filters out explicit MISMATCH items.
         """
         results = []
+        entity_terms = set()
+        if candidate_entities:
+            for e in candidate_entities:
+                if isinstance(e, str) and e:
+                    entity_terms.add(e.lower())
+        if query_target:
+            entity_terms.add(query_target.lower())
+
         for item in self.memories.values():
             if item.status != MemoryStatus.ACTIVE:
                 continue
@@ -224,12 +241,12 @@ class ConditionAwareMemoryStore:
             if match_res == ConditionMatchResult.MISMATCH:
                 continue  # Inapplicable condition
 
-            # Filter by target or relevant entity if provided
-            if query_target:
+            # Filter by candidate entities or relevant conditions if provided
+            if entity_terms:
                 target_match = (
-                    item.target.lower() in query_target.lower()
-                    or query_target.lower() in item.target.lower()
-                    or any(query_target.lower() in k.lower() for k in item.observable_conditions)
+                    item.target.lower() in entity_terms
+                    or any(t in item.target.lower() for t in entity_terms)
+                    or any(any(t in k.lower() for t in entity_terms) for k in item.observable_conditions)
                 )
                 if not target_match:
                     continue
