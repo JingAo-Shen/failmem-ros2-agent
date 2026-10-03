@@ -155,8 +155,12 @@ class AgentPlanner:
             if p["id"] in inventory
         ]
 
-        # 1. Decoupled Multi-Attribute Memory Query Context
-        # Separates current location from candidate target entities (adjacent zones, package targets, recipients)
+        # 1. Derive Task Skeleton & Active Subgoal (Pre-Memory Step)
+        skeleton_section, active_subgoal = self.task_skeleton.format_skeleton_prompt_section(
+            current_state, known_state, step_history
+        )
+
+        # 2. Decoupled Multi-Attribute Memory Query Context
         task_targets = [p["target_room"] for p in avail_pkgs if p["id"] in inventory] or [p["pickup_location"] for p in avail_pkgs]
         task_recipients = [p.get("recipient") for p in avail_pkgs if p.get("recipient")]
         candidate_action_entities = list(set(adjacent_zones + task_targets + task_recipients + [robot_loc]))
@@ -174,17 +178,19 @@ class AgentPlanner:
             "undelivered_packages": [p.get("id") for p in avail_pkgs],
             "pickable_here": pickable_here,
             "deliverable_here": deliverable_here,
+            "active_subgoal": active_subgoal,
+            "max_inventory_capacity": current_state.get("max_inventory_capacity", self.task_skeleton.max_inventory_capacity),
         }
         retrieved_memories = self.memory.retrieve_relevant_memories(known_state, context_query)
 
-        # 2. Build User Prompt
+        # 3. Build User Prompt
         user_prompt_lines = [
             f"### Current Delivery Task: {task_instruction}",
             format_map_topology_description(self.adjacency_map),
             f"### Current Robot Status:",
             f"- Current Location: {robot_loc}",
             f"- Allowed Adjacent Zones for 'navigate': {adjacent_zones}",
-            f"- Packages Currently Held in Bag (Capacity {len(inventory)}/2): {held_packages_destinations}",
+            f"- Packages Currently Held in Bag (Capacity {len(inventory)}/{current_state.get('max_inventory_capacity', self.task_skeleton.max_inventory_capacity)}): {held_packages_destinations}",
             f"- Deliverable Packages at Current Location ({robot_loc}): {deliverable_here}",
             f"- Pickable Packages Available at Current Location ({robot_loc}): {pickable_here}",
             f"- Undelivered Packages in Environment: {avail_pkgs}",
@@ -194,9 +200,6 @@ class AgentPlanner:
 
         # S1: Public Task Skeleton Injection (if enabled)
         if self.use_task_skeleton:
-            skeleton_section = self.task_skeleton.format_skeleton_prompt_section(
-                current_state, known_state, step_history
-            )
             user_prompt_lines.append(skeleton_section)
 
         if known_state:
