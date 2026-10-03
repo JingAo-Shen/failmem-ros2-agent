@@ -114,6 +114,7 @@ class AgentPlanner:
         self.memory = memory_adapter
         self.adjacency_map = adjacency_map or MAP_ADJACENCY
         self.use_task_skeleton = use_task_skeleton
+        self.system_prompt_addon: Optional[str] = None
         self.task_skeleton = PublicTaskSkeleton(self.adjacency_map, max_inventory_capacity=2)
 
     def decide_next_action(
@@ -219,8 +220,12 @@ class AgentPlanner:
         user_prompt_lines.append("\nPlease output your next action decision in JSON format.")
         user_prompt = "\n".join(user_prompt_lines)
 
+        sys_content = SYSTEM_PROMPT
+        if self.system_prompt_addon:
+            sys_content += "\n\n" + self.system_prompt_addon
+
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": sys_content},
             {"role": "user", "content": user_prompt},
         ]
 

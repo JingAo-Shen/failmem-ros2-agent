@@ -64,6 +64,7 @@ class AgentRunner:
                 "robot_location": env.robot_location,
                 "battery": env.battery,
                 "inventory": list(env.inventory),
+                "max_inventory_capacity": env.max_inventory_capacity,
                 "credentials": list(env.credentials),
                 "available_packages": [
                     {"id": pid, "pickup_location": pdata["location"], "target_room": pdata["target_room"], "recipient": pdata["recipient"]}

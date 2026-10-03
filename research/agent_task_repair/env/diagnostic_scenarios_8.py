@@ -216,9 +216,9 @@ def get_8_diagnostic_scenarios() -> List[Dict[str, Any]]:
         # =====================================================================
         {
             "scenario_id": "scen_8_irrelevant_memory_distraction",
-            "name": "Irrelevant Past Failure in Unrelated Wing (Archive)",
+            "name": "Irrelevant Past Failure in Unrelated Wing (Office_B Blocked)",
             "dimension": "Distraction Immunity",
-            "seed_type": "archive_door_blocked",
+            "seed_type": "unrelated_door_office_b_blocked",
             "task_instruction": "Deliver package pkg_mail from Lobby to Alice in Office_A.",
             "env_config": {
                 "robot_start_location": "Lobby",
@@ -339,28 +339,29 @@ def generate_authentic_seed_history(
         step_hist = [{"step": 1, "tool": "navigate", "params": {"target_zone": "Lab_Secure"}, "result": res.to_dict()}]
         return pre_metrics, step_hist, [failure_event], {}
 
-    elif scenario_type == "archive_door_blocked":
+    elif scenario_type == "unrelated_door_office_b_blocked":
+        # Failure in unrelated room (Office_B blocked) while current task is Lobby -> Office_A
         env_cfg = {
-            "robot_start_location": "Corridor_South",
+            "robot_start_location": "Corridor_North",
             "robot_start_battery": 100,
             "doors": {
-                "door_archive": {"blocked": True, "requires_badge": False, "connects": ("Corridor_South", "Storage_Archive")},
+                "door_office_b": {"blocked": True, "requires_badge": False, "connects": ("Corridor_North", "Office_B")},
             },
         }
         env = DeliveryTaskEnv(env_cfg)
-        res = env.step("navigate", {"target_zone": "Storage_Archive"})
+        res = env.step("navigate", {"target_zone": "Office_B"})
         failure_event = {
             "event_id": "evt_seed_t1_s01",
             "task_id": "seed_t1",
             "action_name": "navigate",
-            "target": "Storage_Archive",
-            "error_code": "DOORWAY_BLOCKED",
+            "target": "Office_B",
+            "error_code": res.error_code or "DOORWAY_BLOCKED",
             "raw_message": res.message,
-            "observation": res.observation or {"door": "door_archive", "passage_state": "OCCUPIED"},
+            "observation": res.observation,
             "sim_time": env.sim_time_s,
         }
         pre_metrics = {"pre_sim_time_s": env.sim_time_s, "pre_battery_consumed": env.cumulative_battery_consumed}
-        step_hist = [{"step": 1, "tool": "navigate", "params": {"target_zone": "Storage_Archive"}, "result": res.to_dict()}]
+        step_hist = [{"step": 1, "tool": "navigate", "params": {"target_zone": "Office_B"}, "result": res.to_dict()}]
         return pre_metrics, step_hist, [failure_event], {}
 
     else:

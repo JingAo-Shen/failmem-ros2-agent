@@ -240,7 +240,12 @@ class PublicTaskSkeleton:
                         is_ready=True,
                     )
                     candidate_subgoals.append(sg_pickup)
-                    if active_subgoal is None or active_subgoal.type == "NAVIGATE":
+                    is_critical_nav = (active_subgoal is not None and (
+                        active_subgoal.id.startswith("sg_nav_to_charger") or 
+                        active_subgoal.id.startswith("sg_recharge") or 
+                        (len(inventory) >= max_cap and active_subgoal.id.startswith("sg_nav_to_deliver"))
+                    ))
+                    if active_subgoal is None or (not is_critical_nav and active_subgoal.type == "NAVIGATE"):
                         active_subgoal = sg_pickup
                 else:
                     unsatisfied_dependencies.append(
