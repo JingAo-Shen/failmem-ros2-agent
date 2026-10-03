@@ -21,10 +21,12 @@ class AgentRunner:
         max_llm_calls: int = 20,
         max_sim_time_s: float = 300.0,
         run_id: str = "run_default",
+        use_task_skeleton: bool = False,
     ):
         self.llm = llm_backend
         self.memory = memory_adapter
-        self.planner = AgentPlanner(llm_backend, memory_adapter)
+        self.use_task_skeleton = use_task_skeleton
+        self.planner = AgentPlanner(llm_backend, memory_adapter, use_task_skeleton=use_task_skeleton)
         self.max_tool_calls = max_tool_calls
         self.max_llm_calls = max_llm_calls
         self.max_sim_time_s = max_sim_time_s
@@ -35,6 +37,7 @@ class AgentRunner:
         task_spec: Dict[str, Any],
         task_index: int = 0,
         seq_id: str = "seq_default",
+        initial_known_state: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         task_id = task_spec.get("task_id", f"task_{task_index}")
         instruction = task_spec.get("instruction", "")
@@ -48,7 +51,7 @@ class AgentRunner:
         llm_traces: List[Dict[str, Any]] = []
         consecutive_failures = 0
         last_failed_sig = None
-        known_state: Dict[str, Any] = {}
+        known_state: Dict[str, Any] = copy.deepcopy(initial_known_state) if initial_known_state else {}
 
         t_wall_start = time.time()
 

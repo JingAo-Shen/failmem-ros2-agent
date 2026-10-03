@@ -99,16 +99,22 @@ Output strictly a single JSON codeblock:
 ```"""
 
 
+from .task_skeleton import PublicTaskSkeleton
+
+
 class AgentPlanner:
     def __init__(
         self,
         llm_backend: LLMBackend,
         memory_adapter: BaseMemoryAdapter,
         adjacency_map: Optional[Dict[str, List[str]]] = None,
+        use_task_skeleton: bool = False,
     ):
         self.llm = llm_backend
         self.memory = memory_adapter
         self.adjacency_map = adjacency_map or MAP_ADJACENCY
+        self.use_task_skeleton = use_task_skeleton
+        self.task_skeleton = PublicTaskSkeleton(self.adjacency_map, max_inventory_capacity=2)
 
     def decide_next_action(
         self,
@@ -156,18 +162,22 @@ class AgentPlanner:
         candidate_action_entities = list(set(adjacent_zones + task_targets + task_recipients + [robot_loc]))
 
         context_query = {
+            "step_index": step_index,
             "current_location": robot_loc,
             "adjacent_zones": adjacent_zones,
             "task_targets": task_targets,
+            "task_recipients": task_recipients,
             "candidate_entities": candidate_action_entities,
             "inventory": inventory,
             "credentials": current_state.get("credentials", []),
             "task_instruction": task_instruction,
             "undelivered_packages": [p.get("id") for p in avail_pkgs],
+            "pickable_here": pickable_here,
+            "deliverable_here": deliverable_here,
         }
         retrieved_memories = self.memory.retrieve_relevant_memories(known_state, context_query)
 
-        # 2. Build User Prompt with explicit public state
+        # 2. Build User Prompt
         user_prompt_lines = [
             f"### Current Delivery Task: {task_instruction}",
             format_map_topology_description(self.adjacency_map),
@@ -181,6 +191,13 @@ class AgentPlanner:
             f"- Held Credentials: {current_state.get('credentials')}",
             f"- Battery Level: {current_state.get('battery')}%",
         ]
+
+        # S1: Public Task Skeleton Injection (if enabled)
+        if self.use_task_skeleton:
+            skeleton_section = self.task_skeleton.format_skeleton_prompt_section(
+                current_state, known_state, step_history
+            )
+            user_prompt_lines.append(skeleton_section)
 
         if known_state:
             user_prompt_lines.append(f"### Known / Observed Environmental Facts: {known_state}")
