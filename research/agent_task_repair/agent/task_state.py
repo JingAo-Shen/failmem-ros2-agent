@@ -82,6 +82,7 @@ class TaskStateTracker:
         initial_state: Dict[str, Any],
         max_inventory_capacity: int = 2,
         charger_location: str = "Lobby",
+        is_static: bool = False,
     ):
         self.task_instruction = task_instruction
         self.robot_location: str = initial_state.get("robot_location", "Lobby")
@@ -92,6 +93,7 @@ class TaskStateTracker:
         self.credentials: Set[str] = set(initial_state.get("credentials", []))
         self.max_inventory_capacity: int = int(initial_state.get("max_inventory_capacity", max_inventory_capacity))
         self.charger_location: str = charger_location
+        self.is_static: bool = is_static
 
         # Parse obligations from initial public state
         self.obligations: Dict[str, TaskObligation] = {}
@@ -217,20 +219,29 @@ class TaskStateTracker:
                 self.set_fact(f"{door}_state", "OCCUPIED", event_id, sim_time, tool_name)
             elif tool_name == "navigate" and (status == "ACCESS_DENIED_NO_BADGE" or result.get("error_code") == "SECURITY_BADGE_REQUIRED"):
                 door = obs.get("door", f"door_{params.get('target_zone', '').lower()}")
-                self.set_fact(f"{door}_credential_required", obs.get("required_credential", "security_badge"), event_id, sim_time, tool_name)
+                cred = obs.get("required_credential", "security_badge")
+                self.set_fact(f"requires_credential({door},{cred})", True, event_id, sim_time, tool_name)
+                self.set_fact(f"{door}_credential_required", cred, event_id, sim_time, tool_name)
             elif tool_name == "acquire_credential":
                 r = self.robot_location
-                self.set_fact(f"room_checked_empty_{r}", True, event_id, sim_time, tool_name)
-                self.set_fact(f"credential_not_found_in_{r}", True, event_id, sim_time, tool_name)
-                if "badge_location" in self.observed_facts and self.get_fact_value("badge_location") == r:
-                    del self.observed_facts["badge_location"]
-                if f"room_items_{r}" in self.observed_facts:
-                    del self.observed_facts[f"room_items_{r}"]
+                cname = params.get("credential_name", "security_badge")
+                if not self.is_static:
+                    self.set_fact(f"room_checked_empty_{r}", True, event_id, sim_time, tool_name)
+                    self.set_fact(f"credential_not_found_in_{r}", True, event_id, sim_time, tool_name)
+                    if "badge_location" in self.observed_facts and self.get_fact_value("badge_location") == r:
+                        del self.observed_facts["badge_location"]
+                    if f"room_items_{r}" in self.observed_facts:
+                        del self.observed_facts[f"room_items_{r}"]
 
         # Update sensor observations
         if obs:
             if "door" in obs and "passage_state" in obs:
-                self.set_fact(f"{obs['door']}_state", obs["passage_state"], event_id, sim_time, tool_name)
+                door = obs["door"]
+                self.set_fact(f"{door}_state", obs["passage_state"], event_id, sim_time, tool_name)
+                if "required_credential" in obs:
+                    cred = obs["required_credential"]
+                    self.set_fact(f"requires_credential({door},{cred})", True, event_id, sim_time, tool_name)
+                    self.set_fact(f"{door}_credential_required", cred, event_id, sim_time, tool_name)
             if "recipient_status" in obs:
                 rec = obs.get("recipient", params.get("entity"))
                 if rec:
@@ -238,16 +249,25 @@ class TaskStateTracker:
             if "room" in obs and "items" in obs:
                 r = obs["room"]
                 items = list(obs["items"])
-                self.set_fact(f"room_items_{r}", items, event_id, sim_time, tool_name)
-                self.set_fact(f"room_checked_at_{r}", sim_time, event_id, sim_time, tool_name)
+                if not (self.is_static and f"room_items_{r}" in self.observed_facts and not items):
+                    self.set_fact(f"room_items_{r}", items, event_id, sim_time, tool_name)
+                    self.set_fact(f"room_checked_at_{r}", sim_time, event_id, sim_time, tool_name)
                 if "security_badge" in items:
                     self.set_fact("badge_location", r, event_id, sim_time, tool_name)
-                    self.set_fact("credential_security_badge_available_in", r, event_id, sim_time, tool_name)
+                    self.set_fact(f"credential_available_in({r},security_badge)", True, event_id, sim_time, tool_name)
+                    if f"room_checked_empty_{r}" in self.observed_facts:
+                        del self.observed_facts[f"room_checked_empty_{r}"]
+                    if f"credential_not_found_in_{r}" in self.observed_facts:
+                        del self.observed_facts[f"credential_not_found_in_{r}"]
                 else:
-                    self.set_fact(f"room_checked_empty_{r}", True, event_id, sim_time, tool_name)
-                    self.set_fact(f"credential_not_found_in_{r}", True, event_id, sim_time, tool_name)
+                    if not self.is_static:
+                        self.set_fact(f"room_checked_empty_{r}", True, event_id, sim_time, tool_name)
+                        self.set_fact(f"credential_not_found_in_{r}", True, event_id, sim_time, tool_name)
+                        if "badge_location" in self.observed_facts and self.get_fact_value("badge_location") == r:
+                            del self.observed_facts["badge_location"]
             elif "room_items" in obs:
-                self.set_fact(f"room_items_{self.robot_location}", obs["room_items"], event_id, sim_time, tool_name)
+                if not (self.is_static and f"room_items_{self.robot_location}" in self.observed_facts and not obs["room_items"]):
+                    self.set_fact(f"room_items_{self.robot_location}", obs["room_items"], event_id, sim_time, tool_name)
 
     def is_all_completed(self) -> bool:
         """Verifies if all obligations are verified DONE with tool evidence."""

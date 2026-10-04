@@ -42,6 +42,24 @@ class ApplicabilityResult(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+def find_path_bfs(start: str, goal: str, adj: Dict[str, List[str]]) -> List[str]:
+    """Computes shortest topological path between start and goal using BFS."""
+    if start == goal:
+        return []
+    queue = [[start]]
+    visited = {start}
+    while queue:
+        path = queue.pop(0)
+        curr = path[-1]
+        for neighbor in adj.get(curr, []):
+            if neighbor == goal:
+                return path[1:] + [neighbor]
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(path + [neighbor])
+    return []
+
+
 @dataclass
 class RepairMemoryItem:
     memory_id: str
@@ -51,11 +69,13 @@ class RepairMemoryItem:
     execution_evidence_refs: List[str]    # Event IDs of successful repair execution
     verification_evidence: Dict[str, Any] # Postcondition verification result (empty if unverified)
     applicability: Dict[str, Any]         # {"origin": "...", "target": "...", "blocked_entity": "..."}
-    required_facts: Dict[str, Any]        # {"door_north_state": "OCCUPIED"}
-    invalidation_conditions: Dict[str, Any] # {"door_north_state": "FREE"}
-    expected_effects: List[str]           # ["at_location(...)"]
+    required_facts: Dict[str, Any]        # {"requires_credential(door_lab,security_badge)": True}
+    invalidation_conditions: Dict[str, Any] # {"credential_not_found_in_Office_A": True}
+    expected_effects: List[str]           # ["has_credential(security_badge)"]
     verification_status: VerificationStatus = VerificationStatus.UNVERIFIED
     lifecycle_state: MemoryLifecycleState = MemoryLifecycleState.PROPOSED
+    raw_experience: Optional[Dict[str, Any]] = None
+    reusable_repair_plan: Optional[Dict[str, Any]] = None
     success_count: int = 0
     failure_count: int = 0
 
@@ -100,29 +120,76 @@ class RepairMemoryItem:
     def instantiate_repair_nodes(
         self,
         variable_bindings: Dict[str, Any],
+        robot_location: Optional[str] = None,
+        adjacency_map: Optional[Dict[str, List[str]]] = None,
     ) -> List[PlanNode]:
-        """Substitutes variables dynamically and creates concrete PlanNodes."""
+        """Substitutes variables dynamically and creates concrete PlanNodes using public topology."""
         nodes = []
-        for idx, step in enumerate(self.repair_proposal, start=1):
-            act = step["action"]
-            params = copy.deepcopy(step.get("params", {}))
-
-            # Dynamic variable substitution ($var_name)
-            for pk, pv in list(params.items()):
-                if isinstance(pv, str) and pv.startswith("$") and pv[1:] in variable_bindings:
-                    params[pk] = variable_bindings[pv[1:]]
-
-            target = params.get("target_zone") or params.get("package_id") or params.get("credential_name") or params.get("target") or act
+        if self.reusable_repair_plan and "candidate_location" in self.reusable_repair_plan:
+            cand_loc = self.reusable_repair_plan["candidate_location"]
+            cname = self.reusable_repair_plan.get("credential_name", "security_badge")
+            curr_loc = robot_location or variable_bindings.get("origin", "Lobby")
+            adj = adjacency_map or {
+                "Lobby": ["Corridor_North", "Corridor_South"],
+                "Corridor_North": ["Lobby", "Office_A", "Office_B", "Corridor_South"],
+                "Corridor_South": ["Lobby", "Corridor_North", "Office_A", "Lab_Secure"],
+                "Office_A": ["Corridor_North", "Corridor_South"],
+                "Office_B": ["Corridor_North"],
+                "Lab_Secure": ["Corridor_South"],
+            }
+            # Dynamically plan route from current location to candidate location
+            nav_path = find_path_bfs(curr_loc, cand_loc, adj)
+            for h_idx, hop in enumerate(nav_path, start=1):
+                nodes.append(PlanNode(
+                    id=f"rmem_{self.memory_id}_nav_{h_idx:02d}_{hop}",
+                    goal=f"Memory-guided navigation to {hop} en route to {cand_loc}",
+                    action_type="navigate",
+                    target=hop,
+                    params={"target_zone": hop},
+                    status=PlanNodeStatus.READY if len(nodes) == 0 else PlanNodeStatus.PENDING,
+                    is_repair_node=True,
+                    evidence_refs=list(self.execution_evidence_refs),
+                ))
+            # Observe candidate location to confirm badge presence
             nodes.append(PlanNode(
-                id=f"rmem_{self.memory_id}_step{idx:02d}",
-                goal=f"Memory-guided repair: {act}({params})",
-                action_type=act,
-                target=target,
-                params=params,
-                status=PlanNodeStatus.READY if idx == 1 else PlanNodeStatus.PENDING,
+                id=f"rmem_{self.memory_id}_obs_{cand_loc}",
+                goal=f"Observe room {cand_loc} to confirm {cname} presence",
+                action_type="observe",
+                target=cand_loc,
+                params={"target": cand_loc},
+                status=PlanNodeStatus.READY if len(nodes) == 0 else PlanNodeStatus.PENDING,
                 is_repair_node=True,
                 evidence_refs=list(self.execution_evidence_refs),
             ))
+            # Acquire credential
+            nodes.append(PlanNode(
+                id=f"rmem_{self.memory_id}_acq_{cname}",
+                goal=f"Acquire {cname} from confirmed location {cand_loc}",
+                action_type="acquire_credential",
+                target=cname,
+                params={"credential_name": cname},
+                status=PlanNodeStatus.PENDING,
+                is_repair_node=True,
+                evidence_refs=list(self.execution_evidence_refs),
+            ))
+        else:
+            for idx, step in enumerate(self.repair_proposal, start=1):
+                act = step["action"]
+                params = copy.deepcopy(step.get("params", {}))
+                for pk, pv in list(params.items()):
+                    if isinstance(pv, str) and pv.startswith("$") and pv[1:] in variable_bindings:
+                        params[pk] = variable_bindings[pv[1:]]
+                target = params.get("target_zone") or params.get("package_id") or params.get("credential_name") or params.get("target") or act
+                nodes.append(PlanNode(
+                    id=f"rmem_{self.memory_id}_step{idx:02d}",
+                    goal=f"Memory-guided repair: {act}({params})",
+                    action_type=act,
+                    target=target,
+                    params=params,
+                    status=PlanNodeStatus.READY if idx == 1 else PlanNodeStatus.PENDING,
+                    is_repair_node=True,
+                    evidence_refs=list(self.execution_evidence_refs),
+                ))
         self.lifecycle_state = MemoryLifecycleState.INSTANTIATED
         return nodes
 
@@ -140,6 +207,8 @@ class RepairMemoryItem:
             "expected_effects": self.expected_effects,
             "verification_status": self.verification_status.value,
             "lifecycle_state": self.lifecycle_state.value,
+            "raw_experience": self.raw_experience,
+            "reusable_repair_plan": self.reusable_repair_plan,
             "success_count": self.success_count,
             "failure_count": self.failure_count,
         }
@@ -149,6 +218,7 @@ class RepairMemoryStore:
     def __init__(self):
         self.memories: Dict[str, RepairMemoryItem] = {}
         self.audit_log: List[Dict[str, Any]] = []
+        self.target_audit_log: List[Dict[str, Any]] = []
 
     def propose_repair(
         self,
@@ -509,7 +579,72 @@ class RepairMemoryStore:
             expected_effects=eff,
         )
 
-    def update_with_observation(self, observation: Dict[str, Any]):
+    def log_target_event(
+        self,
+        event_type: str,
+        target_run_id: str,
+        memory_id: str,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        """Logs target-side memory lifecycle events."""
+        entry = {
+            "event": event_type,
+            "target_run_id": target_run_id,
+            "memory_id": memory_id,
+            **(details or {}),
+        }
+        self.target_audit_log.append(entry)
+        self.audit_log.append(entry)
+
+    def log_target_step_executed(
+        self,
+        target_run_id: str,
+        memory_id: str,
+        plan_node_id: str,
+        tool: str,
+        params: Dict[str, Any],
+        success: bool,
+        event_id: str,
+        sim_time: float = 0.0,
+    ):
+        self.log_target_event(
+            event_type="TARGET_STEP_EXECUTED",
+            target_run_id=target_run_id,
+            memory_id=memory_id,
+            details={
+                "plan_node_id": plan_node_id,
+                "tool": tool,
+                "params": copy.deepcopy(params),
+                "success": success,
+                "event_id": event_id,
+                "sim_time": sim_time,
+            },
+        )
+
+    def log_target_effect_verified(
+        self,
+        target_run_id: str,
+        memory_id: str,
+        verified_effects: List[str],
+        sim_time: float = 0.0,
+    ):
+        self.log_target_event(
+            event_type="TARGET_EFFECT_VERIFIED",
+            target_run_id=target_run_id,
+            memory_id=memory_id,
+            details={
+                "verified_effects": list(verified_effects),
+                "sim_time": sim_time,
+            },
+        )
+
+    def update_with_observation(
+        self,
+        observation: Dict[str, Any],
+        target_run_id: str = "target_run",
+        event_id: str = "",
+        sim_time: float = 0.0,
+    ):
         """Evaluates sensory observations against all active memories and updates invalidations."""
         for item in self.memories.values():
             if item.verification_status == VerificationStatus.VERIFIED:
@@ -519,21 +654,23 @@ class RepairMemoryStore:
                         if obs_v == inv_v:
                             item.verification_status = VerificationStatus.INVALIDATED
                             item.lifecycle_state = MemoryLifecycleState.INVALIDATED
-                            self.audit_log.append({
-                                "event": "INVALIDATED",
-                                "memory_id": item.memory_id,
-                                "trigger": f"{k} == {inv_v}",
-                            })
+                            self.log_target_event(
+                                event_type="TARGET_INVALIDATED",
+                                target_run_id=target_run_id,
+                                memory_id=item.memory_id,
+                                details={"trigger": f"{k} == {inv_v}", "event_id": event_id, "sim_time": sim_time},
+                            )
                     elif "door" in observation and "passage_state" in observation:
                         door_k = f"{observation['door']}_state"
                         if door_k == k and observation["passage_state"] == inv_v:
                             item.verification_status = VerificationStatus.INVALIDATED
                             item.lifecycle_state = MemoryLifecycleState.INVALIDATED
-                            self.audit_log.append({
-                                "event": "INVALIDATED",
-                                "memory_id": item.memory_id,
-                                "trigger": f"{door_k} == {inv_v}",
-                            })
+                            self.log_target_event(
+                                event_type="TARGET_INVALIDATED",
+                                target_run_id=target_run_id,
+                                memory_id=item.memory_id,
+                                details={"trigger": f"{door_k} == {inv_v}", "event_id": event_id, "sim_time": sim_time},
+                            )
 
     def retrieve_repair_plan(
         self,
@@ -543,11 +680,13 @@ class RepairMemoryStore:
         current_state: Dict[str, Any],
         known_facts: Dict[str, Any],
         adjacency_map: Optional[Dict[str, List[str]]] = None,
+        target_run_id: str = "target_run",
+        sim_time: float = 0.0,
     ) -> Optional[List[PlanNode]]:
         """
         Retrieves matching VERIFIED repair memory.
         Validates target matching, applicability, and required facts.
-        Tracks lifecycle: RETRIEVED -> INSTANTIATED.
+        Tracks lifecycle: TARGET_RETRIEVED -> TARGET_INSTANTIATED.
         """
         target = failed_params.get("target_zone") or failed_params.get("package_id") or failed_params.get("credential_name")
         robot_loc = current_state.get("robot_location", "Lobby")
@@ -569,11 +708,12 @@ class RepairMemoryStore:
             app_res, app_reason = item.evaluate_applicability(known_facts, current_state)
             if app_res != ApplicabilityResult.APPLICABLE:
                 item.lifecycle_state = MemoryLifecycleState.REJECTED
-                self.audit_log.append({
-                    "event": "REJECTED_REUSE",
-                    "memory_id": item.memory_id,
-                    "reason": app_reason,
-                })
+                self.log_target_event(
+                    event_type="TARGET_REJECTED",
+                    target_run_id=target_run_id,
+                    memory_id=item.memory_id,
+                    details={"reason": app_reason, "sim_time": sim_time},
+                )
                 continue
 
             # Dynamic variable bindings grounded in map and actual entities
@@ -598,12 +738,29 @@ class RepairMemoryStore:
                 bindings[k] = v
 
             item.lifecycle_state = MemoryLifecycleState.RETRIEVED
-            nodes = item.instantiate_repair_nodes(bindings)
-            self.audit_log.append({
-                "event": "RETRIEVED_AND_APPLIED",
-                "memory_id": item.memory_id,
-                "nodes_count": len(nodes),
-            })
+            self.log_target_event(
+                event_type="TARGET_RETRIEVED",
+                target_run_id=target_run_id,
+                memory_id=item.memory_id,
+                details={
+                    "sim_time": sim_time,
+                    "failed_tool": failed_tool,
+                    "error_code": error_code,
+                    "bindings": bindings,
+                },
+            )
+
+            nodes = item.instantiate_repair_nodes(bindings, robot_location=robot_loc, adjacency_map=adj)
+            self.log_target_event(
+                event_type="TARGET_INSTANTIATED",
+                target_run_id=target_run_id,
+                memory_id=item.memory_id,
+                details={
+                    "nodes_count": len(nodes),
+                    "plan_node_ids": [n.id for n in nodes],
+                    "sim_time": sim_time,
+                },
+            )
             return nodes
 
         return None

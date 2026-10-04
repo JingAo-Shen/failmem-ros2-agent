@@ -35,6 +35,7 @@ class StatefulAgentRunner:
         run_id: str = "run_stateful",
         repair_memory_store: Optional[Any] = None,
         include_historical_facts: bool = False,
+        is_static: bool = False,
     ):
         self.llm = llm_backend
         self.adjacency_map = adjacency_map or MAP_ADJACENCY
@@ -44,6 +45,7 @@ class StatefulAgentRunner:
         self.run_id = run_id
         self.repair_memory_store = repair_memory_store
         self.include_historical_facts = include_historical_facts
+        self.is_static = is_static
 
         self.validator = ActionValidator(self.adjacency_map)
         self.repair_controller = RepairController(self.adjacency_map)
@@ -70,6 +72,7 @@ class StatefulAgentRunner:
             task_instruction=instruction,
             initial_state=initial_agent_state,
             max_inventory_capacity=env.max_inventory_capacity,
+            is_static=self.is_static,
         )
 
         # Ingest shared known state (e.g. from current shared sensory observation)
@@ -296,13 +299,46 @@ class StatefulAgentRunner:
 
             # Update repair memory store invalidation with observed facts
             if self.repair_memory_store and hasattr(self.repair_memory_store, "update_with_observation"):
-                self.repair_memory_store.update_with_observation(task_state.observed_facts)
+                self.repair_memory_store.update_with_observation(
+                    task_state.observed_facts,
+                    target_run_id=self.run_id,
+                    event_id=event_id,
+                    sim_time=env.sim_time_s,
+                )
                 if result.observation:
-                    self.repair_memory_store.update_with_observation(result.observation)
+                    self.repair_memory_store.update_with_observation(
+                        result.observation,
+                        target_run_id=self.run_id,
+                        event_id=event_id,
+                        sim_time=env.sim_time_s,
+                    )
+
+            # Log target step execution if this was a memory repair node
+            if active_node and getattr(active_node, "is_repair_node", False) and self.repair_memory_store:
+                mem_id = active_node.id.split("_")[1] if active_node.id.startswith("rmem_") else "mem_active"
+                if hasattr(self.repair_memory_store, "log_target_step_executed"):
+                    self.repair_memory_store.log_target_step_executed(
+                        target_run_id=self.run_id,
+                        memory_id=mem_id,
+                        plan_node_id=active_node.id,
+                        tool=tool_name,
+                        params=params,
+                        success=result.success,
+                        event_id=event_id,
+                        sim_time=env.sim_time_s,
+                    )
 
             # 8. Handle Success vs Failure in Plan & Repair Controller
             if result.success:
                 persistent_plan.on_step_success(tool_name, params, event_id, result.observation)
+                if tool_name == "acquire_credential" and self.repair_memory_store and hasattr(self.repair_memory_store, "log_target_effect_verified"):
+                    cname = params.get("credential_name", "security_badge")
+                    self.repair_memory_store.log_target_effect_verified(
+                        target_run_id=self.run_id,
+                        memory_id="mem_active",
+                        verified_effects=[f"has_credential({cname})"],
+                        sim_time=env.sim_time_s,
+                    )
             else:
                 should_abort, rep_msg, rep_nodes = self.repair_controller.handle_failure(
                     failed_tool=tool_name,
@@ -312,6 +348,7 @@ class StatefulAgentRunner:
                     task_state=task_state,
                     plan=persistent_plan,
                     repair_memory_adapter=self.repair_memory_store,
+                    target_run_id=self.run_id,
                 )
                 if should_abort:
                     env.constraint_violations.append(rep_msg)
@@ -363,6 +400,7 @@ class StatefulAgentRunner:
             "initial_known_state": initial_known_state or {},
             "source_history_events": historical_failure_events or [],
             "memory_audit_log": list(self.repair_memory_store.audit_log) if (self.repair_memory_store and hasattr(self.repair_memory_store, "audit_log")) else [],
+            "target_audit_log": list(self.repair_memory_store.target_audit_log) if (self.repair_memory_store and hasattr(self.repair_memory_store, "target_audit_log")) else [],
             "memory_items": [m.to_dict() for m in self.repair_memory_store.get_all_memories()] if (self.repair_memory_store and hasattr(self.repair_memory_store, "get_all_memories")) else [],
         }
 

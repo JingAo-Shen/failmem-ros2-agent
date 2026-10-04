@@ -34,6 +34,7 @@ class RepairController:
         task_state: TaskStateTracker,
         plan: PersistentPlan,
         repair_memory_adapter: Optional[Any] = None,
+        target_run_id: str = "target_run",
     ) -> Tuple[bool, str, List[PlanNode]]:
         """
         Executes local plan repair.
@@ -76,6 +77,9 @@ class RepairController:
                 error_code=error_code,
                 current_state=task_state.get_public_state_summary(),
                 known_facts=task_state.observed_facts,
+                adjacency_map=self.adjacency_map,
+                target_run_id=target_run_id,
+                sim_time=task_state.cumulative_sim_time_s,
             )
             if matching_repair:
                 repair_nodes = matching_repair

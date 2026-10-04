@@ -218,12 +218,13 @@ def get_phase_b_target_tasks() -> List[Dict[str, Any]]:
     ]
 
 
-def extract_and_promote_source_memory(source_result: Dict[str, Any]) -> Tuple[RepairMemoryStore, Dict[str, Any], List[Dict[str, Any]]]:
+def extract_and_promote_source_memory(source_result: Dict[str, Any]) -> Tuple[RepairMemoryStore, Dict[str, Any], List[Dict[str, Any]], str]:
     """
     Extracts failure and repair sequence from an authentic Group B execution trajectory,
-    registers it in RepairMemoryStore, promotes it to VERIFIED via verify_and_promote,
-    and extracts homologous historical facts for Group C.
+    registers it in RepairMemoryStore as a two-layer memory item, promotes it to VERIFIED
+    via verify_and_promote, extracts homologous historical facts, and computes parity hash.
     """
+    import hashlib
     step_history = source_result.get("step_history", [])
     task_id = source_result.get("task_id", "source_task")
 
@@ -252,7 +253,14 @@ def extract_and_promote_source_memory(source_result: Dict[str, Any]) -> Tuple[Re
     if acq_idx == -1:
         raise RuntimeError("No successful acquire_credential step found after failure in source trajectory.")
 
-    # Repair proposal is the exact sequence of executed steps from failure to acquire_credential
+    # Locate where badge was found from the trajectory
+    badge_room = "Office_A"
+    for step in step_history[fail_idx + 1 : acq_idx + 1]:
+        if step.get("tool") == "observe" and "security_badge" in step.get("result", {}).get("observation", {}).get("items", []):
+            badge_room = step["params"].get("target", "Office_A")
+            break
+
+    # Repair proposal matching the executed trajectory steps from failure to acquire
     repair_proposal = []
     for step in step_history[fail_idx + 1 : acq_idx + 1]:
         repair_proposal.append({
@@ -267,29 +275,40 @@ def extract_and_promote_source_memory(source_result: Dict[str, Any]) -> Tuple[Re
         "event_id": fail_step["event_id"],
     }
 
-    # Locate where badge was found from the trajectory
-    badge_room = "Office_A"
-    for step in step_history[fail_idx + 1 : acq_idx + 1]:
-        if step.get("tool") == "observe" and "security_badge" in step.get("result", {}).get("observation", {}).get("items", []):
-            badge_room = step["params"].get("target", "Office_A")
-            break
-
     store = RepairMemoryStore()
     mem_id = f"mem_repair_badge_{badge_room.lower()}"
 
-    store.propose_repair(
+    item = store.propose_repair(
         memory_id=mem_id,
         source_task_id=task_id,
         failure_event=fail_evt,
         repair_proposal=repair_proposal,
         applicability={"target": "Lab_Secure"},
-        required_facts={"security_badge_required": True},
+        required_facts={"requires_credential(door_lab,security_badge)": True},
         invalidation_conditions={
             f"credential_not_found_in_{badge_room}": True,
             f"room_checked_empty_{badge_room}": True,
         },
         expected_effects=["has_credential(security_badge)"],
     )
+
+    # Attach two-layer structured representations
+    item.raw_experience = {
+        "source_task_id": task_id,
+        "failure_step": fail_step,
+        "executed_repair_steps": copy.deepcopy(repair_proposal),
+    }
+    item.reusable_repair_plan = {
+        "credential_name": "security_badge",
+        "candidate_location": badge_room,
+        "target_door": "door_lab",
+        "required_facts": {"requires_credential(door_lab,security_badge)": True},
+        "invalidation_conditions": {
+            f"credential_not_found_in_{badge_room}": True,
+            f"room_checked_empty_{badge_room}": True,
+        },
+        "expected_effects": ["has_credential(security_badge)"],
+    }
 
     # Verify and promote using authentic trajectory
     ok, msg = store.verify_and_promote(
@@ -300,15 +319,18 @@ def extract_and_promote_source_memory(source_result: Dict[str, Any]) -> Tuple[Re
     if not ok:
         raise RuntimeError(f"Authentic trajectory failed verification: {msg}")
 
-    # Homologous historical facts for Group C (extracted from the exact same trajectory)
+    # Homologous historical facts for Groups C_static, C_updated, and D
     homologous_facts = {
         f"room_items_{badge_room}": ["security_badge"],
         "badge_location": badge_room,
-        "security_badge_required": True,
+        f"credential_available_in({badge_room},security_badge)": True,
+        "requires_credential(door_lab,security_badge)": True,
     }
     homologous_failures = [fail_evt]
 
-    return store, homologous_facts, homologous_failures
+    fact_hash = hashlib.sha256(json.dumps(homologous_facts, sort_keys=True).encode("utf-8")).hexdigest()
+
+    return store, homologous_facts, homologous_failures, fact_hash
 
 
 def run_benchmark():
@@ -386,7 +408,7 @@ def run_benchmark():
     if not source_run["success"]:
         raise RuntimeError("Source task cred_task_1_office_a failed; cannot extract authentic memory.")
 
-    verified_store, homologous_facts, homologous_failures = extract_and_promote_source_memory(source_run)
+    verified_store, homologous_facts, homologous_failures, fact_hash = extract_and_promote_source_memory(source_run)
     mem_item = verified_store.get_all_memories()[0]
 
     benchmark_records["source_memory_generation"] = {
@@ -396,25 +418,30 @@ def run_benchmark():
         "lifecycle_state": mem_item.lifecycle_state.value,
         "verification_evidence": mem_item.verification_evidence,
         "repair_proposal": mem_item.repair_proposal,
+        "raw_experience": mem_item.raw_experience,
+        "reusable_repair_plan": mem_item.reusable_repair_plan,
         "expected_effects": mem_item.expected_effects,
         "homologous_facts": homologous_facts,
         "homologous_failures": homologous_failures,
+        "homologous_facts_sha256": fact_hash,
     }
     print(f"Memory '{mem_item.memory_id}' status: {mem_item.verification_status.value}")
-    print(f"Proposal: {mem_item.repair_proposal}")
-    print(f"Homologous Facts for Group C: {homologous_facts}")
+    print(f"Reusable Plan Template: {mem_item.reusable_repair_plan}")
+    print(f"Homologous Facts (SHA256: {fact_hash[:12]}...): {homologous_facts}")
 
     # =========================================================================
-    # PHASE B: Comparative Benchmark across 4 Target Tasks x 3 Groups (12 Runs)
+    # PHASE B: Comparative Benchmark across 4 Target Tasks x 4 Groups (16 Runs)
     # =========================================================================
     print("\n" + "#" * 80)
-    print("### PHASE B: Fair Comparative Benchmark (4 Target Tasks x 3 Groups = 12 Runs)")
+    print("### PHASE B: Strict Fair Comparative Benchmark (4 Target Tasks x 4 Groups = 16 Runs)")
+    print("### Parity Guarantee: C_static, C_updated, and D receive identical initial facts (SHA256 verified)")
     print("#" * 80)
 
     groups = [
         {"id": "Group_B_Agent_B", "name": "Group B (Stateful Agent, Online Search, No Memory)"},
-        {"id": "Group_C_Agent_C", "name": "Group C (Stateful Agent, Homologous Facts)"},
-        {"id": "Group_D_Agent_D", "name": "Group D (Stateful Agent, Verified Repair Memory)"},
+        {"id": "Group_C_static", "name": "Group C_static (Stateful Agent, Homologous Facts, Static)"},
+        {"id": "Group_C_updated", "name": "Group C_updated (Stateful Agent, Homologous Facts, Dynamic Updating)"},
+        {"id": "Group_D_Agent_D", "name": "Group D (Stateful Agent, Homologous Facts + Dynamic Updating + Verified Repair Memory)"},
     ]
 
     phase_b_results = []
@@ -449,10 +476,11 @@ def run_benchmark():
                     run_id=run_id,
                     include_historical_facts=False,
                     repair_memory_store=None,
+                    is_static=False,
                 )
                 res = runner.run_task(task_spec, task_index=t_idx, seq_id="phase_b")
 
-            elif gid == "Group_C_Agent_C":
+            elif gid == "Group_C_static":
                 runner = StatefulAgentRunner(
                     llm_backend=llm,
                     max_tool_calls=25,
@@ -460,6 +488,25 @@ def run_benchmark():
                     run_id=run_id,
                     include_historical_facts=True,
                     repair_memory_store=None,
+                    is_static=True,
+                )
+                res = runner.run_task(
+                    task_spec,
+                    task_index=t_idx,
+                    seq_id="phase_b",
+                    initial_known_state=copy.deepcopy(homologous_facts),
+                    historical_failure_events=copy.deepcopy(homologous_failures),
+                )
+
+            elif gid == "Group_C_updated":
+                runner = StatefulAgentRunner(
+                    llm_backend=llm,
+                    max_tool_calls=25,
+                    max_llm_calls=20,
+                    run_id=run_id,
+                    include_historical_facts=True,
+                    repair_memory_store=None,
+                    is_static=False,
                 )
                 res = runner.run_task(
                     task_spec,
@@ -477,19 +524,23 @@ def run_benchmark():
                     max_tool_calls=25,
                     max_llm_calls=20,
                     run_id=run_id,
-                    include_historical_facts=False,
+                    include_historical_facts=True,
                     repair_memory_store=grp_d_store,
+                    is_static=False,
                 )
                 res = runner.run_task(
                     task_spec,
                     task_index=t_idx,
                     seq_id="phase_b",
+                    initial_known_state=copy.deepcopy(homologous_facts),
+                    historical_failure_events=copy.deepcopy(homologous_failures),
                 )
 
             res["group_id"] = gid
             res["group_name"] = gname
             res["target_task_id"] = tid
             res["relevance"] = relevance
+            res["input_facts_sha256"] = fact_hash if gid != "Group_B_Agent_B" else "N/A"
             phase_b_results.append(res)
             benchmark_records["phase_b_target_results"].append(res)
 
@@ -500,8 +551,8 @@ def run_benchmark():
             res["total_generated_tokens"] = tot_g_tokens
 
             print(f"[{gid}] Task: {tid} -> Success={res['success']} | Steps={res['step_count']} | LLM Calls={res['llm_calls']} | P-Tokens={tot_p_tokens} | G-Tokens={tot_g_tokens} | Time={res['wall_time_s']}s")
-            if res.get("memory_audit_log"):
-                print(f"    Memory Audit Log: {res['memory_audit_log']}")
+            if res.get("target_audit_log"):
+                print(f"    Target Audit Log: {res['target_audit_log']}")
 
     # =========================================================================
     # SUMMARY & FAIRNESS COMPARATIVE ANALYSIS
@@ -513,7 +564,8 @@ def run_benchmark():
     # Structure summary table
     summary_by_group = {
         "Group_B_Agent_B": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
-        "Group_C_Agent_C": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
+        "Group_C_static": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
+        "Group_C_updated": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
         "Group_D_Agent_D": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
     }
 
@@ -569,14 +621,15 @@ def run_benchmark():
 
     print(f"\n[Artifact Saved] Benchmark results written to {OUTPUT_FILE}")
     print("\n--- Summary Table ---")
-    print(f"{'Task ID':<22} | {'Grp B Succ (Stp/LLM)':<20} | {'Grp C Succ (Stp/LLM)':<20} | {'Grp D Succ (Stp/LLM)':<20}")
-    print("-" * 88)
+    print(f"{'Task ID':<22} | {'Grp B (Stp/LLM)':<18} | {'Grp C_static':<18} | {'Grp C_updated':<18} | {'Grp D (Stp/LLM)':<18}")
+    print("-" * 102)
     for r in per_task_table:
         b_str = f"{r['Group_B_Agent_B_success']} ({r['Group_B_Agent_B_steps']}/{r['Group_B_Agent_B_llm_calls']})"
-        c_str = f"{r['Group_C_Agent_C_success']} ({r['Group_C_Agent_C_steps']}/{r['Group_C_Agent_C_llm_calls']})"
+        c_stat_str = f"{r['Group_C_static_success']} ({r['Group_C_static_steps']}/{r['Group_C_static_llm_calls']})"
+        c_upd_str = f"{r['Group_C_updated_success']} ({r['Group_C_updated_steps']}/{r['Group_C_updated_llm_calls']})"
         d_str = f"{r['Group_D_Agent_D_success']} ({r['Group_D_Agent_D_steps']}/{r['Group_D_Agent_D_llm_calls']})"
-        print(f"{r['task_id']:<22} | {b_str:<20} | {c_str:<20} | {d_str:<20}")
-    print("-" * 88)
+        print(f"{r['task_id']:<22} | {b_str:<18} | {c_stat_str:<18} | {c_upd_str:<18} | {d_str:<18}")
+    print("-" * 102)
 
 
 if __name__ == "__main__":

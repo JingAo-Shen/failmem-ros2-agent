@@ -364,6 +364,13 @@ class PersistentPlan:
                 self.nodes.insert(self.current_node_index + 1, acquire_node)
 
             elif not has_badge and "security_badge" not in self.task_state.credentials:
+                # Invalidate any pending acquire_credential nodes in current room since room is confirmed empty
+                for idx in range(self.current_node_index + 1, len(self.nodes)):
+                    n = self.nodes[idx]
+                    if n.action_type == "acquire_credential" and n.target == "security_badge":
+                        n.status = PlanNodeStatus.INVALIDATED
+                        n.goal += f" (Pruned: room {robot_loc} is confirmed empty)"
+
                 # Check if we need to search next room for required credential
                 needs_badge = any(
                     ob.target_room == "Lab_Secure"
@@ -371,9 +378,9 @@ class PersistentPlan:
                     if ob.status != ObligationStatus.DONE
                 )
                 if needs_badge:
-                    # Check if subsequent node is already a navigation / observe node
+                    # Check if subsequent node is already a navigation / observe search node
                     has_subsequent_search = any(
-                        self.nodes[idx].is_repair_node and self.nodes[idx].status in (PlanNodeStatus.PENDING, PlanNodeStatus.READY)
+                        self.nodes[idx].is_repair_node and self.nodes[idx].action_type in ("navigate", "observe") and self.nodes[idx].status in (PlanNodeStatus.PENDING, PlanNodeStatus.READY)
                         for idx in range(self.current_node_index + 1, len(self.nodes))
                     )
                     if not has_subsequent_search:
