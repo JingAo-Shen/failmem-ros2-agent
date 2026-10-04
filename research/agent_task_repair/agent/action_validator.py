@@ -120,6 +120,54 @@ class ActionValidator:
                         suggested_revision={"action": "navigate", "params": {"target_zone": target_room}},
                     )
 
+        elif tool_name == "observe":
+            target = params.get("target")
+            known_doors = {
+                "door_north": ("Lobby", "Corridor_North"),
+                "door_south": ("Lobby", "Corridor_South"),
+                "door_office_a": ("Corridor_North", "Office_A"),
+                "door_office_b": ("Corridor_North", "Office_B"),
+                "door_lab": ("Corridor_South", "Lab_Secure"),
+            }
+            if target in known_doors:
+                connects = known_doors[target]
+                if robot_loc not in connects:
+                    return ValidationResult(
+                        status=ValidationStatus.FAIL,
+                        reason=f"Cannot observe door '{target}' from '{robot_loc}'. Robot must be in {connects}.",
+                        conflicting_precondition=f"at_door_connector({target})",
+                    )
+            elif target in self.adjacency_map:
+                if robot_loc != target:
+                    return ValidationResult(
+                        status=ValidationStatus.FAIL,
+                        reason=f"Cannot observe room '{target}' from '{robot_loc}'. Robot must navigate to '{target}' first.",
+                        conflicting_precondition=f"at_location({target})",
+                        suggested_revision={"action": "navigate", "params": {"target_zone": target}},
+                    )
+            else:
+                return ValidationResult(
+                    status=ValidationStatus.FAIL,
+                    reason=f"Invalid observation target '{target}'. Allowed targets are current room ('{robot_loc}') or adjacent doors.",
+                    conflicting_precondition="valid_observation_target",
+                )
+
+        elif tool_name == "acquire_credential":
+            cname = params.get("credential_name")
+            if cname in credentials:
+                return ValidationResult(
+                    status=ValidationStatus.FAIL,
+                    reason=f"Robot already possesses credential '{cname}'.",
+                    conflicting_precondition=f"not_holding_credential({cname})",
+                )
+            # Check if this room has already been checked and confirmed empty of credentials
+            if known_facts.get(f"room_checked_empty_{robot_loc}") or known_facts.get(f"credential_not_found_in_{robot_loc}"):
+                return ValidationResult(
+                    status=ValidationStatus.FAIL,
+                    reason=f"Room '{robot_loc}' was already inspected and contains no credentials. Do not repeat acquire_credential here.",
+                    conflicting_precondition=f"credential_present({cname}, {robot_loc})",
+                )
+
         elif tool_name == "navigate":
             target_zone = params.get("target_zone")
 

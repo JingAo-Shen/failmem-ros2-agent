@@ -44,7 +44,11 @@ class RepairController:
 
         # 1. Dead-loop detection: check exact fact contents & versions rather than just count
         fact_signature = frozenset(
-            (k, getattr(v, "value", str(v)), getattr(v, "version", 1))
+            (
+                k,
+                tuple(getattr(v, "value", v)) if isinstance(getattr(v, "value", v), (list, set)) else str(getattr(v, "value", v)),
+                getattr(v, "version", 1)
+            )
             for k, v in task_state.observed_facts.items()
         )
         action_sig = (robot_loc, failed_tool, str(sorted(failed_params.items())), error_code, fact_signature)
@@ -89,9 +93,11 @@ class RepairController:
                         break
                 final_dest = final_dest or blocked_target
 
-                # Compute detour avoiding blocked target doorway
-                avoid_set = {blocked_target} if blocked_target else set()
-                detour_path = plan.find_path(robot_loc, final_dest, avoid=avoid_set)
+                # Compute detour avoiding specific blocked edge (doorway)
+                blocked_edge = (robot_loc, blocked_target)
+                detour_path = plan.find_path(robot_loc, final_dest, avoid_edges={blocked_edge})
+                if not detour_path and blocked_target != final_dest:
+                    detour_path = plan.find_path(robot_loc, final_dest, avoid={blocked_target})
 
                 if detour_path:
                     for h_idx, hop in enumerate(detour_path, start=1):
@@ -109,13 +115,14 @@ class RepairController:
 
             elif error_code in ("SECURITY_BADGE_REQUIRED", "ACCESS_DENIED_NO_BADGE"):
                 # Credential required: check if badge location is known from observations
-                known_badge_loc = None
-                for k, v in task_state.observed_facts.items():
-                    if k.startswith("room_items_") and isinstance(getattr(v, "value", v), list):
-                        items = getattr(v, "value", v)
-                        if "security_badge" in items:
-                            known_badge_loc = k.replace("room_items_", "")
-                            break
+                known_badge_loc = task_state.get_fact_value("badge_location")
+                if not known_badge_loc:
+                    for k, v in task_state.observed_facts.items():
+                        if k.startswith("room_items_") and isinstance(getattr(v, "value", v), list):
+                            items = getattr(v, "value", v)
+                            if "security_badge" in items:
+                                known_badge_loc = k.replace("room_items_", "")
+                                break
 
                 if known_badge_loc:
                     # Grounded path to known badge location
@@ -141,16 +148,60 @@ class RepairController:
                         is_repair_node=True,
                     ))
                 else:
-                    # Location unknown: generate observation step first without assuming Office_A
-                    repair_nodes.append(PlanNode(
-                        id="repair_observe_items",
-                        goal="Observe current room for available credentials",
-                        action_type="observe",
-                        target="room_items",
-                        params={"target": "room_items"},
-                        status=PlanNodeStatus.READY,
-                        is_repair_node=True,
-                    ))
+                    # Location unknown: check if current room has been inspected
+                    has_inspected_here = bool(
+                        task_state.get_fact_value(f"room_checked_empty_{robot_loc}")
+                        or task_state.get_fact_value(f"room_items_{robot_loc}")
+                    )
+                    if not has_inspected_here:
+                        repair_nodes.append(PlanNode(
+                            id=f"repair_observe_{robot_loc}",
+                            goal=f"Observe room {robot_loc} to search for security_badge",
+                            action_type="observe",
+                            target=robot_loc,
+                            params={"target": robot_loc},
+                            status=PlanNodeStatus.READY,
+                            is_repair_node=True,
+                        ))
+                    else:
+                        # Bounded BFS search for uninspected accessible rooms
+                        uninspected_rooms = [
+                            z for z in sorted(self.adjacency_map.keys())
+                            if not task_state.get_fact_value(f"room_checked_empty_{z}")
+                            and not task_state.get_fact_value(f"room_items_{z}")
+                            and z != "Lab_Secure" # Lab requires badge
+                        ]
+                        # Find closest uninspected room
+                        closest_room = None
+                        best_path = None
+                        for cand in uninspected_rooms:
+                            p = plan.find_path(robot_loc, cand)
+                            if p and (best_path is None or len(p) < len(best_path)):
+                                closest_room = cand
+                                best_path = p
+
+                        if closest_room and best_path:
+                            for hop in best_path:
+                                repair_nodes.append(PlanNode(
+                                    id=f"repair_search_nav_{hop}",
+                                    goal=f"Navigate to {hop} to search for credential in {closest_room}",
+                                    action_type="navigate",
+                                    target=hop,
+                                    params={"target_zone": hop},
+                                    status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
+                                    is_repair_node=True,
+                                ))
+                            repair_nodes.append(PlanNode(
+                                id=f"repair_observe_{closest_room}",
+                                goal=f"Observe room {closest_room} to search for security_badge",
+                                action_type="observe",
+                                target=closest_room,
+                                params={"target": closest_room},
+                                status=PlanNodeStatus.PENDING,
+                                is_repair_node=True,
+                            ))
+                        else:
+                            return True, "CREDENTIAL_UNAVAILABLE_IN_ACCESSIBLE_ROOMS: Checked all reachable rooms and found no security_badge.", []
 
             elif error_code in ("BATTERY_LOW", "NOT_AT_CHARGER", "BATTERY_DEPLETED"):
                 # Recharge repair
@@ -178,7 +229,11 @@ class RepairController:
 
         # 4. Insert repair nodes and update downstream navigation
         if repair_nodes:
-            plan.insert_repair_nodes(repair_nodes, reason=f"Repaired failure on {failed_tool}: {error_code} (MemoryUsed={memory_used})")
+            plan.insert_repair_nodes(
+                repair_nodes,
+                reason=f"Repaired failure on {failed_tool}: {error_code} (MemoryUsed={memory_used})",
+                replace_blocked_subroute=True,
+            )
             self.repair_history.append({
                 "step": task_state.step_counter,
                 "failed_tool": failed_tool,

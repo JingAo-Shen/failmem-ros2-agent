@@ -53,6 +53,7 @@ def create_group_d_repair_store(
             repair_steps=[{"action": "navigate", "params": {"target_zone": "Corridor_South"}}],
             expected_effects=["at_location(Corridor_South)"],
             evidence_refs=["evt_seed_t1_s01"],
+            verification_evidence={"verified": True, "evidence_refs": ["evt_seed_t1_s01"]},
             invalidation_conditions={"door_north_state": "FREE"},
             verification_status=VerificationStatus.VERIFIED,
             source_task_id="seed_t1",
@@ -69,6 +70,7 @@ def create_group_d_repair_store(
             repair_steps=[{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}],
             expected_effects=["has_credential(security_badge)"],
             evidence_refs=["evt_seed_t1_s01"],
+            verification_evidence={"verified": True, "evidence_refs": ["evt_seed_t1_s01"]},
             invalidation_conditions={"has_credential": "security_badge"},
             verification_status=VerificationStatus.VERIFIED,
             source_task_id="seed_t1",
@@ -83,6 +85,7 @@ def create_group_d_repair_store(
             repair_steps=[{"action": "observe", "params": {"target": "door_office_b"}}],
             expected_effects=["door_office_b_checked"],
             evidence_refs=["evt_seed_t1_s01"],
+            verification_evidence={"verified": True, "evidence_refs": ["evt_seed_t1_s01"]},
             invalidation_conditions={"door_office_b_state": "FREE"},
             verification_status=VerificationStatus.VERIFIED,
             source_task_id="seed_t1",
@@ -294,6 +297,29 @@ def run_32_dev_diagnosis(
             "avg_llm_calls": round(total_calls / max(1, n_total), 2),
         }
 
+    # Mutual-success efficiency calculation
+    b_records = {r["scenario_id"]: r for r in unit_results if r["group_id"] == "Group_B_Agent_B"}
+    c_records = {r["scenario_id"]: r for r in unit_results if r["group_id"] == "Group_C_Agent_C"}
+    d_records = {r["scenario_id"]: r for r in unit_results if r["group_id"] == "Group_D_Agent_D"}
+
+    mutual_bd = [sid for sid in b_records if b_records[sid]["success"] and d_records[sid]["success"]]
+    mutual_cd = [sid for sid in c_records if c_records[sid]["success"] and d_records[sid]["success"]]
+
+    bd_step_diff = sum(b_records[s]["steps"] - d_records[s]["steps"] for s in mutual_bd) / max(1, len(mutual_bd)) if mutual_bd else 0.0
+    bd_batt_diff = sum(b_records[s]["battery_consumed"] - d_records[s]["battery_consumed"] for s in mutual_bd) / max(1, len(mutual_bd)) if mutual_bd else 0.0
+
+    cd_step_diff = sum(c_records[s]["steps"] - d_records[s]["steps"] for s in mutual_cd) / max(1, len(mutual_cd)) if mutual_cd else 0.0
+    cd_batt_diff = sum(c_records[s]["battery_consumed"] - d_records[s]["battery_consumed"] for s in mutual_cd) / max(1, len(mutual_cd)) if mutual_cd else 0.0
+
+    paired_comparison = {
+        "mutual_scenarios_B_and_D": mutual_bd,
+        "group_D_vs_B_step_savings": round(bd_step_diff, 2),
+        "group_D_vs_B_battery_savings": round(bd_batt_diff, 2),
+        "mutual_scenarios_C_and_D": mutual_cd,
+        "group_D_vs_C_step_savings": round(cd_step_diff, 2),
+        "group_D_vs_C_battery_savings": round(cd_batt_diff, 2),
+    }
+
     # Synthesize objective conclusion
     d_succ = group_summaries["Group_D_Agent_D"]["success_rate"]
     b_succ = group_summaries["Group_B_Agent_B"]["success_rate"]
@@ -321,6 +347,7 @@ def run_32_dev_diagnosis(
         "total_wall_time_s": round(t_total_wall, 2),
         "findings_conclusion": findings_conclusion,
         "group_summaries": group_summaries,
+        "paired_efficiency_comparison": paired_comparison,
         "unit_results": unit_results,
     }
 

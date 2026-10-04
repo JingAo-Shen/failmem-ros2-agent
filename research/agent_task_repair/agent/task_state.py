@@ -227,7 +227,18 @@ class TaskStateTracker:
                 rec = obs.get("recipient", params.get("entity"))
                 if rec:
                     self.set_fact(f"{rec}_status", obs["recipient_status"], event_id, sim_time, tool_name)
-            if "room_items" in obs:
+            if "room" in obs and "items" in obs:
+                r = obs["room"]
+                items = list(obs["items"])
+                self.set_fact(f"room_items_{r}", items, event_id, sim_time, tool_name)
+                self.set_fact(f"room_checked_at_{r}", sim_time, event_id, sim_time, tool_name)
+                if "security_badge" in items:
+                    self.set_fact("badge_location", r, event_id, sim_time, tool_name)
+                    self.set_fact("credential_security_badge_available_in", r, event_id, sim_time, tool_name)
+                else:
+                    self.set_fact(f"room_checked_empty_{r}", True, event_id, sim_time, tool_name)
+                    self.set_fact(f"credential_not_found_in_{r}", True, event_id, sim_time, tool_name)
+            elif "room_items" in obs:
                 self.set_fact(f"room_items_{self.robot_location}", obs["room_items"], event_id, sim_time, tool_name)
 
     def is_all_completed(self) -> bool:

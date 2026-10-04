@@ -149,21 +149,228 @@ def test_repair_memory_observed_fact_equality_and_strict_applicability():
     assert mem.verification_status == VerificationStatus.INVALIDATED
 
 
-def test_repair_memory_default_unverified_if_missing_verification_evidence():
+def test_observe_valid_and_invalid_targets():
+    validator = ActionValidator()
+    # 1. Valid room observation when robot is in that room
+    res_valid_room = validator.validate_action("observe", {"target": "Office_A"}, {"robot_location": "Office_A"}, {})
+    assert res_valid_room.status == ValidationStatus.PASS
+
+    # 2. Valid door observation from connected room
+    res_valid_door = validator.validate_action("observe", {"target": "door_north"}, {"robot_location": "Lobby"}, {})
+    assert res_valid_door.status == ValidationStatus.PASS
+
+    # 3. Invalid room observation from different room
+    res_wrong_room = validator.validate_action("observe", {"target": "Office_A"}, {"robot_location": "Lobby"}, {})
+    assert res_wrong_room.status == ValidationStatus.FAIL
+
+    # 4. Invalid fake targets like room_items, door, contents
+    for fake_tgt in ("room_items", "door", "contents", "items"):
+        res_fake = validator.validate_action("observe", {"target": fake_tgt}, {"robot_location": "Lobby"}, {})
+        assert res_fake.status == ValidationStatus.FAIL
+
+
+def test_empty_room_observation_updates_search_and_prevents_looping():
+    state = TaskStateTracker("Test Empty Room", {"robot_location": "Office_A"})
+    validator = ActionValidator()
+
+    # Before observation, acquire_credential is not blocked by empty fact
+    res_pre = validator.validate_action("acquire_credential", {"credential_name": "security_badge"}, state.get_public_state_summary(), state.observed_facts)
+    assert res_pre.status == ValidationStatus.PASS
+
+    # Execute observe in Office_A with empty items
+    result_dict = {
+        "status": "SUCCESS",
+        "success": True,
+        "observation": {"room": "Office_A", "items": [], "present_people": ["Alice"]},
+        "time_cost_s": 2.0,
+        "battery_cost_pct": 1,
+    }
+    state.update_from_tool_result("observe", {"target": "Office_A"}, result_dict, "evt_obs_empty", 2.0)
+
+    # Check facts updated
+    assert state.get_fact_value("room_checked_empty_Office_A") is True
+    assert state.get_fact_value("credential_not_found_in_Office_A") is True
+
+    # After observation, acquire_credential is FAIL
+    res_post = validator.validate_action("acquire_credential", {"credential_name": "security_badge"}, state.get_public_state_summary(), state.observed_facts)
+    assert res_post.status == ValidationStatus.FAIL
+    assert "no credentials" in res_post.reason
+
+
+def test_reached_destination_prunes_obsolete_detour_nodes():
+    state = TaskStateTracker("Deliver pkg to Office_A", {
+        "robot_location": "Lobby",
+        "battery": 100,
+        "inventory": ["pkg_docs"],
+        "available_packages": [{"id": "pkg_docs", "pickup_location": "Lobby", "target_room": "Office_A", "recipient": "Alice"}]
+    })
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+
+    # Simulate detour repair inserted: navigate(Corridor_South), navigate(Office_A)
+    # And robot moves to Corridor_South, then Office_A
+    state.robot_location = "Corridor_South"
+    plan.replan_subsequent_navigation("Corridor_South")
+
+    state.robot_location = "Office_A"
+    plan.prune_obsolete_navigation()
+
+    # Active node should directly be deliver, NOT navigating back to Corridor_North
+    active = plan.get_current_active_node()
+    assert active is not None
+    assert active.action_type == "deliver"
+    assert active.target == "Office_A"
+
+
+def test_blocked_edge_does_not_ban_entire_zone():
+    plan = PersistentPlan(TaskStateTracker("Test", {"robot_location": "Lobby"}))
+
+    # Blocking edge (Lobby, Corridor_North)
+    blocked_edge = ("Lobby", "Corridor_North")
+
+    # Path from Corridor_South to Corridor_North is STILL reachable
+    p_from_south = plan.find_path("Corridor_South", "Corridor_North", avoid_edges={blocked_edge})
+    assert p_from_south == ["Corridor_North"]
+
+    # Path from Lobby to Office_A via Corridor_South
+    p_detour = plan.find_path("Lobby", "Office_A", avoid_edges={blocked_edge})
+    assert p_detour == ["Corridor_South", "Office_A"]
+
+
+def test_failure_only_trajectory_cannot_promote_to_verified():
     store = RepairMemoryStore()
-    # Record without execution evidence -> must remain UNVERIFIED
+    mem = store.propose_repair(
+        memory_id="mem_fail_only",
+        source_task_id="task_fail_only",
+        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED"},
+        repair_proposal=[{"action": "navigate", "params": {"target_zone": "Corridor_South"}}],
+        expected_effects=["at_location(Corridor_South)"],
+    )
+    assert mem.verification_status == VerificationStatus.UNVERIFIED
+
+    # Trajectory contains only the failure step and nothing else
+    trajectory_fail_only = [
+        {
+            "step": 1,
+            "tool": "navigate",
+            "params": {"target_zone": "Corridor_North"},
+            "result": {"status": "DOOR_BLOCKED", "success": False, "error_code": "DOORWAY_BLOCKED"},
+            "robot_location_before": "Lobby",
+            "robot_location_after": "Lobby",
+        }
+    ]
+
+    promoted, reason = store.verify_and_promote("mem_fail_only", trajectory_fail_only)
+    assert promoted is False
+    assert mem.verification_status == VerificationStatus.UNVERIFIED
+
+
+def test_nonexistent_or_fake_evidence_refs_fail_verification():
+    store = RepairMemoryStore()
+    mem = store.propose_repair(
+        memory_id="mem_fake",
+        source_task_id="task_fake",
+        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED"},
+        repair_proposal=[{"action": "navigate", "params": {"target_zone": "Corridor_South"}}],
+        expected_effects=["at_location(Corridor_South)"],
+    )
+
+    # Trajectory with unrelated tool execution
+    trajectory_unrelated = [
+        {
+            "step": 1,
+            "tool": "navigate",
+            "params": {"target_zone": "Corridor_North"},
+            "result": {"status": "DOOR_BLOCKED", "success": False, "error_code": "DOORWAY_BLOCKED"},
+        },
+        {
+            "step": 2,
+            "tool": "query_status",
+            "params": {"entity": "battery"},
+            "result": {"status": "SUCCESS", "success": True},
+        }
+    ]
+
+    promoted, reason = store.verify_and_promote("mem_fake", trajectory_unrelated)
+    assert promoted is False
+    assert mem.verification_status == VerificationStatus.UNVERIFIED
+
+
+def test_new_observation_invalidating_memory_prohibits_reuse():
+    store = RepairMemoryStore()
     mem = store.record_repair_experience(
-        memory_id="mem_unverified",
-        source_task_id="src_02",
-        failure_event={"action_name": "navigate", "target": "Lab_Secure", "error_code": "SECURITY_BADGE_REQUIRED"},
-        repair_proposal=[{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}],
-        execution_evidence_refs=[],  # No execution evidence!
-        verification_evidence={},     # No verification!
-        applicability={"origin": "Corridor_South"},
-        required_facts={},
-        invalidation_conditions={},
-        expected_effects=[],
+        memory_id="mem_stale_check",
+        source_task_id="src_task",
+        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED"},
+        repair_proposal=[{"action": "navigate", "params": {"target_zone": "Corridor_South"}}],
+        execution_evidence_refs=["evt_01"],
+        verification_evidence={"verified": True},
+        invalidation_conditions={"door_north_state": "FREE"},
         verification_status=VerificationStatus.VERIFIED,
     )
-    # Verification rule must force status to UNVERIFIED
-    assert mem.verification_status == VerificationStatus.UNVERIFIED
+    assert mem.verification_status == VerificationStatus.VERIFIED
+
+    # Invalidate with observation
+    store.update_with_observation({"door": "door_north", "passage_state": "FREE"})
+    assert mem.verification_status == VerificationStatus.INVALIDATED
+
+    # Attempt retrieval -> must be None
+    plan_nodes = store.retrieve_repair_plan("navigate", {"target_zone": "Corridor_North"}, "DOORWAY_BLOCKED", {"robot_location": "Lobby"}, {})
+    assert plan_nodes is None
+
+
+def test_verified_end_to_end_real_trajectory_promotion():
+    store = RepairMemoryStore()
+    mem = store.propose_repair(
+        memory_id="mem_real_repair",
+        source_task_id="src_task_100",
+        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED"},
+        repair_proposal=[
+            {"action": "navigate", "params": {"target_zone": "Corridor_South"}},
+            {"action": "navigate", "params": {"target_zone": "Office_A"}},
+        ],
+        expected_effects=["at_location(Office_A)"],
+    )
+
+    # Real authentic trajectory
+    trajectory = [
+        {
+            "step": 1,
+            "event_id": "evt_01",
+            "tool": "pickup",
+            "params": {"package_id": "pkg_docs", "from_location": "Lobby"},
+            "result": {"status": "SUCCESS", "success": True},
+            "robot_location": "Lobby",
+        },
+        {
+            "step": 2,
+            "event_id": "evt_02",
+            "tool": "navigate",
+            "params": {"target_zone": "Corridor_North"},
+            "result": {"status": "DOOR_BLOCKED", "success": False, "error_code": "DOORWAY_BLOCKED"},
+            "robot_location": "Lobby",
+        },
+        {
+            "step": 3,
+            "event_id": "evt_03",
+            "tool": "navigate",
+            "params": {"target_zone": "Corridor_South"},
+            "result": {"status": "SUCCESS", "success": True, "observation": {"current_location": "Corridor_South"}},
+            "robot_location": "Corridor_South",
+        },
+        {
+            "step": 4,
+            "event_id": "evt_04",
+            "tool": "navigate",
+            "params": {"target_zone": "Office_A"},
+            "result": {"status": "SUCCESS", "success": True, "observation": {"current_location": "Office_A"}},
+            "robot_location": "Office_A",
+        }
+    ]
+
+    promoted, reason = store.verify_and_promote("mem_real_repair", trajectory)
+    assert promoted is True
+    assert mem.verification_status == VerificationStatus.VERIFIED
+    assert len(mem.execution_evidence_refs) == 2
+    assert mem.execution_evidence_refs == ["evt_03", "evt_04"]
+

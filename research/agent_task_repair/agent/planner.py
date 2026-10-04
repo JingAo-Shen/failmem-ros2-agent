@@ -77,9 +77,9 @@ Your goal is to complete all delivery tasks step-by-step safely, efficiently, an
 1. `pickup(package_id, from_location)`: Pick up package from current room into inventory (max capacity: 2).
 2. `deliver(package_id, recipient)`: Hand over package from inventory to recipient in current room.
 3. `navigate(target_zone)`: Move to an allowed adjacent zone.
-4. `observe(target)`: Scan door or inspect room contents.
-5. `query_status(entity)`: Query recipient availability or battery.
-6. `acquire_credential(credential_name)`: Pick up credential in current room.
+4. `observe(target)`: Scan adjacent doorway (e.g. 'door_north') or inspect current room contents (e.g. 'Lobby', 'Office_A'). Target must be an adjacent doorway or the robot's current room.
+5. `query_status(entity)`: Query recipient availability or battery level ('battery').
+6. `acquire_credential(credential_name)`: Pick up available credential (e.g. 'security_badge') in current room.
 7. `recharge()`: Fully recharge battery at Lobby charging station.
 
 ### Action Selection Protocol:

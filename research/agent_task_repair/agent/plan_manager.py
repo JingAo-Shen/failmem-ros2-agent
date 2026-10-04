@@ -74,15 +74,22 @@ class PersistentPlan:
         self.plan_version: int = 1
         self.revision_history: List[Dict[str, Any]] = []
 
-    def find_path(self, start: str, goal: str, avoid: Optional[Set[str]] = None) -> List[str]:
+    def find_path(
+        self,
+        start: str,
+        goal: str,
+        avoid: Optional[Set[str]] = None,
+        avoid_edges: Optional[Set[Tuple[str, str]]] = None,
+    ) -> List[str]:
         """
-        Finds shortest topological path avoiding specified nodes.
+        Finds shortest topological path avoiding specified nodes and edges.
         Strict contract: Returns empty list [] if start == goal OR if no valid path exists under constraints.
         NEVER fakes direct edges [goal] or silently drops avoidance constraints.
         """
         if start == goal:
             return []
         avoid_set = set(avoid or [])
+        avoid_edge_set = set(avoid_edges or [])
         from collections import deque
         queue = deque([[start]])
         visited = {start} | avoid_set
@@ -90,6 +97,9 @@ class PersistentPlan:
             path = queue.popleft()
             node = path[-1]
             for neighbor in self.adjacency_map.get(node, []):
+                # Check edge blockage
+                if (node, neighbor) in avoid_edge_set or (neighbor, node) in avoid_edge_set:
+                    continue
                 if neighbor == goal:
                     return path[1:] + [goal]
                 if neighbor not in visited:
@@ -214,7 +224,40 @@ class PersistentPlan:
             self.nodes[0].status = PlanNodeStatus.READY
         self.current_node_index = 0
 
+    def prune_obsolete_navigation(self):
+        """
+        Prunes redundant navigation nodes if robot is already at destination
+        or if subsequent navigation hops are already satisfied.
+        """
+        robot_loc = self.task_state.robot_location
+        for idx in range(self.current_node_index, len(self.nodes)):
+            n = self.nodes[idx]
+            if n.status in (PlanNodeStatus.COMPLETED, PlanNodeStatus.INVALIDATED):
+                continue
+            if n.action_type == "navigate" and n.target == robot_loc:
+                n.status = PlanNodeStatus.COMPLETED
+                n.goal += " (Auto-satisfied: already at location)"
+            elif n.action_type in ("deliver", "pickup", "recharge"):
+                goal_loc = n.target
+                if n.action_type == "pickup":
+                    goal_loc = n.params.get("from_location", goal_loc)
+                elif n.action_type == "recharge":
+                    goal_loc = self.task_state.charger_location
+
+                # If robot is already at this goal location and holding necessary items
+                if robot_loc == goal_loc:
+                    # Invalidate any preceding pending navigate nodes between current and this goal
+                    for prev_idx in range(self.current_node_index, idx):
+                        if self.nodes[prev_idx].action_type == "navigate" and self.nodes[prev_idx].status != PlanNodeStatus.COMPLETED:
+                            self.nodes[prev_idx].status = PlanNodeStatus.INVALIDATED
+                            self.nodes[prev_idx].goal += " (Pruned: already reached destination)"
+                    n.status = PlanNodeStatus.READY
+                    break
+                else:
+                    break
+
     def get_current_active_node(self) -> Optional[PlanNode]:
+        self.prune_obsolete_navigation()
         for idx, node in enumerate(self.nodes):
             if node.status in (PlanNodeStatus.READY, PlanNodeStatus.IN_PROGRESS):
                 self.current_node_index = idx
@@ -287,6 +330,12 @@ class PersistentPlan:
             if cname not in self.task_state.credentials:
                 return False
 
+        elif tool_name == "observe":
+            tgt = params.get("target")
+            expected_tgt = active_node.target or active_node.params.get("target")
+            if tgt != expected_tgt:
+                return False
+
         elif tool_name == "recharge":
             if self.task_state.battery < 100 and self.task_state.robot_location != self.task_state.charger_location:
                 return False
@@ -295,15 +344,42 @@ class PersistentPlan:
         active_node.status = PlanNodeStatus.COMPLETED
         active_node.evidence_refs.append(event_id)
 
+        # Prune any obsolete navigation after completing step
+        self.prune_obsolete_navigation()
+
         # Advance current active node
         self.get_current_active_node()
         return True
 
-    def insert_repair_nodes(self, repair_nodes: List[PlanNode], reason: str):
-        """Inserts local repair nodes before the currently blocked node and updates plan version."""
+    def insert_repair_nodes(
+        self,
+        repair_nodes: List[PlanNode],
+        reason: str,
+        replace_blocked_subroute: bool = True,
+    ):
+        """
+        Inserts local repair nodes before the currently blocked node.
+        If replace_blocked_subroute is True, removes or invalidates the obsolete
+        blocked navigation node and downstream navigation hops to the destination.
+        """
         curr_idx = self.current_node_index
         for r_node in repair_nodes:
             r_node.is_repair_node = True
+
+        if replace_blocked_subroute and curr_idx < len(self.nodes):
+            # Find next non-navigation goal node
+            next_goal_idx = -1
+            for idx in range(curr_idx, len(self.nodes)):
+                if self.nodes[idx].action_type not in ("navigate", "observe"):
+                    next_goal_idx = idx
+                    break
+
+            if next_goal_idx != -1:
+                # Mark obsolete navigation nodes as INVALIDATED
+                for obs_idx in range(curr_idx, next_goal_idx):
+                    self.nodes[obs_idx].status = PlanNodeStatus.INVALIDATED
+                    self.nodes[obs_idx].goal += " (Replaced by repair detour)"
+
         self.nodes[curr_idx:curr_idx] = repair_nodes
         self.plan_version += 1
         self.revision_history.append({
@@ -314,13 +390,18 @@ class PersistentPlan:
         })
         if self.nodes:
             self.nodes[curr_idx].status = PlanNodeStatus.READY
+        self.prune_obsolete_navigation()
 
-    def replan_subsequent_navigation(self, current_location: str, avoid_nodes: Optional[Set[str]] = None):
+    def replan_subsequent_navigation(
+        self,
+        current_location: str,
+        avoid_nodes: Optional[Set[str]] = None,
+        avoid_edges: Optional[Set[Tuple[str, str]]] = None,
+    ):
         """
         Recomputes remaining navigation hops if the agent's current position changed
         due to detour / repair, ensuring valid topological preconditions.
         """
-        # Find next non-navigation goal node (e.g. pickup or deliver or recharge)
         next_goal_node = None
         next_goal_idx = -1
         for idx in range(self.current_node_index, len(self.nodes)):
@@ -350,11 +431,10 @@ class PersistentPlan:
             return
 
         # Recompute path from current location to destination
-        new_hops = self.find_path(current_location, dest_location, avoid=avoid_nodes)
+        new_hops = self.find_path(current_location, dest_location, avoid=avoid_nodes, avoid_edges=avoid_edges)
         if not new_hops:
-            return  # No path available
+            return
 
-        # Construct new navigation hops
         new_nav_nodes = []
         for h_idx, hop in enumerate(new_hops, start=1):
             new_nav_nodes.append(PlanNode(
@@ -367,7 +447,6 @@ class PersistentPlan:
                 is_repair_node=True,
             ))
 
-        # Replace pending navigation nodes before next goal node with new hops
         self.nodes[self.current_node_index:next_goal_idx] = new_nav_nodes
         self.plan_version += 1
         self.revision_history.append({
@@ -376,6 +455,7 @@ class PersistentPlan:
             "inserted_nodes_count": len(new_nav_nodes),
             "inserted_node_ids": [n.id for n in new_nav_nodes],
         })
+        self.prune_obsolete_navigation()
 
     def format_plan_prompt_section(self) -> str:
         lines = [f"### Persistent Task Plan (Version {self.plan_version}):"]

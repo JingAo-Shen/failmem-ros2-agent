@@ -38,8 +38,10 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_FILE = RESULTS_DIR / "model_screening_results.json"
 
 
+import hashlib
+
 def get_model_commit_info(model_path: str) -> str:
-    """Extracts git commit hash or config hash for reproducible logging."""
+    """Extracts SHA256 hash of model config.json and git commit if present for reproducible logging."""
     commit_file = Path(model_path) / ".git" / "HEAD"
     if commit_file.exists():
         try:
@@ -47,18 +49,18 @@ def get_model_commit_info(model_path: str) -> str:
             if head_content.startswith("ref:"):
                 ref_path = Path(model_path) / ".git" / head_content.split(" ")[1]
                 if ref_path.exists():
-                    return ref_path.read_text().strip()[:10]
-            return head_content[:10]
+                    return f"git_{ref_path.read_text().strip()[:10]}"
+            return f"git_{head_content[:10]}"
         except Exception:
             pass
-    # Check config.json mtime or hash
     cfg_file = Path(model_path) / "config.json"
     if cfg_file.exists():
-        return f"rev_mtime_{int(cfg_file.stat().st_mtime)}"
+        cfg_hash = hashlib.sha256(cfg_file.read_bytes()).hexdigest()[:12]
+        return f"sha256_{cfg_hash}"
     return "unknown_revision"
 
 
-def run_model_screening():
+def run_model_screening(target_config_id: Optional[str] = None):
     print("=" * 80)
     print("STARTING 24-TASK MODEL CAPABILITY SCREENING BENCHMARK (FAILMEM STAGE 2)")
     print("Screening Candidate Models for Single-GPU Robotic Planning Admission")
@@ -97,7 +99,20 @@ def run_model_screening():
         },
     ]
 
+    if target_config_id:
+        configs = [c for c in configs if c["id"] == target_config_id]
+        if not configs:
+            raise ValueError(f"Unknown target_config_id '{target_config_id}'. Available: Config_Ref_7B, Config_14B_Direct, Config_14B_Thinking")
+
     all_config_results = {}
+    if OUTPUT_FILE.exists() and target_config_id:
+        try:
+            with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+                old_data = json.load(f)
+                all_config_results = old_data.get("config_results", {})
+        except Exception:
+            pass
+
     t_start_total = time.time()
 
     for cfg in configs:
@@ -151,8 +166,21 @@ def run_model_screening():
         valid_first_calls = 0
         total_retry_calls = 0
         valid_retry_calls = 0
+        early_stopped = False
+        early_stop_reason = None
 
         for t_idx, task in enumerate(tasks, start=1):
+            # Early stopping check for Thinking Mode (due to excessive per-step reasoning latency)
+            if thinking_mode and t_idx > 4:
+                early_stopped = True
+                early_stop_reason = (
+                    f"Thinking mode per-step latency ({llm.total_latency_s / max(1, llm.total_calls):.2f}s) "
+                    f"exceeds interactive planning threshold (>30s/call, >120s/task). "
+                    f"Early stopped at {t_idx-1} tasks to preserve benchmark throughput."
+                )
+                print(f"  [EARLY STOP TRIGGERED] {early_stop_reason}")
+                break
+
             tid = task["task_id"]
             cat = task["category"]
             t_task_start = time.time()
@@ -206,6 +234,7 @@ def run_model_screening():
                 "wall_time_s": round(t_task_wall, 2),
                 "constraint_violations": res.get("constraint_violations", []),
                 "step_history": res.get("step_history", []),
+                "llm_traces": res.get("llm_traces", []),
             })
 
             print(f"  [{t_idx:2d}/24] {tid:42s} | Success={str(success):5s} | Steps={step_count:2d} | Batt={batt:2d}% | Wall={t_task_wall:4.1f}s")
@@ -236,8 +265,11 @@ def run_model_screening():
         basic_delivery_rate = cat_summaries.get("1_basic_delivery", {}).get("success_rate", 0.0)
 
         stats = llm.get_aggregate_stats()
+        avg_task_latency_s = round(sum(r["wall_time_s"] for r in task_runs) / max(1, len(task_runs)), 2)
 
         meets_admission = (
+            not early_stopped and
+            n_tasks == 24 and
             basic_delivery_rate >= 1.0 and
             first_call_schema_rate >= 0.95 and
             success_rate >= 0.80 and
@@ -258,8 +290,11 @@ def run_model_screening():
             "revised_schema_validity_rate": revised_schema_rate,
             "basic_delivery_completion_rate": basic_delivery_rate,
             "meets_admission_criteria": meets_admission,
+            "early_stopped": early_stopped,
+            "early_stop_reason": early_stop_reason,
             "peak_vram_mb": peak_vram_mb,
             "avg_step_latency_s": stats.get("avg_latency_s", 0.0),
+            "avg_task_latency_s": avg_task_latency_s,
             "avg_tokens_per_sec": stats.get("avg_tokens_per_sec", 0.0),
             "total_prompt_tokens": stats.get("total_prompt_tokens", 0),
             "total_generated_tokens": stats.get("total_generated_tokens", 0),
@@ -345,4 +380,11 @@ def run_model_screening():
 
 
 if __name__ == "__main__":
-    run_model_screening()
+    import argparse
+    parser = argparse.ArgumentParser(description="Run model screening benchmark.")
+    parser.add_argument("--config", type=str, default=None, help="Specific config ID to run (e.g. Config_14B_Direct)")
+    args = parser.parse_args()
+    
+    if args.config:
+        print(f"Running specific screening configuration: {args.config}")
+    run_model_screening(target_config_id=args.config)

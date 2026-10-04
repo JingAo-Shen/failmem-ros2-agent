@@ -24,6 +24,7 @@ def test_repair_memory_store_and_instantiation():
         ],
         expected_effects=["at_location($target)"],
         evidence_refs=["evt_t1_s01", "evt_t1_s02_repair_ok"],
+        verification_evidence={"verified": True, "evidence_refs": ["evt_t1_s02_repair_ok"]},
         invalidation_conditions={"door_north_state": "FREE"},
         verification_status=VerificationStatus.VERIFIED,
     )
@@ -45,8 +46,9 @@ def test_repair_memory_store_and_instantiation():
     assert nodes is not None
     assert len(nodes) == 2
     assert nodes[0].action_type == "navigate"
-    assert nodes[0].params["target_zone"] == "Corridor_South"  # $detour_zone bound to Corridor_South from Lobby
-
+    assert nodes[0].params["target_zone"] == "Corridor_South"  # detour zone
+    assert nodes[1].action_type == "navigate"
+    assert nodes[1].params["target_zone"] == "Corridor_North"  # final target
 
 def test_repair_memory_invalidation():
     store = RepairMemoryStore()
@@ -58,6 +60,7 @@ def test_repair_memory_invalidation():
         repair_steps=[{"action": "navigate", "params": {"target_zone": "Corridor_South"}}],
         expected_effects=["at_location(Corridor_South)"],
         evidence_refs=["evt_01"],
+        verification_evidence={"verified": True, "evidence_refs": ["evt_01"]},
         invalidation_conditions={"door_north_state": "FREE"},
         verification_status=VerificationStatus.VERIFIED,
     )

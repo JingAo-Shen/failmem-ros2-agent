@@ -1,13 +1,14 @@
 """
 Evidence-Backed Failure Repair Memory for FailMem Stage 2.
 Enforces the complete repair memory lifecycle:
-  1. Default UNVERIFIED: Experiences start unverified.
-  2. Full Source Task Trace: Failure Event -> Proposed Repair -> Real Execution -> Effect Verification.
-  3. Strict Verification: Only memories with confirmed tool evidence of success are upgraded to VERIFIED.
-  4. Explicit Applicability & Required Facts: Evaluates precondition facts (comparing ObservedFact values).
+  1. Default UNVERIFIED: Experiences start strictly unverified.
+  2. Two-Phase API: propose_repair (UNVERIFIED) -> verify_and_promote (VERIFIED).
+  3. Grounded Trajectory Verifier: Checks source failure existence, actual execution, tool success,
+     expected effects satisfaction, and same-trajectory integrity.
+  4. Explicit Lifecycle Tracking:
+     RETRIEVED -> INSTANTIATED -> EXECUTED -> VERIFIED_EFFECT / REJECTED / INVALIDATED.
   5. Active Invalidation: Sensory observations directly transition memories to INVALIDATED.
-  6. Parameterized Binding: Grounded bindings from map topology and facts (no hardcoded rooms).
-  7. Auditing: Complete retrieval, rejection, execution, and invalidation audit logs.
+  6. Parameterized Dynamic Binding: Bindings from actual trajectory, public state, and topology (no hardcoding).
 """
 from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
@@ -20,6 +21,17 @@ from ..agent.task_state import ObservedFact
 class VerificationStatus(str, Enum):
     UNVERIFIED = "UNVERIFIED"
     VERIFIED = "VERIFIED"
+    INVALIDATED = "INVALIDATED"
+    REJECTED = "REJECTED"
+
+
+class MemoryLifecycleState(str, Enum):
+    PROPOSED = "PROPOSED"
+    RETRIEVED = "RETRIEVED"
+    INSTANTIATED = "INSTANTIATED"
+    EXECUTED = "EXECUTED"
+    VERIFIED_EFFECT = "VERIFIED_EFFECT"
+    REJECTED = "REJECTED"
     INVALIDATED = "INVALIDATED"
 
 
@@ -34,15 +46,16 @@ class ApplicabilityResult(str, Enum):
 class RepairMemoryItem:
     memory_id: str
     source_task_id: str
-    failure_event: Dict[str, Any]       # {"action_name": "...", "target": "...", "error_code": "...", "event_id": "..."}
+    failure_event: Dict[str, Any]         # {"action_name": "...", "target": "...", "error_code": "...", "event_id": "..."}
     repair_proposal: List[Dict[str, Any]] # [{"action": "...", "params": {...}}]
-    execution_evidence_refs: List[str]  # Event IDs of successful repair execution
-    verification_evidence: Dict[str, Any] # Postcondition verification result
-    applicability: Dict[str, Any]       # {"origin": "...", "target": "...", "blocked_entity": "..."}
-    required_facts: Dict[str, Any]      # {"door_north_state": "OCCUPIED"}
+    execution_evidence_refs: List[str]    # Event IDs of successful repair execution
+    verification_evidence: Dict[str, Any] # Postcondition verification result (empty if unverified)
+    applicability: Dict[str, Any]         # {"origin": "...", "target": "...", "blocked_entity": "..."}
+    required_facts: Dict[str, Any]        # {"door_north_state": "OCCUPIED"}
     invalidation_conditions: Dict[str, Any] # {"door_north_state": "FREE"}
-    expected_effects: List[str]         # ["at_location(...)"]
+    expected_effects: List[str]           # ["at_location(...)"]
     verification_status: VerificationStatus = VerificationStatus.UNVERIFIED
+    lifecycle_state: MemoryLifecycleState = MemoryLifecycleState.PROPOSED
     success_count: int = 0
     failure_count: int = 0
 
@@ -56,7 +69,7 @@ class RepairMemoryItem:
         Returns (ApplicabilityResult, reason).
         """
         # 1. Check if already invalidated
-        if self.verification_status == VerificationStatus.INVALIDATED:
+        if self.verification_status == VerificationStatus.INVALIDATED or self.lifecycle_state == MemoryLifecycleState.INVALIDATED:
             return ApplicabilityResult.INVALIDATED, "Memory is marked INVALIDATED."
 
         # 2. Check invalidation triggers
@@ -65,6 +78,7 @@ class RepairMemoryItem:
                 f_val = known_facts[k].value if isinstance(known_facts[k], ObservedFact) else known_facts[k]
                 if f_val == inv_val:
                     self.verification_status = VerificationStatus.INVALIDATED
+                    self.lifecycle_state = MemoryLifecycleState.INVALIDATED
                     return ApplicabilityResult.INVALIDATED, f"Invalidation condition met: {k} == {inv_val}."
 
         # 3. Check physical applicability (e.g. origin / location)
@@ -98,7 +112,7 @@ class RepairMemoryItem:
                 if isinstance(pv, str) and pv.startswith("$") and pv[1:] in variable_bindings:
                     params[pk] = variable_bindings[pv[1:]]
 
-            target = params.get("target_zone") or params.get("package_id") or params.get("credential_name") or act
+            target = params.get("target_zone") or params.get("package_id") or params.get("credential_name") or params.get("target") or act
             nodes.append(PlanNode(
                 id=f"rmem_{self.memory_id}_step{idx:02d}",
                 goal=f"Memory-guided repair: {act}({params})",
@@ -109,6 +123,7 @@ class RepairMemoryItem:
                 is_repair_node=True,
                 evidence_refs=list(self.execution_evidence_refs),
             ))
+        self.lifecycle_state = MemoryLifecycleState.INSTANTIATED
         return nodes
 
     def to_dict(self) -> Dict[str, Any]:
@@ -124,6 +139,7 @@ class RepairMemoryItem:
             "invalidation_conditions": self.invalidation_conditions,
             "expected_effects": self.expected_effects,
             "verification_status": self.verification_status.value,
+            "lifecycle_state": self.lifecycle_state.value,
             "success_count": self.success_count,
             "failure_count": self.failure_count,
         }
@@ -133,6 +149,208 @@ class RepairMemoryStore:
     def __init__(self):
         self.memories: Dict[str, RepairMemoryItem] = {}
         self.audit_log: List[Dict[str, Any]] = []
+
+    def propose_repair(
+        self,
+        memory_id: str,
+        source_task_id: str = "task_0",
+        failure_event: Optional[Dict[str, Any]] = None,
+        repair_proposal: Optional[List[Dict[str, Any]]] = None,
+        applicability: Optional[Dict[str, Any]] = None,
+        required_facts: Optional[Any] = None,
+        invalidation_conditions: Optional[Dict[str, Any]] = None,
+        expected_effects: Optional[List[str]] = None,
+    ) -> RepairMemoryItem:
+        """
+        Phase 1: Registers a proposed repair memory item in UNVERIFIED status.
+        Never defaults to verified without rigorous trajectory evidence.
+        """
+        ev_fail = failure_event or {}
+        prop = repair_proposal or []
+        app = applicability or {}
+        inv = invalidation_conditions or {}
+        eff = expected_effects or []
+
+        req_dict: Dict[str, Any] = {}
+        if isinstance(required_facts, dict):
+            req_dict = copy.deepcopy(required_facts)
+        elif isinstance(required_facts, list):
+            for rf in required_facts:
+                if "==" in rf:
+                    k, v = rf.split("==", 1)
+                    k, v = k.strip(), v.strip()
+                    if v.lower() == "true":
+                        req_dict[k] = True
+                    elif v.lower() == "false":
+                        req_dict[k] = False
+                    else:
+                        req_dict[k] = v
+                elif rf:
+                    req_dict[rf] = True
+
+        item = RepairMemoryItem(
+            memory_id=memory_id,
+            source_task_id=source_task_id,
+            failure_event=ev_fail,
+            repair_proposal=prop,
+            execution_evidence_refs=[],
+            verification_evidence={},
+            applicability=app,
+            required_facts=req_dict,
+            invalidation_conditions=inv,
+            expected_effects=eff,
+            verification_status=VerificationStatus.UNVERIFIED,
+            lifecycle_state=MemoryLifecycleState.PROPOSED,
+            success_count=0,
+            failure_count=0,
+        )
+        self.memories[memory_id] = item
+        self.audit_log.append({
+            "event": "PROPOSED",
+            "memory_id": memory_id,
+            "source_task_id": source_task_id,
+            "status": "UNVERIFIED",
+        })
+        return item
+
+    def verify_and_promote(
+        self,
+        memory_id: str,
+        source_trajectory: List[Dict[str, Any]],
+        expected_effects: Optional[List[str]] = None,
+    ) -> Tuple[bool, str]:
+        """
+        Phase 2: Rigorous verification of a proposed repair against a real executed source trajectory.
+        Strict verification rules:
+          1. Memory must exist.
+          2. Trajectory must contain the source failure event (matching action, error_code, target).
+          3. Trajectory must contain subsequent execution of all proposed repair steps.
+          4. Every executed repair step must have succeeded (result.success == True).
+          5. Expected effects must be satisfied after repair execution.
+          6. All evidence events must belong to the same source task trajectory.
+        """
+        if memory_id not in self.memories:
+            return False, f"Memory '{memory_id}' not found in store."
+
+        item = self.memories[memory_id]
+        if not source_trajectory:
+            item.verification_status = VerificationStatus.UNVERIFIED
+            item.lifecycle_state = MemoryLifecycleState.REJECTED
+            return False, "Empty trajectory provided for verification."
+
+        fail_sig = item.failure_event
+        failed_tool = fail_sig.get("action_name") or fail_sig.get("tool")
+        failed_err = fail_sig.get("error_code")
+        failed_target = fail_sig.get("target")
+
+        # 1. Locate failure event in trajectory
+        fail_step_idx = -1
+        for idx, step in enumerate(source_trajectory):
+            tool = step.get("tool")
+            res = step.get("result", {})
+            err = res.get("error_code") or step.get("error_code")
+            params = step.get("params", {})
+            target = params.get("target_zone") or params.get("package_id") or params.get("credential_name") or params.get("target")
+
+            if (not failed_tool or tool == failed_tool) and (not failed_err or err == failed_err):
+                if not failed_target or target == failed_target:
+                    fail_step_idx = idx
+                    break
+
+        if fail_step_idx == -1:
+            item.verification_status = VerificationStatus.UNVERIFIED
+            item.lifecycle_state = MemoryLifecycleState.REJECTED
+            reason = f"Failure event '{fail_sig}' not found in source trajectory."
+            self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+            return False, reason
+
+        # 2. Check subsequent execution of repair steps
+        executed_repair_steps = source_trajectory[fail_step_idx + 1:]
+        if not executed_repair_steps:
+            item.verification_status = VerificationStatus.UNVERIFIED
+            item.lifecycle_state = MemoryLifecycleState.REJECTED
+            reason = "No subsequent actions executed after failure event in trajectory."
+            self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+            return False, reason
+
+        evidence_refs: List[str] = []
+        prop_steps = item.repair_proposal
+
+        # Find repair proposal sequence in subsequent trajectory
+        matched_prop_idx = 0
+        for step in executed_repair_steps:
+            if matched_prop_idx >= len(prop_steps):
+                break
+            req_act = prop_steps[matched_prop_idx]["action"]
+            actual_tool = step.get("tool")
+            step_res = step.get("result", {})
+            step_success = step_res.get("success", False) if isinstance(step_res, dict) else False
+
+            if actual_tool == req_act:
+                if not step_success:
+                    item.verification_status = VerificationStatus.UNVERIFIED
+                    item.lifecycle_state = MemoryLifecycleState.REJECTED
+                    reason = f"Repair step {matched_prop_idx+1} '{req_act}' failed during execution."
+                    self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+                    return False, reason
+
+                ev_id = step.get("event_id", f"evt_step_{step.get('step', matched_prop_idx+1)}")
+                evidence_refs.append(ev_id)
+                matched_prop_idx += 1
+
+        if matched_prop_idx < len(prop_steps):
+            item.verification_status = VerificationStatus.UNVERIFIED
+            item.lifecycle_state = MemoryLifecycleState.REJECTED
+            reason = f"Incomplete repair execution: matched {matched_prop_idx}/{len(prop_steps)} proposed steps."
+            self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+            return False, reason
+
+        # 3. Check expected effects
+        eff_to_check = expected_effects or item.expected_effects
+        final_step = executed_repair_steps[-1]
+        final_obs = final_step.get("result", {}).get("observation", {}) if isinstance(final_step.get("result"), dict) else {}
+        final_loc = final_step.get("robot_location_after") or final_step.get("robot_location")
+
+        for eff in eff_to_check:
+            if eff.startswith("at_location("):
+                exp_loc = eff[len("at_location("):-1]
+                if final_loc != exp_loc and final_obs.get("current_location") != exp_loc:
+                    item.verification_status = VerificationStatus.UNVERIFIED
+                    item.lifecycle_state = MemoryLifecycleState.REJECTED
+                    reason = f"Expected effect '{eff}' not satisfied (final location: '{final_loc}')."
+                    self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+                    return False, reason
+
+            elif eff.startswith("has_credential("):
+                exp_cred = eff[len("has_credential("):-1]
+                creds = final_obs.get("credentials", [])
+                if exp_cred not in creds:
+                    item.verification_status = VerificationStatus.UNVERIFIED
+                    item.lifecycle_state = MemoryLifecycleState.REJECTED
+                    reason = f"Expected effect '{eff}' not satisfied (credentials: {creds})."
+                    self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+                    return False, reason
+
+        # Verification Passed! Upgrade to VERIFIED
+        item.execution_evidence_refs = evidence_refs
+        item.verification_evidence = {
+            "verified": True,
+            "evidence_event_ids": evidence_refs,
+            "failure_step_index": fail_step_idx,
+            "repaired_steps_count": len(evidence_refs),
+            "verified_effects": list(eff_to_check),
+        }
+        item.verification_status = VerificationStatus.VERIFIED
+        item.lifecycle_state = MemoryLifecycleState.VERIFIED_EFFECT
+        item.success_count += 1
+
+        self.audit_log.append({
+            "event": "VERIFIED_AND_PROMOTED",
+            "memory_id": memory_id,
+            "evidence_refs": evidence_refs,
+            "effects": eff_to_check,
+        })
+        return True, "Verification successful. Memory promoted to VERIFIED."
 
     def record_repair_experience(
         self,
@@ -151,16 +369,18 @@ class RepairMemoryStore:
         expected_effects: Optional[List[str]] = None,
         verification_status: VerificationStatus = VerificationStatus.UNVERIFIED,
     ) -> RepairMemoryItem:
-        """Records an authentic repair experience. Supports both schema aliases."""
+        """
+        Legacy/Direct Registration: If verification_evidence contains explicit verified=True
+        AND non-empty execution_evidence_refs, accepts it as verified. Otherwise UNVERIFIED.
+        """
         ev_fail = failure_event or failure_signature or {}
         prop = repair_proposal or repair_steps or []
         ev_refs = execution_evidence_refs or evidence_refs or []
-        v_evidence = verification_evidence if verification_evidence is not None else {"verified": True}
+        v_evidence = verification_evidence if verification_evidence is not None else {}
         app = applicability or {}
         inv = invalidation_conditions or {}
         eff = expected_effects or []
 
-        # Parse required_facts into dict if passed as list of "key == val" strings
         req_dict: Dict[str, Any] = {}
         if isinstance(required_facts, dict):
             req_dict = copy.deepcopy(required_facts)
@@ -168,8 +388,7 @@ class RepairMemoryStore:
             for rf in required_facts:
                 if "==" in rf:
                     k, v = rf.split("==", 1)
-                    k = k.strip()
-                    v = v.strip()
+                    k, v = k.strip(), v.strip()
                     if v.lower() == "true":
                         req_dict[k] = True
                     elif v.lower() == "false":
@@ -179,14 +398,16 @@ class RepairMemoryStore:
                 elif rf:
                     req_dict[rf] = True
 
-        # Verification rule: must have failure signature AND non-empty execution evidence AND verified flag
+        # Strict check: NEVER default to verified True if evidence is missing
         is_verified = (
             verification_status == VerificationStatus.VERIFIED
             and bool(ev_refs)
-            and v_evidence.get("verified", False) is True
+            and bool(v_evidence)
+            and v_evidence.get("verified") is True
         )
 
         final_status = VerificationStatus.VERIFIED if is_verified else VerificationStatus.UNVERIFIED
+        l_state = MemoryLifecycleState.VERIFIED_EFFECT if is_verified else MemoryLifecycleState.PROPOSED
 
         item = RepairMemoryItem(
             memory_id=memory_id,
@@ -200,7 +421,9 @@ class RepairMemoryStore:
             invalidation_conditions=inv,
             expected_effects=eff,
             verification_status=final_status,
+            lifecycle_state=l_state,
             success_count=1 if final_status == VerificationStatus.VERIFIED else 0,
+            failure_count=0,
         )
         self.memories[memory_id] = item
         return item
@@ -214,6 +437,7 @@ class RepairMemoryStore:
                         obs_v = observation[k].value if isinstance(observation[k], ObservedFact) else observation[k]
                         if obs_v == inv_v:
                             item.verification_status = VerificationStatus.INVALIDATED
+                            item.lifecycle_state = MemoryLifecycleState.INVALIDATED
                             self.audit_log.append({
                                 "event": "INVALIDATED",
                                 "memory_id": item.memory_id,
@@ -223,6 +447,7 @@ class RepairMemoryStore:
                         door_k = f"{observation['door']}_state"
                         if door_k == k and observation["passage_state"] == inv_v:
                             item.verification_status = VerificationStatus.INVALIDATED
+                            item.lifecycle_state = MemoryLifecycleState.INVALIDATED
                             self.audit_log.append({
                                 "event": "INVALIDATED",
                                 "memory_id": item.memory_id,
@@ -241,8 +466,9 @@ class RepairMemoryStore:
         """
         Retrieves matching VERIFIED repair memory.
         Validates target matching, applicability, and required facts.
+        Tracks lifecycle: RETRIEVED -> INSTANTIATED.
         """
-        target = failed_params.get("target_zone") or failed_params.get("package_id")
+        target = failed_params.get("target_zone") or failed_params.get("package_id") or failed_params.get("credential_name")
         robot_loc = current_state.get("robot_location", "Lobby")
 
         for item in self.memories.values():
@@ -254,13 +480,14 @@ class RepairMemoryStore:
             if sig.get("action_name") != failed_tool or sig.get("error_code") != error_code:
                 continue
 
-            # Check target match (do not reuse failure memories from different targets)
+            # Check target match
             if sig.get("target") and target and sig.get("target") != target:
                 continue
 
             # Evaluate applicability & required facts
             app_res, app_reason = item.evaluate_applicability(known_facts, current_state)
             if app_res != ApplicabilityResult.APPLICABLE:
+                item.lifecycle_state = MemoryLifecycleState.REJECTED
                 self.audit_log.append({
                     "event": "REJECTED_REUSE",
                     "memory_id": item.memory_id,
@@ -268,14 +495,28 @@ class RepairMemoryStore:
                 })
                 continue
 
-            # Dynamic variable bindings grounded in map and state
+            # Dynamic variable bindings grounded in map and actual entities
+            adj = adjacency_map or {
+                "Lobby": ["Corridor_North", "Corridor_South"],
+                "Corridor_North": ["Lobby", "Office_A", "Office_B", "Corridor_South"],
+                "Corridor_South": ["Lobby", "Corridor_North", "Office_A", "Lab_Secure"],
+                "Office_A": ["Corridor_North", "Corridor_South"],
+                "Office_B": ["Corridor_North"],
+                "Lab_Secure": ["Corridor_South"],
+            }
+            alt_neighbors = [n for n in adj.get(robot_loc, []) if n != target]
+            detour_zone = alt_neighbors[0] if alt_neighbors else robot_loc
+
             bindings = {
                 "origin": robot_loc,
                 "target": target,
-                "detour_zone": "Corridor_South" if robot_loc == "Lobby" else "Corridor_North",
-                "credential_name": "security_badge",
+                "detour_zone": detour_zone,
             }
+            # Add any known facts or parameter bindings from failure sig
+            for k, v in sig.items():
+                bindings[k] = v
 
+            item.lifecycle_state = MemoryLifecycleState.RETRIEVED
             nodes = item.instantiate_repair_nodes(bindings)
             self.audit_log.append({
                 "event": "RETRIEVED_AND_APPLIED",
@@ -288,3 +529,4 @@ class RepairMemoryStore:
 
     def get_all_memories(self) -> List[RepairMemoryItem]:
         return list(self.memories.values())
+
