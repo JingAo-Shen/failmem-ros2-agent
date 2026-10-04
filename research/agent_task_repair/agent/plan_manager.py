@@ -39,6 +39,9 @@ class PlanNode:
     status: PlanNodeStatus = PlanNodeStatus.PENDING
     evidence_refs: List[str] = field(default_factory=list)
     is_repair_node: bool = False
+    origin_memory_id: Optional[str] = None
+    repair_instance_id: Optional[str] = None
+    origin_type: str = "base_plan"  # "memory", "online_repair", "base_plan"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -54,11 +57,43 @@ class PlanNode:
             "status": self.status.value,
             "evidence_refs": list(self.evidence_refs),
             "is_repair_node": self.is_repair_node,
+            "origin_memory_id": self.origin_memory_id,
+            "repair_instance_id": self.repair_instance_id,
+            "origin_type": self.origin_type,
         }
 
     @property
     def summary_str(self) -> str:
         return f"[{self.status.value}] Node {self.id}: {self.action_type.upper()}({self.target}) -> {self.goal}"
+
+
+def find_path_bfs(
+    start: str,
+    goal: str,
+    adj: Dict[str, List[str]],
+    avoid: Optional[Set[str]] = None,
+    avoid_edges: Optional[Set[Tuple[str, str]]] = None,
+) -> List[str]:
+    """Computes shortest topological path between start and goal using BFS."""
+    if start == goal:
+        return []
+    avoid_set = set(avoid or [])
+    avoid_edge_set = set(avoid_edges or [])
+    from collections import deque
+    queue = deque([[start]])
+    visited = {start} | avoid_set
+    while queue:
+        path = queue.popleft()
+        node = path[-1]
+        for neighbor in adj.get(node, []):
+            if (node, neighbor) in avoid_edge_set or (neighbor, node) in avoid_edge_set:
+                continue
+            if neighbor == goal:
+                return path[1:] + [goal]
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(path + [neighbor])
+    return []
 
 
 class PersistentPlan:
@@ -257,12 +292,22 @@ class PersistentPlan:
                     break
 
     def get_current_active_node(self) -> Optional[PlanNode]:
-        self.prune_obsolete_navigation()
-        for idx, node in enumerate(self.nodes):
+        for idx in range(self.current_node_index, len(self.nodes)):
+            node = self.nodes[idx]
             if node.status in (PlanNodeStatus.READY, PlanNodeStatus.IN_PROGRESS):
                 self.current_node_index = idx
                 return node
         # If no ready node, look for first pending
+        for idx in range(self.current_node_index, len(self.nodes)):
+            node = self.nodes[idx]
+            if node.status == PlanNodeStatus.PENDING:
+                node.status = PlanNodeStatus.READY
+                self.current_node_index = idx
+                return node
+        for idx, node in enumerate(self.nodes):
+            if node.status in (PlanNodeStatus.READY, PlanNodeStatus.IN_PROGRESS):
+                self.current_node_index = idx
+                return node
         for idx, node in enumerate(self.nodes):
             if node.status == PlanNodeStatus.PENDING:
                 node.status = PlanNodeStatus.READY
@@ -351,17 +396,34 @@ class PersistentPlan:
             has_badge = isinstance(items_in_room, (list, set)) and "security_badge" in items_in_room
 
             if has_badge and "security_badge" not in self.task_state.credentials:
-                # Insert immediate acquire_credential node
-                acquire_node = PlanNode(
-                    id=f"repair_acquire_badge_{robot_loc}",
-                    goal=f"Acquire security_badge discovered in {robot_loc}",
-                    action_type="acquire_credential",
-                    target="security_badge",
-                    params={"credential_name": "security_badge"},
-                    status=PlanNodeStatus.READY,
-                    is_repair_node=True,
-                )
-                self.nodes.insert(self.current_node_index + 1, acquire_node)
+                # Check if a pending or ready acquire node for security_badge already exists downstream
+                existing_acq_idx = -1
+                for idx in range(self.current_node_index + 1, len(self.nodes)):
+                    n = self.nodes[idx]
+                    if n.status in (PlanNodeStatus.PENDING, PlanNodeStatus.READY) and n.action_type == "acquire_credential" and (n.target == "security_badge" or n.params.get("credential_name") == "security_badge"):
+                        existing_acq_idx = idx
+                        break
+
+                if existing_acq_idx != -1:
+                    # Deduplicate: bring existing acquire node forward as next READY node
+                    existing_node = self.nodes.pop(existing_acq_idx)
+                    existing_node.status = PlanNodeStatus.READY
+                    self.nodes.insert(self.current_node_index + 1, existing_node)
+                else:
+                    # Insert single new acquire_credential node
+                    acquire_node = PlanNode(
+                        id=f"repair_acquire_badge_{robot_loc}",
+                        goal=f"Acquire security_badge discovered in {robot_loc}",
+                        action_type="acquire_credential",
+                        target="security_badge",
+                        params={"credential_name": "security_badge"},
+                        status=PlanNodeStatus.READY,
+                        is_repair_node=True,
+                        origin_type=getattr(active_node, "origin_type", "online_repair"),
+                        origin_memory_id=getattr(active_node, "origin_memory_id", None),
+                        repair_instance_id=getattr(active_node, "repair_instance_id", None) or f"online_repair_{self.current_node_index}",
+                    )
+                    self.nodes.insert(self.current_node_index + 1, acquire_node)
 
             elif not has_badge and "security_badge" not in self.task_state.credentials:
                 # Invalidate any pending acquire_credential nodes in current room since room is confirmed empty
@@ -378,7 +440,7 @@ class PersistentPlan:
                     if ob.status != ObligationStatus.DONE
                 )
                 if needs_badge:
-                    # Check if subsequent node is already a navigation / observe search node
+                    # Check if subsequent node is already an active/pending search node
                     has_subsequent_search = any(
                         self.nodes[idx].is_repair_node and self.nodes[idx].action_type in ("navigate", "observe") and self.nodes[idx].status in (PlanNodeStatus.PENDING, PlanNodeStatus.READY)
                         for idx in range(self.current_node_index + 1, len(self.nodes))
@@ -410,6 +472,9 @@ class PersistentPlan:
                                     params={"target_zone": hop},
                                     status=PlanNodeStatus.PENDING,
                                     is_repair_node=True,
+                                    origin_type="online_repair",
+                                    origin_memory_id=None,
+                                    repair_instance_id=f"online_search_{closest_room}",
                                 ))
                             next_repair_nodes.append(PlanNode(
                                 id=f"repair_observe_{closest_room}",
@@ -419,6 +484,9 @@ class PersistentPlan:
                                 params={"target": closest_room},
                                 status=PlanNodeStatus.PENDING,
                                 is_repair_node=True,
+                                origin_type="online_repair",
+                                origin_memory_id=None,
+                                repair_instance_id=f"online_search_{closest_room}",
                             ))
                             self.nodes[self.current_node_index + 1:self.current_node_index + 1] = next_repair_nodes
 
@@ -526,7 +594,10 @@ class PersistentPlan:
                 target=hop,
                 params={"target_zone": hop},
                 status=PlanNodeStatus.READY if h_idx == 1 else PlanNodeStatus.PENDING,
-                is_repair_node=True,
+                is_repair_node=False,
+                origin_type="base_plan",
+                origin_memory_id=None,
+                repair_instance_id=None,
             ))
 
         self.nodes[self.current_node_index:next_goal_idx] = new_nav_nodes

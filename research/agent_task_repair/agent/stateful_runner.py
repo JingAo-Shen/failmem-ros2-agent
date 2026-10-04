@@ -22,6 +22,7 @@ from .repair_controller import RepairController
 from .completion_checker import CompletionChecker
 from ..env.task_env import DeliveryTaskEnv
 from ..env.tools import StatusCode, ActionResult
+from ..memory.repair_memory import MemoryLifecycleState
 
 
 class StatefulAgentRunner:
@@ -36,6 +37,7 @@ class StatefulAgentRunner:
         repair_memory_store: Optional[Any] = None,
         include_historical_facts: bool = False,
         is_static: bool = False,
+        enable_observation_guard: bool = False,
     ):
         self.llm = llm_backend
         self.adjacency_map = adjacency_map or MAP_ADJACENCY
@@ -46,9 +48,13 @@ class StatefulAgentRunner:
         self.repair_memory_store = repair_memory_store
         self.include_historical_facts = include_historical_facts
         self.is_static = is_static
+        self.enable_observation_guard = enable_observation_guard
 
         self.validator = ActionValidator(self.adjacency_map)
-        self.repair_controller = RepairController(self.adjacency_map)
+        self.repair_controller = RepairController(
+            self.adjacency_map,
+            enable_observation_guard=self.enable_observation_guard,
+        )
 
     def run_task(
         self,
@@ -313,13 +319,28 @@ class StatefulAgentRunner:
                         sim_time=env.sim_time_s,
                     )
 
+            # Detect plan deviation if action does not match active plan node
+            plan_deviated = False
+            if active_node:
+                if tool_name != active_node.action_type:
+                    plan_deviated = True
+                elif tool_name == "navigate" and params.get("target_zone") != active_node.target and params.get("target_zone") != active_node.params.get("target_zone"):
+                    plan_deviated = True
+                elif tool_name == "observe" and params.get("target") != active_node.target and params.get("target") != active_node.params.get("target"):
+                    plan_deviated = True
+                elif tool_name == "pickup" and params.get("package_id") != (active_node.package_id or active_node.target):
+                    plan_deviated = True
+                elif tool_name == "deliver" and params.get("package_id") != (active_node.package_id or active_node.target):
+                    plan_deviated = True
+                elif tool_name == "acquire_credential" and params.get("credential_name") != (active_node.target or active_node.params.get("credential_name")):
+                    plan_deviated = True
+
             # Log target step execution if this was a memory repair node
-            if active_node and getattr(active_node, "is_repair_node", False) and self.repair_memory_store:
-                mem_id = active_node.id.split("_")[1] if active_node.id.startswith("rmem_") else "mem_active"
+            if active_node and getattr(active_node, "origin_type", "") == "memory" and active_node.origin_memory_id and self.repair_memory_store:
                 if hasattr(self.repair_memory_store, "log_target_step_executed"):
                     self.repair_memory_store.log_target_step_executed(
                         target_run_id=self.run_id,
-                        memory_id=mem_id,
+                        memory_id=active_node.origin_memory_id,
                         plan_node_id=active_node.id,
                         tool=tool_name,
                         params=params,
@@ -331,14 +352,32 @@ class StatefulAgentRunner:
             # 8. Handle Success vs Failure in Plan & Repair Controller
             if result.success:
                 persistent_plan.on_step_success(tool_name, params, event_id, result.observation)
-                if tool_name == "acquire_credential" and self.repair_memory_store and hasattr(self.repair_memory_store, "log_target_effect_verified"):
+                if tool_name == "acquire_credential":
                     cname = params.get("credential_name", "security_badge")
-                    self.repair_memory_store.log_target_effect_verified(
-                        target_run_id=self.run_id,
-                        memory_id="mem_active",
-                        verified_effects=[f"has_credential({cname})"],
-                        sim_time=env.sim_time_s,
-                    )
+                    if active_node and active_node.origin_type == "memory" and active_node.origin_memory_id and self.repair_memory_store:
+                        mem_item = self.repair_memory_store.memories.get(active_node.origin_memory_id)
+                        # Only credit memory if it is still verified/not invalidated
+                        if mem_item and mem_item.lifecycle_state != MemoryLifecycleState.INVALIDATED:
+                            self.repair_memory_store.log_target_effect_verified(
+                                target_run_id=self.run_id,
+                                memory_id=active_node.origin_memory_id,
+                                verified_effects=[f"has_credential({cname})"],
+                                sim_time=env.sim_time_s,
+                            )
+                        else:
+                            self.repair_memory_store.log_target_event(
+                                event_type="ONLINE_RECOVERY_EFFECT_VERIFIED",
+                                target_run_id=self.run_id,
+                                memory_id=active_node.origin_memory_id,
+                                details={"verified_effects": [f"has_credential({cname})"], "sim_time": env.sim_time_s},
+                            )
+                    elif self.repair_memory_store:
+                        self.repair_memory_store.log_target_event(
+                            event_type="ONLINE_RECOVERY_EFFECT_VERIFIED",
+                            target_run_id=self.run_id,
+                            memory_id="online_recovery",
+                            details={"verified_effects": [f"has_credential({cname})"], "sim_time": env.sim_time_s},
+                        )
             else:
                 should_abort, rep_msg, rep_nodes = self.repair_controller.handle_failure(
                     failed_tool=tool_name,
@@ -365,6 +404,7 @@ class StatefulAgentRunner:
                 "result": result.to_dict(),
                 "sim_time_s": env.sim_time_s,
                 "battery": env.battery,
+                "plan_deviated": plan_deviated,
             }
             step_history.append(step_entry)
 
@@ -376,6 +416,19 @@ class StatefulAgentRunner:
         )
 
         t_wall_total = time.time() - t_wall_start
+
+        # Determine separate outcome counters
+        has_target_effect_verified = False
+        has_target_invalidated = False
+        if self.repair_memory_store and hasattr(self.repair_memory_store, "target_audit_log"):
+            for evt in self.repair_memory_store.target_audit_log:
+                if evt.get("event") == "TARGET_EFFECT_VERIFIED":
+                    has_target_effect_verified = True
+                elif evt.get("event") == "TARGET_INVALIDATED":
+                    has_target_invalidated = True
+
+        memory_reused_and_verified = has_target_effect_verified and not has_target_invalidated
+        memory_invalidated_online_recovered = has_target_invalidated and is_succ
 
         return {
             "task_id": task_id,
@@ -402,6 +455,9 @@ class StatefulAgentRunner:
             "memory_audit_log": list(self.repair_memory_store.audit_log) if (self.repair_memory_store and hasattr(self.repair_memory_store, "audit_log")) else [],
             "target_audit_log": list(self.repair_memory_store.target_audit_log) if (self.repair_memory_store and hasattr(self.repair_memory_store, "target_audit_log")) else [],
             "memory_items": [m.to_dict() for m in self.repair_memory_store.get_all_memories()] if (self.repair_memory_store and hasattr(self.repair_memory_store, "get_all_memories")) else [],
+            "memory_reused_and_verified": memory_reused_and_verified,
+            "memory_invalidated_online_recovered": memory_invalidated_online_recovered,
+            "task_success": is_succ,
         }
 
     def _parse_json(self, text: str) -> Tuple[Dict[str, Any], bool, str]:

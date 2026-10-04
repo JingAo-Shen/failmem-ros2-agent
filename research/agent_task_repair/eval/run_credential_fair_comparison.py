@@ -1,15 +1,16 @@
 """
 FailMem Stage 2: Authentic Credential Repair Benchmark & Fair Comparison Runner.
-Evaluates 3 Groups (Group B, Group C, Group D) across 4 Target Tasks using
-an authentic verified repair memory and homologous facts extracted from a real agent trajectory.
+Evaluates 4 Groups (Group B, Group C_updated, Group C_guard, Group D) across 4 Target Tasks using
+an authentic dual-verified repair memory and homologous facts extracted from a real agent trajectory.
 
 Base Model: Qwen3-14B-AWQ Direct (single GPU, temp=0.0)
 Strict Fair Protocol:
-  1. Phase A: Run Group B on 3 development tasks to verify search closed-loop.
-  2. Autonomous Source Generation: Run Group B on a source task, extract real trajectory,
-     promote to VERIFIED via strict verify_and_promote, and extract homologous facts.
-  3. Phase B: Evaluate Groups B, C, D across 4 Target Tasks (12 runs total).
-  4. Track full memory lifecycle and output complete auditable JSON report.
+  1. Smoke Tests (2 runs): Verify execution pipeline on valid history and changed location.
+  2. Phase A: Run Group B on 3 development tasks to verify search closed-loop and extract authentic source trajectory.
+  3. Autonomous Source Generation: Extract real trajectory, promote via dual-layer verification (source episode + compiled template).
+  4. Phase B: Evaluate Groups B, C_updated, C_guard, D across 4 Target Tasks (16 formal runs, budget=20/25).
+  5. Budget-Sensitivity Analysis: Evaluate all 4 Groups on Target 3 with expanded budget (30 LLM / 35 tool calls).
+  6. Track full memory lifecycle, plan deviations, token costs, latency, and output auditable JSON report.
 """
 import os
 import sys
@@ -222,7 +223,7 @@ def extract_and_promote_source_memory(source_result: Dict[str, Any]) -> Tuple[Re
     """
     Extracts failure and repair sequence from an authentic Group B execution trajectory,
     registers it in RepairMemoryStore as a two-layer memory item, promotes it to VERIFIED
-    via verify_and_promote, extracts homologous historical facts, and computes parity hash.
+    via dual-layer verify_and_promote, extracts homologous historical facts, and computes parity hash.
     """
     import hashlib
     step_history = source_result.get("step_history", [])
@@ -310,7 +311,7 @@ def extract_and_promote_source_memory(source_result: Dict[str, Any]) -> Tuple[Re
         "expected_effects": ["has_credential(security_badge)"],
     }
 
-    # Verify and promote using authentic trajectory
+    # Verify and promote using dual-validation (source trajectory + compiled template)
     ok, msg = store.verify_and_promote(
         memory_id=mem_id,
         source_trajectory=step_history,
@@ -319,7 +320,7 @@ def extract_and_promote_source_memory(source_result: Dict[str, Any]) -> Tuple[Re
     if not ok:
         raise RuntimeError(f"Authentic trajectory failed verification: {msg}")
 
-    # Homologous historical facts for Groups C_static, C_updated, and D
+    # Homologous historical facts for Groups C_updated, C_guard, and D
     homologous_facts = {
         f"room_items_{badge_room}": ["security_badge"],
         "badge_location": badge_room,
@@ -359,9 +360,11 @@ def run_benchmark():
             "enable_thinking": False,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         },
+        "smoke_test_results": [],
         "phase_a_dev_results": [],
         "source_memory_generation": {},
         "phase_b_target_results": [],
+        "budget_sensitivity_results": [],
         "comparative_summary": {},
     }
 
@@ -398,7 +401,7 @@ def run_benchmark():
             print(f"WARNING: Phase A task {tid} did not succeed! Reason: {res['completion_reason']}")
 
     # =========================================================================
-    # AUTONOMOUS SOURCE GENERATION & VERIFICATION
+    # AUTONOMOUS SOURCE GENERATION & DUAL-VALIDATION PROMOTION
     # =========================================================================
     print("\n" + "#" * 80)
     print("### AUTONOMOUS REPAIR MEMORY EXTRACTION & PROMOTION")
@@ -416,6 +419,8 @@ def run_benchmark():
         "memory_id": mem_item.memory_id,
         "verification_status": mem_item.verification_status.value,
         "lifecycle_state": mem_item.lifecycle_state.value,
+        "source_episode_verified": mem_item.source_episode_verified,
+        "compiled_template_validated": mem_item.compiled_template_validated,
         "verification_evidence": mem_item.verification_evidence,
         "repair_proposal": mem_item.repair_proposal,
         "raw_experience": mem_item.raw_experience,
@@ -426,22 +431,62 @@ def run_benchmark():
         "homologous_facts_sha256": fact_hash,
     }
     print(f"Memory '{mem_item.memory_id}' status: {mem_item.verification_status.value}")
+    print(f"Dual-layer verified: source_episode={mem_item.source_episode_verified}, template_validated={mem_item.compiled_template_validated}")
     print(f"Reusable Plan Template: {mem_item.reusable_repair_plan}")
     print(f"Homologous Facts (SHA256: {fact_hash[:12]}...): {homologous_facts}")
+
+    # =========================================================================
+    # SMOKE TESTS (2 Runs)
+    # =========================================================================
+    print("\n" + "#" * 80)
+    print("### SMOKE TESTS: Pipeline Verification (2 Runs)")
+    print("#" * 80)
+
+    smoke_configs = [
+        ("smoke_1_valid_hist", target_tasks[0], "Valid History (Target 1)"),
+        ("smoke_2_changed_loc", target_tasks[2], "Changed Location (Target 3)"),
+    ]
+    for s_id, s_task, s_desc in smoke_configs:
+        print(f"\n--- [Smoke Run] {s_id}: {s_desc} ---")
+        smoke_store = copy.deepcopy(verified_store)
+        smoke_runner = StatefulAgentRunner(
+            llm_backend=llm,
+            max_tool_calls=25,
+            max_llm_calls=20,
+            run_id=s_id,
+            include_historical_facts=True,
+            repair_memory_store=smoke_store,
+            is_static=False,
+            enable_observation_guard=False,
+        )
+        task_spec = {
+            "task_id": s_task["task_id"],
+            "instruction": s_task["instruction"],
+            "env_config": copy.deepcopy(s_task["env_config"]),
+        }
+        s_res = smoke_runner.run_task(
+            task_spec,
+            task_index=99,
+            seq_id="smoke",
+            initial_known_state=copy.deepcopy(homologous_facts),
+            historical_failure_events=copy.deepcopy(homologous_failures),
+        )
+        benchmark_records["smoke_test_results"].append(s_res)
+        print(f"Smoke Outcome: Success={s_res['success']}, Steps={s_res['step_count']}, LLM Calls={s_res['llm_calls']}, Reused={s_res['memory_reused_and_verified']}, Recovered={s_res['memory_invalidated_online_recovered']}")
 
     # =========================================================================
     # PHASE B: Comparative Benchmark across 4 Target Tasks x 4 Groups (16 Runs)
     # =========================================================================
     print("\n" + "#" * 80)
     print("### PHASE B: Strict Fair Comparative Benchmark (4 Target Tasks x 4 Groups = 16 Runs)")
-    print("### Parity Guarantee: C_static, C_updated, and D receive identical initial facts (SHA256 verified)")
+    print("### Parity Guarantee: C_updated, C_guard, and D receive identical initial facts (SHA256 verified)")
     print("#" * 80)
 
     groups = [
-        {"id": "Group_B_Agent_B", "name": "Group B (Stateful Agent, Online Search, No Memory)"},
-        {"id": "Group_C_static", "name": "Group C_static (Stateful Agent, Homologous Facts, Static)"},
-        {"id": "Group_C_updated", "name": "Group C_updated (Stateful Agent, Homologous Facts, Dynamic Updating)"},
-        {"id": "Group_D_Agent_D", "name": "Group D (Stateful Agent, Homologous Facts + Dynamic Updating + Verified Repair Memory)"},
+        {"id": "Group_B_Agent_B", "name": "Group B (Online Search Baseline, No Memory/Facts)", "enable_guard": False, "use_facts": False, "use_mem": False},
+        {"id": "Group_C_updated", "name": "Group C_updated (Homologous Facts + Dynamic Updating, No Guard)", "enable_guard": False, "use_facts": True, "use_mem": False},
+        {"id": "Group_C_guard", "name": "Group C_guard (Homologous Facts + Dynamic Updating + Generic Obs Guard)", "enable_guard": True, "use_facts": True, "use_mem": False},
+        {"id": "Group_D_Agent_D", "name": "Group D (Homologous Facts + Dynamic Updating + Dual-Verified Repair Memory)", "enable_guard": False, "use_facts": True, "use_mem": True},
     ]
 
     phase_b_results = []
@@ -468,105 +513,120 @@ def run_benchmark():
                 "env_config": copy.deepcopy(task["env_config"]),
             }
 
-            if gid == "Group_B_Agent_B":
-                runner = StatefulAgentRunner(
-                    llm_backend=llm,
-                    max_tool_calls=25,
-                    max_llm_calls=20,
-                    run_id=run_id,
-                    include_historical_facts=False,
-                    repair_memory_store=None,
-                    is_static=False,
-                )
-                res = runner.run_task(task_spec, task_index=t_idx, seq_id="phase_b")
+            mem_store = copy.deepcopy(verified_store) if grp["use_mem"] else None
+            runner = StatefulAgentRunner(
+                llm_backend=llm,
+                max_tool_calls=25,
+                max_llm_calls=20,
+                run_id=run_id,
+                include_historical_facts=grp["use_facts"],
+                repair_memory_store=mem_store,
+                is_static=False,
+                enable_observation_guard=grp["enable_guard"],
+            )
 
-            elif gid == "Group_C_static":
-                runner = StatefulAgentRunner(
-                    llm_backend=llm,
-                    max_tool_calls=25,
-                    max_llm_calls=20,
-                    run_id=run_id,
-                    include_historical_facts=True,
-                    repair_memory_store=None,
-                    is_static=True,
-                )
-                res = runner.run_task(
-                    task_spec,
-                    task_index=t_idx,
-                    seq_id="phase_b",
-                    initial_known_state=copy.deepcopy(homologous_facts),
-                    historical_failure_events=copy.deepcopy(homologous_failures),
-                )
-
-            elif gid == "Group_C_updated":
-                runner = StatefulAgentRunner(
-                    llm_backend=llm,
-                    max_tool_calls=25,
-                    max_llm_calls=20,
-                    run_id=run_id,
-                    include_historical_facts=True,
-                    repair_memory_store=None,
-                    is_static=False,
-                )
-                res = runner.run_task(
-                    task_spec,
-                    task_index=t_idx,
-                    seq_id="phase_b",
-                    initial_known_state=copy.deepcopy(homologous_facts),
-                    historical_failure_events=copy.deepcopy(homologous_failures),
-                )
-
-            elif gid == "Group_D_Agent_D":
-                # Create a fresh store containing the verified source memory
-                grp_d_store = copy.deepcopy(verified_store)
-                runner = StatefulAgentRunner(
-                    llm_backend=llm,
-                    max_tool_calls=25,
-                    max_llm_calls=20,
-                    run_id=run_id,
-                    include_historical_facts=True,
-                    repair_memory_store=grp_d_store,
-                    is_static=False,
-                )
-                res = runner.run_task(
-                    task_spec,
-                    task_index=t_idx,
-                    seq_id="phase_b",
-                    initial_known_state=copy.deepcopy(homologous_facts),
-                    historical_failure_events=copy.deepcopy(homologous_failures),
-                )
+            res = runner.run_task(
+                task_spec,
+                task_index=t_idx,
+                seq_id="phase_b",
+                initial_known_state=copy.deepcopy(homologous_facts) if grp["use_facts"] else None,
+                historical_failure_events=copy.deepcopy(homologous_failures) if grp["use_facts"] else None,
+            )
 
             res["group_id"] = gid
             res["group_name"] = gname
             res["target_task_id"] = tid
             res["relevance"] = relevance
-            res["input_facts_sha256"] = fact_hash if gid != "Group_B_Agent_B" else "N/A"
+            res["input_facts_sha256"] = fact_hash if grp["use_facts"] else "N/A"
+
+            # Compute prompt/generated token totals and tool errors
+            tot_p_tokens = sum(tr.get("prompt_tokens", 0) for tr in res["llm_traces"])
+            tot_g_tokens = sum(tr.get("generated_tokens", 0) for tr in res["llm_traces"])
+            tool_errors = sum(1 for step in res["step_history"] if not step.get("result", {}).get("success", True))
+            plan_deviations = sum(1 for step in res["step_history"] if step.get("plan_deviated", False))
+
+            res["total_prompt_tokens"] = tot_p_tokens
+            res["total_generated_tokens"] = tot_g_tokens
+            res["tool_errors_count"] = tool_errors
+            res["plan_deviations_count"] = plan_deviations
+
             phase_b_results.append(res)
             benchmark_records["phase_b_target_results"].append(res)
 
-            # Compute prompt/generated token totals
-            tot_p_tokens = sum(tr.get("prompt_tokens", 0) for tr in res["llm_traces"])
-            tot_g_tokens = sum(tr.get("generated_tokens", 0) for tr in res["llm_traces"])
-            res["total_prompt_tokens"] = tot_p_tokens
-            res["total_generated_tokens"] = tot_g_tokens
-
-            print(f"[{gid}] Task: {tid} -> Success={res['success']} | Steps={res['step_count']} | LLM Calls={res['llm_calls']} | P-Tokens={tot_p_tokens} | G-Tokens={tot_g_tokens} | Time={res['wall_time_s']}s")
+            print(f"[{gid}] Task: {tid} -> Success={res['success']} | Steps={res['step_count']} | LLM Calls={res['llm_calls']} | Tool Errs={tool_errors} | Deviations={plan_deviations} | P-Tok={tot_p_tokens} | G-Tok={tot_g_tokens} | Time={res['wall_time_s']}s")
             if res.get("target_audit_log"):
                 print(f"    Target Audit Log: {res['target_audit_log']}")
 
     # =========================================================================
-    # SUMMARY & FAIRNESS COMPARATIVE ANALYSIS
+    # BUDGET SENSITIVITY EXTENSION: Target 3 with Expanded Budget (30 LLM / 35 Tools)
+    # =========================================================================
+    print("\n" + "#" * 80)
+    print("### BUDGET SENSITIVITY TEST: Target 3 (Badge Moved) with Expanded Budget (30 LLM / 35 Tool Calls)")
+    print("#" * 80)
+
+    sens_task = target_tasks[2] # target_3_loc_changed
+    sens_results = []
+
+    for grp in groups:
+        gid = grp["id"]
+        run_id = f"sens_{gid}_{sens_task['task_id']}"
+
+        task_spec = {
+            "task_id": sens_task["task_id"],
+            "instruction": sens_task["instruction"],
+            "env_config": copy.deepcopy(sens_task["env_config"]),
+        }
+
+        mem_store = copy.deepcopy(verified_store) if grp["use_mem"] else None
+        runner = StatefulAgentRunner(
+            llm_backend=llm,
+            max_tool_calls=35,
+            max_llm_calls=30,
+            run_id=run_id,
+            include_historical_facts=grp["use_facts"],
+            repair_memory_store=mem_store,
+            is_static=False,
+            enable_observation_guard=grp["enable_guard"],
+        )
+
+        s_res = runner.run_task(
+            task_spec,
+            task_index=3,
+            seq_id="sensitivity",
+            initial_known_state=copy.deepcopy(homologous_facts) if grp["use_facts"] else None,
+            historical_failure_events=copy.deepcopy(homologous_failures) if grp["use_facts"] else None,
+        )
+
+        s_res["group_id"] = gid
+        s_res["group_name"] = grp["name"]
+        s_res["target_task_id"] = sens_task["task_id"]
+        s_res["budget_llm"] = 30
+        s_res["budget_tools"] = 35
+
+        tot_p_tokens = sum(tr.get("prompt_tokens", 0) for tr in s_res["llm_traces"])
+        tot_g_tokens = sum(tr.get("generated_tokens", 0) for tr in s_res["llm_traces"])
+        s_res["total_prompt_tokens"] = tot_p_tokens
+        s_res["total_generated_tokens"] = tot_g_tokens
+        s_res["tool_errors_count"] = sum(1 for step in s_res["step_history"] if not step.get("result", {}).get("success", True))
+        s_res["plan_deviations_count"] = sum(1 for step in s_res["step_history"] if step.get("plan_deviated", False))
+
+        sens_results.append(s_res)
+        benchmark_records["budget_sensitivity_results"].append(s_res)
+
+        print(f"[Sensitivity 30-Call] [{gid}] -> Success={s_res['success']} | Steps={s_res['step_count']} | LLM Calls={s_res['llm_calls']} | Tool Errs={s_res['tool_errors_count']} | P-Tok={tot_p_tokens} | G-Tok={tot_g_tokens} | Time={s_res['wall_time_s']}s")
+
+    # =========================================================================
+    # SUMMARY & PAIRED DISCRIMINATIVE ANALYSIS
     # =========================================================================
     print("\n" + "=" * 80)
-    print("BENCHMARK EXECUTION COMPLETED. COMPUTING METRICS & COMPARATIVE ANALYSIS...")
+    print("BENCHMARK EXECUTION COMPLETED. COMPUTING METRICS & PAIRED COMPARATIVE ANALYSIS...")
     print("=" * 80)
 
-    # Structure summary table
     summary_by_group = {
-        "Group_B_Agent_B": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
-        "Group_C_static": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
-        "Group_C_updated": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
-        "Group_D_Agent_D": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": []},
+        "Group_B_Agent_B": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": [], "tool_errors": [], "deviations": [], "mem_reused": 0, "mem_recovered": 0},
+        "Group_C_updated": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": [], "tool_errors": [], "deviations": [], "mem_reused": 0, "mem_recovered": 0},
+        "Group_C_guard": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": [], "tool_errors": [], "deviations": [], "mem_reused": 0, "mem_recovered": 0},
+        "Group_D_Agent_D": {"successes": 0, "total": 0, "steps": [], "llm_calls": [], "prompt_tokens": [], "gen_tokens": [], "time_s": [], "tool_errors": [], "deviations": [], "mem_reused": 0, "mem_recovered": 0},
     }
 
     per_task_table = []
@@ -581,6 +641,8 @@ def run_benchmark():
             p_tok = matching["total_prompt_tokens"]
             g_tok = matching["total_generated_tokens"]
             wall_t = matching["wall_time_s"]
+            errs = matching["tool_errors_count"]
+            devs = matching["plan_deviations_count"]
 
             row[f"{gid}_success"] = succ
             row[f"{gid}_steps"] = steps
@@ -588,8 +650,17 @@ def run_benchmark():
             row[f"{gid}_p_tokens"] = p_tok
             row[f"{gid}_g_tokens"] = g_tok
             row[f"{gid}_time_s"] = wall_t
+            row[f"{gid}_tool_errors"] = errs
+            row[f"{gid}_deviations"] = devs
 
             summary_by_group[gid]["total"] += 1
+            summary_by_group[gid]["tool_errors"].append(errs)
+            summary_by_group[gid]["deviations"].append(devs)
+            if matching.get("memory_reused_and_verified"):
+                summary_by_group[gid]["mem_reused"] += 1
+            if matching.get("memory_invalidated_online_recovered"):
+                summary_by_group[gid]["mem_recovered"] += 1
+
             if succ:
                 summary_by_group[gid]["successes"] += 1
                 summary_by_group[gid]["steps"].append(steps)
@@ -600,8 +671,46 @@ def run_benchmark():
 
         per_task_table.append(row)
 
+    # Paired comparisons: D vs C_guard, D vs C_updated, D vs B
+    paired_analysis = []
+    for t in target_tasks:
+        tid = t["task_id"]
+        res_d = [r for r in phase_b_results if r["target_task_id"] == tid and r["group_id"] == "Group_D_Agent_D"][0]
+        res_cg = [r for r in phase_b_results if r["target_task_id"] == tid and r["group_id"] == "Group_C_guard"][0]
+        res_cu = [r for r in phase_b_results if r["target_task_id"] == tid and r["group_id"] == "Group_C_updated"][0]
+        res_b = [r for r in phase_b_results if r["target_task_id"] == tid and r["group_id"] == "Group_B_Agent_B"][0]
+
+        paired_analysis.append({
+            "task_id": tid,
+            "d_vs_c_guard": {
+                "step_diff_d_minus_cg": res_d["step_count"] - res_cg["step_count"],
+                "llm_diff_d_minus_cg": res_d["llm_calls"] - res_cg["llm_calls"],
+                "p_token_diff": res_d["total_prompt_tokens"] - res_cg["total_prompt_tokens"],
+                "g_token_diff": res_d["total_generated_tokens"] - res_cg["total_generated_tokens"],
+                "time_diff_s": round(res_d["wall_time_s"] - res_cg["wall_time_s"], 2),
+                "both_succeeded": res_d["success"] and res_cg["success"],
+            },
+            "d_vs_c_updated": {
+                "step_diff_d_minus_cu": res_d["step_count"] - res_cu["step_count"],
+                "llm_diff_d_minus_cu": res_d["llm_calls"] - res_cu["llm_calls"],
+                "p_token_diff": res_d["total_prompt_tokens"] - res_cu["total_prompt_tokens"],
+                "g_token_diff": res_d["total_generated_tokens"] - res_cu["total_generated_tokens"],
+                "time_diff_s": round(res_d["wall_time_s"] - res_cu["wall_time_s"], 2),
+                "both_succeeded": res_d["success"] and res_cu["success"],
+            },
+            "d_vs_b": {
+                "step_diff_d_minus_b": res_d["step_count"] - res_b["step_count"],
+                "llm_diff_d_minus_b": res_d["llm_calls"] - res_b["llm_calls"],
+                "p_token_diff": res_d["total_prompt_tokens"] - res_b["total_prompt_tokens"],
+                "g_token_diff": res_d["total_generated_tokens"] - res_b["total_generated_tokens"],
+                "time_diff_s": round(res_d["wall_time_s"] - res_b["wall_time_s"], 2),
+                "both_succeeded": res_d["success"] and res_b["success"],
+            },
+        })
+
     benchmark_records["comparative_summary"] = {
         "per_task_comparison": per_task_table,
+        "paired_analysis": paired_analysis,
         "group_aggregates": {
             gid: {
                 "success_rate": f"{stats['successes']}/{stats['total']} ({stats['successes']/stats['total']*100:.1f}%)" if stats['total'] > 0 else "0%",
@@ -610,6 +719,10 @@ def run_benchmark():
                 "avg_prompt_tokens_successful": round(sum(stats["prompt_tokens"])/len(stats["prompt_tokens"]), 1) if stats["prompt_tokens"] else 0,
                 "avg_gen_tokens_successful": round(sum(stats["gen_tokens"])/len(stats["gen_tokens"]), 1) if stats["gen_tokens"] else 0,
                 "avg_time_s_successful": round(sum(stats["time_s"])/len(stats["time_s"]), 2) if stats["time_s"] else 0,
+                "total_tool_errors": sum(stats["tool_errors"]),
+                "total_plan_deviations": sum(stats["deviations"]),
+                "memory_reused_and_verified_count": stats["mem_reused"],
+                "memory_invalidated_online_recovered_count": stats["mem_recovered"],
             }
             for gid, stats in summary_by_group.items()
         },
@@ -620,16 +733,23 @@ def run_benchmark():
         json.dump(benchmark_records, f, indent=2, ensure_ascii=False)
 
     print(f"\n[Artifact Saved] Benchmark results written to {OUTPUT_FILE}")
-    print("\n--- Summary Table ---")
-    print(f"{'Task ID':<22} | {'Grp B (Stp/LLM)':<18} | {'Grp C_static':<18} | {'Grp C_updated':<18} | {'Grp D (Stp/LLM)':<18}")
-    print("-" * 102)
+    print("\n--- Summary Table (16 Formal Runs, Budget: 20 LLM / 25 Tools) ---")
+    print(f"{'Task ID':<22} | {'Grp B (Stp/LLM)':<16} | {'Grp C_upd (Stp/LLM)':<19} | {'Grp C_guard (Stp/LLM)':<21} | {'Grp D (Stp/LLM)':<16}")
+    print("-" * 105)
     for r in per_task_table:
         b_str = f"{r['Group_B_Agent_B_success']} ({r['Group_B_Agent_B_steps']}/{r['Group_B_Agent_B_llm_calls']})"
-        c_stat_str = f"{r['Group_C_static_success']} ({r['Group_C_static_steps']}/{r['Group_C_static_llm_calls']})"
-        c_upd_str = f"{r['Group_C_updated_success']} ({r['Group_C_updated_steps']}/{r['Group_C_updated_llm_calls']})"
+        cu_str = f"{r['Group_C_updated_success']} ({r['Group_C_updated_steps']}/{r['Group_C_updated_llm_calls']})"
+        cg_str = f"{r['Group_C_guard_success']} ({r['Group_C_guard_steps']}/{r['Group_C_guard_llm_calls']})"
         d_str = f"{r['Group_D_Agent_D_success']} ({r['Group_D_Agent_D_steps']}/{r['Group_D_Agent_D_llm_calls']})"
-        print(f"{r['task_id']:<22} | {b_str:<18} | {c_stat_str:<18} | {c_upd_str:<18} | {d_str:<18}")
-    print("-" * 102)
+        print(f"{r['task_id']:<22} | {b_str:<16} | {cu_str:<19} | {cg_str:<21} | {d_str:<16}")
+    print("-" * 105)
+
+    print("\n--- Budget Sensitivity Table on Target 3 (Expanded Budget: 30 LLM / 35 Tools) ---")
+    print(f"{'Group ID':<22} | {'Success':<8} | {'Steps':<6} | {'LLM Calls':<10} | {'P-Tokens':<10} | {'G-Tokens':<10} | {'Time (s)':<8}")
+    print("-" * 85)
+    for sr in sens_results:
+        print(f"{sr['group_id']:<22} | {str(sr['success']):<8} | {sr['step_count']:<6} | {sr['llm_calls']:<10} | {sr['total_prompt_tokens']:<10} | {sr['total_generated_tokens']:<10} | {sr['wall_time_s']:<8}")
+    print("-" * 85)
 
 
 if __name__ == "__main__":

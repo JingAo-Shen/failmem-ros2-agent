@@ -74,6 +74,9 @@ class RepairMemoryItem:
     expected_effects: List[str]           # ["has_credential(security_badge)"]
     verification_status: VerificationStatus = VerificationStatus.UNVERIFIED
     lifecycle_state: MemoryLifecycleState = MemoryLifecycleState.PROPOSED
+    source_episode_verified: bool = False
+    compiled_template_validated: bool = False
+    compiled_template_evidence: Dict[str, Any] = field(default_factory=dict)
     raw_experience: Optional[Dict[str, Any]] = None
     reusable_repair_plan: Optional[Dict[str, Any]] = None
     success_count: int = 0
@@ -123,8 +126,9 @@ class RepairMemoryItem:
         robot_location: Optional[str] = None,
         adjacency_map: Optional[Dict[str, List[str]]] = None,
     ) -> List[PlanNode]:
-        """Substitutes variables dynamically and creates concrete PlanNodes using public topology."""
+        """Substitutes variables dynamically and creates concrete PlanNodes with strict memory attribution."""
         nodes = []
+        inst_id = f"repair_inst_{self.memory_id}"
         if self.reusable_repair_plan and "candidate_location" in self.reusable_repair_plan:
             cand_loc = self.reusable_repair_plan["candidate_location"]
             cname = self.reusable_repair_plan.get("credential_name", "security_badge")
@@ -148,6 +152,9 @@ class RepairMemoryItem:
                     params={"target_zone": hop},
                     status=PlanNodeStatus.READY if len(nodes) == 0 else PlanNodeStatus.PENDING,
                     is_repair_node=True,
+                    origin_type="memory",
+                    origin_memory_id=self.memory_id,
+                    repair_instance_id=inst_id,
                     evidence_refs=list(self.execution_evidence_refs),
                 ))
             # Observe candidate location to confirm badge presence
@@ -159,6 +166,9 @@ class RepairMemoryItem:
                 params={"target": cand_loc},
                 status=PlanNodeStatus.READY if len(nodes) == 0 else PlanNodeStatus.PENDING,
                 is_repair_node=True,
+                origin_type="memory",
+                origin_memory_id=self.memory_id,
+                repair_instance_id=inst_id,
                 evidence_refs=list(self.execution_evidence_refs),
             ))
             # Acquire credential
@@ -170,6 +180,9 @@ class RepairMemoryItem:
                 params={"credential_name": cname},
                 status=PlanNodeStatus.PENDING,
                 is_repair_node=True,
+                origin_type="memory",
+                origin_memory_id=self.memory_id,
+                repair_instance_id=inst_id,
                 evidence_refs=list(self.execution_evidence_refs),
             ))
         else:
@@ -188,10 +201,14 @@ class RepairMemoryItem:
                     params=params,
                     status=PlanNodeStatus.READY if idx == 1 else PlanNodeStatus.PENDING,
                     is_repair_node=True,
+                    origin_type="memory",
+                    origin_memory_id=self.memory_id,
+                    repair_instance_id=inst_id,
                     evidence_refs=list(self.execution_evidence_refs),
                 ))
         self.lifecycle_state = MemoryLifecycleState.INSTANTIATED
         return nodes
+
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -207,11 +224,109 @@ class RepairMemoryItem:
             "expected_effects": self.expected_effects,
             "verification_status": self.verification_status.value,
             "lifecycle_state": self.lifecycle_state.value,
+            "source_episode_verified": self.source_episode_verified,
+            "compiled_template_validated": self.compiled_template_validated,
+            "compiled_template_evidence": self.compiled_template_evidence,
             "raw_experience": self.raw_experience,
             "reusable_repair_plan": self.reusable_repair_plan,
             "success_count": self.success_count,
             "failure_count": self.failure_count,
         }
+
+
+def validate_compiled_template(
+    item: RepairMemoryItem,
+    adjacency_map: Optional[Dict[str, List[str]]] = None,
+) -> Tuple[bool, str, Dict[str, Any]]:
+    """
+    Independent validation of the compiled repair template.
+    Checks:
+      1. Starting point adaptation: valid BFS paths from multiple start locations.
+      2. Legal navigation: all hops in the generated route are strictly adjacent.
+      3. Observation guard: an observe step on candidate location precedes acquire_credential.
+      4. Acquisition preconditions: required facts and expected effects are well-formed.
+      5. Invalidation contract: invalidation conditions contain room empty / credential not found triggers.
+    """
+    report: Dict[str, Any] = {
+        "starting_point_adaptation_passed": False,
+        "legal_navigation_passed": False,
+        "observation_guard_passed": False,
+        "preconditions_effects_passed": False,
+        "invalidation_contract_passed": False,
+        "test_origins_evaluated": [],
+    }
+    if not item.reusable_repair_plan or "candidate_location" not in item.reusable_repair_plan:
+        if not item.repair_proposal:
+            return False, "Neither reusable_repair_plan nor repair_proposal found in memory item.", report
+        report["preconditions_effects_passed"] = bool(item.expected_effects)
+        report["invalidation_contract_passed"] = bool(item.invalidation_conditions)
+        return True, "Legacy proposal validated.", report
+
+    cand_loc = item.reusable_repair_plan["candidate_location"]
+    cname = item.reusable_repair_plan.get("credential_name", "security_badge")
+    adj = adjacency_map or {
+        "Lobby": ["Corridor_North", "Corridor_South"],
+        "Corridor_North": ["Lobby", "Office_A", "Office_B", "Corridor_South"],
+        "Corridor_South": ["Lobby", "Corridor_North", "Office_A", "Lab_Secure"],
+        "Office_A": ["Corridor_North", "Corridor_South"],
+        "Office_B": ["Corridor_North"],
+        "Lab_Secure": ["Corridor_South"],
+    }
+
+    # 1 & 2: Starting point adaptation & legal navigation
+    test_origins = ["Lobby", "Office_B", "Corridor_South"]
+    all_nav_legal = True
+    for origin in test_origins:
+        nodes = item.instantiate_repair_nodes({"origin": origin}, robot_location=origin, adjacency_map=adj)
+        curr = origin
+        for n in nodes:
+            if n.action_type == "navigate":
+                nxt = n.params.get("target_zone")
+                if nxt not in adj.get(curr, []):
+                    all_nav_legal = False
+                curr = nxt
+        report["test_origins_evaluated"].append({
+            "origin": origin,
+            "node_count": len(nodes),
+            "hops": [n.target for n in nodes if n.action_type == "navigate"]
+        })
+
+    report["starting_point_adaptation_passed"] = len(report["test_origins_evaluated"]) == len(test_origins)
+    report["legal_navigation_passed"] = all_nav_legal
+    if not all_nav_legal:
+        return False, "Generated repair plan contains illegal non-adjacent navigation hops.", report
+
+    # 3: Observation guard check
+    sample_nodes = item.instantiate_repair_nodes({"origin": "Lobby"}, robot_location="Lobby", adjacency_map=adj)
+    obs_idx = -1
+    acq_idx = -1
+    for idx, n in enumerate(sample_nodes):
+        if n.action_type == "observe" and n.target == cand_loc:
+            obs_idx = idx
+        elif n.action_type == "acquire_credential" and n.target == cname:
+            acq_idx = idx
+
+    if obs_idx != -1 and acq_idx != -1 and obs_idx < acq_idx:
+        report["observation_guard_passed"] = True
+    else:
+        return False, f"Observation guard not satisfied in template: obs_idx={obs_idx}, acq_idx={acq_idx}.", report
+
+    # 4: Preconditions & effects
+    req_facts = item.reusable_repair_plan.get("required_facts") or item.required_facts
+    exp_effs = item.reusable_repair_plan.get("expected_effects") or item.expected_effects
+    if req_facts and exp_effs and f"has_credential({cname})" in exp_effs:
+        report["preconditions_effects_passed"] = True
+    else:
+        return False, "Preconditions and expected effects missing or ill-formed in template.", report
+
+    # 5: Invalidation contract
+    inv_conds = item.reusable_repair_plan.get("invalidation_conditions") or item.invalidation_conditions
+    if f"credential_not_found_in_{cand_loc}" in inv_conds or f"room_checked_empty_{cand_loc}" in inv_conds:
+        report["invalidation_contract_passed"] = True
+    else:
+        return False, f"Invalidation conditions do not guard candidate location '{cand_loc}'.", report
+
+    return True, "Compiled template passed all independent validation checks.", report
 
 
 class RepairMemoryStore:
@@ -519,15 +634,32 @@ class RepairMemoryStore:
                 self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
                 return False, reason
 
-        # Verification Passed! Upgrade to VERIFIED
+        # 1. Source Episode Trajectory Verification Passed!
+        item.source_episode_verified = True
         item.execution_evidence_refs = evidence_refs
         item.verification_evidence = {
-            "verified": True,
+            "source_episode_verified": True,
             "evidence_event_ids": evidence_refs,
             "failure_step_index": fail_step_idx,
             "repaired_steps_count": len(evidence_refs),
             "verified_effects": list(eff_to_check),
         }
+
+        # 2. Independent Compiled Template Validation
+        template_ok, t_msg, t_report = validate_compiled_template(item)
+        item.compiled_template_validated = template_ok
+        item.compiled_template_evidence = t_report
+        item.verification_evidence["compiled_template_validated"] = template_ok
+        item.verification_evidence["compiled_template_report"] = t_report
+
+        if not template_ok:
+            item.verification_status = VerificationStatus.UNVERIFIED
+            item.lifecycle_state = MemoryLifecycleState.REJECTED
+            reason = f"Source episode passed but compiled template validation failed: {t_msg}"
+            self.audit_log.append({"event": "TEMPLATE_VALIDATION_FAILED", "memory_id": memory_id, "reason": reason})
+            return False, reason
+
+        # Both Validations Passed! Upgrade to VERIFIED
         item.verification_status = VerificationStatus.VERIFIED
         item.lifecycle_state = MemoryLifecycleState.VERIFIED_EFFECT
         item.success_count += 1
@@ -535,10 +667,12 @@ class RepairMemoryStore:
         self.audit_log.append({
             "event": "VERIFIED_AND_PROMOTED",
             "memory_id": memory_id,
+            "source_episode_verified": True,
+            "compiled_template_validated": True,
             "evidence_refs": evidence_refs,
             "effects": eff_to_check,
         })
-        return True, "Verification successful. Memory promoted to VERIFIED."
+        return True, "Verification successful. Source episode and compiled template both validated. Memory promoted to VERIFIED."
 
     def record_repair_experience(
         self,

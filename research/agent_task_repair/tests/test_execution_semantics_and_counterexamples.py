@@ -16,7 +16,7 @@ from research.agent_task_repair.agent.plan_manager import PersistentPlan, PlanNo
 from research.agent_task_repair.agent.action_validator import ActionValidator, ValidationStatus
 from research.agent_task_repair.agent.repair_controller import RepairController
 from research.agent_task_repair.agent.stateful_runner import StatefulAgentRunner
-from research.agent_task_repair.memory.repair_memory import RepairMemoryStore, VerificationStatus, ApplicabilityResult
+from research.agent_task_repair.memory.repair_memory import RepairMemoryStore, VerificationStatus, ApplicabilityResult, MemoryLifecycleState
 from research.agent_task_repair.env.task_env import DeliveryTaskEnv
 
 
@@ -680,6 +680,218 @@ def test_smoke_target_location_changed_invalidation_and_fallback():
     node_next = plan.get_current_active_node()
     assert node_next is not None
     assert node_next.target in ("Corridor_North", "Office_B")
+
+
+def test_regression_target_1_no_duplicate_acquire_nodes_and_clean_attribution():
+    """Regression Test: Target 1 verified memory reuse has no duplicate acquire nodes and clean post-repair attribution."""
+    store = RepairMemoryStore()
+    mem = store.propose_repair(
+        memory_id="mem_badge_oa",
+        source_task_id="task_src_01",
+        failure_event={"action_name": "navigate", "target": "Lab_Secure", "error_code": "SECURITY_BADGE_REQUIRED", "event_id": "evt_fail_src"},
+        applicability={"target": "Lab_Secure"},
+        required_facts={"requires_credential(door_lab,security_badge)": True},
+        invalidation_conditions={"credential_not_found_in_Office_A": True},
+        expected_effects=["has_credential(security_badge)"],
+        repair_proposal=[{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}],
+    )
+    mem.reusable_repair_plan = {
+        "credential_name": "security_badge",
+        "candidate_location": "Office_A",
+        "required_facts": {"requires_credential(door_lab,security_badge)": True},
+        "invalidation_conditions": {"credential_not_found_in_Office_A": True},
+        "expected_effects": ["has_credential(security_badge)"],
+    }
+    traj = [
+        {"step": 1, "task_id": "task_src_01", "event_id": "evt_fail_src", "tool": "navigate", "params": {"target_zone": "Lab_Secure"}, "result": {"success": False, "error_code": "SECURITY_BADGE_REQUIRED"}},
+        {"step": 2, "task_id": "task_src_01", "event_id": "evt_src_acq", "tool": "acquire_credential", "params": {"credential_name": "security_badge"}, "result": {"success": True, "observation": {"credentials": ["security_badge"]}}},
+    ]
+    ok, _ = store.verify_and_promote("mem_badge_oa", traj, ["has_credential(security_badge)"])
+    assert ok is True
+
+    state = TaskStateTracker("Deliver pkg to Bob in Lab_Secure", {
+        "robot_location": "Corridor_South",
+        "battery": 95,
+        "inventory": ["pkg_t1"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_t1", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}],
+    })
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+
+    # Trigger failure at door_lab
+    fail_res = {
+        "status": "ACCESS_DENIED_NO_BADGE",
+        "success": False,
+        "error_code": "SECURITY_BADGE_REQUIRED",
+        "observation": {"door": "door_lab", "required_credential": "security_badge"},
+    }
+    state.update_from_tool_result("navigate", {"target_zone": "Lab_Secure"}, fail_res, "evt_fail_t1", 10.0)
+
+    controller = RepairController()
+    abort, msg, r_nodes = controller.handle_failure(
+        failed_tool="navigate",
+        failed_params={"target_zone": "Lab_Secure"},
+        error_code="SECURITY_BADGE_REQUIRED",
+        observation=fail_res["observation"],
+        task_state=state,
+        plan=plan,
+        repair_memory_adapter=store,
+        target_run_id="target_run_t1",
+    )
+    assert abort is False
+    assert len(r_nodes) == 3
+    # Check origin fields on instantiated memory nodes
+    for rn in r_nodes:
+        assert rn.origin_type == "memory"
+        assert rn.origin_memory_id == "mem_badge_oa"
+        assert rn.repair_instance_id == "repair_inst_mem_badge_oa"
+
+    # Robot navigates to Office_A
+    state.robot_location = "Office_A"
+    plan.on_step_success("navigate", {"target_zone": "Office_A"}, "evt_nav_oa")
+
+    # Robot observes Office_A (badge is present!)
+    obs_res = {"status": "SUCCESS", "success": True, "observation": {"room": "Office_A", "items": ["security_badge"]}}
+    state.update_from_tool_result("observe", {"target": "Office_A"}, obs_res, "evt_obs_oa", 20.0)
+    plan.on_step_success("observe", {"target": "Office_A"}, "evt_obs_oa")
+
+    # Verify: Deduplication check - there must be EXACTLY ONE acquire_credential node downstream!
+    pending_acq_nodes = [
+        n for n in plan.nodes
+        if n.action_type == "acquire_credential" and n.status in (PlanNodeStatus.READY, PlanNodeStatus.PENDING)
+    ]
+    assert len(pending_acq_nodes) == 1, f"Expected exactly 1 acquire node, found {len(pending_acq_nodes)}: {pending_acq_nodes}"
+    acq_node = pending_acq_nodes[0]
+    assert acq_node.origin_memory_id == "mem_badge_oa"
+
+    # Robot acquires credential
+    state.credentials.add("security_badge")
+    plan.on_step_success("acquire_credential", {"credential_name": "security_badge"}, "evt_acq_badge")
+
+    # Verify post-acquire replanned navigation nodes are base_plan, NOT memory
+    remaining_nav_nodes = [n for n in plan.nodes if n.action_type == "navigate" and n.status in (PlanNodeStatus.READY, PlanNodeStatus.PENDING)]
+    for n in remaining_nav_nodes:
+        assert n.origin_type == "base_plan"
+        assert n.origin_memory_id is None
+        assert n.is_repair_node is False
+
+
+def test_regression_target_3_invalidation_and_no_false_memory_credit():
+    """Regression Test: Target 3 invalidated memory is NOT credited with TARGET_EFFECT_VERIFIED."""
+    store = RepairMemoryStore()
+    mem = store.propose_repair(
+        memory_id="mem_badge_oa",
+        source_task_id="task_src_01",
+        failure_event={"action_name": "navigate", "target": "Lab_Secure", "error_code": "SECURITY_BADGE_REQUIRED", "event_id": "evt_fail_src"},
+        applicability={"target": "Lab_Secure"},
+        required_facts={"requires_credential(door_lab,security_badge)": True},
+        invalidation_conditions={"credential_not_found_in_Office_A": True},
+        expected_effects=["has_credential(security_badge)"],
+        repair_proposal=[{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}],
+    )
+    mem.reusable_repair_plan = {
+        "credential_name": "security_badge",
+        "candidate_location": "Office_A",
+        "required_facts": {"requires_credential(door_lab,security_badge)": True},
+        "invalidation_conditions": {"credential_not_found_in_Office_A": True},
+        "expected_effects": ["has_credential(security_badge)"],
+    }
+    traj = [
+        {"step": 1, "task_id": "task_src_01", "event_id": "evt_fail_src", "tool": "navigate", "params": {"target_zone": "Lab_Secure"}, "result": {"success": False, "error_code": "SECURITY_BADGE_REQUIRED"}},
+        {"step": 2, "task_id": "task_src_01", "event_id": "evt_src_acq", "tool": "acquire_credential", "params": {"credential_name": "security_badge"}, "result": {"success": True, "observation": {"credentials": ["security_badge"]}}},
+    ]
+    store.verify_and_promote("mem_badge_oa", traj, ["has_credential(security_badge)"])
+
+    state = TaskStateTracker("Deliver pkg to Bob in Lab_Secure", {
+        "robot_location": "Corridor_South",
+        "battery": 95,
+        "inventory": ["pkg_t3"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_t3", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}],
+    })
+    state.set_fact("room_checked_empty_Lobby", True, "evt_init_lobby", 0.0, "observe")
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+
+    # Door failure triggers memory retrieval
+    fail_res = {
+        "status": "ACCESS_DENIED_NO_BADGE",
+        "success": False,
+        "error_code": "SECURITY_BADGE_REQUIRED",
+        "observation": {"door": "door_lab", "required_credential": "security_badge"},
+    }
+    state.update_from_tool_result("navigate", {"target_zone": "Lab_Secure"}, fail_res, "evt_fail_t3", 10.0)
+
+    controller = RepairController()
+    controller.handle_failure(
+        failed_tool="navigate",
+        failed_params={"target_zone": "Lab_Secure"},
+        error_code="SECURITY_BADGE_REQUIRED",
+        observation=fail_res["observation"],
+        task_state=state,
+        plan=plan,
+        repair_memory_adapter=store,
+        target_run_id="target_run_t3",
+    )
+
+    # Robot navigates to Office_A
+    state.robot_location = "Office_A"
+    plan.on_step_success("navigate", {"target_zone": "Office_A"}, "evt_nav_oa")
+
+    # Robot observes Office_A (empty!)
+    obs_res = {"status": "SUCCESS", "success": True, "observation": {"room": "Office_A", "items": []}}
+    state.update_from_tool_result("observe", {"target": "Office_A"}, obs_res, "evt_obs_oa", 20.0)
+    store.update_with_observation(state.observed_facts, target_run_id="target_run_t3", event_id="evt_obs_oa", sim_time=20.0)
+    plan.on_step_success("observe", {"target": "Office_A"}, "evt_obs_oa")
+
+    assert mem.verification_status == VerificationStatus.INVALIDATED
+    assert mem.lifecycle_state == MemoryLifecycleState.INVALIDATED
+
+    # Robot online-searches and reaches Office_B, observes badge
+    state.robot_location = "Corridor_North"
+    plan.on_step_success("navigate", {"target_zone": "Corridor_North"}, "evt_nav_cn")
+    state.robot_location = "Office_B"
+    plan.on_step_success("navigate", {"target_zone": "Office_B"}, "evt_nav_ob")
+
+    obs_ob_res = {"status": "SUCCESS", "success": True, "observation": {"room": "Office_B", "items": ["security_badge"]}}
+    state.update_from_tool_result("observe", {"target": "Office_B"}, obs_ob_res, "evt_obs_ob", 30.0)
+    plan.on_step_success("observe", {"target": "Office_B"}, "evt_obs_ob")
+
+    # Robot acquires badge in Office_B
+    active = plan.get_current_active_node()
+    assert active is not None
+    assert active.action_type == "acquire_credential"
+
+    # Simulate acquisition completion
+    plan.on_step_success("acquire_credential", {"credential_name": "security_badge"}, "evt_acq_ob")
+
+    # Verify: TARGET_EFFECT_VERIFIED was NEVER called for the invalidated memory
+    effect_verified_events = [
+        e for e in store.target_audit_log
+        if e.get("event") == "TARGET_EFFECT_VERIFIED"
+    ]
+    assert len(effect_verified_events) == 0, f"Expected 0 TARGET_EFFECT_VERIFIED events for invalidated memory, got {effect_verified_events}"
+
+
+def test_regression_plan_deviation_does_not_complete_node():
+    """Regression Test: Executing an action that deviates from the active plan node does not complete it."""
+    state = TaskStateTracker("Deliver pkg to Office_A", {
+        "robot_location": "Lobby",
+        "battery": 100,
+        "available_packages": [{"id": "pkg_1", "pickup_location": "Lobby", "target_room": "Office_A", "recipient": "Alice"}]
+    })
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+    active = plan.get_current_active_node()
+    assert active is not None
+    assert active.action_type == "pickup"
+
+    # Agent executes navigate instead of pickup
+    ok = plan.on_step_success("navigate", {"target_zone": "Corridor_North"}, "evt_deviated")
+    assert ok is False
+    assert active.status != PlanNodeStatus.COMPLETED
+    assert plan.get_current_active_node() == active
 
 
 

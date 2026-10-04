@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
 from .planner import TOOL_SCHEMAS, MAP_ADJACENCY
+from .task_state import ObservedFact
 
 
 class ValidationStatus(str, Enum):
@@ -192,11 +193,33 @@ class ActionValidator:
 
             allowed_neighbors = self.adjacency_map.get(robot_loc, [])
             if target_zone not in allowed_neighbors:
+                # Provide shortest hop suggestion
+                from .plan_manager import find_path_bfs
+                path_hops = find_path_bfs(robot_loc, target_zone, self.adjacency_map)
+                suggested_hop = path_hops[0] if path_hops else (allowed_neighbors[0] if allowed_neighbors else None)
+                sug = {"action": "navigate", "params": {"target_zone": suggested_hop}} if suggested_hop else None
                 return ValidationResult(
                     status=ValidationStatus.FAIL,
                     reason=f"No direct transit connection from '{robot_loc}' to '{target_zone}'. Allowed adjacent zones: {allowed_neighbors}.",
                     conflicting_precondition=f"is_adjacent({robot_loc}, {target_zone})",
+                    suggested_revision=sug,
                 )
+
+            # Check known door credential requirements
+            known_door_creds = {
+                "Lab_Secure": ("door_lab", "security_badge"),
+            }
+            if target_zone in known_door_creds:
+                door_name, required_cred = known_door_creds[target_zone]
+                req_fact = known_facts.get(f"requires_credential({door_name},{required_cred})")
+                req_val = req_fact.value if isinstance(req_fact, ObservedFact) else req_fact
+                if req_val is True and required_cred not in credentials:
+                    return ValidationResult(
+                        status=ValidationStatus.FAIL,
+                        reason=f"Door '{door_name}' to '{target_zone}' requires credential '{required_cred}' which robot does not possess.",
+                        conflicting_precondition=f"has_credential({required_cred})",
+                        suggested_revision={"action": "acquire_credential", "params": {"credential_name": required_cred}}
+                    )
 
             # Check known door blockages
             door_blocked_key = f"door_{target_zone.lower()}_state"

@@ -19,9 +19,11 @@ class RepairController:
         self,
         adjacency_map: Optional[Dict[str, List[str]]] = None,
         max_repeated_attempts: int = 3,
+        enable_observation_guard: bool = False,
     ):
         self.adjacency_map = adjacency_map or MAP_ADJACENCY
         self.max_repeated_attempts = max_repeated_attempts
+        self.enable_observation_guard = enable_observation_guard
         self.failed_action_history: List[Dict[str, Any]] = []
         self.repair_history: List[Dict[str, Any]] = []
 
@@ -42,6 +44,7 @@ class RepairController:
         """
         robot_loc = task_state.robot_location
         active_node = plan.get_current_active_node()
+        online_inst_id = f"online_repair_s{task_state.step_counter:02d}"
 
         # 1. Dead-loop detection: check exact fact contents & versions rather than just count
         fact_signature = frozenset(
@@ -115,6 +118,9 @@ class RepairController:
                             expected_effects=[f"at_location({hop})"],
                             status=PlanNodeStatus.READY if h_idx == 1 else PlanNodeStatus.PENDING,
                             is_repair_node=True,
+                            origin_type="online_repair",
+                            origin_memory_id=None,
+                            repair_instance_id=online_inst_id,
                         ))
 
             elif error_code in ("SECURITY_BADGE_REQUIRED", "ACCESS_DENIED_NO_BADGE") or failed_tool == "acquire_credential":
@@ -128,29 +134,70 @@ class RepairController:
                                 known_badge_loc = k.replace("room_items_", "")
                                 break
 
+                # Check if known_badge_loc was confirmed empty
+                if known_badge_loc and task_state.get_fact_value(f"room_checked_empty_{known_badge_loc}"):
+                    known_badge_loc = None
+
                 if known_badge_loc:
-                    # Grounded path to known badge location
-                    if robot_loc != known_badge_loc:
-                        nav_path = plan.find_path(robot_loc, known_badge_loc)
-                        for hop in nav_path:
-                            repair_nodes.append(PlanNode(
-                                id=f"repair_nav_cred_{hop}",
-                                goal=f"Navigate to {hop} en route to acquire security_badge at {known_badge_loc}",
-                                action_type="navigate",
-                                target=hop,
-                                params={"target_zone": hop},
-                                status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
-                                is_repair_node=True,
-                            ))
-                    repair_nodes.append(PlanNode(
-                        id="repair_acquire_badge",
-                        goal="Acquire security_badge credential",
-                        action_type="acquire_credential",
-                        target="security_badge",
-                        params={"credential_name": "security_badge"},
-                        status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
-                        is_repair_node=True,
-                    ))
+                    if self.enable_observation_guard:
+                        # Group C_guard: Generic observation guard rule before acquire
+                        if robot_loc != known_badge_loc:
+                            nav_path = plan.find_path(robot_loc, known_badge_loc)
+                            for hop in nav_path:
+                                repair_nodes.append(PlanNode(
+                                    id=f"repair_nav_cred_{hop}",
+                                    goal=f"Navigate to {hop} en route to verify and acquire security_badge at {known_badge_loc}",
+                                    action_type="navigate",
+                                    target=hop,
+                                    params={"target_zone": hop},
+                                    status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
+                                    is_repair_node=True,
+                                    origin_type="online_repair",
+                                    origin_memory_id=None,
+                                    repair_instance_id=online_inst_id,
+                                ))
+                        # Observation guard
+                        repair_nodes.append(PlanNode(
+                            id=f"repair_observe_{known_badge_loc}",
+                            goal=f"Observe room {known_badge_loc} to confirm security_badge presence",
+                            action_type="observe",
+                            target=known_badge_loc,
+                            params={"target": known_badge_loc},
+                            status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
+                            is_repair_node=True,
+                            origin_type="online_repair",
+                            origin_memory_id=None,
+                            repair_instance_id=online_inst_id,
+                        ))
+                    else:
+                        # Group C_updated: Direct acquisition plan without observation guard
+                        if robot_loc != known_badge_loc:
+                            nav_path = plan.find_path(robot_loc, known_badge_loc)
+                            for hop in nav_path:
+                                repair_nodes.append(PlanNode(
+                                    id=f"repair_nav_cred_{hop}",
+                                    goal=f"Navigate to {hop} en route to acquire security_badge at {known_badge_loc}",
+                                    action_type="navigate",
+                                    target=hop,
+                                    params={"target_zone": hop},
+                                    status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
+                                    is_repair_node=True,
+                                    origin_type="online_repair",
+                                    origin_memory_id=None,
+                                    repair_instance_id=online_inst_id,
+                                ))
+                        repair_nodes.append(PlanNode(
+                            id="repair_acquire_badge",
+                            goal="Acquire security_badge credential",
+                            action_type="acquire_credential",
+                            target="security_badge",
+                            params={"credential_name": "security_badge"},
+                            status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
+                            is_repair_node=True,
+                            origin_type="online_repair",
+                            origin_memory_id=None,
+                            repair_instance_id=online_inst_id,
+                        ))
                 else:
                     # Location unknown: check if current room has been inspected
                     has_inspected_here = bool(
@@ -166,6 +213,9 @@ class RepairController:
                             params={"target": robot_loc},
                             status=PlanNodeStatus.READY,
                             is_repair_node=True,
+                            origin_type="online_repair",
+                            origin_memory_id=None,
+                            repair_instance_id=online_inst_id,
                         ))
                     else:
                         # Bounded BFS search for uninspected accessible rooms
@@ -195,6 +245,9 @@ class RepairController:
                                     params={"target_zone": hop},
                                     status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
                                     is_repair_node=True,
+                                    origin_type="online_repair",
+                                    origin_memory_id=None,
+                                    repair_instance_id=online_inst_id,
                                 ))
                             repair_nodes.append(PlanNode(
                                 id=f"repair_observe_{closest_room}",
@@ -204,6 +257,9 @@ class RepairController:
                                 params={"target": closest_room},
                                 status=PlanNodeStatus.PENDING,
                                 is_repair_node=True,
+                                origin_type="online_repair",
+                                origin_memory_id=None,
+                                repair_instance_id=online_inst_id,
                             ))
                         else:
                             return True, "CREDENTIAL_UNAVAILABLE_IN_ACCESSIBLE_ROOMS: Checked all reachable rooms and found no security_badge.", []
@@ -221,6 +277,9 @@ class RepairController:
                             params={"target_zone": hop},
                             status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
                             is_repair_node=True,
+                            origin_type="online_repair",
+                            origin_memory_id=None,
+                            repair_instance_id=online_inst_id,
                         ))
                 repair_nodes.append(PlanNode(
                     id="repair_recharge_battery",
@@ -230,6 +289,9 @@ class RepairController:
                     params={},
                     status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
                     is_repair_node=True,
+                    origin_type="online_repair",
+                    origin_memory_id=None,
+                    repair_instance_id=online_inst_id,
                 ))
 
         # 4. Insert repair nodes and update downstream navigation
