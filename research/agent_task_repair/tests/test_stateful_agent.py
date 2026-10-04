@@ -110,6 +110,7 @@ def test_persistent_plan_lifecycle_and_repair():
     assert node0.action_type == "pickup"
 
     # Advance plan
+    tracker.on_tool_success("pickup", {"package_id": "pkg_1"}, "evt_step1")
     plan.on_step_success("pickup", {"package_id": "pkg_1"}, "evt_step1")
     node1 = plan.get_current_active_node()
     assert node1 is not None

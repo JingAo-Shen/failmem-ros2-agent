@@ -3,13 +3,13 @@ Local Repair Controller for FailMem Stage 2 Stateful Agent Architecture.
 Handles:
   - Failure diagnosis & affected plan node identification.
   - Integration with repair_memory (retrieving evidence-backed repair templates).
-  - Online fallback repair synthesis.
-  - Plan surgery: inserting local repair sub-nodes before the blocked node.
-  - Rigorous dead-loop prevention under unchanged epistemic evidence.
+  - Online fallback repair synthesis (grounded in map topology & observed facts, without unobserved location conjectures).
+  - Plan surgery: inserting local repair sub-nodes and replanning downstream navigation.
+  - Rigorous dead-loop prevention under unchanged epistemic fact states and versions.
 """
 from typing import Dict, Any, List, Optional, Tuple, Set
 import copy
-from .task_state import TaskStateTracker, ObligationStatus
+from .task_state import TaskStateTracker, ObligationStatus, ObservedFact
 from .plan_manager import PersistentPlan, PlanNode, PlanNodeStatus
 from .planner import MAP_ADJACENCY
 
@@ -42,10 +42,14 @@ class RepairController:
         robot_loc = task_state.robot_location
         active_node = plan.get_current_active_node()
 
-        # 1. Dead-loop detection: check if identical action failed in identical state without new evidence
-        action_sig = (robot_loc, failed_tool, str(failed_params), error_code, len(task_state.observed_facts))
+        # 1. Dead-loop detection: check exact fact contents & versions rather than just count
+        fact_signature = frozenset(
+            (k, getattr(v, "value", str(v)), getattr(v, "version", 1))
+            for k, v in task_state.observed_facts.items()
+        )
+        action_sig = (robot_loc, failed_tool, str(sorted(failed_params.items())), error_code, fact_signature)
         repeat_count = sum(1 for h in self.failed_action_history if h.get("signature") == action_sig)
-        
+
         self.failed_action_history.append({
             "signature": action_sig,
             "tool": failed_tool,
@@ -73,75 +77,106 @@ class RepairController:
                 repair_nodes = matching_repair
                 memory_used = True
 
-        # 3. Online Local Repair Synthesis (if no memory template used)
+        # 3. Online Local Repair Synthesis (if no verified memory template retrieved)
         if not repair_nodes:
-            if error_code == "DOORWAY_BLOCKED" or "DOOR_BLOCKED" in error_code:
+            if error_code in ("DOORWAY_BLOCKED", "DOOR_BLOCKED"):
                 blocked_target = failed_params.get("target_zone")
-                # Synthesize alternate detour route via adjacency graph
-                alt_neighbors = [z for z in self.adjacency_map.get(robot_loc, []) if z != blocked_target]
-                if alt_neighbors:
-                    detour_zone = alt_neighbors[0]
-                    # Check if destination target was specified
-                    dest_target = active_node.target if active_node else blocked_target
-                    repair_nodes.append(PlanNode(
-                        id=f"repair_detour_{detour_zone}",
-                        goal=f"Detour via {detour_zone} to bypass blocked doorway to {blocked_target}",
-                        action_type="navigate",
-                        target=detour_zone,
-                        params={"target_zone": detour_zone},
-                        preconditions=[f"at_location({robot_loc})"],
-                        expected_effects=[f"at_location({detour_zone})"],
-                        status=PlanNodeStatus.READY,
-                        is_repair_node=True,
-                    ))
+                # Identify next non-navigation goal destination
+                final_dest = None
+                for n in plan.nodes[plan.current_node_index:]:
+                    if n.action_type in ("pickup", "deliver", "recharge"):
+                        final_dest = n.target
+                        break
+                final_dest = final_dest or blocked_target
+
+                # Compute detour avoiding blocked target doorway
+                avoid_set = {blocked_target} if blocked_target else set()
+                detour_path = plan.find_path(robot_loc, final_dest, avoid=avoid_set)
+
+                if detour_path:
+                    for h_idx, hop in enumerate(detour_path, start=1):
+                        repair_nodes.append(PlanNode(
+                            id=f"repair_detour_{h_idx:02d}_{hop}",
+                            goal=f"Detour via {hop} to bypass blocked doorway to {blocked_target}",
+                            action_type="navigate",
+                            target=hop,
+                            params={"target_zone": hop},
+                            preconditions=[f"at_location({robot_loc if h_idx==1 else detour_path[h_idx-2]})"],
+                            expected_effects=[f"at_location({hop})"],
+                            status=PlanNodeStatus.READY if h_idx == 1 else PlanNodeStatus.PENDING,
+                            is_repair_node=True,
+                        ))
 
             elif error_code in ("SECURITY_BADGE_REQUIRED", "ACCESS_DENIED_NO_BADGE"):
-                # Missing security badge: acquire credential from available location
-                # Check known credential locations or Lobby
-                cred_loc = "Lobby" if robot_loc == "Lobby" else "Office_A"
-                if robot_loc != cred_loc and robot_loc != "Lobby":
-                    repair_nodes.append(PlanNode(
-                        id=f"repair_nav_cred_{cred_loc}",
-                        goal=f"Navigate to {cred_loc} to acquire security_badge",
-                        action_type="navigate",
-                        target=cred_loc,
-                        params={"target_zone": cred_loc},
-                        status=PlanNodeStatus.READY,
-                        is_repair_node=True,
-                    ))
-                repair_nodes.append(PlanNode(
-                    id="repair_acquire_badge",
-                    goal="Acquire security_badge credential",
-                    action_type="acquire_credential",
-                    target="security_badge",
-                    params={"credential_name": "security_badge"},
-                    status=PlanNodeStatus.PENDING,
-                    is_repair_node=True,
-                ))
+                # Credential required: check if badge location is known from observations
+                known_badge_loc = None
+                for k, v in task_state.observed_facts.items():
+                    if k.startswith("room_items_") and isinstance(getattr(v, "value", v), list):
+                        items = getattr(v, "value", v)
+                        if "security_badge" in items:
+                            known_badge_loc = k.replace("room_items_", "")
+                            break
 
-            elif error_code in ("BATTERY_LOW", "NOT_AT_CHARGER"):
-                # Battery recharge repair
-                if robot_loc != "Lobby":
+                if known_badge_loc:
+                    # Grounded path to known badge location
+                    if robot_loc != known_badge_loc:
+                        nav_path = plan.find_path(robot_loc, known_badge_loc)
+                        for hop in nav_path:
+                            repair_nodes.append(PlanNode(
+                                id=f"repair_nav_cred_{hop}",
+                                goal=f"Navigate to {hop} en route to acquire security_badge at {known_badge_loc}",
+                                action_type="navigate",
+                                target=hop,
+                                params={"target_zone": hop},
+                                status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
+                                is_repair_node=True,
+                            ))
                     repair_nodes.append(PlanNode(
-                        id="repair_nav_charger",
-                        goal="Navigate to Lobby charging station",
-                        action_type="navigate",
-                        target="Lobby",
-                        params={"target_zone": "Lobby"},
+                        id="repair_acquire_badge",
+                        goal="Acquire security_badge credential",
+                        action_type="acquire_credential",
+                        target="security_badge",
+                        params={"credential_name": "security_badge"},
+                        status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
+                        is_repair_node=True,
+                    ))
+                else:
+                    # Location unknown: generate observation step first without assuming Office_A
+                    repair_nodes.append(PlanNode(
+                        id="repair_observe_items",
+                        goal="Observe current room for available credentials",
+                        action_type="observe",
+                        target="room_items",
+                        params={"target": "room_items"},
                         status=PlanNodeStatus.READY,
                         is_repair_node=True,
                     ))
+
+            elif error_code in ("BATTERY_LOW", "NOT_AT_CHARGER", "BATTERY_DEPLETED"):
+                # Recharge repair
+                if robot_loc != task_state.charger_location:
+                    nav_path = plan.find_path(robot_loc, task_state.charger_location)
+                    for hop in nav_path:
+                        repair_nodes.append(PlanNode(
+                            id=f"repair_nav_charger_{hop}",
+                            goal=f"Navigate to {hop} en route to charger",
+                            action_type="navigate",
+                            target=hop,
+                            params={"target_zone": hop},
+                            status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
+                            is_repair_node=True,
+                        ))
                 repair_nodes.append(PlanNode(
                     id="repair_recharge_battery",
                     goal="Recharge battery to 100%",
                     action_type="recharge",
-                    target="Lobby",
+                    target=task_state.charger_location,
                     params={},
-                    status=PlanNodeStatus.PENDING,
+                    status=PlanNodeStatus.READY if len(repair_nodes) == 0 else PlanNodeStatus.PENDING,
                     is_repair_node=True,
                 ))
 
-        # 4. Insert repair nodes into plan
+        # 4. Insert repair nodes and update downstream navigation
         if repair_nodes:
             plan.insert_repair_nodes(repair_nodes, reason=f"Repaired failure on {failed_tool}: {error_code} (MemoryUsed={memory_used})")
             self.repair_history.append({

@@ -1,12 +1,13 @@
 """
-Stateful Agent Execution Runner for FailMem Stage 2 (Groups B, C, D).
+Stateful Agent Execution Runner for FailMem Stage 2.
 Integrates:
   - TaskStateTracker (task_state.py)
   - PersistentPlan (plan_manager.py)
-  - ActionValidator (action_validator.py)
+  - ActionValidator (action_validator.py) with 2-pass validation & strict budget enforcement
   - RepairController (repair_controller.py)
   - CompletionChecker (completion_checker.py)
-  - RepairMemoryStore (repair_memory.py, for Group D)
+  - RepairMemoryStore (repair_memory.py)
+  - Traceable per-step logging of raw prompts, responses, validation, and tool outcomes.
 """
 from typing import Dict, Any, List, Optional, Tuple
 import time
@@ -14,7 +15,7 @@ import copy
 
 from .llm_backend import LLMBackend
 from .planner import TOOL_SCHEMAS, MAP_ADJACENCY, SYSTEM_PROMPT, format_map_topology_description
-from .task_state import TaskStateTracker, ObligationStatus
+from .task_state import TaskStateTracker, ObligationStatus, ObservedFact
 from .plan_manager import PersistentPlan, PlanNode, PlanNodeStatus
 from .action_validator import ActionValidator, ValidationStatus
 from .repair_controller import RepairController
@@ -71,9 +72,8 @@ class StatefulAgentRunner:
             max_inventory_capacity=env.max_inventory_capacity,
         )
 
-        # Populate shared known state (e.g. from shared observation)
+        # Ingest shared known state (e.g. from current shared sensory observation)
         if initial_known_state:
-            from .task_state import ObservedFact
             for k, v in initial_known_state.items():
                 if isinstance(v, ObservedFact):
                     task_state.observed_facts[k] = copy.deepcopy(v)
@@ -100,20 +100,22 @@ class StatefulAgentRunner:
 
         step_history: List[Dict[str, Any]] = []
         llm_traces: List[Dict[str, Any]] = []
-        consecutive_failures = 0
+        validation_records: List[Dict[str, Any]] = []
+        intercepted_actions_count: int = 0
+        total_revisions_count: int = 0
 
         while not env.is_terminated and len(step_history) < self.max_tool_calls and len(llm_traces) < self.max_llm_calls:
             step_idx = len(step_history) + 1
             robot_loc_before = env.robot_location
 
-            # Check if all completed
+            # Check if all obligations are completed
             if task_state.is_all_completed():
                 break
 
             active_node = persistent_plan.get_current_active_node()
             state_summary = task_state.get_public_state_summary()
 
-            # 3. Build Prompt from Persistent Plan & State
+            # 3. Build User Prompt from Plan & State
             user_prompt_lines = [
                 f"### Current Delivery Task: {instruction}",
                 format_map_topology_description(self.adjacency_map),
@@ -132,7 +134,8 @@ class StatefulAgentRunner:
                     user_prompt_lines.append(f"   Required Preconditions: {active_node.preconditions}")
 
             if task_state.observed_facts:
-                user_prompt_lines.append(f"### Known / Observed Environmental Facts: {task_state.observed_facts}")
+                fact_dict = {k: task_state.get_fact_value(k) for k in task_state.observed_facts}
+                user_prompt_lines.append(f"### Known / Observed Environmental Facts: {fact_dict}")
 
             # Historical facts / failures for Group C / D
             if self.include_historical_facts and historical_failure_events:
@@ -154,9 +157,13 @@ class StatefulAgentRunner:
                 {"role": "user", "content": user_prompt},
             ]
 
-            # 4. LLM Generation
+            # 4. Check LLM Budget Before Calling
+            if len(llm_traces) >= self.max_llm_calls:
+                break
+
             gen_res = self.llm.generate(messages)
             content = gen_res.get("content", "")
+            decision, parse_ok, parse_err = self._parse_json(content)
 
             trace_att1 = {
                 "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_s{step_idx:02d}",
@@ -164,11 +171,9 @@ class StatefulAgentRunner:
                 "generated_tokens": gen_res.get("generated_tokens", 0),
                 "latency_s": gen_res.get("latency_s", 0.0),
                 "raw_response": content,
+                "parse_ok": parse_ok,
+                "first_call": True,
             }
-
-            # 5. Parse Decision
-            decision, parse_ok, parse_err = self._parse_json(content)
-            trace_att1["parse_ok"] = parse_ok
             llm_traces.append(trace_att1)
 
             if not parse_ok:
@@ -178,7 +183,8 @@ class StatefulAgentRunner:
                 tool_name = decision.get("action", "parse_error")
                 params = decision.get("params", {})
 
-            # 6. Action Validator Pre-Execution Check
+            # 5. Pre-Execution Action Validation (Pass 1)
+            is_action_valid = True
             if tool_name != "parse_error":
                 v_res = self.validator.validate_action(
                     tool_name=tool_name,
@@ -186,39 +192,85 @@ class StatefulAgentRunner:
                     current_state=state_summary,
                     known_facts=task_state.observed_facts,
                 )
+                validation_records.append({
+                    "step": step_idx,
+                    "tool": tool_name,
+                    "params": params,
+                    "status": v_res.status.value,
+                    "reason": v_res.reason,
+                    "pass_num": 1,
+                })
 
                 if v_res.status == ValidationStatus.FAIL:
-                    # Action Validator caught illegal precondition: prompt LLM for 1-shot revision within budget
-                    rev_messages = list(messages)
-                    rev_messages.append({"role": "assistant", "content": content})
-                    rev_messages.append({
-                        "role": "user",
-                        "content": f"Pre-Execution Conflict: {v_res.reason}. Conflicting Precondition: {v_res.conflicting_precondition}. Please revise your action to satisfy preconditions."
-                    })
-                    rev_res = self.llm.generate(rev_messages)
-                    rev_trace = {
-                        "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_s{step_idx:02d}_val_retry",
-                        "prompt_tokens": rev_res.get("prompt_tokens", 0),
-                        "generated_tokens": rev_res.get("generated_tokens", 0),
-                        "latency_s": rev_res.get("latency_s", 0.0),
-                        "raw_response": rev_res.get("content", ""),
-                    }
-                    rev_dec, rev_ok, _ = self._parse_json(rev_res.get("content", ""))
-                    rev_trace["parse_ok"] = rev_ok
-                    llm_traces.append(rev_trace)
+                    intercepted_actions_count += 1
+                    # Check remaining LLM budget for 1-shot revision
+                    if len(llm_traces) < self.max_llm_calls:
+                        total_revisions_count += 1
+                        rev_messages = list(messages)
+                        rev_messages.append({"role": "assistant", "content": content})
+                        rev_messages.append({
+                            "role": "user",
+                            "content": f"Pre-Execution Conflict: {v_res.reason}. Conflicting Precondition: {v_res.conflicting_precondition}. Please revise your action decision."
+                        })
+                        rev_res = self.llm.generate(rev_messages)
+                        rev_dec, rev_ok, _ = self._parse_json(rev_res.get("content", ""))
+                        rev_trace = {
+                            "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_s{step_idx:02d}_val_retry",
+                            "prompt_tokens": rev_res.get("prompt_tokens", 0),
+                            "generated_tokens": rev_res.get("generated_tokens", 0),
+                            "latency_s": rev_res.get("latency_s", 0.0),
+                            "raw_response": rev_res.get("content", ""),
+                            "parse_ok": rev_ok,
+                            "first_call": False,
+                        }
+                        llm_traces.append(rev_trace)
 
-                    if rev_ok:
-                        tool_name = rev_dec.get("action", tool_name)
-                        params = rev_dec.get("params", params)
+                        if rev_ok:
+                            tool_name = rev_dec.get("action", tool_name)
+                            params = rev_dec.get("params", params)
 
-            # 7. Execute on Environment
+                            # Pass 2: Re-validate revised action
+                            v_res2 = self.validator.validate_action(
+                                tool_name=tool_name,
+                                params=params,
+                                current_state=state_summary,
+                                known_facts=task_state.observed_facts,
+                            )
+                            validation_records.append({
+                                "step": step_idx,
+                                "tool": tool_name,
+                                "params": params,
+                                "status": v_res2.status.value,
+                                "reason": v_res2.reason,
+                                "pass_num": 2,
+                            })
+                            if v_res2.status == ValidationStatus.FAIL:
+                                is_action_valid = False
+                        else:
+                            is_action_valid = False
+                    else:
+                        is_action_valid = False
+
+            # 6. Execute or Intercept
             event_id = f"evt_{self.run_id}_{seq_id}_{task_id}_s{step_idx:02d}"
             env_state_snapshot = {
                 "doors": copy.deepcopy(env.doors),
                 "robot_location": env.robot_location,
+                "battery": env.battery,
             }
 
-            if tool_name == "parse_error":
+            if not is_action_valid:
+                # Intercepted illegal action - consume nominal turn resource without illegal physical breach
+                env._consume_resources(1.0, 1)
+                result = ActionResult(
+                    status=StatusCode.INVALID_PARAMETER,
+                    success=False,
+                    message="Action intercepted by Pre-Execution Validator (illegal precondition violated after revision).",
+                    time_cost_s=1.0,
+                    battery_cost_pct=1,
+                    error_code="INTERCEPTED_PRECONDITION_VIOLATION",
+                )
+            elif tool_name == "parse_error":
                 env._consume_resources(1.0, 1)
                 result = ActionResult(
                     status=StatusCode.PARSE_ERROR,
@@ -231,7 +283,7 @@ class StatefulAgentRunner:
             else:
                 result = env.step(tool_name, params)
 
-            # 8. Update Task State Tracker
+            # 7. Update Task State Tracker
             task_state.update_from_tool_result(
                 tool_name=tool_name,
                 params=params,
@@ -240,12 +292,10 @@ class StatefulAgentRunner:
                 sim_time=env.sim_time_s,
             )
 
-            # 9. Handle Success vs Failure in Plan & Repair Controller
+            # 8. Handle Success vs Failure in Plan & Repair Controller
             if result.success:
-                persistent_plan.on_step_success(tool_name, params, event_id)
-                consecutive_failures = 0
+                persistent_plan.on_step_success(tool_name, params, event_id, result.observation)
             else:
-                consecutive_failures += 1
                 should_abort, rep_msg, rep_nodes = self.repair_controller.handle_failure(
                     failed_tool=tool_name,
                     failed_params=params,
@@ -273,7 +323,7 @@ class StatefulAgentRunner:
             }
             step_history.append(step_entry)
 
-        # 10. Completion Verification
+        # 9. Tool Evidence Verification
         is_succ, comp_reason, comp_details = CompletionChecker.verify_completion(
             task_state=task_state,
             step_history=step_history,
@@ -292,6 +342,9 @@ class StatefulAgentRunner:
             "step_history": step_history,
             "llm_calls": len(llm_traces),
             "llm_traces": llm_traces,
+            "validation_records": validation_records,
+            "intercepted_actions_count": intercepted_actions_count,
+            "total_revisions_count": total_revisions_count,
             "sim_time_s": env.sim_time_s,
             "battery_consumed": env.cumulative_battery_consumed,
             "final_battery": env.battery,
@@ -299,6 +352,8 @@ class StatefulAgentRunner:
             "wall_time_s": round(t_wall_total, 2),
             "plan_revisions": len(persistent_plan.revision_history),
             "plan_revision_log": persistent_plan.revision_history,
+            "initial_known_state": initial_known_state or {},
+            "source_history_events": historical_failure_events or [],
         }
 
     def _parse_json(self, text: str) -> Tuple[Dict[str, Any], bool, str]:

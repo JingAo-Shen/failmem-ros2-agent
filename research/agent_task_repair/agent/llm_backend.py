@@ -1,14 +1,16 @@
 """
 Unified LLM Backend for FailMem Stage 2 Planning Agent.
-Enforces:
-  - Mandatory real neural model loading for evaluation runs (fails fast if missing).
-  - Fallback engine strictly isolated to unit testing mode with explicit flag.
-  - Comprehensive token, call count, and latency tracking.
+Supports:
+  - FP16 models (e.g. Qwen2.5-Coder-7B-Instruct)
+  - AWQ 4-bit models (e.g. Qwen3-14B-AWQ) with AutoAWQ / Transformers backend
+  - Native Thinking Mode (`enable_thinking=True` / `enable_thinking=False`)
+  - Accurate telemetry: prompt/generated tokens, latency, peak VRAM, tokens/sec.
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import time
 import json
 import re
+import torch
 
 
 class LLMBackend:
@@ -17,8 +19,10 @@ class LLMBackend:
         model_path: Optional[str] = None,
         device: str = "cuda",
         torch_dtype: str = "float16",
-        max_new_tokens: int = 128,
+        max_new_tokens: int = 256,
         temperature: float = 0.0,
+        enable_thinking: Optional[bool] = None,
+        quantization_format: Optional[str] = None,
         allow_fallback: bool = False,
     ):
         self.model_path = model_path
@@ -26,10 +30,13 @@ class LLMBackend:
         self.torch_dtype = torch_dtype
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
+        self.enable_thinking = enable_thinking
+        self.quantization_format = quantization_format
         self.allow_fallback = allow_fallback
 
         self.model = None
         self.tokenizer = None
+        self.model_metadata: Dict[str, Any] = {}
         self.total_prompt_tokens = 0
         self.total_generated_tokens = 0
         self.total_calls = 0
@@ -44,26 +51,60 @@ class LLMBackend:
             )
 
     def _load_model(self):
-        import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        print(f"[LLMBackend] Loading neural model from {self.model_path} onto {self.device}...")
+        print(f"[LLMBackend] Loading model from '{self.model_path}' onto {self.device}...")
         t0 = time.time()
         dtype = torch.float16 if self.torch_dtype == "float16" else torch.bfloat16
+
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path,
-            torch_dtype=dtype,
-            device_map="auto" if self.device == "cuda" else None,
-            trust_remote_code=True,
-        )
+
+        load_kwargs: Dict[str, Any] = {
+            "trust_remote_code": True,
+            "device_map": "auto" if self.device == "cuda" else None,
+        }
+
+        # Check for AWQ quantization in config or parameter
+        is_awq = False
+        if self.quantization_format == "awq" or "AWQ" in (self.model_path or ""):
+            is_awq = True
+
+        if not is_awq:
+            load_kwargs["torch_dtype"] = dtype
+
+        try:
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_path, **load_kwargs)
+        except Exception as e:
+            print(f"[LLMBackend] AutoModelForCausalLM load error: {e}. Attempting AutoAWQForCausalLM...")
+            if is_awq:
+                from awq import AutoAWQForCausalLM
+                awq_wrapper = AutoAWQForCausalLM.from_quantized(
+                    self.model_path,
+                    fuse_layers=False,
+                    trust_remote_code=True,
+                    device_map="auto" if self.device == "cuda" else None,
+                )
+                self.model = awq_wrapper.model if hasattr(awq_wrapper, "model") else awq_wrapper
+            else:
+                raise
+
         t1 = time.time()
-        print(f"[LLMBackend] Model successfully loaded in {t1 - t0:.2f}s.")
+        peak_vram_mb = round(torch.cuda.max_memory_allocated() / (1024 * 1024), 2) if torch.cuda.is_available() else 0.0
+        print(f"[LLMBackend] Model loaded successfully in {t1 - t0:.2f}s (Peak VRAM: {peak_vram_mb} MB).")
+
+        self.model_metadata = {
+            "model_path": self.model_path,
+            "device": self.device,
+            "quantization": "awq_4bit" if is_awq else "fp16",
+            "enable_thinking": self.enable_thinking,
+            "peak_vram_mb": peak_vram_mb,
+            "load_time_s": round(t1 - t0, 2),
+        }
 
     def generate(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """
-        Executes chat completion given conversation messages.
-        Returns: {"content": str, "prompt_tokens": int, "generated_tokens": int, "latency_s": float}
+        Executes chat completion with native thinking mode support.
+        Returns: {"content": str, "reasoning_content": str, "prompt_tokens": int, "generated_tokens": int, "latency_s": float, "tok_per_sec": float}
         """
         t0 = time.time()
         self.total_calls += 1
@@ -79,9 +120,23 @@ class LLMBackend:
             self.total_generated_tokens += res["generated_tokens"]
             return res
 
-        import torch
-        prompt_text = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
-        inputs = self.tokenizer(prompt_text, return_tensors="pt").to(self.model.device)
+        template_kwargs: Dict[str, Any] = {"add_generation_prompt": True, "tokenize": False}
+        if self.enable_thinking is not None:
+            template_kwargs["enable_thinking"] = self.enable_thinking
+
+        try:
+            prompt_text = self.tokenizer.apply_chat_template(messages, **template_kwargs)
+        except TypeError:
+            # Fallback if tokenizer does not take enable_thinking arg
+            prompt_text = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+
+        # Robust device determination
+        if hasattr(self.model, "device"):
+            model_dev = self.model.device
+        else:
+            model_dev = next(self.model.parameters()).device
+
+        inputs = self.tokenizer(prompt_text, return_tensors="pt").to(model_dev)
         prompt_len = inputs.input_ids.shape[1]
 
         do_sample = self.temperature > 0.0
@@ -95,67 +150,59 @@ class LLMBackend:
             )
 
         gen_tokens = outputs[0][prompt_len:]
-        output_text = self.tokenizer.decode(gen_tokens, skip_special_tokens=True).strip()
+        full_output = self.tokenizer.decode(gen_tokens, skip_special_tokens=False).strip()
         t1 = time.time()
         latency = t1 - t0
 
+        # Separate thinking reasoning content and final JSON content
+        reasoning_content = ""
+        final_content = full_output
+        if "<think>" in full_output and "</think>" in full_output:
+            parts = full_output.split("</think>")
+            reasoning_content = parts[0].replace("<think>", "").strip()
+            final_content = parts[1].strip()
+        elif "<think>" in full_output:
+            reasoning_content = full_output.replace("<think>", "").strip()
+
+        # Clean special tokens from final content
+        final_content = final_content.replace("<|im_end|>", "").replace("<|endoftext|>", "").strip()
+
         gen_len = len(gen_tokens)
+        tok_per_sec = round(gen_len / max(0.001, latency), 2)
+
         self.total_prompt_tokens += prompt_len
         self.total_generated_tokens += gen_len
         self.total_latency_s += latency
 
         return {
-            "content": output_text,
+            "content": final_content,
+            "reasoning_content": reasoning_content,
+            "raw_output": full_output,
             "prompt_tokens": prompt_len,
             "generated_tokens": gen_len,
             "latency_s": latency,
+            "tok_per_sec": tok_per_sec,
         }
 
     def _fallback_generate(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
-        """
-        Deterministic rule-based solver restricted strictly to unit tests.
-        """
+        """Deterministic rule solver for unit tests only."""
         user_msg = messages[-1]["content"] if messages else ""
-        decision: Dict[str, Any]
-
-        if "Lobby" in user_msg and "holding" not in user_msg and "inventory: []" in user_msg:
-            # Pickup package
-            if "pkg_docs" in user_msg:
-                decision = {
-                    "decision_summary": "Picking up pkg_docs at Lobby.",
-                    "action": "pickup",
-                    "params": {"package_id": "pkg_docs", "from_location": "Lobby"}
-                }
-            elif "pkg_hardware" in user_msg:
-                decision = {
-                    "decision_summary": "Picking up pkg_hardware at Lobby.",
-                    "action": "pickup",
-                    "params": {"package_id": "pkg_hardware", "from_location": "Lobby"}
-                }
-            else:
-                decision = {
-                    "decision_summary": "Navigating to Corridor_North.",
-                    "action": "navigate",
-                    "params": {"target_zone": "Corridor_North"}
-                }
-        elif "pkg_docs" in user_msg and "Office_A" in user_msg:
-            decision = {
-                "decision_summary": "Delivering pkg_docs to Alice at Office_A.",
-                "action": "deliver",
-                "params": {"package_id": "pkg_docs", "recipient": "Alice"}
-            }
+        if "Lobby" in user_msg and "inventory: []" in user_msg:
+            decision = {"action": "pickup", "params": {"package_id": "pkg_docs", "from_location": "Lobby"}}
+        elif "Office_A" in user_msg and "pkg_docs" in user_msg:
+            decision = {"action": "deliver", "params": {"package_id": "pkg_docs", "recipient": "Alice"}}
         else:
-            decision = {
-                "decision_summary": "Navigating towards goal.",
-                "action": "navigate",
-                "params": {"target_zone": "Corridor_North"}
-            }
+            decision = {"action": "navigate", "params": {"target_zone": "Corridor_North"}}
 
         content_str = f"```json\n{json.dumps(decision, indent=2)}\n```"
         return {
             "content": content_str,
+            "reasoning_content": "",
+            "raw_output": content_str,
             "prompt_tokens": len(user_msg.split()),
             "generated_tokens": len(content_str.split()),
+            "latency_s": 0.001,
+            "tok_per_sec": 1000.0,
         }
 
     def get_aggregate_stats(self) -> Dict[str, Any]:
@@ -167,7 +214,7 @@ class LLMBackend:
             "total_calls": self.total_calls,
             "total_prompt_tokens": self.total_prompt_tokens,
             "total_generated_tokens": self.total_generated_tokens,
-            "total_tokens": self.total_prompt_tokens + self.total_generated_tokens,
             "total_latency_s": round(self.total_latency_s, 3),
             "avg_latency_s": round(self.total_latency_s / max(1, self.total_calls), 3),
+            "avg_tokens_per_sec": round(self.total_generated_tokens / max(0.001, self.total_latency_s), 2),
         }
