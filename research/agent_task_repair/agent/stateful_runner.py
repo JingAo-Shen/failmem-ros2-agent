@@ -191,6 +191,7 @@ class StatefulAgentRunner:
                     params=params,
                     current_state=state_summary,
                     known_facts=task_state.observed_facts,
+                    active_plan_node=active_node,
                 )
                 validation_records.append({
                     "step": step_idx,
@@ -235,6 +236,7 @@ class StatefulAgentRunner:
                                 params=params,
                                 current_state=state_summary,
                                 known_facts=task_state.observed_facts,
+                                active_plan_node=active_node,
                             )
                             validation_records.append({
                                 "step": step_idx,
@@ -291,6 +293,12 @@ class StatefulAgentRunner:
                 event_id=event_id,
                 sim_time=env.sim_time_s,
             )
+
+            # Update repair memory store invalidation with observed facts
+            if self.repair_memory_store and hasattr(self.repair_memory_store, "update_with_observation"):
+                self.repair_memory_store.update_with_observation(task_state.observed_facts)
+                if result.observation:
+                    self.repair_memory_store.update_with_observation(result.observation)
 
             # 8. Handle Success vs Failure in Plan & Repair Controller
             if result.success:
@@ -354,6 +362,8 @@ class StatefulAgentRunner:
             "plan_revision_log": persistent_plan.revision_history,
             "initial_known_state": initial_known_state or {},
             "source_history_events": historical_failure_events or [],
+            "memory_audit_log": list(self.repair_memory_store.audit_log) if (self.repair_memory_store and hasattr(self.repair_memory_store, "audit_log")) else [],
+            "memory_items": [m.to_dict() for m in self.repair_memory_store.get_all_memories()] if (self.repair_memory_store and hasattr(self.repair_memory_store, "get_all_memories")) else [],
         }
 
     def _parse_json(self, text: str) -> Tuple[Dict[str, Any], bool, str]:

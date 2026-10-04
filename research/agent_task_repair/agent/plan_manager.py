@@ -344,6 +344,81 @@ class PersistentPlan:
         active_node.status = PlanNodeStatus.COMPLETED
         active_node.evidence_refs.append(event_id)
 
+        # 4. Post-Step Dynamic Transitions
+        if tool_name == "observe" and params.get("target") == self.task_state.robot_location:
+            robot_loc = self.task_state.robot_location
+            items_in_room = self.task_state.get_fact_value(f"room_items_{robot_loc}")
+            has_badge = isinstance(items_in_room, (list, set)) and "security_badge" in items_in_room
+
+            if has_badge and "security_badge" not in self.task_state.credentials:
+                # Insert immediate acquire_credential node
+                acquire_node = PlanNode(
+                    id=f"repair_acquire_badge_{robot_loc}",
+                    goal=f"Acquire security_badge discovered in {robot_loc}",
+                    action_type="acquire_credential",
+                    target="security_badge",
+                    params={"credential_name": "security_badge"},
+                    status=PlanNodeStatus.READY,
+                    is_repair_node=True,
+                )
+                self.nodes.insert(self.current_node_index + 1, acquire_node)
+
+            elif not has_badge and "security_badge" not in self.task_state.credentials:
+                # Check if we need to search next room for required credential
+                needs_badge = any(
+                    ob.target_room == "Lab_Secure"
+                    for ob in self.task_state.obligations.values()
+                    if ob.status != ObligationStatus.DONE
+                )
+                if needs_badge:
+                    # Check if subsequent node is already a navigation / observe node
+                    has_subsequent_search = any(
+                        self.nodes[idx].is_repair_node and self.nodes[idx].status in (PlanNodeStatus.PENDING, PlanNodeStatus.READY)
+                        for idx in range(self.current_node_index + 1, len(self.nodes))
+                    )
+                    if not has_subsequent_search:
+                        uninspected_rooms = [
+                            z for z in sorted(self.adjacency_map.keys())
+                            if not z.startswith("Corridor")
+                            and not self.task_state.get_fact_value(f"room_checked_empty_{z}")
+                            and not self.task_state.get_fact_value(f"room_items_{z}")
+                            and z != "Lab_Secure"
+                        ]
+                        closest_room = None
+                        best_path = None
+                        for cand in uninspected_rooms:
+                            p = self.find_path(robot_loc, cand)
+                            if p and (best_path is None or len(p) < len(best_path)):
+                                closest_room = cand
+                                best_path = p
+
+                        if closest_room and best_path:
+                            next_repair_nodes = []
+                            for hop in best_path:
+                                next_repair_nodes.append(PlanNode(
+                                    id=f"repair_search_nav_{hop}",
+                                    goal=f"Navigate to {hop} to search for credential in {closest_room}",
+                                    action_type="navigate",
+                                    target=hop,
+                                    params={"target_zone": hop},
+                                    status=PlanNodeStatus.PENDING,
+                                    is_repair_node=True,
+                                ))
+                            next_repair_nodes.append(PlanNode(
+                                id=f"repair_observe_{closest_room}",
+                                goal=f"Observe room {closest_room} to search for security_badge",
+                                action_type="observe",
+                                target=closest_room,
+                                params={"target": closest_room},
+                                status=PlanNodeStatus.PENDING,
+                                is_repair_node=True,
+                            ))
+                            self.nodes[self.current_node_index + 1:self.current_node_index + 1] = next_repair_nodes
+
+        elif tool_name == "acquire_credential":
+            # Replan navigation to destination now that credential is held
+            self.replan_subsequent_navigation(current_location=self.task_state.robot_location)
+
         # Prune any obsolete navigation after completing step
         self.prune_obsolete_navigation()
 

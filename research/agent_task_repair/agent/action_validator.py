@@ -43,6 +43,7 @@ class ActionValidator:
         params: Dict[str, Any],
         current_state: Dict[str, Any],
         known_facts: Dict[str, Any],
+        active_plan_node: Optional[Any] = None,
     ) -> ValidationResult:
         # 1. Schema Check
         if tool_name not in TOOL_SCHEMAS:
@@ -67,6 +68,17 @@ class ActionValidator:
         battery = current_state.get("battery", 100)
         max_cap = current_state.get("max_inventory_capacity", 2)
         avail_pkgs = current_state.get("available_packages", [])
+
+        # 1.5 Active Plan Node Obligation Checks (Observation / Credential Search)
+        if active_plan_node and getattr(active_plan_node, "action_type", "") == "observe":
+            obs_target = getattr(active_plan_node, "target", "") or getattr(active_plan_node, "params", {}).get("target", "")
+            if obs_target == robot_loc and tool_name != "observe":
+                return ValidationResult(
+                    status=ValidationStatus.FAIL,
+                    reason=f"Active observation obligation in current room '{robot_loc}' must be completed before performing '{tool_name}'.",
+                    conflicting_precondition=f"observed({robot_loc})",
+                    suggested_revision={"action": "observe", "params": {"target": robot_loc}},
+                )
 
         # 2. Specific Tool Precondition Checks
         if tool_name == "pickup":

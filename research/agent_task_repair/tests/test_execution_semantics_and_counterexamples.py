@@ -120,19 +120,22 @@ def test_battery_and_fact_versions_correctly_tracked():
 
 def test_repair_memory_observed_fact_equality_and_strict_applicability():
     store = RepairMemoryStore()
-    mem = store.record_repair_experience(
+    mem = store.propose_repair(
         memory_id="mem_test_door",
         source_task_id="src_01",
-        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED"},
+        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED", "event_id": "evt_src_s01"},
         repair_proposal=[{"action": "navigate", "params": {"target_zone": "$detour_zone"}}],
-        execution_evidence_refs=["evt_src_s02"],
-        verification_evidence={"verified": True, "event_id": "evt_src_s03"},
         applicability={"origin": "Lobby"},
         required_facts={"door_north_state": "OCCUPIED"},
         invalidation_conditions={"door_north_state": "FREE"},
         expected_effects=["at_location(Corridor_South)"],
-        verification_status=VerificationStatus.VERIFIED,
     )
+    traj = [
+        {"tool": "navigate", "params": {"target_zone": "Corridor_North"}, "result": {"success": False, "error_code": "DOORWAY_BLOCKED"}, "event_id": "evt_src_s01", "task_id": "src_01"},
+        {"tool": "navigate", "params": {"target_zone": "Corridor_South"}, "result": {"success": True}, "event_id": "evt_src_s02", "task_id": "src_01", "robot_location": "Corridor_South"},
+    ]
+    ok, _ = store.verify_and_promote("mem_test_door", traj, ["at_location(Corridor_South)"])
+    assert ok is True
     assert mem.verification_status == VerificationStatus.VERIFIED
 
     # Test 1: Required fact is ObservedFact object with value "OCCUPIED"
@@ -298,16 +301,20 @@ def test_nonexistent_or_fake_evidence_refs_fail_verification():
 
 def test_new_observation_invalidating_memory_prohibits_reuse():
     store = RepairMemoryStore()
-    mem = store.record_repair_experience(
+    mem = store.propose_repair(
         memory_id="mem_stale_check",
         source_task_id="src_task",
-        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED"},
+        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED", "event_id": "evt_01"},
         repair_proposal=[{"action": "navigate", "params": {"target_zone": "Corridor_South"}}],
-        execution_evidence_refs=["evt_01"],
-        verification_evidence={"verified": True},
         invalidation_conditions={"door_north_state": "FREE"},
-        verification_status=VerificationStatus.VERIFIED,
+        expected_effects=["at_location(Corridor_South)"],
     )
+    traj = [
+        {"step": 1, "task_id": "src_task", "event_id": "evt_01", "tool": "navigate", "params": {"target_zone": "Corridor_North"}, "result": {"success": False, "error_code": "DOORWAY_BLOCKED"}},
+        {"step": 2, "task_id": "src_task", "event_id": "evt_02", "tool": "navigate", "params": {"target_zone": "Corridor_South"}, "result": {"success": True, "observation": {"current_location": "Corridor_South"}}},
+    ]
+    ok, _ = store.verify_and_promote("mem_stale_check", traj)
+    assert ok is True
     assert mem.verification_status == VerificationStatus.VERIFIED
 
     # Invalidate with observation
@@ -324,7 +331,7 @@ def test_verified_end_to_end_real_trajectory_promotion():
     mem = store.propose_repair(
         memory_id="mem_real_repair",
         source_task_id="src_task_100",
-        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED"},
+        failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED", "event_id": "evt_02"},
         repair_proposal=[
             {"action": "navigate", "params": {"target_zone": "Corridor_South"}},
             {"action": "navigate", "params": {"target_zone": "Office_A"}},
@@ -336,6 +343,7 @@ def test_verified_end_to_end_real_trajectory_promotion():
     trajectory = [
         {
             "step": 1,
+            "task_id": "src_task_100",
             "event_id": "evt_01",
             "tool": "pickup",
             "params": {"package_id": "pkg_docs", "from_location": "Lobby"},
@@ -344,6 +352,7 @@ def test_verified_end_to_end_real_trajectory_promotion():
         },
         {
             "step": 2,
+            "task_id": "src_task_100",
             "event_id": "evt_02",
             "tool": "navigate",
             "params": {"target_zone": "Corridor_North"},
@@ -352,19 +361,23 @@ def test_verified_end_to_end_real_trajectory_promotion():
         },
         {
             "step": 3,
+            "task_id": "src_task_100",
             "event_id": "evt_03",
             "tool": "navigate",
             "params": {"target_zone": "Corridor_South"},
             "result": {"status": "SUCCESS", "success": True, "observation": {"current_location": "Corridor_South"}},
             "robot_location": "Corridor_South",
+            "robot_location_after": "Corridor_South",
         },
         {
             "step": 4,
+            "task_id": "src_task_100",
             "event_id": "evt_04",
             "tool": "navigate",
             "params": {"target_zone": "Office_A"},
             "result": {"status": "SUCCESS", "success": True, "observation": {"current_location": "Office_A"}},
             "robot_location": "Office_A",
+            "robot_location_after": "Office_A",
         }
     ]
 
@@ -373,4 +386,127 @@ def test_verified_end_to_end_real_trajectory_promotion():
     assert mem.verification_status == VerificationStatus.VERIFIED
     assert len(mem.execution_evidence_refs) == 2
     assert mem.execution_evidence_refs == ["evt_03", "evt_04"]
+
+
+def test_credential_search_observe_obligation_enforced():
+    """Execution chain test: Robot in search room cannot depart without observing."""
+    validator = ActionValidator()
+    state = TaskStateTracker("Deliver pkg to Lab_Secure", {
+        "robot_location": "Office_A",
+        "battery": 80,
+        "inventory": ["pkg_sec"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_sec", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}],
+    })
+    plan = PersistentPlan(state)
+    obs_node = PlanNode(
+        id="repair_observe_Office_A",
+        goal="Observe room Office_A to search for security_badge",
+        action_type="observe",
+        target="Office_A",
+        params={"target": "Office_A"},
+        status=PlanNodeStatus.READY,
+        is_repair_node=True,
+    )
+    plan.nodes = [obs_node]
+
+    # Attempting navigate away while observe is active must FAIL validation
+    v_res = validator.validate_action(
+        tool_name="navigate",
+        params={"target_zone": "Corridor_South"},
+        current_state=state.get_public_state_summary(),
+        known_facts=state.observed_facts,
+        active_plan_node=obs_node,
+    )
+    assert v_res.status == ValidationStatus.FAIL
+    assert "observation obligation" in v_res.reason.lower()
+
+    # Executing observe passes validation
+    v_res_obs = validator.validate_action(
+        tool_name="observe",
+        params={"target": "Office_A"},
+        current_state=state.get_public_state_summary(),
+        known_facts=state.observed_facts,
+        active_plan_node=obs_node,
+    )
+    assert v_res_obs.status == ValidationStatus.PASS
+
+
+def test_credential_search_multi_room_closed_loop():
+    """Execution chain test: Searching empty Office_A automatically transitions to Office_B, finds badge, acquires it, and replans to Lab_Secure."""
+    state = TaskStateTracker("Deliver pkg to Lab_Secure", {
+        "robot_location": "Corridor_South",
+        "battery": 90,
+        "inventory": ["pkg_sec"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_sec", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}],
+    })
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+
+    # 1. Simulate failure at Lab_Secure
+    controller = RepairController()
+    abort, msg, r_nodes = controller.handle_failure(
+        failed_tool="navigate",
+        failed_params={"target_zone": "Lab_Secure"},
+        error_code="SECURITY_BADGE_REQUIRED",
+        observation={"required_credential": "security_badge"},
+        task_state=state,
+        plan=plan,
+    )
+    assert abort is False
+    assert len(r_nodes) > 0
+
+    # Mark Lobby as already checked to specifically test transition from Office_A to Office_B
+    state.set_fact("room_checked_empty_Lobby", True, "evt_lobby_init", 0.0, "observe")
+
+    # 2. Observe Corridor_South (empty)
+    state.robot_location = "Corridor_South"
+    state.update_from_tool_result("observe", {"target": "Corridor_South"}, {"success": True, "observation": {"room": "Corridor_South", "items": []}}, "evt_obs_cs", 10.0)
+    plan.on_step_success("observe", {"target": "Corridor_South"}, "evt_obs_cs")
+
+    # 3. Next active node should lead to Office_A
+    node_a = plan.get_current_active_node()
+    assert node_a is not None
+    assert node_a.action_type in ("navigate", "observe")
+
+    # Navigate to Office_A
+    state.robot_location = "Office_A"
+    plan.on_step_success("navigate", {"target_zone": "Office_A"}, "evt_nav_oa")
+
+    # Observe Office_A (empty)
+    state.update_from_tool_result("observe", {"target": "Office_A"}, {"success": True, "observation": {"room": "Office_A", "items": []}}, "evt_obs_oa", 20.0)
+    plan.on_step_success("observe", {"target": "Office_A"}, "evt_obs_oa")
+
+    # 4. Next active node must be navigation towards Office_B!
+    node_b = plan.get_current_active_node()
+    assert node_b is not None
+    assert node_b.target in ("Corridor_North", "Office_B")
+
+    # Navigate to Corridor_North then Office_B
+    state.robot_location = "Corridor_North"
+    plan.on_step_success("navigate", {"target_zone": "Corridor_North"}, "evt_nav_cn")
+    state.robot_location = "Office_B"
+    plan.on_step_success("navigate", {"target_zone": "Office_B"}, "evt_nav_ob")
+
+    # Observe Office_B (finds security_badge!)
+    state.update_from_tool_result("observe", {"target": "Office_B"}, {"success": True, "observation": {"room": "Office_B", "items": ["security_badge"]}}, "evt_obs_ob", 40.0)
+    plan.on_step_success("observe", {"target": "Office_B"}, "evt_obs_ob")
+
+    # 5. Next active node must be acquire_credential("security_badge")
+    node_acq = plan.get_current_active_node()
+    assert node_acq is not None
+    assert node_acq.action_type == "acquire_credential"
+
+    # Acquire badge
+    state.update_from_tool_result("acquire_credential", {"credential_name": "security_badge"}, {"success": True, "observation": {"credentials": ["security_badge"]}}, "evt_acq", 45.0)
+    plan.on_step_success("acquire_credential", {"credential_name": "security_badge"}, "evt_acq")
+    assert "security_badge" in state.credentials
+
+    # 6. Next active node must be navigation back towards Lab_Secure!
+    node_next = plan.get_current_active_node()
+    assert node_next is not None
+    assert node_next.action_type == "navigate"
+    assert node_next.target in ("Corridor_North", "Corridor_South", "Lab_Secure")
+
 

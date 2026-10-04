@@ -220,14 +220,15 @@ class RepairMemoryStore:
         expected_effects: Optional[List[str]] = None,
     ) -> Tuple[bool, str]:
         """
-        Phase 2: Rigorous verification of a proposed repair against a real executed source trajectory.
+        Phase 2: ONLY valid entry point to promote a proposed repair to VERIFIED status.
         Strict verification rules:
-          1. Memory must exist.
-          2. Trajectory must contain the source failure event (matching action, error_code, target).
-          3. Trajectory must contain subsequent execution of all proposed repair steps.
-          4. Every executed repair step must have succeeded (result.success == True).
-          5. Expected effects must be satisfied after repair execution.
-          6. All evidence events must belong to the same source task trajectory.
+          1. Memory item must exist in store.
+          2. Trajectory must contain the source failure event (matching action, error_code, target, event_id).
+          3. All trajectory events must belong to the same source_task_id / run_id (no cross-task splicing).
+          4. Subsequent trajectory must sequentially execute all proposed repair steps matching BOTH action AND parameters.
+          5. Every executed repair step must have succeeded (result.success == True).
+          6. Expected effects must be strictly checked against grounded post-repair state. Unknown effects are rejected.
+          7. Evidence references must resolve to real event_ids from the executed trajectory.
         """
         if memory_id not in self.memories:
             return False, f"Memory '{memory_id}' not found in store."
@@ -238,12 +239,31 @@ class RepairMemoryStore:
             item.lifecycle_state = MemoryLifecycleState.REJECTED
             return False, "Empty trajectory provided for verification."
 
+        # 1. Single Task / Run Integrity Check (Reject cross-task spliced evidence)
+        task_ids_in_traj = set()
+        run_ids_in_traj = set()
+        for s in source_trajectory:
+            tid = s.get("task_id")
+            rid = s.get("run_id")
+            if tid:
+                task_ids_in_traj.add(tid)
+            if rid:
+                run_ids_in_traj.add(rid)
+
+        if len(task_ids_in_traj) > 1 or len(run_ids_in_traj) > 1:
+            item.verification_status = VerificationStatus.UNVERIFIED
+            item.lifecycle_state = MemoryLifecycleState.REJECTED
+            reason = f"Cross-task spliced trajectory detected: task_ids={task_ids_in_traj}, run_ids={run_ids_in_traj}."
+            self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+            return False, reason
+
         fail_sig = item.failure_event
         failed_tool = fail_sig.get("action_name") or fail_sig.get("tool")
         failed_err = fail_sig.get("error_code")
         failed_target = fail_sig.get("target")
+        req_event_id = fail_sig.get("event_id")
 
-        # 1. Locate failure event in trajectory
+        # 2. Locate failure event in trajectory
         fail_step_idx = -1
         for idx, step in enumerate(source_trajectory):
             tool = step.get("tool")
@@ -251,51 +271,87 @@ class RepairMemoryStore:
             err = res.get("error_code") or step.get("error_code")
             params = step.get("params", {})
             target = params.get("target_zone") or params.get("package_id") or params.get("credential_name") or params.get("target")
+            ev_id = step.get("event_id")
 
             if (not failed_tool or tool == failed_tool) and (not failed_err or err == failed_err):
                 if not failed_target or target == failed_target:
-                    fail_step_idx = idx
-                    break
+                    if not req_event_id or ev_id == req_event_id:
+                        # Verify this step actually failed
+                        step_succ = res.get("success", True) if isinstance(res, dict) else False
+                        if not step_succ:
+                            fail_step_idx = idx
+                            break
 
         if fail_step_idx == -1:
             item.verification_status = VerificationStatus.UNVERIFIED
             item.lifecycle_state = MemoryLifecycleState.REJECTED
-            reason = f"Failure event '{fail_sig}' not found in source trajectory."
+            reason = f"Failure event '{fail_sig}' not found or did not fail in source trajectory."
             self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
             return False, reason
 
-        # 2. Check subsequent execution of repair steps
+        # 3. Check subsequent execution of repair steps
         executed_repair_steps = source_trajectory[fail_step_idx + 1:]
         if not executed_repair_steps:
             item.verification_status = VerificationStatus.UNVERIFIED
             item.lifecycle_state = MemoryLifecycleState.REJECTED
-            reason = "No subsequent actions executed after failure event in trajectory."
+            reason = "No subsequent actions executed after failure event in trajectory (only failure evidence)."
             self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
             return False, reason
 
         evidence_refs: List[str] = []
         prop_steps = item.repair_proposal
+        if not prop_steps:
+            item.verification_status = VerificationStatus.UNVERIFIED
+            item.lifecycle_state = MemoryLifecycleState.REJECTED
+            reason = "Empty repair proposal steps in memory item."
+            self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+            return False, reason
 
-        # Find repair proposal sequence in subsequent trajectory
+        # Check sequential execution matching BOTH action AND parameters
         matched_prop_idx = 0
         for step in executed_repair_steps:
             if matched_prop_idx >= len(prop_steps):
                 break
-            req_act = prop_steps[matched_prop_idx]["action"]
+            req_step = prop_steps[matched_prop_idx]
+            req_act = req_step["action"]
+            req_params = req_step.get("params", {})
             actual_tool = step.get("tool")
+            actual_params = step.get("params", {})
             step_res = step.get("result", {})
             step_success = step_res.get("success", False) if isinstance(step_res, dict) else False
+            step_ev_id = step.get("event_id")
 
             if actual_tool == req_act:
-                if not step_success:
+                # Strict parameter check
+                params_match = True
+                for pk, pv in req_params.items():
+                    if not isinstance(pv, str) or not pv.startswith("$"):
+                        if actual_params.get(pk) != pv:
+                            params_match = False
+                            break
+
+                if not params_match:
                     item.verification_status = VerificationStatus.UNVERIFIED
                     item.lifecycle_state = MemoryLifecycleState.REJECTED
-                    reason = f"Repair step {matched_prop_idx+1} '{req_act}' failed during execution."
+                    reason = f"Repair step {matched_prop_idx+1} parameter mismatch: expected {req_params}, got {actual_params}."
                     self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
                     return False, reason
 
-                ev_id = step.get("event_id", f"evt_step_{step.get('step', matched_prop_idx+1)}")
-                evidence_refs.append(ev_id)
+                if not step_success:
+                    item.verification_status = VerificationStatus.UNVERIFIED
+                    item.lifecycle_state = MemoryLifecycleState.REJECTED
+                    reason = f"Repair step {matched_prop_idx+1} '{req_act}({actual_params})' failed during execution."
+                    self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+                    return False, reason
+
+                if not step_ev_id:
+                    item.verification_status = VerificationStatus.UNVERIFIED
+                    item.lifecycle_state = MemoryLifecycleState.REJECTED
+                    reason = f"Repair step {matched_prop_idx+1} lacks valid event_id in trajectory."
+                    self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+                    return False, reason
+
+                evidence_refs.append(step_ev_id)
                 matched_prop_idx += 1
 
         if matched_prop_idx < len(prop_steps):
@@ -305,8 +361,15 @@ class RepairMemoryStore:
             self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
             return False, reason
 
-        # 3. Check expected effects
+        # 4. Check expected effects (Unknown effects are rejected)
         eff_to_check = expected_effects or item.expected_effects
+        if not eff_to_check:
+            item.verification_status = VerificationStatus.UNVERIFIED
+            item.lifecycle_state = MemoryLifecycleState.REJECTED
+            reason = "No expected effects specified for verification."
+            self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+            return False, reason
+
         final_step = executed_repair_steps[-1]
         final_obs = final_step.get("result", {}).get("observation", {}) if isinstance(final_step.get("result"), dict) else {}
         final_loc = final_step.get("robot_location_after") or final_step.get("robot_location")
@@ -314,7 +377,14 @@ class RepairMemoryStore:
         for eff in eff_to_check:
             if eff.startswith("at_location("):
                 exp_loc = eff[len("at_location("):-1]
-                if final_loc != exp_loc and final_obs.get("current_location") != exp_loc:
+                loc_reached = any(
+                    s.get("robot_location_after") == exp_loc
+                    or s.get("robot_location") == exp_loc
+                    or (s.get("tool") == "navigate" and s.get("params", {}).get("target_zone") == exp_loc and s.get("result", {}).get("success"))
+                    or (s.get("result", {}).get("observation", {}).get("current_location") == exp_loc)
+                    for s in executed_repair_steps
+                ) or (final_loc == exp_loc)
+                if not loc_reached:
                     item.verification_status = VerificationStatus.UNVERIFIED
                     item.lifecycle_state = MemoryLifecycleState.REJECTED
                     reason = f"Expected effect '{eff}' not satisfied (final location: '{final_loc}')."
@@ -323,13 +393,61 @@ class RepairMemoryStore:
 
             elif eff.startswith("has_credential("):
                 exp_cred = eff[len("has_credential("):-1]
-                creds = final_obs.get("credentials", [])
-                if exp_cred not in creds:
+                cred_acquired = any(
+                    s.get("tool") == "acquire_credential"
+                    and s.get("params", {}).get("credential_name") == exp_cred
+                    and (s.get("result", {}).get("success") if isinstance(s.get("result"), dict) else False)
+                    for s in executed_repair_steps
+                ) or any(
+                    exp_cred in (s.get("result", {}).get("observation", {}).get("credentials", []) if isinstance(s.get("result"), dict) else [])
+                    for s in executed_repair_steps
+                )
+                if not cred_acquired:
                     item.verification_status = VerificationStatus.UNVERIFIED
                     item.lifecycle_state = MemoryLifecycleState.REJECTED
-                    reason = f"Expected effect '{eff}' not satisfied (credentials: {creds})."
+                    reason = f"Expected effect '{eff}' not satisfied."
                     self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
                     return False, reason
+
+            elif eff.startswith("holding("):
+                exp_pkg = eff[len("holding("):-1]
+                pkg_held = any(
+                    s.get("tool") == "pickup"
+                    and s.get("params", {}).get("package_id") == exp_pkg
+                    and (s.get("result", {}).get("success") if isinstance(s.get("result"), dict) else False)
+                    for s in executed_repair_steps
+                ) or any(
+                    exp_pkg in (s.get("result", {}).get("observation", {}).get("inventory", []) if isinstance(s.get("result"), dict) else [])
+                    for s in executed_repair_steps
+                )
+                if not pkg_held:
+                    item.verification_status = VerificationStatus.UNVERIFIED
+                    item.lifecycle_state = MemoryLifecycleState.REJECTED
+                    reason = f"Expected effect '{eff}' not satisfied."
+                    self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+                    return False, reason
+
+            elif eff.startswith("delivered("):
+                exp_pkg = eff[len("delivered("):-1]
+                pkg_delivered = any(
+                    s.get("tool") == "deliver"
+                    and s.get("params", {}).get("package_id") == exp_pkg
+                    and (s.get("result", {}).get("success") if isinstance(s.get("result"), dict) else False)
+                    for s in executed_repair_steps
+                )
+                if not pkg_delivered:
+                    item.verification_status = VerificationStatus.UNVERIFIED
+                    item.lifecycle_state = MemoryLifecycleState.REJECTED
+                    reason = f"Expected effect '{eff}' not satisfied."
+                    self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+                    return False, reason
+            else:
+                # Unknown effect type cannot silently pass
+                item.verification_status = VerificationStatus.UNVERIFIED
+                item.lifecycle_state = MemoryLifecycleState.REJECTED
+                reason = f"Unknown effect type '{eff}' cannot be verified."
+                self.audit_log.append({"event": "VERIFICATION_FAILED", "memory_id": memory_id, "reason": reason})
+                return False, reason
 
         # Verification Passed! Upgrade to VERIFIED
         item.execution_evidence_refs = evidence_refs
@@ -370,63 +488,26 @@ class RepairMemoryStore:
         verification_status: VerificationStatus = VerificationStatus.UNVERIFIED,
     ) -> RepairMemoryItem:
         """
-        Legacy/Direct Registration: If verification_evidence contains explicit verified=True
-        AND non-empty execution_evidence_refs, accepts it as verified. Otherwise UNVERIFIED.
+        Registers a repair experience proposal.
+        ALWAYS starts as UNVERIFIED. Direct verified bypassing is strictly prohibited.
+        Only verify_and_promote can promote a memory to VERIFIED.
         """
         ev_fail = failure_event or failure_signature or {}
         prop = repair_proposal or repair_steps or []
-        ev_refs = execution_evidence_refs or evidence_refs or []
-        v_evidence = verification_evidence if verification_evidence is not None else {}
         app = applicability or {}
         inv = invalidation_conditions or {}
         eff = expected_effects or []
 
-        req_dict: Dict[str, Any] = {}
-        if isinstance(required_facts, dict):
-            req_dict = copy.deepcopy(required_facts)
-        elif isinstance(required_facts, list):
-            for rf in required_facts:
-                if "==" in rf:
-                    k, v = rf.split("==", 1)
-                    k, v = k.strip(), v.strip()
-                    if v.lower() == "true":
-                        req_dict[k] = True
-                    elif v.lower() == "false":
-                        req_dict[k] = False
-                    else:
-                        req_dict[k] = v
-                elif rf:
-                    req_dict[rf] = True
-
-        # Strict check: NEVER default to verified True if evidence is missing
-        is_verified = (
-            verification_status == VerificationStatus.VERIFIED
-            and bool(ev_refs)
-            and bool(v_evidence)
-            and v_evidence.get("verified") is True
-        )
-
-        final_status = VerificationStatus.VERIFIED if is_verified else VerificationStatus.UNVERIFIED
-        l_state = MemoryLifecycleState.VERIFIED_EFFECT if is_verified else MemoryLifecycleState.PROPOSED
-
-        item = RepairMemoryItem(
+        return self.propose_repair(
             memory_id=memory_id,
             source_task_id=source_task_id,
             failure_event=ev_fail,
             repair_proposal=prop,
-            execution_evidence_refs=ev_refs,
-            verification_evidence=v_evidence,
             applicability=app,
-            required_facts=req_dict,
+            required_facts=required_facts,
             invalidation_conditions=inv,
             expected_effects=eff,
-            verification_status=final_status,
-            lifecycle_state=l_state,
-            success_count=1 if final_status == VerificationStatus.VERIFIED else 0,
-            failure_count=0,
         )
-        self.memories[memory_id] = item
-        return item
 
     def update_with_observation(self, observation: Dict[str, Any]):
         """Evaluates sensory observations against all active memories and updates invalidations."""

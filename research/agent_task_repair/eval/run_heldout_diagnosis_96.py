@@ -42,51 +42,57 @@ def create_repair_memory_store(
     store = RepairMemoryStore()
 
     if seed_type in ("door_north_blocked", "door_north_cleared_observed"):
-        store.record_repair_experience(
+        store.propose_repair(
             memory_id="mem_repair_door_north",
-            failure_signature={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED"},
+            source_task_id="seed_t1",
+            failure_event={"action_name": "navigate", "target": "Corridor_North", "error_code": "DOORWAY_BLOCKED", "event_id": "evt_seed_t1_fail"},
             applicability={"origin": "Lobby", "blocked_entity": "door_north"},
             required_facts=["door_north_state == OCCUPIED"],
-            repair_steps=[{"action": "navigate", "params": {"target_zone": "Corridor_South"}}],
+            repair_proposal=[{"action": "navigate", "params": {"target_zone": "Corridor_South"}}],
             expected_effects=["at_location(Corridor_South)"],
-            evidence_refs=["evt_seed_t1_s01"],
-            verification_evidence={"verified": True, "evidence_refs": ["evt_seed_t1_s01"]},
             invalidation_conditions={"door_north_state": "FREE"},
-            verification_status=VerificationStatus.VERIFIED,
-            source_task_id="seed_t1",
         )
+        traj = [
+            {"tool": "navigate", "params": {"target_zone": "Corridor_North"}, "result": {"success": False, "error_code": "DOORWAY_BLOCKED"}, "event_id": "evt_seed_t1_fail", "task_id": "seed_t1"},
+            {"tool": "navigate", "params": {"target_zone": "Corridor_South"}, "result": {"success": True}, "event_id": "evt_seed_t1_s01", "task_id": "seed_t1", "robot_location": "Corridor_South"},
+        ]
+        store.verify_and_promote("mem_repair_door_north", traj, ["at_location(Corridor_South)"])
         if seed_type == "door_north_cleared_observed":
             store.update_with_observation(shared_known_state)
 
     elif seed_type == "lab_badge_required":
-        store.record_repair_experience(
+        store.propose_repair(
             memory_id="mem_repair_lab_badge",
-            failure_signature={"action_name": "navigate", "target": "Lab_Secure", "error_code": "SECURITY_BADGE_REQUIRED"},
+            source_task_id="seed_t1",
+            failure_event={"action_name": "navigate", "target": "Lab_Secure", "error_code": "SECURITY_BADGE_REQUIRED", "event_id": "evt_seed_t1_fail"},
             applicability={"target": "Lab_Secure"},
             required_facts=["security_badge_required == True"],
-            repair_steps=[{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}],
+            repair_proposal=[{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}],
             expected_effects=["has_credential(security_badge)"],
-            evidence_refs=["evt_seed_t1_s01"],
-            verification_evidence={"verified": True, "evidence_refs": ["evt_seed_t1_s01"]},
             invalidation_conditions={"has_credential": "security_badge"},
-            verification_status=VerificationStatus.VERIFIED,
-            source_task_id="seed_t1",
         )
+        traj = [
+            {"tool": "navigate", "params": {"target_zone": "Lab_Secure"}, "result": {"success": False, "error_code": "SECURITY_BADGE_REQUIRED"}, "event_id": "evt_seed_t1_fail", "task_id": "seed_t1"},
+            {"tool": "acquire_credential", "params": {"credential_name": "security_badge"}, "result": {"success": True}, "event_id": "evt_seed_t1_s01", "task_id": "seed_t1"},
+        ]
+        store.verify_and_promote("mem_repair_lab_badge", traj, ["has_credential(security_badge)"])
 
     elif seed_type == "unrelated_door_office_b_blocked":
-        store.record_repair_experience(
+        store.propose_repair(
             memory_id="mem_repair_door_office_b",
-            failure_signature={"action_name": "navigate", "target": "Office_B", "error_code": "DOORWAY_BLOCKED"},
+            source_task_id="seed_t1",
+            failure_event={"action_name": "navigate", "target": "Office_B", "error_code": "DOORWAY_BLOCKED", "event_id": "evt_seed_t1_fail"},
             applicability={"origin": "Corridor_North", "target": "Office_B"},
             required_facts=["door_office_b_state == OCCUPIED"],
-            repair_steps=[{"action": "observe", "params": {"target": "door_office_b"}}],
-            expected_effects=["door_office_b_checked"],
-            evidence_refs=["evt_seed_t1_s01"],
-            verification_evidence={"verified": True, "evidence_refs": ["evt_seed_t1_s01"]},
+            repair_proposal=[{"action": "navigate", "params": {"target_zone": "Office_A"}}],
+            expected_effects=["at_location(Office_A)"],
             invalidation_conditions={"door_office_b_state": "FREE"},
-            verification_status=VerificationStatus.VERIFIED,
-            source_task_id="seed_t1",
         )
+        traj = [
+            {"tool": "navigate", "params": {"target_zone": "Office_B"}, "result": {"success": False, "error_code": "DOORWAY_BLOCKED"}, "event_id": "evt_seed_t1_fail", "task_id": "seed_t1"},
+            {"tool": "navigate", "params": {"target_zone": "Office_A"}, "result": {"success": True}, "event_id": "evt_seed_t1_s01", "task_id": "seed_t1", "robot_location": "Office_A"},
+        ]
+        store.verify_and_promote("mem_repair_door_office_b", traj, ["at_location(Office_A)"])
 
     return store
 

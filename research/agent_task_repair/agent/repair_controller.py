@@ -113,7 +113,7 @@ class RepairController:
                             is_repair_node=True,
                         ))
 
-            elif error_code in ("SECURITY_BADGE_REQUIRED", "ACCESS_DENIED_NO_BADGE"):
+            elif error_code in ("SECURITY_BADGE_REQUIRED", "ACCESS_DENIED_NO_BADGE") or failed_tool == "acquire_credential":
                 # Credential required: check if badge location is known from observations
                 known_badge_loc = task_state.get_fact_value("badge_location")
                 if not known_badge_loc:
@@ -167,7 +167,8 @@ class RepairController:
                         # Bounded BFS search for uninspected accessible rooms
                         uninspected_rooms = [
                             z for z in sorted(self.adjacency_map.keys())
-                            if not task_state.get_fact_value(f"room_checked_empty_{z}")
+                            if not z.startswith("Corridor")
+                            and not task_state.get_fact_value(f"room_checked_empty_{z}")
                             and not task_state.get_fact_value(f"room_items_{z}")
                             and z != "Lab_Secure" # Lab requires badge
                         ]

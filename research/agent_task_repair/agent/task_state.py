@@ -218,6 +218,14 @@ class TaskStateTracker:
             elif tool_name == "navigate" and (status == "ACCESS_DENIED_NO_BADGE" or result.get("error_code") == "SECURITY_BADGE_REQUIRED"):
                 door = obs.get("door", f"door_{params.get('target_zone', '').lower()}")
                 self.set_fact(f"{door}_credential_required", obs.get("required_credential", "security_badge"), event_id, sim_time, tool_name)
+            elif tool_name == "acquire_credential":
+                r = self.robot_location
+                self.set_fact(f"room_checked_empty_{r}", True, event_id, sim_time, tool_name)
+                self.set_fact(f"credential_not_found_in_{r}", True, event_id, sim_time, tool_name)
+                if "badge_location" in self.observed_facts and self.get_fact_value("badge_location") == r:
+                    del self.observed_facts["badge_location"]
+                if f"room_items_{r}" in self.observed_facts:
+                    del self.observed_facts[f"room_items_{r}"]
 
         # Update sensor observations
         if obs:
