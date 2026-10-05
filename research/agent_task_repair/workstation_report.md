@@ -1,157 +1,92 @@
-# FailMem Stage 3: 执行能力公平化与程序记忆贡献判别研究报告
+# FailMem Stage 3: 执行能力公平化与程序记忆贡献判别研究报告 (自动审计重建版)
 
 **评估环境**: 真实模型推理、模拟工作站评测 (`Qwen/Qwen3-14B-AWQ Direct`, 单卡 NVIDIA GeForce RTX 2080 Ti 22GB, 显存占用 11.12 GB, $T=0.0$ 确定性解码)  
-**实验定位**: 开发阶段先导实验（严格消融与机制归因）  
-**运行统计 (共 44 次真实推理运行)**:
-1. **准入门槛验证 (Pre-flight Gate Tests)**: 6/6 单元级机制测试全数通过（包括首动作前置校验拦截、载荷释放状态同步、失效自愈标记严谨性、各组公用执行器规则一致性、候选与验证事实 Prompt 状态隔离、超时边界失败判定）；
-2. **Phase A 源经验获取与因果干预编译器**: 3 个源任务自主闭环运行（共 4 轮推理，3/3 源任务成功）。因果干预编译器在不读取隐藏状态的前提下，通过公开展现的工具输出与 19 次主动干预测试，发现 12 条已验证状态转移、1 条动作前置条件、3 条因果顺序约束，并编译出 3 条带有确证适用性与后置条件的程序性记忆模板；
-3. **Phase B 40 单元正式冻结评测**: 8 个目标任务（跨 Class A/B/C/D 4 类迁移场景）× 5 个严格平权评估组 = 40 次正式评测运行。所有多步组（B2-plan, B1-plan, Replay, D）共享完全相同的局部计划执行器（`CommonLocalPlanExecutor`, 队列上限 6）、相同的前置校验与后置验证逻辑、相同的终止与预算条件（32 LLM / 40 Tools / 300s 超时）。
+**实验定位**: 开发阶段先导实验（严格消融与机制归因，自动审计生成）  
+**运行统计**: 共 44 次真实推理运行（4 次 Phase A 探索 + 40 次 Phase B 正式评测）。
 
 ---
 
-## 1. 核心科学归因与判别结论 (Definitive Attribution Findings)
+## 1. 核心判别与归因结论 (Audited Scientific Findings)
 
-本轮实验的核心研究问题是：**Group D 的收益究竟来自历史程序复用，还是仅来自省略逐步 LLM 调用（多步执行机制）？**
+依据 44 次真实推理记录的独立统计，回答核心研究问题：
+**D 的收益究竟来自历史程序复用，还是仅来自省略逐步 LLM 调用（多步执行机制）？**
 
-通过 5 组严格公平对比，获得以下明确、客观的归因结论：
-
-```
-                              ┌───────────────────────────────────┐
-                              │ B2_step (单步事实自主规划)         │
-                              │ 成功率: 87.5% | LLM: 7.71 | Tok: 8728│
-                              └─────────────────┬─────────────────┘
-                                                │
-                 【多步计划执行机制贡献】        │ [LLM 调用减少 49.9%, Prompt Tokens 节省 49.4%]
-                 (无需历史程序, 单纯计划局部执行)│ [成功率保持 87.5%, 耗时缩短 34.9%]
-                                                ▼
-                              ┌───────────────────────────────────┐
-                              │ B2_plan (多步计划执行器基线)       │
-                              │ 成功率: 87.5% | LLM: 3.86 | Tok: 4413│
-                              └────────┬─────────────────┬────────┘
-                                       │                 │
-    【历史程序复用贡献】                │                 │ 【盲目轨迹重放风险】
-    (程序记忆模板压缩调用,              │                 │ (缺乏条件守卫导致工具报错翻倍)
-     但在复合顺序变化时存在负迁移干扰)   │                 │
-                                       ▼                 ▼
-          ┌───────────────────────────────────┐   ┌───────────────────────────────────┐
-          │ Group D (条件化程序记忆)          │   │ Group Replay (无守卫盲目重放)     │
-          │ 成功率: 75.0% | LLM: 2.83 | Tok: 3145│   │ 成功率: 75.0% | LLM: 2.67 | Tok: 5689│
-          │ 工具报错: 7 次 | 失效次数: 1 次   │   │ 工具报错: 12 次 | 失效次数: 4 次  │
-          └───────────────────────────────────┘   └───────────────────────────────────┘
-```
-
-### 1.1 收益来源的分解归因 (Three-Way Benefit Decomposition)
-
-1. **多步执行机制贡献 ($B2\\_step \\to B2\\_plan$)**:
-   - 相比单步调用（B2-step: 7.71 次 LLM, 8728.4 Tokens），在不引入任何历史程序、仅引入 `CommonLocalPlanExecutor` 局部多步计划执行器的情况下，Group B2-plan 将 LLM 调用次数压缩至 **3.86 次**（**减少 49.9%**），Prompt Tokens 压缩至 **4,413.7**（**节省 49.4%**），执行耗时从 141.53s 降至 92.08s（**提速 34.9%**），且成功率完全保持在 **87.5% (7/8)**。
-   - **结论**: 此前先导实验中观察到的“LLM 调用次数减半”的收益，有近 **80% 来自多步执行架构本身**，而非程序记忆所独有。
-
-2. **程序性记忆复用贡献 ($B2\\_plan \\to D$)**:
-   - 在同样具备多步执行能力的基线之上，Group D 引入验证后的条件化程序记忆，将 LLM 调用进一步从 3.86 次压缩至 **2.83 次**（**额外减少 26.7%**），Prompt Tokens 进一步从 4,413.7 压缩至 **3,145.0**（**额外节省 28.7%**，全组最低 Token 开销）。
-   - 然而在成功率方面，Group D 录得 **75.0% (6/8)**，低于 B2-plan 的 **87.5% (7/8)**。在 Target C2（电源跳闸与相机漂移交叉依赖场景）中，Group D 出现归因于程序记忆次序绑定的负迁移干扰导致超时失败，而 B2-plan 依靠自主在线生成规划成功完成。
-   - **结论**: 程序记忆能够带来额外的 Token/LLM 调用压缩，但在跨子系统复合因果依赖发生变化时存在一定的启发式负迁移风险。
-
-3. **条件检查与失效恢复贡献 ($Replay \\to D$)**:
-   - 对比盲目重放（Group Replay）与条件化程序记忆（Group D）：
-     - Group Replay 发生 10 次记忆选择、4 次前置/执行失效中断、**12 次工具报错**，Prompt Tokens 高达 5,689.0。
-     - Group D 依靠因果干预编译器严格验证的适用性条件，仅发生 4 次精确匹配、1 次失效中断、**7 次工具报错**（降低 41.7%），Prompt Tokens 降至 3,145.0（降低 44.7%）。
-     - **结论**: 条件化守卫与后置验证机制有效抑制了盲目重放带来的误触发和工具报错。
+1. **全样本总调用量相同**: 在全部 8 个目标任务（含失败与超时）的全量统计中，**Group D 与 Group B2-plan 的 LLM 调用总数完全相同，均为 36 次**。
+2. **共同成功子集 (6 任务) 呈现有限微弱优势**: 在双方均成功的 6 个任务子集中，Group D 消耗 **17 次 LLM 调用**（平均 2.83 次/任务），Group B2-plan 消耗 **19 次 LLM 调用**（平均 3.17 次/任务），D 仅比 B2-plan 净减少 **2 次调用**（$-10.5\% $）。
+3. **多步执行机制是主要压缩来源**: 从单步规划（B2-step: 67 次调用）到多步执行（B2-plan: 36 次调用），LLM 调用减少了 **31 次（$-46.3\% $）**；而在多步基线之上引入程序记忆（D: 36 次），全量调用无进一步减少（0%）。这证明此前观察到的调用大幅下降主要源于**多步执行机制**。
+4. **任务成功率未展现优势**: Group D 成功率为 **6/8 (75.0%)**，低于 B2-step (**7/8, 87.5%**) 与 B2-plan (**7/8, 87.5%**)。在 Target C2 中，因局部程序绑定与未解决的跨子系统依赖导致超时退出。
+5. **因果条件守卫显著降低盲目重放报错**: 对比盲目重放（Group Replay, 12 次工具报错），Group D 仅发生 7 次工具报错，Prompt Tokens 从 5,689.0 压缩至 3,145.0。
 
 ---
 
-## 2. Phase A 源任务与因果干预编译产出
+## 2. Phase A 源任务与因果干预编译器真实统计
 
-Phase A 运行 3 个源任务，全部自主完成（共 4 轮尝试，耗时约 9 分钟）：
+| 源任务 ID | 尝试轮次 | 结果 | 步数 | LLM 调用 | 耗时 (s) | 备注 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| `src_pneumatic` | Attempt 1/2 | **SUCCESS** | 9 | 9 | 192.1 | 成功完成 |
+| `src_sensor_actuator` | Attempt 1/2 | **SUCCESS** | 8 | 8 | 174.65 | 成功完成 |
+| `src_dual_subsystems` | Attempt 1/2 | **FAILED** | 12 | 12 | 323.87 | 未在预算内恢复 |
+| `src_dual_subsystems` | Attempt 2/2 | **FAILED** | 12 | 12 | 323.69 | 未在预算内恢复 |
 
-| 源任务 ID | 故障注入 | 运行结果 | 步数 / LLM 调用 | 耗时 (s) | 提炼产出 |
-| :--- | :--- | :---: | :---: | :---: | :--- |
-| `src_pneumatic` | 气路超压 (`pneumatic_line: overpressure_fault`) | **SUCCESS** | 9 步 / 9 LLM | 188.62 | 气路隔离/维修/复位因果链 |
-| `src_sensor_actuator` | 机械臂卡阻 + 相机漂移 (`arm_gripper: jammed`, `camera: drift`) | **SUCCESS** | 8 步 / 8 LLM | 158.55 | 夹爪解卡与相机校准顺序 |
-| `src_dual_subsystems` | 电源跳闸 + 气路泄漏 (`power_unit: tripped`, `pneumatic: leak`) | **SUCCESS** (第2轮) | 10 步 / 10 LLM | 228.41 | 电源断电对执行机构的互锁约束 |
-
-**因果干预编译器统计**:
-- **干预调用开销**: 4 次干预测试，共消耗 19 次环境工具调用（完全基于公开接口执行，未直接读取内部状态）。
-- **提炼结构化事实**: 12 条已验证状态转移、1 条动作前置条件（气路/电源维修需隔离）、3 条因果顺序约束（隔离在维修前、复位在自检前）。
-- **提炼程序记忆模板**:
-  1. `proc_mem_pneumatic_line_src_pneumatic`: 气路维修标准流程（4步: `isolate(engage) -> clear_fault -> isolate(release) -> reset`）。
-  2. `proc_mem_arm_gripper_src_sensor_actuator`: 机械臂解卡流程（2步: `clear_fault -> reset`）。
-  3. `proc_mem_camera_sensor_src_sensor_actuator`: 相机校准流程（1步: `calibrate`）。
+**源任务成功率统计**: 3 个源任务中，`src_pneumatic` (1/1 成功) 与 `src_sensor_actuator` (1/1 成功) 完成诊断修复；`src_dual_subsystems` 经历 2 轮尝试均因预算/顺序未完成（0/2）。**真实来源任务成功率为 2/3 (66.7%)**。
 
 ---
 
-## 3. Phase B 40 单元正式冻结评测矩阵
+## 3. 全量样本与子集聚合指标审计表
 
-评测配置：`Qwen3-14B-AWQ ($T=0.0$)`，单卡 RTX 2080 Ti，统一预算：`max_llm_calls=32, max_tool_calls=40, time_limit=300s`。
+### 3.1 全样本统计 (Full Sample, 8 Target Tasks per Group)
 
-| 任务 ID | 迁移类别 | Group B2_step (单步事实) | Group B2_plan (多步事实) | Group B1_plan (多步原始轨迹) | Group Replay (盲目重放) | Group D (程序性记忆) |
+| 评估组别 | 任务成功率 | 总 LLM 调用 | 总执行步数 | 总耗时 (s) | 总工具报错 | 成功任务平均 LLM | 成功任务平均耗时 (s) | 成功任务平均 Prompt Tok |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Group_B2_step** | 7/8 (87.5%) | 67 | 67 | 1391.31 | 7 | 7.71 | 155.85 | 8728.4 |
+| **Group_B2_plan** | 7/8 (87.5%) | 36 | 71 | 1146.16 | 8 | 3.86 | 120.64 | 4413.7 |
+| **Group_B1_plan** | 6/8 (75.0%) | 43 | 69 | 1330.03 | 15 | 4.17 | 117.17 | 9021.8 |
+| **Group_Replay** | 6/8 (75.0%) | 35 | 72 | 1069.41 | 12 | 2.67 | 72.43 | 5689.0 |
+| **Group_D_Procedural_Memory** | 6/8 (75.0%) | 36 | 69 | 1170.05 | 7 | 2.83 | 89.34 | 3145.0 |
+
+### 3.2 共同成功子集统计 (Mutually Successful Subset, 6 Tasks: A1, A2, B1, C1, D1, D2)
+
+| 评估组别 | 子集任务数 | 总 LLM 调用 | 平均 LLM 调用 | 总执行步数 | 平均执行步数 | 总耗时 (s) | 平均耗时 (s) | 平均 Prompt Tok | 工具报错数 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Group_B2_step** | 6 | 44 | 7.33 | 44 | 7.33 | 904.77 | 150.79 | 8266.5 | 3 |
+| **Group_B2_plan** | 6 | 19 | 3.17 | 46 | 7.67 | 595.66 | 99.28 | 3556.8 | 4 |
+| **Group_B1_plan** | 6 | 25 | 4.17 | 44 | 7.33 | 703.05 | 117.17 | 9021.8 | 5 |
+| **Group_Replay** | 6 | 16 | 2.67 | 45 | 7.50 | 434.57 | 72.43 | 5689.0 | 2 |
+| **Group_D_Procedural_Memory** | 6 | 17 | 2.83 | 46 | 7.67 | 536.03 | 89.34 | 3145.0 | 3 |
+
+### 3.3 失败任务成本明细 (Failed Tasks Cost Breakdown)
+
+| 失败任务 ID | 组别 | 结果状态 | LLM 调用 | 执行步数 | 耗时 (s) | 工具报错 | 终止原因 |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| `target_B2_power_and_sensor` | Group_B2_step | **FAIL** | 13 | 13 | 300.39 | 2 | `TIME_LIMIT_EXCEEDED` |
+| `target_B2_power_and_sensor` | Group_B2_plan | **FAIL** | 9 | 11 | 301.65 | 2 | `TIME_LIMIT_EXCEEDED` |
+| `target_B2_power_and_sensor` | Group_B1_plan | **FAIL** | 9 | 11 | 322.33 | 3 | `TIME_LIMIT_EXCEEDED` |
+| `target_B2_power_and_sensor` | Group_Replay | **FAIL** | 9 | 12 | 310.56 | 3 | `TIME_LIMIT_EXCEEDED` |
+| `target_B2_power_and_sensor` | Group_D_Procedural_Memory | **FAIL** | 9 | 11 | 302.79 | 2 | `TIME_LIMIT_EXCEEDED` |
+| `target_C2_sensor_power_order` | Group_B1_plan | **FAIL** | 9 | 14 | 304.65 | 7 | `TIME_LIMIT_EXCEEDED` |
+| `target_C2_sensor_power_order` | Group_Replay | **FAIL** | 10 | 15 | 324.28 | 7 | `TIME_LIMIT_EXCEEDED` |
+| `target_C2_sensor_power_order` | Group_D_Procedural_Memory | **FAIL** | 10 | 12 | 331.23 | 2 | `TIME_LIMIT_EXCEEDED` |
+
+---
+
+## 4. Phase B 40 单元分任务详细审计表
+
+| 任务 ID | 迁移类别 | Group B2_step | Group B2_plan | Group B1_plan | Group Replay | Group D |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Target A1** (`pneumatic_leak`) | Class A (同机制不同故障) | **PASS** (8s / 8l / 174s / 0错) | **PASS** (11s / 6l / 168s / 1错) | **PASS** (8s / 5l / 136s / 1错) | **PASS** (8s / 2l / 64s / 0错) | **PASS** (11s / 6l / 177s / 1错) |
-| **Target A2** (`gripper_misalign`) | Class A (同机制不同参数) | **PASS** (8s / 8l / 163s / 1错) | **PASS** (9s / 4l / 134s / 2错) | **PASS** (7s / 3l / 94s / 0错) | **PASS** (8s / 3l / 83s / 1错) | **PASS** (9s / 4l / 132s / 2错) |
-| **Target B1** (`composed_faults`) | Class B (已见机制新组合) | **PASS** (11s / 11l / 237s / 1错) | **PASS** (10s / 3l / 112s / 1错) | **PASS** (11s / 6l / 172s / 2错) | **PASS** (12s / 3l / 81s / 1错) | **PASS** (10s / 2l / 71s / 0错) |
-| **Target B2** (`power_and_sensor`) | Class B (电源+传感器组合) | **FAIL** (超时 300s / 13l / 2错) | **FAIL** (超时 302s / 9l / 2错) | **FAIL** (超时 322s / 9l / 3错) | **FAIL** (超时 311s / 9l / 3错) | **FAIL** (超时 303s / 9l / 2错) |
-| **Target C1** (`gripper_with_load`)| Class C (夹爪带载荷改变) | **PASS** (10s / 10l / 211s / 1错) | **PASS** (9s / 3l / 99s / 0错) | **PASS** (11s / 6l / 176s / 2错) | **PASS** (10s / 3l / 81s / 0错) | **PASS** (9s / 2l / 73s / 0错) |
-| **Target C2** (`sensor_power_order`)| Class C (电源跳闸顺序约束) | **PASS** (10s / 10l / 186s / 2错) | **PASS** (14s / 8l / 249s / 2错) | **FAIL** (超时 305s / 9l / 7错) | **FAIL** (超时 324s / 10l / 7错) | **FAIL** (超时 331s / 10l / 2错) |
-| **Target D1** (`clean_startup`) | Class D (无故障常规启动) | **PASS** (3s / 3l / 51s / 0错) | **PASS** (3s / 2l / 47s / 0错) | **PASS** (3s / 2l / 47s / 0错) | **PASS** (3s / 2l / 47s / 0错) | **PASS** (3s / 2l / 47s / 0错) |
-| **Target D2** (`routine_maint`) | Class D (计数器常规复位) | **PASS** (4s / 4l / 68s / 0错) | **PASS** (4s / 1l / 36s / 0错) | **PASS** (4s / 3l / 78s / 0错) | **PASS** (4s / 3l / 78s / 0错) | **PASS** (4s / 1l / 36s / 0错) |
+| `target_A1_pneumatic_leak` | Class_A_same_mechanism | PASS (8s/8l/174s) | PASS (11s/6l/168s) | PASS (8s/5l/136s) | PASS (8s/2l/64s) | PASS (11s/6l/177s) |
+| `target_A2_gripper_misalign` | Class_A_same_mechanism | PASS (8s/8l/163s) | PASS (9s/4l/134s) | PASS (7s/3l/94s) | PASS (8s/3l/83s) | PASS (9s/4l/132s) |
+| `target_B1_composed_faults` | Class_B_combination | PASS (11s/11l/237s) | PASS (10s/3l/112s) | PASS (11s/6l/172s) | PASS (12s/3l/81s) | PASS (10s/2l/71s) |
+| `target_B2_power_and_sensor` | Class_B_combination | FAIL (13s/13l/300s) | FAIL (11s/9l/302s) | FAIL (11s/9l/322s) | FAIL (12s/9l/311s) | FAIL (11s/9l/303s) |
+| `target_C1_gripper_with_load` | Class_C_condition_changed | PASS (10s/10l/211s) | PASS (9s/3l/99s) | PASS (11s/6l/176s) | PASS (10s/3l/81s) | PASS (9s/2l/73s) |
+| `target_C2_sensor_power_order` | Class_C_condition_changed | PASS (10s/10l/186s) | PASS (14s/8l/249s) | FAIL (14s/9l/305s) | FAIL (15s/10l/324s) | FAIL (12s/10l/331s) |
+| `target_D1_clean_startup` | Class_D_irrelevant | PASS (3s/3l/51s) | PASS (3s/2l/47s) | PASS (3s/2l/47s) | PASS (3s/2l/47s) | PASS (3s/2l/47s) |
+| `target_D2_routine_maintenance` | Class_D_irrelevant | PASS (4s/4l/68s) | PASS (4s/1l/36s) | PASS (4s/3l/78s) | PASS (4s/3l/78s) | PASS (4s/1l/36s) |
 
 ---
 
-## 4. 全量组指标聚合统计与成对差值分析
+## 5. 计数器与实现缺陷审计记录
 
-### 4.1 组级聚合指标汇总 (Group Aggregates)
+1. **Replay 记忆执行计数器缺陷**: 原 runner 中 `memory_action_executed_count` 仅在 `action_source == procedural_memory` 时累加，遗漏了 `action_source == naive_replay`，导致 JSON 中 Replay 该计数为 0。已审计查明原因，并在重构中统一修正。
+2. **首动作未经过统一公共校验**: 原 runner 在 LLM 生成多步计划时，将第 1 个动作直接送入 `env.step`，而将后续动作放入队列并在出队时校验。这导致首动作前置违规时无法被拦截。已在下一节执行入口重构中统一。
+3. **拦截事件未反馈至 Agent Prompt**: 原 runner 中 `PRECONDITION_INTERLOCK_ABORT` 仅记录在 audit_events 中，下一次 LLM 提示词无法获知拦截原因，导致模型重复生成非法动作。
 
-| 评估指标 | Group B2_step (单步事实) | Group B2_plan (多步事实) | Group B1_plan (多步原始轨迹) | Group Replay (盲目重放) | Group D (程序性记忆) |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **任务成功率 (Success Rate)** | **7/8 (87.5%)** | **7/8 (87.5%)** | 6/8 (75.0%) | 6/8 (75.0%) | 6/8 (75.0%) |
-| **成功任务平均执行步数 (Avg Steps)** | 7.71 | 8.57 | **7.33** | 7.50 | 7.67 |
-| **成功任务平均 LLM 调用次数** | 7.71 | 3.86 | 4.17 | **2.67** | 2.83 |
-| **成功任务平均 Prompt Tokens** | 8,728.4 | 4,413.7 | 9,021.8 | 5,689.0 | **3,145.0** 🏆 |
-| **成功任务平均 Gen Tokens** | 649.9 | 415.3 | 398.7 | **244.5** | 366.8 |
-| **成功任务平均执行耗时 (s)** | 141.53 | 92.08 | 101.01 | **64.93** | 89.34 |
-| **全量评测工具报错总数 (Tool Errors)** | **7** | 8 | 15 | 12 | **7** 🛡️ |
-| **记忆命中触发次数 (Mem Selected)** | 0 | 0 | 0 | 10 | 4 |
-| **记忆执行动作数 (Mem Actions Exec)**| 0 | 0 | 0 | 18 | 7 |
-| **后置条件验证通过数 (Postcond Verified)**| 0 | 0 | 0 | 14 | 6 |
-| **记忆失效/互锁中断数 (Invalidated)** | 0 | 0 | 0 | 4 | 1 |
-| **在线重规划自愈尝试数 (Recovery Tried)**| 0 | 0 | 0 | 4 | 1 |
-
-### 4.2 成对归因差值分析 ($\Delta$)
-
-1. **Group D vs Group B2_plan (历史程序复用对多步计划基线的净贡献)**:
-   - 在成功任务上，LLM 调用次数平均减少 **1.03 次 / 任务**（$2.83 	ext{ vs } 3.86$）；
-   - Prompt Tokens 平均减少 **1,268.7 Tokens / 任务**（$-28.7\%$）；
-   - 在 Target B1（三故障复合）中，D 仅需 2 次 LLM 调用（71.28s），较 B2_plan（3 次调用，112.16s）节省 40.88s；
-   - 在 Target C2 中，B2_plan 成功（8 次 LLM 调用），而 D 由于将注意力分配给局部的传感器校准记忆，在电源断电未恢复时多次重试导致超时失败。
-
-2. **Group D vs Group Replay (因果条件守卫对盲目重放的净贡献)**:
-   - 工具报错从 12 次大幅下降至 **7 次**（减少 41.7%）；
-   - 记忆失效/中断事件从 4 次大幅下降至 **1 次**（减少 75.0%）；
-   - Prompt Tokens 从 5,689.0 压缩至 **3,145.0**（节省 44.7%）。
-
-3. **Group B2_plan vs Group B2_step (多步执行机制本身的净贡献)**:
-   - 成功率相同（87.5%）；
-   - LLM 调用次数从 7.71 次直接减半至 **3.86 次**（$-49.9\%$）；
-   - Prompt Tokens 从 8,728.4 减半至 **4,413.7**（$-49.4\%$）；
-   - 执行耗时从 141.53s 缩短至 **92.08s**（$-34.9\%$）。
-
----
-
-## 5. 局限性与讨论 (Limitations & Boundary Conditions)
-
-1. **多故障组合下的层级调度瓶颈**:
-   - 当任务由多个子系统故障复合构成（如 Target B2: 电源断电 + 相机漂移），且子系统之间存在非显然的隐式全局依赖时（相机校准要求电源必须先供电），局部程序记忆仅封装了单个子系统内的操作链，缺乏跨子系统的宏观依赖拓扑排序。
-   - 这表明：**程序性记忆必须与全局目标编排器（Goal Orchestrator / Task Planner）相结合**，才能在复杂的跨子系统依赖下既享受局部执行的免推理加速，又避免全局顺序错误导致的搜索停滞。
-
-2. **评测基准边界**:
-   - 本次实验是在离散模拟工作站环境中基于真实 `Qwen3-14B-AWQ` 模型进行的严格机制判别，结果客观反映了模型在面对不同上下文结构与执行器配置下的推理行为，不应外推为物理机器人上的最终表现。
-
----
-
-## 6. 总结与后续研究建议
-
-1. **科学结论定性**:
-   - “程序性记忆”相比“无守卫盲目重放”具备显著的**安全性与低报错优势**（工具报错减少 41.7%，无效触发减少 75%）；
-   - “程序性记忆”相比“单步在线规划”能够**大幅降低模型调用与 Prompt 成本**；
-   - 但此前的**主要调用降幅实质上由多步局部执行器（Multi-step Local Executor）所提供**。在多步执行器平权后，程序性记忆的核心价值定位为：**高频局部子任务的确定性加速与 Token 极小化压缩**，而非泛化成功率的绝对提升。
-2. **后续建议**:
-   - 设计“全局依赖拓扑求解器 + 局部程序记忆执行器”的双层架构，在更高维度的复杂长程任务中进一步检验其工程与科研价值。

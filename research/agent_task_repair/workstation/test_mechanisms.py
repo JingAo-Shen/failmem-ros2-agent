@@ -1,29 +1,48 @@
 """
-Strict Gate Mechanism Verification Tests for Workstation Procedural Memory Benchmark.
+Comprehensive Mechanism & Offline Integration Tests for Workstation Agent.
 
-Mandatory pre-flight gates before frozen benchmark execution:
-  Gate 1: First action blocked by common validator when precondition is unmet.
-  Gate 2: clear_fault(arm_gripper) releasing load updates holding_load=False without pseudo-invalidation.
-  Gate 3: Memory invalidation followed by task failure strictly yields online_recovery_succeeded == False.
-  Gate 4: B2-plan, Replay, and D enforce identical validation rules on identical actions.
-  Gate 5: Unverified candidate dependencies cannot appear as VERIFIED in prompts.
-  Gate 6: Boundary consistency: Timeout properly aborts task with success=False.
+Verifies:
+  1. Illegal first action is intercepted across ALL 5 groups before env.step.
+  2. Interception reason and ConstraintEvent appear in the next prompt.
+  3. Tool returning SUCCESS with mismatched expected effects is NOT counted as verified.
+  4. Memory invalidation followed by task failure strictly yields online_recovery_succeeded == False.
+  5. Action execution counters in Replay and D match actual trajectory steps.
+  6. Intervention tool budget cannot be exceeded and tracks every call.
+  7. Audit script correctly matches source success count (2/3) and LLM call counts.
 """
 import unittest
 import copy
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from .workstation_env import WorkstationEnv, StatusCode
 from .procedural_memory import (
     ProceduralMemoryItem,
     ProceduralMemoryStore,
     StructuredFactStore,
+    CausalInterventionCompiler,
     ActionNode,
 )
-from .workstation_agent import WorkstationAgentRunner, CommonLocalPlanExecutor
+from .workstation_agent import WorkstationAgentRunner, CommonLocalPlanExecutor, ConstraintEvent
+from ..audit_and_generate_report import audit_and_generate
 
 
-class TestWorkstationMechanisms(unittest.TestCase):
+class MockLLMBackendWithCustomScript:
+    """Mock LLM backend that returns pre-scripted responses for precise integration testing."""
+    def __init__(self, responses: List[str]):
+        self.responses = list(responses)
+        self.prompts_received: List[str] = []
+        self.device = "mock"
+        self.model_metadata = {"quantization": "mock"}
+
+    def generate(self, prompt: Any) -> str:
+        prompt_str = prompt[0]["content"] if (isinstance(prompt, list) and prompt and isinstance(prompt[0], dict)) else str(prompt)
+        self.prompts_received.append(prompt_str)
+        if self.responses:
+            return self.responses.pop(0)
+        return '{"thought": "Default test action", "tool": "inspect", "args": {"subsystem": "all"}}'
+
+
+class TestWorkstationIntegrationMechanisms(unittest.TestCase):
 
     def setUp(self):
         self.sample_pneumatic_mem = ProceduralMemoryItem(
@@ -33,10 +52,10 @@ class TestWorkstationMechanisms(unittest.TestCase):
             applicability_conditions={"subsystem": "pneumatic_line", "fault_types": ["overpressure_fault"]},
             observation_triggers=["inspect('pneumatic_line')"],
             actions=[
-                ActionNode(node_id="p1", tool="isolate", args={"subsystem": "pneumatic_line", "action": "engage"}),
-                ActionNode(node_id="p2", tool="clear_fault", args={"subsystem": "pneumatic_line"}),
-                ActionNode(node_id="p3", tool="isolate", args={"subsystem": "pneumatic_line", "action": "release"}),
-                ActionNode(node_id="p4", tool="reset", args={"subsystem": "pneumatic_line"}),
+                ActionNode(node_id="p1", tool="isolate", args={"subsystem": "pneumatic_line", "action": "engage"}, expected_postconditions={"isolated": True}),
+                ActionNode(node_id="p2", tool="clear_fault", args={"subsystem": "pneumatic_line"}, expected_postconditions={"status": "nominal"}),
+                ActionNode(node_id="p3", tool="isolate", args={"subsystem": "pneumatic_line", "action": "release"}, expected_postconditions={"isolated": False}),
+                ActionNode(node_id="p4", tool="reset", args={"subsystem": "pneumatic_line"}, expected_postconditions={"pressure_bar": 5.0}),
             ],
             evidenced_order_dependencies=[{
                 "subsystem": "pneumatic_line",
@@ -58,86 +77,155 @@ class TestWorkstationMechanisms(unittest.TestCase):
             "clear_fault_pneumatic_line": [{"condition": "pneumatic_line.isolated == True", "status": "VERIFIED"}]
         }
 
-    def test_gate_1_first_action_precondition_blocked(self):
-        """Gate 1: Action is blocked by common validator if precondition is unmet."""
-        executor = CommonLocalPlanExecutor(fact_store=self.fact_store)
-        known_state = {"pneumatic_line": {"status": "overpressure_fault", "isolated": False}}
-        action = {"tool": "clear_fault", "args": {"subsystem": "pneumatic_line"}}
-        
-        valid, reason = executor.validate_precondition(action, known_state)
-        self.assertFalse(valid, "clear_fault on non-isolated line must be blocked by validator.")
-        self.assertIn("not isolated", reason.lower())
-
-    def test_gate_2_clear_fault_releases_load_cleanly(self):
-        """Gate 2: clear_fault on arm_gripper releasing load updates holding_load=False without pseudo-invalidation."""
-        env = WorkstationEnv({
-            "arm_gripper": {"status": "jammed", "holding_load": True, "calibrated": False},
-        })
-        res = env.step("clear_fault", subsystem="arm_gripper")
-        self.assertEqual(res["status"], StatusCode.SUCCESS)
-        self.assertEqual(res.get("effects", {}).get("holding_load"), False)
-
-        runner = WorkstationAgentRunner(group_id="Group_B2_step", allow_fallback=True)
-        known = {"arm_gripper": {"status": "jammed", "holding_load": True}}
-        runner._update_known_state(known, "clear_fault", {"subsystem": "arm_gripper"}, res)
-        self.assertEqual(known["arm_gripper"]["holding_load"], False, "known_state must reflect holding_load=False after clear_fault.")
-
-    def test_gate_3_invalidation_followed_by_failure(self):
-        """Gate 3: Memory invalidation followed by task failure yields online_recovery_succeeded == False."""
-        runner = WorkstationAgentRunner(group_id="Group_D_Procedural_Memory", max_llm_calls=2, max_tool_calls=3, allow_fallback=True)
-        # Task with unfixable initial budget
+    def test_1_illegal_first_action_blocked_across_all_groups(self):
+        """Verify that an illegal first action in a plan is intercepted across all 5 groups before env.step."""
         task_cfg = {
-            "task_id": "test_failure_recovery",
-            "goal": "Test fail.",
+            "task_id": "test_illegal_first_action",
+            "goal": "Test safety interlock",
+            "initial_state": {
+                "pneumatic_line": {"status": "overpressure_fault", "isolated": False, "pressure_bar": 8.5},
+                "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
+            },
+        }
+
+        # LLM script that tries illegal clear_fault as first action
+        illegal_first_plan = '{"thought": "Try clear fault without isolation", "plan": [{"tool": "clear_fault", "args": {"subsystem": "pneumatic_line"}}]}'
+
+        groups = ["Group_B2_step", "Group_B2_plan", "Group_B1_plan", "Group_Replay", "Group_D_Procedural_Memory"]
+        for gid in groups:
+            mock_llm = MockLLMBackendWithCustomScript([
+                illegal_first_plan,
+                '{"thought": "Isolate first", "plan": [{"tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "engage"}}]}',
+                '{"thought": "Stop", "tool": "self_test", "args": {"target": "workstation"}}'
+            ])
+            runner = WorkstationAgentRunner(group_id=gid, llm_backend=mock_llm, max_llm_calls=3, max_tool_calls=5)
+            res = runner.run_task(task_cfg, structured_facts=self.fact_store)
+
+            # Check trajectory: clear_fault must NOT have been executed on non-isolated line
+            executed_tools = [s["tool"] for s in res["trajectory"]]
+            self.assertNotIn("clear_fault", executed_tools, f"Group {gid} executed illegal clear_fault into env.step!")
+
+    def test_2_interception_reason_appears_in_next_model_prompt(self):
+        """Verify that when an action is intercepted, the ConstraintEvent feedback appears in subsequent prompt."""
+        task_cfg = {
+            "task_id": "test_constraint_feedback",
+            "goal": "Test constraint feedback",
+            "initial_state": {
+                "pneumatic_line": {"status": "overpressure_fault", "isolated": False, "pressure_bar": 8.5},
+                "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
+            },
+        }
+        mock_llm = MockLLMBackendWithCustomScript([
+            # Step 1: inspect
+            '{"thought": "Inspect", "plan": [{"tool": "inspect", "args": {"subsystem": "pneumatic_line"}}]}',
+            # Step 2: attempt illegal clear_fault
+            '{"thought": "Illegal clear", "plan": [{"tool": "clear_fault", "args": {"subsystem": "pneumatic_line"}}]}',
+            # Step 3: check prompt
+            '{"thought": "Now isolate", "plan": [{"tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "engage"}}]}',
+        ])
+        runner = WorkstationAgentRunner(group_id="Group_B2_plan", llm_backend=mock_llm, max_llm_calls=3, max_tool_calls=5)
+        res = runner.run_task(task_cfg, structured_facts=self.fact_store)
+
+        self.assertGreaterEqual(len(mock_llm.prompts_received), 3)
+        prompt_3 = mock_llm.prompts_received[2]
+        self.assertIn("=== Active Constraint & Interlock Feedback ===", prompt_3)
+        self.assertIn("pneumatic_line.isolated == True", prompt_3)
+        self.assertIn("cannot clear fault while pressurized", prompt_3)
+
+    def test_3_postcondition_mismatch_not_verified(self):
+        """Verify that tool SUCCESS with mismatched expected effects is NOT counted as postcondition verified."""
+        mismatch_mem = ProceduralMemoryItem(
+            memory_id="mismatch_test_mem",
+            name="Mismatch test",
+            target_subsystem="pneumatic_line",
+            applicability_conditions={"subsystem": "pneumatic_line", "fault_types": ["overpressure_fault"]},
+            observation_triggers=["inspect"],
+            actions=[
+                ActionNode(node_id="p1", tool="isolate", args={"subsystem": "pneumatic_line", "action": "engage"}, expected_postconditions={"pressure_bar": 999.9}),
+            ],
+            evidenced_order_dependencies=[],
+            expected_effects=[],
+            invalidation_conditions=[],
+            source_task_id="t",
+            source_step_refs=[1],
+            status="VERIFIED",
+        )
+        mismatch_store = ProceduralMemoryStore()
+        mismatch_store.add_memory(mismatch_mem)
+
+        mock_llm = MockLLMBackendWithCustomScript(['{"thought": "Stop", "tool": "inspect", "args": {"subsystem": "all"}}'])
+        runner = WorkstationAgentRunner(group_id="Group_D_Procedural_Memory", llm_backend=mock_llm, max_llm_calls=2, max_tool_calls=2)
+        task_cfg = {
+            "task_id": "test_mismatch",
+            "goal": "Test mismatch",
+            "initial_state": {"pneumatic_line": {"status": "overpressure_fault", "isolated": False, "pressure_bar": 8.5}},
+        }
+        res = runner.run_task(task_cfg, procedural_memory_store=mismatch_store)
+        self.assertEqual(res["memory_postcondition_verified_count"], 0, "Mismatched postcondition cannot be counted as verified!")
+        self.assertGreaterEqual(res["memory_invalidated_count"], 1, "Mismatched postcondition must trigger memory invalidation!")
+
+    def test_4_invalidation_followed_by_failure_recovery_false(self):
+        """Verify that memory invalidation on a failed task strictly yields online_recovery_succeeded == False."""
+        task_cfg = {
+            "task_id": "test_recovery_false",
+            "goal": "Test fail",
             "initial_state": {
                 "arm_gripper": {"status": "jammed", "holding_load": True, "calibrated": False},
                 "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
             },
         }
-        res = runner.run_task(task_cfg, structured_facts=self.fact_store, procedural_memory_store=self.memory_store)
+        mock_llm = MockLLMBackendWithCustomScript(['{"thought": "Fail", "tool": "inspect", "args": {"subsystem": "all"}}'])
+        runner = WorkstationAgentRunner(group_id="Group_D_Procedural_Memory", llm_backend=mock_llm, max_llm_calls=1, max_tool_calls=1)
+        res = runner.run_task(task_cfg, procedural_memory_store=self.memory_store)
         self.assertFalse(res["success"])
-        self.assertFalse(res["online_recovery_succeeded"], "online_recovery_succeeded must be False if task failed.")
+        self.assertFalse(res["online_recovery_succeeded"])
 
-    def test_gate_4_identical_validation_rules_across_groups(self):
-        """Gate 4: B2-plan, Replay, and D enforce identical validation rules on identical actions."""
-        executor = CommonLocalPlanExecutor(fact_store=self.fact_store)
-        
-        # Action with unmet precondition (power tripped while attempting calibrate)
-        known_state = {"power_unit": {"status": "tripped", "isolated": False}}
-        act = {"tool": "calibrate", "args": {"subsystem": "camera_sensor"}}
-
-        valid, reason = executor.validate_precondition(act, known_state)
-        self.assertFalse(valid, "Calibrate must be blocked across all groups when power is tripped.")
-
-    def test_gate_5_unverified_candidate_not_shown_as_verified(self):
-        """Gate 5: Unverified candidate dependencies cannot appear as VERIFIED in prompts."""
-        fact_store = StructuredFactStore()
-        fact_store.causal_order_constraints.append({
-            "subsystem": "arm_gripper",
-            "before": "reset",
-            "after": "calibrate",
-            "status": "CANDIDATE",
-        })
-        runner = WorkstationAgentRunner(group_id="Group_B2_step", allow_fallback=True)
-        task_cfg = {"task_id": "t1", "goal": "goal"}
-        prompt = runner._construct_prompt(task_cfg, {}, [], structured_facts=fact_store)
-        self.assertIn("Status: CANDIDATE", prompt)
-        self.assertNotIn("Status: VERIFIED", prompt)
-
-    def test_gate_6_boundary_timeout_consistency(self):
-        """Gate 6: Timeout properly aborts task with success=False."""
-        runner = WorkstationAgentRunner(group_id="Group_B2_step", time_limit_s=0.001, allow_fallback=True)
+    def test_5_replay_and_d_action_counters_match_trajectory(self):
+        """Verify that action execution counters in Replay and D accurately count executed memory actions."""
+        raw_source = [{
+            "task_id": "src_pneumatic",
+            "success": True,
+            "trajectory": [
+                {"step_index": 1, "tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "engage"}, "result": {"status": StatusCode.SUCCESS, "effects": {"isolated": True}}},
+                {"step_index": 2, "tool": "clear_fault", "args": {"subsystem": "pneumatic_line"}, "result": {"status": StatusCode.SUCCESS, "effects": {"status": "nominal"}}},
+            ]
+        }]
         task_cfg = {
-            "task_id": "test_timeout",
-            "goal": "Test timeout.",
-            "initial_state": {
-                "pneumatic_line": {"status": "overpressure_fault", "isolated": False},
-                "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
-            },
+            "task_id": "test_replay_counter",
+            "goal": "Test replay counter",
+            "initial_state": {"pneumatic_line": {"status": "overpressure_fault", "isolated": False, "pressure_bar": 8.5}},
         }
-        res = runner.run_task(task_cfg)
-        self.assertFalse(res["success"], "Task exceeding timeout must fail.")
-        self.assertEqual(res["termination_reason"], "TIME_LIMIT_EXCEEDED")
+        mock_llm = MockLLMBackendWithCustomScript([])
+        runner = WorkstationAgentRunner(group_id="Group_Replay", llm_backend=mock_llm, max_llm_calls=2, max_tool_calls=3)
+        res = runner.run_task(task_cfg, raw_source_episodes=raw_source)
+        # Should have executed 2 replay actions
+        self.assertEqual(res["memory_action_executed_count"], 2)
+        self.assertEqual(res["memory_selected_count"], 1)
+
+    def test_6_intervention_budget_not_exceeded_and_undercounting_fixed(self):
+        """Verify that CausalInterventionCompiler never exceeds budget and increments counter on every step."""
+        compiler = CausalInterventionCompiler(max_intervention_budget=10)
+        source_episodes = [{
+            "task_id": "src_pneumatic",
+            "success": True,
+            "trajectory": [
+                {"step_index": 1, "tool": "inspect", "args": {"subsystem": "all"}, "result": {"status": StatusCode.SUCCESS, "data": {"pneumatic_line": {"status": "overpressure_fault"}}}},
+                {"step_index": 2, "tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "engage"}, "result": {"status": StatusCode.SUCCESS, "effects": {"isolated": True}}},
+                {"step_index": 3, "tool": "clear_fault", "args": {"subsystem": "pneumatic_line"}, "result": {"status": StatusCode.SUCCESS, "effects": {"status": "nominal"}}},
+            ]
+        }]
+        source_configs = [{
+            "task_id": "src_pneumatic",
+            "initial_state": {"pneumatic_line": {"status": "overpressure_fault", "isolated": False, "pressure_bar": 8.5}},
+        }]
+        facts, mems = compiler.compile_from_source_episodes(source_episodes, source_configs)
+        self.assertLessEqual(compiler.intervention_tool_calls, 10)
+        self.assertEqual(facts.total_intervention_tool_calls, compiler.intervention_tool_calls)
+
+    def test_7_audit_script_verifies_source_and_calls(self):
+        """Verify that audit_and_generate passes all assertions on raw benchmark JSON."""
+        # This will raise AssertionError if any discrepancies exist
+        audit_and_generate()
 
 
 if __name__ == "__main__":

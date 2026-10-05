@@ -2,17 +2,18 @@
 Unified Agent Runner with Common Local Plan Executor for Workstation Multi-Fault Benchmark.
 
 Implements 5 strictly fair evaluation groups:
-  1. Group_B2_step: Structured facts + single-step LLM planning (old baseline).
+  1. Group_B2_step: Structured facts + single-step LLM planning.
   2. Group_B2_plan: Structured facts + multi-step LLM planning via CommonLocalPlanExecutor.
   3. Group_B1_plan: Full raw source trajectories + multi-step LLM planning via CommonLocalPlanExecutor.
   4. Group_Replay: Naive trajectory replay matching observed fault via CommonLocalPlanExecutor.
   5. Group_D: Structured facts + conditional procedural memory via CommonLocalPlanExecutor.
 
-All multi-step groups share the identical:
-  - CommonLocalPlanExecutor (queue cap = 6)
-  - Pre-execution validation checks (same rules for first and subsequent actions)
-  - Post-execution verification and public state updater
-  - Invalidation triggers and online fallback to LLM
+All groups share the identical:
+  - Unified action execution pipeline (Pop -> Precondition Validation -> env.step -> Known State Update -> Postcondition Verify)
+  - CommonLocalPlanExecutor (max plan length = 4)
+  - Pre-execution validation checks (same domain interlock rules for all groups)
+  - ConstraintEvent feedback into prompt upon interception or tool error
+  - Postcondition verification comparing expected vs observed effects
   - Budget accounting (32 LLM / 40 Tools / 300s timeout)
 """
 from typing import Dict, Any, List, Optional, Tuple, Set
@@ -20,6 +21,7 @@ import json
 import time
 import copy
 import re
+from dataclasses import dataclass, field, asdict
 
 from .workstation_env import WorkstationEnv, StatusCode
 from .procedural_memory import (
@@ -29,6 +31,8 @@ from .procedural_memory import (
 )
 from ..agent.llm_backend import LLMBackend
 
+
+MAX_PLAN_LEN = 4
 
 WORKSTATION_SYSTEM_PROMPT_STEP = """You are an autonomous robotic workstation diagnostic and recovery agent in a simulated environment.
 The workstation consists of 5 subsystems:
@@ -89,12 +93,34 @@ You can plan up to 4 local steps at once. Respond with a JSON object strictly fo
 """
 
 
+@dataclass
+class ConstraintEvent:
+    event_type: str  # PRECONDITION_BLOCKED, TOOL_EXECUTION_ERROR, POSTCONDITION_MISMATCH, STAGNATION_LOOP
+    blocked_action: Dict[str, Any]
+    unmet_conditions: List[str]
+    condition_status: str  # FALSE, UNKNOWN
+    cancellation_reason: str
+    observed_evidence: Dict[str, Any] = field(default_factory=dict)
+    tried_invalid_repairs: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_prompt_str(self) -> str:
+        lines = [f"[{self.event_type}]: Action {self.blocked_action.get('tool')}({self.blocked_action.get('args')}) was blocked or failed."]
+        if self.unmet_conditions:
+            lines.append(f"  - Unmet Preconditions: {'; '.join(self.unmet_conditions)} (Status: {self.condition_status})")
+        lines.append(f"  - Reason: {self.cancellation_reason}")
+        if self.observed_evidence:
+            lines.append(f"  - Current Evidence: {json.dumps(self.observed_evidence)}")
+        if self.tried_invalid_repairs:
+            lines.append(f"  - Tried Invalid Repairs: {json.dumps(self.tried_invalid_repairs)}")
+        return "\n".join(lines)
+
+
 class CommonLocalPlanExecutor:
     """
     Common Local Plan Execution & Verification Engine.
-    Used uniformly across B2-plan, B1-plan, Replay, and D.
+    Used uniformly across B2_step, B2_plan, B1_plan, Replay, and D.
     """
-    MAX_QUEUE_LEN = 6
+    MAX_QUEUE_LEN = MAX_PLAN_LEN
 
     def __init__(self, fact_store: Optional[StructuredFactStore] = None):
         self.fact_store = fact_store
@@ -103,20 +129,32 @@ class CommonLocalPlanExecutor:
     def clear(self):
         self.action_queue.clear()
 
+    def is_empty(self) -> bool:
+        return len(self.action_queue) == 0
+
     def enqueue_plan(self, actions: List[Dict[str, Any]], source_tag: str = "llm_plan"):
         for a in actions[:self.MAX_QUEUE_LEN]:
+            if not isinstance(a, dict) or "tool" not in a:
+                continue
             self.action_queue.append({
                 "tool": a.get("tool"),
                 "args": copy.deepcopy(a.get("args", {})),
                 "source_tag": source_tag,
                 "expected_effects": copy.deepcopy(a.get("expected_effects", {})),
+                "thought": a.get("thought", ""),
             })
+
+    def pop(self) -> Optional[Dict[str, Any]]:
+        if self.action_queue:
+            return self.action_queue.pop(0)
+        return None
 
     def validate_precondition(
         self,
         action: Dict[str, Any],
         known_state: Dict[str, Any],
-    ) -> Tuple[bool, Optional[str]]:
+        tried_repairs: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[bool, Optional[ConstraintEvent]]:
         """
         Check public known state against verified domain preconditions.
         Applies identically to all groups.
@@ -127,21 +165,85 @@ class CommonLocalPlanExecutor:
 
         # Check 1: Clearing energy faults requires isolation
         if tool == "clear_fault" and sub == "pneumatic_line":
-            if known_state.get("pneumatic_line", {}).get("isolated") is False:
-                return False, "pneumatic_line is not isolated; cannot clear fault while pressurized."
+            iso = known_state.get("pneumatic_line", {}).get("isolated")
+            if iso is False:
+                evt = ConstraintEvent(
+                    event_type="PRECONDITION_BLOCKED",
+                    blocked_action={"tool": tool, "args": args},
+                    unmet_conditions=["pneumatic_line.isolated == True"],
+                    condition_status="FALSE",
+                    cancellation_reason="pneumatic_line is not isolated; cannot clear fault while pressurized.",
+                    observed_evidence=copy.deepcopy(known_state.get("pneumatic_line", {})),
+                    tried_invalid_repairs=copy.deepcopy(tried_repairs or []),
+                )
+                return False, evt
+            elif iso is None:
+                evt = ConstraintEvent(
+                    event_type="PRECONDITION_BLOCKED",
+                    blocked_action={"tool": tool, "args": args},
+                    unmet_conditions=["pneumatic_line.isolated state is UNKNOWN"],
+                    condition_status="UNKNOWN",
+                    cancellation_reason="pneumatic_line isolation state is unknown; inspect workstation first.",
+                    observed_evidence=copy.deepcopy(known_state),
+                    tried_invalid_repairs=copy.deepcopy(tried_repairs or []),
+                )
+                return False, evt
+
         if tool == "clear_fault" and sub == "power_unit":
-            if known_state.get("power_unit", {}).get("isolated") is False:
-                return False, "power_unit is not isolated; cannot service live power relay."
+            iso = known_state.get("power_unit", {}).get("isolated")
+            if iso is False:
+                evt = ConstraintEvent(
+                    event_type="PRECONDITION_BLOCKED",
+                    blocked_action={"tool": tool, "args": args},
+                    unmet_conditions=["power_unit.isolated == True"],
+                    condition_status="FALSE",
+                    cancellation_reason="power_unit is not isolated; cannot service live power relay.",
+                    observed_evidence=copy.deepcopy(known_state.get("power_unit", {})),
+                    tried_invalid_repairs=copy.deepcopy(tried_repairs or []),
+                )
+                return False, evt
+            elif iso is None:
+                evt = ConstraintEvent(
+                    event_type="PRECONDITION_BLOCKED",
+                    blocked_action={"tool": tool, "args": args},
+                    unmet_conditions=["power_unit.isolated state is UNKNOWN"],
+                    condition_status="UNKNOWN",
+                    cancellation_reason="power_unit isolation state is unknown; inspect workstation first.",
+                    observed_evidence=copy.deepcopy(known_state),
+                    tried_invalid_repairs=copy.deepcopy(tried_repairs or []),
+                )
+                return False, evt
 
         # Check 2: Resetting arm gripper requires releasing load
         if tool == "reset" and sub == "arm_gripper":
-            if known_state.get("arm_gripper", {}).get("holding_load") is True:
-                return False, "arm_gripper is holding unsecured load; clear fault / release load first."
+            holding = known_state.get("arm_gripper", {}).get("holding_load")
+            if holding is True:
+                evt = ConstraintEvent(
+                    event_type="PRECONDITION_BLOCKED",
+                    blocked_action={"tool": tool, "args": args},
+                    unmet_conditions=["arm_gripper.holding_load == False"],
+                    condition_status="FALSE",
+                    cancellation_reason="arm_gripper is holding unsecured load; clear fault / release load first.",
+                    observed_evidence=copy.deepcopy(known_state.get("arm_gripper", {})),
+                    tried_invalid_repairs=copy.deepcopy(tried_repairs or []),
+                )
+                return False, evt
 
-        # Check 3: Calibration requires active nominal power
-        if tool == "calibrate" and sub in ["camera_sensor", "arm_gripper"]:
-            if known_state.get("power_unit", {}).get("status") == "tripped" or known_state.get("power_unit", {}).get("isolated") is True:
-                return False, f"power_unit is unpowered; cannot calibrate {sub}."
+        # Check 3: Calibration and Arm Reset requires active nominal power
+        if (tool == "calibrate" and sub in ["camera_sensor", "arm_gripper"]) or (tool == "reset" and sub == "arm_gripper"):
+            pw_stat = known_state.get("power_unit", {}).get("status")
+            pw_iso = known_state.get("power_unit", {}).get("isolated")
+            if pw_stat == "tripped" or pw_iso is True:
+                evt = ConstraintEvent(
+                    event_type="PRECONDITION_BLOCKED",
+                    blocked_action={"tool": tool, "args": args},
+                    unmet_conditions=["power_unit.status == nominal", "power_unit.isolated == False"],
+                    condition_status="FALSE",
+                    cancellation_reason=f"power_unit is unpowered or isolated; restore power before {tool}({sub}).",
+                    observed_evidence=copy.deepcopy(known_state.get("power_unit", {})),
+                    tried_invalid_repairs=copy.deepcopy(tried_repairs or []),
+                )
+                return False, evt
 
         return True, None
 
@@ -171,7 +273,7 @@ class WorkstationAgentRunner:
         procedural_memory_store: Optional[ProceduralMemoryStore] = None,
     ) -> Dict[str, Any]:
         """
-        Execute one evaluation run on task_config with strictly tracked metrics.
+        Execute one evaluation run on task_config with strictly unified execution pipeline.
         """
         t0 = time.time()
         env = WorkstationEnv(task_config.get("initial_state"))
@@ -180,7 +282,10 @@ class WorkstationAgentRunner:
         known_state: Dict[str, Any] = {}
         trajectory: List[Dict[str, Any]] = []
         audit_events: List[Dict[str, Any]] = []
+        active_constraint_events: List[ConstraintEvent] = []
         tried_memories: Set[str] = set()
+        tried_invalid_repairs: List[Dict[str, Any]] = []
+        stagnation_history: List[Tuple[str, str]] = []
 
         # Telemetry counters
         llm_calls = 0
@@ -200,197 +305,249 @@ class WorkstationAgentRunner:
         # Common Multi-Step Plan Executor
         executor = CommonLocalPlanExecutor(fact_store=structured_facts)
         active_memory_id: Optional[str] = None
+        has_invalidation_occurred = False
 
         # Termination status
         success = False
         termination_reason = "RUNNING"
 
         while True:
-            # 1. Strict Timeout Check (Checked before task completion if elapsed >= limit)
+            # 1. Strict Timeout Check
             elapsed_time = time.time() - t0
             if elapsed_time >= self.time_limit_s:
                 termination_reason = "TIME_LIMIT_EXCEEDED"
                 success = False
                 break
 
-            # 2. Completion Check
+            # 2. Task Completion Check
             if env.is_task_completed():
                 success = True
                 termination_reason = "TASK_COMPLETED"
-                if online_recovery_attempted_count > 0:
+                if has_invalidation_occurred:
                     online_recovery_succeeded = True
                 break
 
-            # 3. Budget Exhaustion Checks
+            # 3. Tool Budget Check
             if len(trajectory) >= self.max_tool_calls:
                 termination_reason = "TOOL_BUDGET_EXHAUSTED"
                 break
-            if llm_calls >= self.max_llm_calls:
-                termination_reason = "LLM_BUDGET_EXHAUSTED"
+
+            # -------------------------------------------------------------
+            # Stage A: Populate Execution Queue if Empty
+            # -------------------------------------------------------------
+            if executor.is_empty():
+                # Option 1: Group D Procedural Memory Matching
+                if self.group_id == "Group_D_Procedural_Memory" and procedural_memory_store:
+                    cand_mem = self._match_candidate_memory(known_state, procedural_memory_store, tried_memories)
+                    if cand_mem:
+                        memory_selected_count += 1
+                        active_memory_id = cand_mem.memory_id
+                        audit_events.append({
+                            "event": "PROCEDURAL_MEMORY_SELECTED",
+                            "memory_id": cand_mem.memory_id,
+                            "actions_count": len(cand_mem.actions),
+                        })
+                        plan_actions = [
+                            {
+                                "tool": a.tool,
+                                "args": copy.deepcopy(a.args),
+                                "expected_effects": copy.deepcopy(a.expected_postconditions),
+                                "thought": f"Execute procedural memory {cand_mem.memory_id}",
+                            }
+                            for a in cand_mem.actions
+                        ]
+                        executor.enqueue_plan(plan_actions, source_tag="procedural_memory")
+
+                # Option 2: Group Replay Trajectory Matching
+                elif self.group_id == "Group_Replay" and raw_source_episodes:
+                    replay_plan = self._match_naive_replay_segment(known_state, raw_source_episodes, tried_memories)
+                    if replay_plan:
+                        memory_selected_count += 1
+                        active_memory_id = replay_plan["segment_id"]
+                        audit_events.append({
+                            "event": "NAIVE_REPLAY_SELECTED",
+                            "segment_id": replay_plan["segment_id"],
+                            "actions_count": len(replay_plan["actions"]),
+                        })
+                        executor.enqueue_plan(replay_plan["actions"], source_tag="naive_replay")
+
+                # Option 3: LLM Planning (For B0, B1, B2_step, B2_plan, or fallback when queue empty)
+                if executor.is_empty():
+                    if llm_calls >= self.max_llm_calls:
+                        termination_reason = "LLM_BUDGET_EXHAUSTED"
+                        break
+
+                    llm_calls += 1
+                    is_multistep = self.group_id in ["Group_B2_plan", "Group_B1_plan", "Group_D_Procedural_Memory", "Group_Replay"]
+                    prompt = self._construct_prompt(
+                        task_config=task_config,
+                        known_state=known_state,
+                        trajectory=trajectory,
+                        raw_source_episodes=raw_source_episodes,
+                        structured_facts=structured_facts,
+                        procedural_memory_store=procedural_memory_store if self.group_id == "Group_D_Procedural_Memory" else None,
+                        active_constraint_events=active_constraint_events,
+                        is_multistep=is_multistep,
+                    )
+
+                    response_text, p_tok, g_tok = self._call_llm(prompt, is_multistep=is_multistep)
+                    prompt_tokens_total += p_tok
+                    gen_tokens_total += g_tok
+
+                    parsed = self._parse_llm_response(response_text)
+                    if not parsed:
+                        parsed = {"tool": "inspect", "args": {"subsystem": "all"}, "thought": "Inspect workstation status."}
+
+                    # Unified Enqueue of LLM plan
+                    if is_multistep and "plan" in parsed and isinstance(parsed["plan"], list) and len(parsed["plan"]) > 0:
+                        plan_acts = [
+                            {"tool": a.get("tool"), "args": a.get("args", {}), "thought": parsed.get("thought", "")}
+                            for a in parsed["plan"] if isinstance(a, dict) and "tool" in a
+                        ]
+                        if not plan_acts:
+                            plan_acts = [{"tool": "inspect", "args": {"subsystem": "all"}, "thought": parsed.get("thought", "")}]
+                        executor.enqueue_plan(plan_acts, source_tag="llm_plan")
+                    else:
+                        tool_name = parsed.get("tool", "inspect")
+                        tool_args = parsed.get("args", {})
+                        executor.enqueue_plan([{"tool": tool_name, "args": tool_args, "thought": parsed.get("thought", "")}], source_tag="llm_plan")
+
+            # If still empty (e.g. LLM returned empty plan), terminate or break
+            if executor.is_empty():
+                termination_reason = "NO_ACTIONS_GENERATED"
                 break
 
             # -------------------------------------------------------------
-            # Action Selection & Dispatch
+            # Stage B: Unified Action Pop & Precondition Validation
             # -------------------------------------------------------------
-            next_action: Optional[Dict[str, Any]] = None
-            action_source = "online_llm"
+            cand_action = executor.pop()
+            if not cand_action:
+                continue
 
-            # Check if executor queue has pending action
-            if executor.action_queue:
-                cand = executor.action_queue[0]
-                # Pre-execution check
-                valid, reason = executor.validate_precondition(cand, known_state)
-                if not valid:
-                    # Invalidation / Precondition violation
-                    audit_events.append({
-                        "event": "PRECONDITION_INTERLOCK_ABORT",
-                        "action": cand,
-                        "reason": reason,
-                        "source_tag": cand.get("source_tag"),
-                    })
-                    if cand.get("source_tag") == "procedural_memory" and active_memory_id:
-                        memory_invalidated_count += 1
-                        online_recovery_attempted_count += 1
-                        tried_memories.add(active_memory_id)
-                        active_memory_id = None
-                    executor.clear()
-                else:
-                    next_action = executor.action_queue.pop(0)
-                    action_source = next_action.get("source_tag", "llm_plan")
+            tool_name = cand_action.get("tool", "inspect")
+            tool_args = cand_action.get("args", {})
+            action_source = cand_action.get("source_tag", "llm_plan")
+            thought = cand_action.get("thought", "")
+            expected_effects = cand_action.get("expected_effects", {})
 
-            # Group D: Conditional Procedural Memory Candidate Matching
-            if next_action is None and self.group_id == "Group_D_Procedural_Memory" and procedural_memory_store:
-                cand_mem = self._match_candidate_memory(known_state, procedural_memory_store, tried_memories)
-                if cand_mem:
-                    memory_selected_count += 1
-                    active_memory_id = cand_mem.memory_id
-                    audit_events.append({
-                        "event": "PROCEDURAL_MEMORY_SELECTED",
-                        "memory_id": cand_mem.memory_id,
-                        "actions_count": len(cand_mem.actions),
-                    })
-                    plan_actions = [
-                        {"tool": a.tool, "args": copy.deepcopy(a.args), "expected_effects": copy.deepcopy(a.expected_postconditions)}
-                        for a in cand_mem.actions
-                    ]
-                    executor.enqueue_plan(plan_actions, source_tag="procedural_memory")
-                    if executor.action_queue:
-                        # Pre-check first action
-                        first_act = executor.action_queue[0]
-                        valid, reason = executor.validate_precondition(first_act, known_state)
-                        if not valid:
-                            audit_events.append({
-                                "event": "PROCEDURAL_MEMORY_INVALIDATED",
-                                "memory_id": cand_mem.memory_id,
-                                "reason": reason,
-                            })
-                            memory_invalidated_count += 1
-                            online_recovery_attempted_count += 1
-                            tried_memories.add(cand_mem.memory_id)
-                            executor.clear()
-                            active_memory_id = None
-                        else:
-                            next_action = executor.action_queue.pop(0)
-                            action_source = "procedural_memory"
-
-            # Group Replay: Naive Trajectory Segment Replay (No conditional matching)
-            if next_action is None and self.group_id == "Group_Replay" and raw_source_episodes:
-                replay_plan = self._match_naive_replay_segment(known_state, raw_source_episodes, tried_memories)
-                if replay_plan:
-                    memory_selected_count += 1
-                    active_memory_id = replay_plan["segment_id"]
-                    audit_events.append({
-                        "event": "NAIVE_REPLAY_SELECTED",
-                        "segment_id": replay_plan["segment_id"],
-                        "actions_count": len(replay_plan["actions"]),
-                    })
-                    executor.enqueue_plan(replay_plan["actions"], source_tag="naive_replay")
-                    if executor.action_queue:
-                        first_act = executor.action_queue[0]
-                        valid, reason = executor.validate_precondition(first_act, known_state)
-                        if not valid:
-                            audit_events.append({
-                                "event": "NAIVE_REPLAY_PRECONDITION_ABORT",
-                                "segment_id": replay_plan["segment_id"],
-                                "reason": reason,
-                            })
-                            memory_invalidated_count += 1
-                            online_recovery_attempted_count += 1
-                            tried_memories.add(replay_plan["segment_id"])
-                            executor.clear()
-                            active_memory_id = None
-                        else:
-                            next_action = executor.action_queue.pop(0)
-                            action_source = "naive_replay"
-
-            # LLM Planning (For B0, B1-plan, B2-step, B2-plan, or D/Replay when queue is empty)
-            if next_action is None:
-                llm_calls += 1
-                is_multistep = self.group_id in ["Group_B2_plan", "Group_B1_plan", "Group_D_Procedural_Memory", "Group_Replay"]
-                prompt = self._construct_prompt(
-                    task_config=task_config,
-                    known_state=known_state,
-                    trajectory=trajectory,
-                    raw_source_episodes=raw_source_episodes,
-                    structured_facts=structured_facts,
-                    procedural_memory_store=procedural_memory_store if self.group_id == "Group_D_Procedural_Memory" else None,
-                    is_multistep=is_multistep,
+            # Stagnation check
+            act_sig = (tool_name, json.dumps(tool_args, sort_keys=True))
+            if len(stagnation_history) >= 2 and stagnation_history[-1] == act_sig and stagnation_history[-2] == act_sig:
+                stag_evt = ConstraintEvent(
+                    event_type="STAGNATION_LOOP",
+                    blocked_action={"tool": tool_name, "args": tool_args},
+                    unmet_conditions=["Repeated identical action yielded no progress."],
+                    condition_status="FALSE",
+                    cancellation_reason=f"Action {tool_name}({tool_args}) repeated without state progress. Please diagnose or choose different action.",
+                    observed_evidence=copy.deepcopy(known_state),
                 )
+                active_constraint_events.append(stag_evt)
+                audit_events.append(asdict(stag_evt))
+                executor.clear()
+                continue
 
-                response_text, p_tok, g_tok = self._call_llm(prompt, is_multistep=is_multistep)
-                prompt_tokens_total += p_tok
-                gen_tokens_total += g_tok
+            # Common Precondition Validation (Applied identically to all groups & all actions)
+            valid, constraint_event = executor.validate_precondition(cand_action, known_state, tried_invalid_repairs)
+            if not valid and constraint_event:
+                audit_events.append(asdict(constraint_event))
+                active_constraint_events.append(constraint_event)
+                tried_invalid_repairs.append({"tool": tool_name, "args": tool_args, "reason": constraint_event.cancellation_reason})
+                stagnation_history.append(act_sig)
 
-                parsed = self._parse_llm_response(response_text)
-                if not parsed:
-                    parsed = {"tool": "inspect", "args": {"subsystem": "all"}, "thought": "Inspect workstation status."}
-
-                if is_multistep and "plan" in parsed and isinstance(parsed["plan"], list) and len(parsed["plan"]) > 0:
-                    plan_acts = parsed["plan"]
-                    first = plan_acts[0]
-                    rest = plan_acts[1:]
-                    executor.enqueue_plan(rest, source_tag="llm_plan")
-                    next_action = {"tool": first.get("tool"), "args": first.get("args", {}), "thought": parsed.get("thought", "")}
-                    action_source = "online_llm"
-                else:
-                    tool_name = parsed.get("tool", "inspect")
-                    tool_args = parsed.get("args", {})
-                    next_action = {"tool": tool_name, "args": tool_args, "thought": parsed.get("thought", "")}
-                    action_source = "online_llm"
-
-            # -------------------------------------------------------------
-            # Execute Action
-            # -------------------------------------------------------------
-            tool_name = next_action.get("tool", "inspect")
-            tool_args = next_action.get("args", {})
-
-            if action_source == "procedural_memory":
-                memory_action_executed_count += 1
-
-            tool_res = env.step(tool_name, **tool_args)
-            is_err = tool_res.get("status") != StatusCode.SUCCESS
-
-            if is_err:
-                tool_errors_count += 1
                 if action_source in ["procedural_memory", "naive_replay"]:
                     memory_invalidated_count += 1
+                    has_invalidation_occurred = True
                     online_recovery_attempted_count += 1
                     if active_memory_id:
                         tried_memories.add(active_memory_id)
                         active_memory_id = None
-                    executor.clear()
-                else:
-                    executor.clear()
-            else:
-                if action_source == "procedural_memory":
-                    memory_postcondition_verified_count += 1
-                if not executor.action_queue and active_memory_id:
+                
+                # Precondition violated: clear remaining plan queue to force re-planning
+                executor.clear()
+                continue
+
+            # -------------------------------------------------------------
+            # Stage C: Execute Action (env.step)
+            # -------------------------------------------------------------
+            if action_source in ["procedural_memory", "naive_replay"]:
+                memory_action_executed_count += 1
+
+            tool_res = env.step(tool_name, **tool_args)
+            is_err = (tool_res.get("status") != StatusCode.SUCCESS)
+
+            if is_err:
+                tool_errors_count += 1
+                stagnation_history.append(act_sig)
+                err_evt = ConstraintEvent(
+                    event_type="TOOL_EXECUTION_ERROR",
+                    blocked_action={"tool": tool_name, "args": tool_args},
+                    unmet_conditions=[tool_res.get("error", "Tool execution error")],
+                    condition_status="FALSE",
+                    cancellation_reason=tool_res.get("error", "Tool failed"),
+                    observed_evidence=copy.deepcopy(known_state),
+                    tried_invalid_repairs=copy.deepcopy(tried_invalid_repairs),
+                )
+                active_constraint_events.append(err_evt)
+                audit_events.append(asdict(err_evt))
+
+                if action_source in ["procedural_memory", "naive_replay"]:
+                    memory_invalidated_count += 1
+                    has_invalidation_occurred = True
+                    online_recovery_attempted_count += 1
                     if active_memory_id:
                         tried_memories.add(active_memory_id)
-                    active_memory_id = None
+                        active_memory_id = None
+                executor.clear()
 
-            # Update known public state strictly from tool observation outputs
-            self._update_known_state(known_state, tool_name, tool_args, tool_res)
+            else:
+                # Clear active constraint events on successful progress
+                active_constraint_events.clear()
+                stagnation_history.clear()
+
+                # Update public known state
+                self._update_known_state(known_state, tool_name, tool_args, tool_res)
+
+                # -------------------------------------------------------------
+                # Stage D: Real Postcondition Verification
+                # -------------------------------------------------------------
+                if expected_effects and isinstance(expected_effects, dict):
+                    postcond_ok = True
+                    mismatches = []
+                    for k, expected_v in expected_effects.items():
+                        actual_v = tool_res.get("effects", {}).get(k)
+                        if actual_v is None:
+                            sub_state = known_state.get(tool_args.get("subsystem", ""), {})
+                            actual_v = sub_state.get(k)
+
+                        if actual_v is None or actual_v != expected_v:
+                            postcond_ok = False
+                            mismatches.append(f"{k} expected {expected_v}, observed {actual_v}")
+
+                    if postcond_ok:
+                        if action_source in ["procedural_memory", "naive_replay"]:
+                            memory_postcondition_verified_count += 1
+                    else:
+                        post_evt = ConstraintEvent(
+                            event_type="POSTCONDITION_MISMATCH",
+                            blocked_action={"tool": tool_name, "args": tool_args},
+                            unmet_conditions=mismatches,
+                            condition_status="FALSE",
+                            cancellation_reason="Postcondition verification failed after action execution.",
+                            observed_evidence=copy.deepcopy(known_state),
+                        )
+                        active_constraint_events.append(post_evt)
+                        audit_events.append(asdict(post_evt))
+                        if action_source in ["procedural_memory", "naive_replay"]:
+                            memory_invalidated_count += 1
+                            has_invalidation_occurred = True
+                            if active_memory_id:
+                                tried_memories.add(active_memory_id)
+                                active_memory_id = None
+                        executor.clear()
+
+                if not executor.action_queue and active_memory_id:
+                    tried_memories.add(active_memory_id)
+                    active_memory_id = None
 
             # Record step in trajectory
             step_record = {
@@ -398,7 +555,7 @@ class WorkstationAgentRunner:
                 "action_source": action_source,
                 "tool": tool_name,
                 "args": copy.deepcopy(tool_args),
-                "thought": next_action.get("thought", ""),
+                "thought": thought,
                 "result": copy.deepcopy(tool_res),
                 "is_error": is_err,
             }
@@ -472,9 +629,13 @@ class WorkstationAgentRunner:
                     matching_actions = []
                     for step in ep.get("trajectory", []):
                         if step.get("args", {}).get("subsystem") == sub and not step.get("is_error"):
-                            matching_actions.append({"tool": step.get("tool"), "args": copy.deepcopy(step.get("args"))})
+                            matching_actions.append({
+                                "tool": step.get("tool"),
+                                "args": copy.deepcopy(step.get("args")),
+                                "expected_effects": copy.deepcopy(step.get("result", {}).get("effects", {})),
+                            })
                     if matching_actions:
-                        return {"segment_id": seg_id, "actions": matching_actions}
+                        return {"segment_id": seg_id, "actions": matching_actions[:MAX_PLAN_LEN]}
         return None
 
     def _update_known_state(
@@ -557,31 +718,36 @@ class WorkstationAgentRunner:
         raw_source_episodes: Optional[List[Dict[str, Any]]] = None,
         structured_facts: Optional[StructuredFactStore] = None,
         procedural_memory_store: Optional[ProceduralMemoryStore] = None,
+        active_constraint_events: Optional[List[ConstraintEvent]] = None,
         is_multistep: bool = False,
     ) -> str:
-        """Construct prompt according to group specifications."""
+        """Construct prompt according to group specifications with constraint event feedback."""
         sys_prompt = WORKSTATION_SYSTEM_PROMPT_PLAN if is_multistep else WORKSTATION_SYSTEM_PROMPT_STEP
         parts = [sys_prompt, "\n=== Current Task Objective ==="]
         parts.append(f"Task ID: {task_config.get('task_id')}")
         parts.append(f"Goal: {task_config.get('goal')}")
 
-        # Group B1: Append full raw source episodes with complete feedback
+        # Group B1: Append full raw source episodes with complete feedback (effects, errors, data)
         if self.group_id in ["Group_B1_plan", "Group_Replay"] and raw_source_episodes:
             parts.append("\n=== Prior Cross-Task Experience (Complete Raw Trajectories) ===")
             for idx, ep in enumerate(raw_source_episodes):
-                parts.append(f"\n--- Episode {idx+1} ({ep.get('task_id')}, Success={ep.get('success')}) ---")
+                succ_tag = "SUCCESS" if ep.get("success") else "FAILED"
+                parts.append(f"\n--- Episode {idx+1} ({ep.get('task_id')}, Status={succ_tag}) ---")
                 for s in ep.get("trajectory", []):
                     r_obj = s.get("result", {})
                     msg = r_obj.get("message") or r_obj.get("error") or r_obj.get("status")
-                    parts.append(f"  Step {s.get('step_index')}: {s.get('tool')}({s.get('args')}) -> {r_obj.get('status')} ({msg})")
+                    eff = r_obj.get("effects", {})
+                    data_str = f", Data: {r_obj['data']}" if "data" in r_obj else ""
+                    eff_str = f", Effects: {eff}" if eff else ""
+                    parts.append(f"  Step {s.get('step_index')}: {s.get('tool')}({s.get('args')}) -> {r_obj.get('status')} ({msg}{eff_str}{data_str})")
 
-        # Group B2 / Group D: Append rich structured facts with intervention evidence
+        # Group B2 / Group D: Append rich structured facts with intervention evidence (no arbitrary truncation)
         if self.group_id in ["Group_B2_step", "Group_B2_plan", "Group_D_Procedural_Memory"] and structured_facts:
             facts_dict = structured_facts.to_dict()
             parts.append("\n=== Verified Structured Domain Facts (With Intervention Evidence) ===")
             if facts_dict.get("verified_transitions"):
                 parts.append("Verified State Transitions:")
-                for tr in facts_dict["verified_transitions"][:8]:
+                for tr in facts_dict["verified_transitions"]:
                     parts.append(f"  - Action {tr.get('action')}: yielded effects {tr.get('observed_effects')}")
             if facts_dict.get("action_preconditions"):
                 parts.append("Verified Action Preconditions:")
@@ -595,87 +761,86 @@ class WorkstationAgentRunner:
             if facts_dict.get("causal_order_constraints"):
                 parts.append("Verified Causal Order Dependencies:")
                 for dep in facts_dict["causal_order_constraints"]:
-                    parts.append(f"  - In subsystem '{dep.get('subsystem')}': {dep.get('before')} must precede {dep.get('after')} [Status: {dep.get('status')}]")
+                    dep_before = dep.get('before')
+                    dep_after = dep.get('after')
+                    dep_sub = dep.get('subsystem')
+                    dep_status = dep.get('status')
+                    parts.append(f"  - In subsystem '{dep_sub}': {dep_before} must precede {dep_after} [Status: {dep_status}]")
             if facts_dict.get("commutative_subsystems"):
                 parts.append("Commutative Independent Subsystems:")
-                for comm in facts_dict["commutative_subsystems"]:
-                    pair = comm.get("subsystems", ())
-                    parts.append(f"  - Repair of '{pair[0]}' and '{pair[1]}' can be executed in any order. [Status: {comm.get('status')}]")
+                for c in facts_dict["commutative_subsystems"]:
+                    parts.append(f"  - Subsystems {c.get('subsystems')} can be serviced in any order [Status: {c.get('status')}]")
 
-        # Current observation state
-        parts.append("\n=== Current Known State (from past observations) ===")
+        # Active Constraint & Interlock Feedback (Section 3)
+        if active_constraint_events:
+            parts.append("\n=== Active Constraint & Interlock Feedback ===")
+            for evt in active_constraint_events:
+                parts.append(evt.to_prompt_str())
+
+        # Public Known State
+        parts.append("\n=== Current Known Workstation State (Public Observations) ===")
         if known_state:
             parts.append(json.dumps(known_state, indent=2))
         else:
-            parts.append("No subsystem state inspected yet. You should inspect the workstation first.")
+            parts.append("Workstation state unknown. Diagnostic inspect required.")
 
-        # Recent action history
-        parts.append("\n=== Action History (Recent Steps) ===")
-        if trajectory:
-            for s in trajectory[-6:]:
-                res_obj = s.get("result", {})
-                if not s.get("is_error"):
-                    msg = res_obj.get("message", "SUCCESS")
-                    parts.append(f"Step {s.get('step_index')}: {s.get('tool')}({json.dumps(s.get('args'))}) -> SUCCESS ({msg})")
-                else:
-                    err_msg = res_obj.get("error") or res_obj.get("message", "FAILED")
-                    unmet = res_obj.get("unmet_conditions")
-                    if unmet:
-                        err_msg += f" [Unmet: {', '.join(unmet)}]"
-                    parts.append(f"Step {s.get('step_index')}: {s.get('tool')}({json.dumps(s.get('args'))}) -> ERROR ({err_msg})")
-        else:
+        # Trajectory History
+        parts.append("\n=== Current Episode Execution History ===")
+        if not trajectory:
             parts.append("No actions executed yet.")
+        else:
+            for s in trajectory:
+                r_obj = s.get("result", {})
+                msg = r_obj.get("message") or r_obj.get("error") or r_obj.get("status")
+                parts.append(f"Step {s.get('step_index')}: [{s.get('action_source')}] {s.get('tool')}({s.get('args')}) -> {r_obj.get('status')} ({msg})")
 
-        parts.append("\nDecide your next action / local plan and output valid JSON:")
+        parts.append("\nWhat action should be taken next? Respond strictly in JSON.")
         return "\n".join(parts)
 
     def _call_llm(self, prompt: str, is_multistep: bool = False) -> Tuple[str, int, int]:
-        """Call LLM backend or test fallback policy."""
-        if self.llm_backend is not None and getattr(self.llm_backend, "model", None) is not None:
+        """Call LLM backend or fallback mock in testing."""
+        p_tok = len(prompt.split())
+        if self.llm_backend is not None:
             messages = [{"role": "user", "content": prompt}]
-            res = self.llm_backend.generate(messages)
-            text = res.get("content", "")
-            p_tok = res.get("prompt_tokens", 0)
-            g_tok = res.get("generated_tokens", 0)
-            return text, p_tok, g_tok
+            try:
+                res = self.llm_backend.generate(messages)
+            except Exception:
+                res = self.llm_backend.generate(prompt)
+
+            if isinstance(res, dict):
+                content = res.get("content", "")
+                p_tokens = res.get("prompt_tokens", p_tok)
+                g_tokens = res.get("generated_tokens", len(content.split()))
+                return content, p_tokens, g_tokens
+            elif isinstance(res, str):
+                g_tok = len(res.split())
+                return res, p_tok, g_tok
 
         if not self.allow_fallback:
-            raise RuntimeError("[WorkstationAgentRunner] No neural model loaded and allow_fallback=False.")
+            raise RuntimeError("LLMBackend is None and allow_fallback=False!")
 
-        return self._rule_based_fallback_policy(prompt, is_multistep)
-
-    def _rule_based_fallback_policy(self, prompt: str, is_multistep: bool = False) -> Tuple[str, int, int]:
-        """Deterministic policy strictly used for dry-run verification and unit tests."""
-        p_tok = len(prompt.split())
-
-        if "No subsystem state inspected yet" in prompt:
+        # Mock fallback for test environment
+        if "inspect" not in prompt:
             action = {"thought": "Inspect all workstation subsystems to diagnose status.", "tool": "inspect", "args": {"subsystem": "all"}}
         elif '"status": "overpressure_fault"' in prompt or '"status": "leak_fault"' in prompt:
-            if '"isolated": true' in prompt.lower() and '"pressure_bar": 0' in prompt:
-                action = {"thought": "Pneumatic line is safely isolated. Clear fault.", "tool": "clear_fault", "args": {"subsystem": "pneumatic_line"}}
-            elif '"isolated": false' in prompt.lower() and '"status": "nominal"' in prompt:
-                action = {"thought": "Pneumatic fault cleared. Release isolation and reset.", "tool": "reset", "args": {"subsystem": "pneumatic_line"}}
-            elif '"status": "nominal"' not in prompt and "pneumatic_line" in prompt:
-                action = {"thought": "Isolate pneumatic line before servicing.", "tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "engage"}}
-            else:
-                action = {"thought": "Release isolation on pneumatic line.", "tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "release"}}
-        elif '"status": "tripped"' in prompt:
-            if '"isolated": true' in prompt.lower():
-                action = {"thought": "Power isolated. Clear power relay fault.", "tool": "clear_fault", "args": {"subsystem": "power_unit"}}
-            else:
-                action = {"thought": "Isolate power unit for safe servicing.", "tool": "isolate", "args": {"subsystem": "power_unit", "action": "engage"}}
+            action = {"thought": "Repair pneumatic line.", "plan": [
+                {"tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "engage"}},
+                {"tool": "clear_fault", "args": {"subsystem": "pneumatic_line"}},
+                {"tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "release"}},
+                {"tool": "reset", "args": {"subsystem": "pneumatic_line"}},
+            ]} if is_multistep else {"thought": "Isolate pneumatic line.", "tool": "isolate", "args": {"subsystem": "pneumatic_line", "action": "engage"}}
         elif '"status": "jammed"' in prompt or '"status": "misaligned"' in prompt:
-            action = {"thought": "Clear gripper mechanical jam.", "tool": "clear_fault", "args": {"subsystem": "arm_gripper"}}
-        elif '"status": "counter_overflow"' in prompt:
-            action = {"thought": "Reset controller error counters.", "tool": "clear_fault", "args": {"subsystem": "controller"}}
-        elif '"calibrated": false' in prompt:
-            action = {"thought": "Calibrate camera sensor.", "tool": "calibrate", "args": {"subsystem": "camera_sensor"}}
-        elif '"self_test_passed": true' in prompt:
-            action = {"thought": "Self-test passed. Resume workstation production.", "tool": "resume", "args": {"target": "workstation"}}
+            action = {"thought": "Repair gripper and calibrate camera.", "plan": [
+                {"tool": "clear_fault", "args": {"subsystem": "arm_gripper"}},
+                {"tool": "reset", "args": {"subsystem": "arm_gripper"}},
+                {"tool": "calibrate", "args": {"subsystem": "camera_sensor"}},
+            ]} if is_multistep else {"thought": "Clear gripper fault.", "tool": "clear_fault", "args": {"subsystem": "arm_gripper"}}
+        elif '"self_test_passed": true' in prompt or 'All 5 subsystems passed self-test' in prompt:
+            action = {"thought": "Resume production.", "tool": "resume", "args": {"target": "workstation"}}
         else:
             action = {"thought": "Run system self-test.", "tool": "self_test", "args": {"target": "workstation"}}
 
-        if is_multistep and "tool" in action:
+        if is_multistep and "tool" in action and "plan" not in action:
             resp_obj = {"thought": action.get("thought", ""), "plan": [{"tool": action["tool"], "args": action.get("args", {})}]}
         else:
             resp_obj = action
@@ -685,14 +850,26 @@ class WorkstationAgentRunner:
         return resp, p_tok, g_tok
 
     def _parse_llm_response(self, text: str) -> Optional[Dict[str, Any]]:
-        """Extract and parse JSON object from LLM response."""
+        """Parse LLM response text into JSON action / plan dictionary."""
         try:
-            m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-            if m:
-                return json.loads(m.group(1))
-            m2 = re.search(r"(\{.*\})", text, re.DOTALL)
-            if m2:
-                return json.loads(m2.group(1))
             return json.loads(text)
         except Exception:
-            return None
+            pass
+
+        # Try markdown codeblock extraction
+        m = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+        if m:
+            try:
+                return json.loads(m.group(1))
+            except Exception:
+                pass
+
+        # Try regex search for first valid JSON object
+        m_obj = re.search(r"\{[\s\S]*\}", text)
+        if m_obj:
+            try:
+                return json.loads(m_obj.group(0))
+            except Exception:
+                pass
+
+        return None
