@@ -15,7 +15,7 @@ import copy
 
 from .llm_backend import LLMBackend
 from .planner import TOOL_SCHEMAS, MAP_ADJACENCY, SYSTEM_PROMPT, format_map_topology_description
-from .task_state import TaskStateTracker, ObligationStatus, ObservedFact
+from .task_state import TaskStateTracker, ObligationStatus, ObservedFact, ConstraintEvent
 from .plan_manager import PersistentPlan, PlanNode, PlanNodeStatus
 from .action_validator import ActionValidator, ValidationStatus
 from .repair_controller import RepairController
@@ -110,8 +110,11 @@ class StatefulAgentRunner:
         step_history: List[Dict[str, Any]] = []
         llm_traces: List[Dict[str, Any]] = []
         validation_records: List[Dict[str, Any]] = []
+        constraint_events: List[Dict[str, Any]] = []
         intercepted_actions_count: int = 0
+        model_retries_count: int = 0
         total_revisions_count: int = 0
+        termination_reason: str = "UNKNOWN"
 
         while not env.is_terminated and len(step_history) < self.max_tool_calls and len(llm_traces) < self.max_llm_calls:
             step_idx = len(step_history) + 1
@@ -119,6 +122,7 @@ class StatefulAgentRunner:
 
             # Check if all obligations are completed
             if task_state.is_all_completed():
+                termination_reason = "TASK_COMPLETED"
                 break
 
             active_node = persistent_plan.get_current_active_node()
@@ -168,6 +172,7 @@ class StatefulAgentRunner:
 
             # 4. Check LLM Budget Before Calling
             if len(llm_traces) >= self.max_llm_calls:
+                termination_reason = "LLM_BUDGET_EXHAUSTED"
                 break
 
             gen_res = self.llm.generate(messages)
@@ -175,7 +180,7 @@ class StatefulAgentRunner:
             decision, parse_ok, parse_err = self._parse_json(content)
 
             trace_att1 = {
-                "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_s{step_idx:02d}",
+                "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_l{len(llm_traces)+1:02d}",
                 "prompt_tokens": gen_res.get("prompt_tokens", 0),
                 "generated_tokens": gen_res.get("generated_tokens", 0),
                 "latency_s": gen_res.get("latency_s", 0.0),
@@ -186,14 +191,38 @@ class StatefulAgentRunner:
             llm_traces.append(trace_att1)
 
             if not parse_ok:
+                if len(llm_traces) < self.max_llm_calls:
+                    model_retries_count += 1
+                    rev_messages = list(messages)
+                    rev_messages.append({"role": "assistant", "content": content})
+                    rev_messages.append({
+                        "role": "user",
+                        "content": f"Output format error: {parse_err}. Please output a valid JSON action matching tool schemas.",
+                    })
+                    rev_res = self.llm.generate(rev_messages)
+                    rev_dec, rev_ok, _ = self._parse_json(rev_res.get("content", ""))
+                    rev_trace = {
+                        "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_l{len(llm_traces)+1:02d}_parse_retry",
+                        "prompt_tokens": rev_res.get("prompt_tokens", 0),
+                        "generated_tokens": rev_res.get("generated_tokens", 0),
+                        "latency_s": rev_res.get("latency_s", 0.0),
+                        "raw_response": rev_res.get("content", ""),
+                        "parse_ok": rev_ok,
+                        "first_call": False,
+                    }
+                    llm_traces.append(rev_trace)
+                    if rev_ok:
+                        decision = rev_dec
+                        parse_ok = True
+
+            if not parse_ok:
                 tool_name = "parse_error"
                 params = {"raw_output": content}
             else:
                 tool_name = decision.get("action", "parse_error")
                 params = decision.get("params", {})
 
-            # 5. Pre-Execution Action Validation (Pass 1)
-            is_action_valid = True
+            # 5. Pre-Execution Action Validation
             if tool_name != "parse_error":
                 v_res = self.validator.validate_action(
                     tool_name=tool_name,
@@ -208,61 +237,138 @@ class StatefulAgentRunner:
                     "params": params,
                     "status": v_res.status.value,
                     "reason": v_res.reason,
+                    "is_schema_error": v_res.is_schema_error,
+                    "constraint_type": v_res.constraint_type,
                     "pass_num": 1,
                 })
 
                 if v_res.status == ValidationStatus.FAIL:
-                    intercepted_actions_count += 1
-                    # Check remaining LLM budget for 1-shot revision
-                    if len(llm_traces) < self.max_llm_calls:
+                    # Case 1: Structural constraint event (e.g. SECURITY_BADGE_REQUIRED, DOORWAY_BLOCKED)
+                    if v_res.constraint_event is not None:
+                        intercepted_actions_count += 1
+                        c_event = v_res.constraint_event
+                        constraint_events.append(c_event.to_dict())
+
+                        should_abort, rep_msg, rep_nodes = self.repair_controller.handle_constraint_event(
+                            constraint_event=c_event,
+                            task_state=task_state,
+                            plan=persistent_plan,
+                            repair_memory_adapter=self.repair_memory_store,
+                            target_run_id=self.run_id,
+                        )
                         total_revisions_count += 1
-                        rev_messages = list(messages)
-                        rev_messages.append({"role": "assistant", "content": content})
-                        rev_messages.append({
-                            "role": "user",
-                            "content": f"Pre-Execution Conflict: {v_res.reason}. Conflicting Precondition: {v_res.conflicting_precondition}. Please revise your action decision."
-                        })
-                        rev_res = self.llm.generate(rev_messages)
-                        rev_dec, rev_ok, _ = self._parse_json(rev_res.get("content", ""))
-                        rev_trace = {
-                            "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_s{step_idx:02d}_val_retry",
-                            "prompt_tokens": rev_res.get("prompt_tokens", 0),
-                            "generated_tokens": rev_res.get("generated_tokens", 0),
-                            "latency_s": rev_res.get("latency_s", 0.0),
-                            "raw_response": rev_res.get("content", ""),
-                            "parse_ok": rev_ok,
-                            "first_call": False,
-                        }
-                        llm_traces.append(rev_trace)
 
-                        if rev_ok:
-                            tool_name = rev_dec.get("action", tool_name)
-                            params = rev_dec.get("params", params)
-
-                            # Pass 2: Re-validate revised action
-                            v_res2 = self.validator.validate_action(
-                                tool_name=tool_name,
-                                params=params,
-                                current_state=state_summary,
-                                known_facts=task_state.observed_facts,
-                                active_plan_node=active_node,
-                            )
-                            validation_records.append({
-                                "step": step_idx,
-                                "tool": tool_name,
-                                "params": params,
-                                "status": v_res2.status.value,
-                                "reason": v_res2.reason,
-                                "pass_num": 2,
-                            })
-                            if v_res2.status == ValidationStatus.FAIL:
-                                is_action_valid = False
+                        if should_abort:
+                            env.constraint_violations.append(rep_msg)
+                            env.is_terminated = True
+                            termination_reason = "DEAD_LOOP_ABORT"
+                            break
                         else:
-                            is_action_valid = False
-                    else:
-                        is_action_valid = False
+                            # Plan repaired: proceed to next iteration with repaired active node
+                            continue
 
-            # 6. Execute or Intercept
+                    # Case 2: Action-level formatting/precondition conflict (e.g. non-adjacent hop, observation obligation)
+                    else:
+                        if len(llm_traces) < self.max_llm_calls:
+                            model_retries_count += 1
+                            rev_content_lines = [
+                                f"Pre-Execution Conflict: {v_res.reason}",
+                            ]
+                            if v_res.conflicting_precondition:
+                                rev_content_lines.append(f"Conflicting Precondition: {v_res.conflicting_precondition}")
+                            if v_res.suggested_revision:
+                                import json
+                                rev_content_lines.append(f"Suggested Corrective Action: {json.dumps(v_res.suggested_revision)}")
+                            rev_content_lines.append("Please output a revised JSON action decision.")
+
+                            rev_messages = list(messages)
+                            rev_messages.append({"role": "assistant", "content": content})
+                            rev_messages.append({
+                                "role": "user",
+                                "content": "\n".join(rev_content_lines),
+                            })
+                            rev_res = self.llm.generate(rev_messages)
+                            rev_dec, rev_ok, rev_err = self._parse_json(rev_res.get("content", ""))
+                            rev_trace = {
+                                "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_l{len(llm_traces)+1:02d}_val_retry",
+                                "prompt_tokens": rev_res.get("prompt_tokens", 0),
+                                "generated_tokens": rev_res.get("generated_tokens", 0),
+                                "latency_s": rev_res.get("latency_s", 0.0),
+                                "raw_response": rev_res.get("content", ""),
+                                "parse_ok": rev_ok,
+                                "first_call": False,
+                            }
+                            llm_traces.append(rev_trace)
+
+                            if rev_ok:
+                                tool_name = rev_dec.get("action", tool_name)
+                                params = rev_dec.get("params", params)
+                                v_res2 = self.validator.validate_action(
+                                    tool_name=tool_name,
+                                    params=params,
+                                    current_state=state_summary,
+                                    known_facts=task_state.observed_facts,
+                                    active_plan_node=active_node,
+                                )
+                                validation_records.append({
+                                    "step": step_idx,
+                                    "tool": tool_name,
+                                    "params": params,
+                                    "status": v_res2.status.value,
+                                    "reason": v_res2.reason,
+                                    "is_schema_error": v_res2.is_schema_error,
+                                    "constraint_type": v_res2.constraint_type,
+                                    "pass_num": 2,
+                                })
+
+                                if v_res2.status == ValidationStatus.FAIL:
+                                    if v_res2.constraint_event is not None:
+                                        intercepted_actions_count += 1
+                                        c_event = v_res2.constraint_event
+                                        constraint_events.append(c_event.to_dict())
+                                        should_abort, rep_msg, rep_nodes = self.repair_controller.handle_constraint_event(
+                                            constraint_event=c_event,
+                                            task_state=task_state,
+                                            plan=persistent_plan,
+                                            repair_memory_adapter=self.repair_memory_store,
+                                            target_run_id=self.run_id,
+                                        )
+                                        total_revisions_count += 1
+                                        if should_abort:
+                                            env.constraint_violations.append(rep_msg)
+                                            env.is_terminated = True
+                                            termination_reason = "DEAD_LOOP_ABORT"
+                                            break
+                                        else:
+                                            continue
+                                    else:
+                                        # Consumed nominal turn for illegal action after retry
+                                        env._consume_resources(1.0, 1)
+                                        result = ActionResult(
+                                            status=StatusCode.INVALID_PARAMETER,
+                                            success=False,
+                                            message=f"Action intercepted by Validator: {v_res2.reason}",
+                                            time_cost_s=1.0,
+                                            battery_cost_pct=1,
+                                            error_code="INTERCEPTED_PRECONDITION_VIOLATION",
+                                        )
+                                        step_entry = {
+                                            "step": step_idx,
+                                            "event_id": f"evt_{self.run_id}_{seq_id}_{task_id}_s{step_idx:02d}",
+                                            "tool": tool_name,
+                                            "params": params,
+                                            "robot_location_before": robot_loc_before,
+                                            "robot_location_after": env.robot_location,
+                                            "env_state_snapshot": env_state_snapshot,
+                                            "result": result.to_dict(),
+                                            "sim_time_s": env.sim_time_s,
+                                            "battery": env.battery,
+                                            "plan_deviated": True,
+                                        }
+                                        step_history.append(step_entry)
+                                        continue
+
+            # 6. Execute Valid Action in Environment
             event_id = f"evt_{self.run_id}_{seq_id}_{task_id}_s{step_idx:02d}"
             env_state_snapshot = {
                 "doors": copy.deepcopy(env.doors),
@@ -270,18 +376,7 @@ class StatefulAgentRunner:
                 "battery": env.battery,
             }
 
-            if not is_action_valid:
-                # Intercepted illegal action - consume nominal turn resource without illegal physical breach
-                env._consume_resources(1.0, 1)
-                result = ActionResult(
-                    status=StatusCode.INVALID_PARAMETER,
-                    success=False,
-                    message="Action intercepted by Pre-Execution Validator (illegal precondition violated after revision).",
-                    time_cost_s=1.0,
-                    battery_cost_pct=1,
-                    error_code="INTERCEPTED_PRECONDITION_VIOLATION",
-                )
-            elif tool_name == "parse_error":
+            if tool_name == "parse_error":
                 env._consume_resources(1.0, 1)
                 result = ActionResult(
                     status=StatusCode.PARSE_ERROR,
@@ -379,19 +474,29 @@ class StatefulAgentRunner:
                             details={"verified_effects": [f"has_credential({cname})"], "sim_time": env.sim_time_s},
                         )
             else:
-                should_abort, rep_msg, rep_nodes = self.repair_controller.handle_failure(
-                    failed_tool=tool_name,
-                    failed_params=params,
-                    error_code=result.error_code or result.status.value,
+                # Post-execution tool failure -> ConstraintEvent(origin="tool_result")
+                c_event = ConstraintEvent(
+                    origin="tool_result",
+                    constraint_type=result.error_code or result.status.value,
+                    proposed_action={"tool": tool_name, "params": params},
+                    affected_goal_id=getattr(active_node, "id", None),
                     observation=result.observation or {},
+                    current_state_version=task_state.step_counter,
+                    reason=f"Tool {tool_name} failed with {result.error_code or result.status.value}: {result.message}",
+                )
+                constraint_events.append(c_event.to_dict())
+                should_abort, rep_msg, rep_nodes = self.repair_controller.handle_constraint_event(
+                    constraint_event=c_event,
                     task_state=task_state,
                     plan=persistent_plan,
                     repair_memory_adapter=self.repair_memory_store,
                     target_run_id=self.run_id,
                 )
+                total_revisions_count += 1
                 if should_abort:
                     env.constraint_violations.append(rep_msg)
                     env.is_terminated = True
+                    termination_reason = "DEAD_LOOP_ABORT"
 
             step_entry = {
                 "step": step_idx,
@@ -408,7 +513,24 @@ class StatefulAgentRunner:
             }
             step_history.append(step_entry)
 
-        # 9. Tool Evidence Verification
+        # 9. Accurate termination reason
+        if termination_reason == "UNKNOWN":
+            if task_state.is_all_completed():
+                termination_reason = "TASK_COMPLETED"
+            elif env.constraint_violations:
+                termination_reason = "CONSTRAINT_VIOLATION_ABORT"
+            elif env.is_terminated:
+                termination_reason = "ENV_TERMINATED"
+            elif len(llm_traces) >= self.max_llm_calls:
+                termination_reason = "LLM_BUDGET_EXHAUSTED"
+            elif len(step_history) >= self.max_tool_calls:
+                termination_reason = "TOOL_BUDGET_EXHAUSTED"
+            elif env.sim_time_s >= self.max_sim_time_s:
+                termination_reason = "TIME_LIMIT_EXCEEDED"
+            else:
+                termination_reason = "STOPPED"
+
+        # 10. Tool Evidence Verification
         is_succ, comp_reason, comp_details = CompletionChecker.verify_completion(
             task_state=task_state,
             step_history=step_history,
@@ -436,12 +558,15 @@ class StatefulAgentRunner:
             "success": is_succ,
             "completion_reason": comp_reason,
             "completion_details": comp_details,
+            "termination_reason": termination_reason,
             "step_count": len(step_history),
             "step_history": step_history,
             "llm_calls": len(llm_traces),
             "llm_traces": llm_traces,
             "validation_records": validation_records,
+            "constraint_events": constraint_events,
             "intercepted_actions_count": intercepted_actions_count,
+            "model_retries_count": model_retries_count,
             "total_revisions_count": total_revisions_count,
             "sim_time_s": env.sim_time_s,
             "battery_consumed": env.cumulative_battery_consumed,

@@ -75,6 +75,38 @@ class ObservedFact:
         }
 
 
+@dataclass
+class ConstraintEvent:
+    origin: str  # "pre_execution" or "tool_result"
+    constraint_type: str  # e.g. "SECURITY_BADGE_REQUIRED", "DOORWAY_BLOCKED", "MISSING_PRECONDITION", "BATTERY_LOW"
+    proposed_action: Dict[str, Any]  # {"tool": tool_name, "params": params}
+    affected_goal_id: Optional[str] = None
+    evidence_refs: List[str] = field(default_factory=list)
+    missing_preconditions: List[str] = field(default_factory=list)
+    current_state_version: int = 0
+    observation: Optional[Dict[str, Any]] = None
+    target_door: Optional[str] = None
+    required_credential: Optional[str] = None
+    blocked_edge: Optional[Tuple[str, str]] = None
+    reason: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "origin": self.origin,
+            "constraint_type": self.constraint_type,
+            "proposed_action": copy.deepcopy(self.proposed_action),
+            "affected_goal_id": self.affected_goal_id,
+            "evidence_refs": list(self.evidence_refs),
+            "missing_preconditions": list(self.missing_preconditions),
+            "current_state_version": self.current_state_version,
+            "observation": copy.deepcopy(self.observation) if self.observation else None,
+            "target_door": self.target_door,
+            "required_credential": self.required_credential,
+            "blocked_edge": list(self.blocked_edge) if self.blocked_edge else None,
+            "reason": self.reason,
+        }
+
+
 class TaskStateTracker:
     def __init__(
         self,

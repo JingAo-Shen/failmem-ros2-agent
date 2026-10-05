@@ -5,10 +5,10 @@ Returns PASS / FAIL / UNKNOWN.
 Does NOT read hidden environment state or generate arbitrary optimal routes.
 """
 from typing import Dict, Any, List, Optional, Tuple, Set
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from .planner import TOOL_SCHEMAS, MAP_ADJACENCY
-from .task_state import ObservedFact
+from .task_state import ObservedFact, ConstraintEvent
 
 
 class ValidationStatus(str, Enum):
@@ -23,6 +23,10 @@ class ValidationResult:
     reason: str
     conflicting_precondition: Optional[str] = None
     suggested_revision: Optional[Dict[str, Any]] = None
+    is_schema_error: bool = False
+    constraint_type: Optional[str] = None
+    constraint_event: Optional[ConstraintEvent] = None
+    missing_preconditions: List[str] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
@@ -52,6 +56,8 @@ class ActionValidator:
                 status=ValidationStatus.FAIL,
                 reason=f"Unknown tool '{tool_name}'. Allowed tools: {list(TOOL_SCHEMAS.keys())}.",
                 conflicting_precondition="tool_exists",
+                is_schema_error=True,
+                constraint_type="UNKNOWN_TOOL",
             )
 
         schema = TOOL_SCHEMAS[tool_name]
@@ -61,6 +67,8 @@ class ActionValidator:
                     status=ValidationStatus.FAIL,
                     reason=f"Missing required parameter '{req}' for tool '{tool_name}'.",
                     conflicting_precondition=f"param_required({req})",
+                    is_schema_error=True,
+                    constraint_type="MISSING_PARAMETER",
                 )
 
         robot_loc = current_state.get("robot_location", "Lobby")
@@ -214,20 +222,54 @@ class ActionValidator:
                 req_fact = known_facts.get(f"requires_credential({door_name},{required_cred})")
                 req_val = req_fact.value if isinstance(req_fact, ObservedFact) else req_fact
                 if req_val is True and required_cred not in credentials:
+                    ev_refs = [req_fact.evidence_ref] if isinstance(req_fact, ObservedFact) and req_fact.evidence_ref else []
+                    c_event = ConstraintEvent(
+                        origin="pre_execution",
+                        constraint_type="SECURITY_BADGE_REQUIRED",
+                        proposed_action={"tool": tool_name, "params": params},
+                        affected_goal_id=getattr(active_plan_node, "id", None),
+                        evidence_refs=ev_refs,
+                        missing_preconditions=[f"has_credential({required_cred})"],
+                        current_state_version=current_state.get("step_counter", 0),
+                        target_door=door_name,
+                        required_credential=required_cred,
+                        reason=f"Door '{door_name}' to '{target_zone}' requires credential '{required_cred}' which robot does not possess.",
+                    )
                     return ValidationResult(
                         status=ValidationStatus.FAIL,
                         reason=f"Door '{door_name}' to '{target_zone}' requires credential '{required_cred}' which robot does not possess.",
                         conflicting_precondition=f"has_credential({required_cred})",
-                        suggested_revision={"action": "acquire_credential", "params": {"credential_name": required_cred}}
+                        is_schema_error=False,
+                        constraint_type="SECURITY_BADGE_REQUIRED",
+                        constraint_event=c_event,
+                        missing_preconditions=[f"has_credential({required_cred})"],
                     )
 
             # Check known door blockages
             door_blocked_key = f"door_{target_zone.lower()}_state"
-            if known_facts.get(door_blocked_key) == "OCCUPIED":
+            door_fact = known_facts.get(door_blocked_key)
+            door_val = door_fact.value if isinstance(door_fact, ObservedFact) else door_fact
+            if door_val == "OCCUPIED":
+                ev_refs = [door_fact.evidence_ref] if isinstance(door_fact, ObservedFact) and door_fact.evidence_ref else []
+                c_event = ConstraintEvent(
+                    origin="pre_execution",
+                    constraint_type="DOORWAY_BLOCKED",
+                    proposed_action={"tool": tool_name, "params": params},
+                    affected_goal_id=getattr(active_plan_node, "id", None),
+                    evidence_refs=ev_refs,
+                    missing_preconditions=[f"passage_free({target_zone})"],
+                    current_state_version=current_state.get("step_counter", 0),
+                    blocked_edge=(robot_loc, target_zone),
+                    reason=f"Door to '{target_zone}' is known to be blocked by an obstacle.",
+                )
                 return ValidationResult(
                     status=ValidationStatus.FAIL,
                     reason=f"Door to '{target_zone}' is known to be blocked by an obstacle.",
                     conflicting_precondition=f"passage_free({target_zone})",
+                    is_schema_error=False,
+                    constraint_type="DOORWAY_BLOCKED",
+                    constraint_event=c_event,
+                    missing_preconditions=[f"passage_free({target_zone})"],
                 )
 
         elif tool_name == "recharge":

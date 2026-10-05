@@ -436,43 +436,112 @@ def run_benchmark():
     print(f"Homologous Facts (SHA256: {fact_hash[:12]}...): {homologous_facts}")
 
     # =========================================================================
-    # SMOKE TESTS (2 Runs)
+    # SMOKE TESTS (3 Strict Execution Gates)
     # =========================================================================
     print("\n" + "#" * 80)
-    print("### SMOKE TESTS: Pipeline Verification (2 Runs)")
+    print("### SMOKE TESTS: 3 Strict Execution Gates")
     print("#" * 80)
 
-    smoke_configs = [
-        ("smoke_1_valid_hist", target_tasks[0], "Valid History (Target 1)"),
-        ("smoke_2_changed_loc", target_tasks[2], "Changed Location (Target 3)"),
-    ]
-    for s_id, s_task, s_desc in smoke_configs:
-        print(f"\n--- [Smoke Run] {s_id}: {s_desc} ---")
-        smoke_store = copy.deepcopy(verified_store)
-        smoke_runner = StatefulAgentRunner(
+    try:
+        # Gate 1: Valid History (Pre-execution interception & verified reuse)
+        print("\n--- [Smoke Gate 1/3] Valid History Pre-interception (Target 1) ---")
+        smoke_store_1 = copy.deepcopy(verified_store)
+        smoke_runner_1 = StatefulAgentRunner(
             llm_backend=llm,
             max_tool_calls=25,
             max_llm_calls=20,
-            run_id=s_id,
+            run_id="smoke_1_valid_hist",
             include_historical_facts=True,
-            repair_memory_store=smoke_store,
+            repair_memory_store=smoke_store_1,
             is_static=False,
-            enable_observation_guard=False,
+            enable_observation_guard=True,
         )
-        task_spec = {
-            "task_id": s_task["task_id"],
-            "instruction": s_task["instruction"],
-            "env_config": copy.deepcopy(s_task["env_config"]),
-        }
-        s_res = smoke_runner.run_task(
-            task_spec,
+        s_res_1 = smoke_runner_1.run_task(
+            {
+                "task_id": target_tasks[0]["task_id"],
+                "instruction": target_tasks[0]["instruction"],
+                "env_config": copy.deepcopy(target_tasks[0]["env_config"]),
+            },
             task_index=99,
-            seq_id="smoke",
+            seq_id="smoke_gate_1",
             initial_known_state=copy.deepcopy(homologous_facts),
             historical_failure_events=copy.deepcopy(homologous_failures),
         )
-        benchmark_records["smoke_test_results"].append(s_res)
-        print(f"Smoke Outcome: Success={s_res['success']}, Steps={s_res['step_count']}, LLM Calls={s_res['llm_calls']}, Reused={s_res['memory_reused_and_verified']}, Recovered={s_res['memory_invalidated_online_recovered']}")
+        benchmark_records["smoke_test_results"].append(s_res_1)
+        print(f"Smoke 1 Outcome: Success={s_res_1['success']}, Steps={s_res_1['step_count']}, Reused={s_res_1['memory_reused_and_verified']}, Intercepts={s_res_1['intercepted_actions_count']}, TermReason={s_res_1['termination_reason']}")
+        assert s_res_1["success"] is True, f"Smoke Gate 1 FAILED: Success was False ({s_res_1['completion_reason']})"
+        assert s_res_1["memory_reused_and_verified"] is True, "Smoke Gate 1 FAILED: memory_reused_and_verified was False"
+        assert s_res_1["intercepted_actions_count"] >= 1 or s_res_1["total_revisions_count"] >= 1, "Smoke Gate 1 FAILED: no pre-execution intercept or plan repair triggered"
+        print(">>> [PASS] Smoke Gate 1 passed.")
+
+        # Gate 2: No History / Unknown Fact (Post-execution tool failure & online search)
+        print("\n--- [Smoke Gate 2/3] No History Tool Failure Recovery (Target 1) ---")
+        smoke_runner_2 = StatefulAgentRunner(
+            llm_backend=llm,
+            max_tool_calls=25,
+            max_llm_calls=20,
+            run_id="smoke_2_no_hist",
+            include_historical_facts=False,
+            repair_memory_store=None,
+            is_static=False,
+            enable_observation_guard=True,
+        )
+        s_res_2 = smoke_runner_2.run_task(
+            {
+                "task_id": target_tasks[0]["task_id"],
+                "instruction": target_tasks[0]["instruction"],
+                "env_config": copy.deepcopy(target_tasks[0]["env_config"]),
+            },
+            task_index=99,
+            seq_id="smoke_gate_2",
+            initial_known_state=None,
+            historical_failure_events=None,
+        )
+        benchmark_records["smoke_test_results"].append(s_res_2)
+        print(f"Smoke 2 Outcome: Success={s_res_2['success']}, Steps={s_res_2['step_count']}, ConstraintEvts={len(s_res_2.get('constraint_events', []))}, TermReason={s_res_2['termination_reason']}")
+        assert s_res_2["success"] is True, f"Smoke Gate 2 FAILED: Success was False ({s_res_2['completion_reason']})"
+        assert any(evt.get("origin") == "tool_result" for evt in s_res_2.get("constraint_events", [])), "Smoke Gate 2 FAILED: no tool_result failure recorded"
+        print(">>> [PASS] Smoke Gate 2 passed.")
+
+        # Gate 3: Changed Location (Invalidation & Online Recovery)
+        print("\n--- [Smoke Gate 3/3] Changed Location Invalidation & Online Recovery (Target 3) ---")
+        smoke_store_3 = copy.deepcopy(verified_store)
+        smoke_runner_3 = StatefulAgentRunner(
+            llm_backend=llm,
+            max_tool_calls=25,
+            max_llm_calls=20,
+            run_id="smoke_3_changed_loc",
+            include_historical_facts=True,
+            repair_memory_store=smoke_store_3,
+            is_static=False,
+            enable_observation_guard=True,
+        )
+        s_res_3 = smoke_runner_3.run_task(
+            {
+                "task_id": target_tasks[2]["task_id"],
+                "instruction": target_tasks[2]["instruction"],
+                "env_config": copy.deepcopy(target_tasks[2]["env_config"]),
+            },
+            task_index=99,
+            seq_id="smoke_gate_3",
+            initial_known_state=copy.deepcopy(homologous_facts),
+            historical_failure_events=copy.deepcopy(homologous_failures),
+        )
+        benchmark_records["smoke_test_results"].append(s_res_3)
+        print(f"Smoke 3 Outcome: Success={s_res_3['success']}, Steps={s_res_3['step_count']}, Recovered={s_res_3['memory_invalidated_online_recovered']}, TermReason={s_res_3['termination_reason']}")
+        assert s_res_3["success"] is True, f"Smoke Gate 3 FAILED: Success was False ({s_res_3['completion_reason']})"
+        assert s_res_3["memory_invalidated_online_recovered"] is True, "Smoke Gate 3 FAILED: memory_invalidated_online_recovered was False"
+        print(">>> [PASS] Smoke Gate 3 passed.")
+
+        print("\n" + "=" * 80)
+        print(">>> ALL 3 SMOKE TEST GATES PASSED STRICT VALIDATION! PROCEEDING TO FORMAL RUNS.")
+        print("=" * 80)
+
+    except Exception as e:
+        print(f"\n[CRITICAL FAILURE] Strict Smoke Gate Failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise RuntimeError(f"Strict Smoke Gate Failed! Aborting formal evaluation: {e}")
 
     # =========================================================================
     # PHASE B: Comparative Benchmark across 4 Target Tasks x 4 Groups (16 Runs)
@@ -486,7 +555,7 @@ def run_benchmark():
         {"id": "Group_B_Agent_B", "name": "Group B (Online Search Baseline, No Memory/Facts)", "enable_guard": False, "use_facts": False, "use_mem": False},
         {"id": "Group_C_updated", "name": "Group C_updated (Homologous Facts + Dynamic Updating, No Guard)", "enable_guard": False, "use_facts": True, "use_mem": False},
         {"id": "Group_C_guard", "name": "Group C_guard (Homologous Facts + Dynamic Updating + Generic Obs Guard)", "enable_guard": True, "use_facts": True, "use_mem": False},
-        {"id": "Group_D_Agent_D", "name": "Group D (Homologous Facts + Dynamic Updating + Dual-Verified Repair Memory)", "enable_guard": False, "use_facts": True, "use_mem": True},
+        {"id": "Group_D_Agent_D", "name": "Group D (Homologous Facts + Dynamic Updating + Dual-Verified Repair Memory)", "enable_guard": True, "use_facts": True, "use_mem": True},
     ]
 
     phase_b_results = []
@@ -553,7 +622,7 @@ def run_benchmark():
             phase_b_results.append(res)
             benchmark_records["phase_b_target_results"].append(res)
 
-            print(f"[{gid}] Task: {tid} -> Success={res['success']} | Steps={res['step_count']} | LLM Calls={res['llm_calls']} | Tool Errs={tool_errors} | Deviations={plan_deviations} | P-Tok={tot_p_tokens} | G-Tok={tot_g_tokens} | Time={res['wall_time_s']}s")
+            print(f"[{gid}] Task: {tid} -> Success={res['success']} | TermReason={res.get('termination_reason')} | Steps={res['step_count']} | LLM Calls={res['llm_calls']} | Intercepts={res.get('intercepted_actions_count')} | Tool Errs={tool_errors} | P-Tok={tot_p_tokens} | G-Tok={tot_g_tokens} | Time={res['wall_time_s']}s")
             if res.get("target_audit_log"):
                 print(f"    Target Audit Log: {res['target_audit_log']}")
 

@@ -9,7 +9,7 @@ Handles:
 """
 from typing import Dict, Any, List, Optional, Tuple, Set
 import copy
-from .task_state import TaskStateTracker, ObligationStatus, ObservedFact
+from .task_state import TaskStateTracker, ObligationStatus, ObservedFact, ConstraintEvent
 from .plan_manager import PersistentPlan, PlanNode, PlanNodeStatus
 from .planner import MAP_ADJACENCY
 
@@ -27,24 +27,28 @@ class RepairController:
         self.failed_action_history: List[Dict[str, Any]] = []
         self.repair_history: List[Dict[str, Any]] = []
 
-    def handle_failure(
+    def handle_constraint_event(
         self,
-        failed_tool: str,
-        failed_params: Dict[str, Any],
-        error_code: str,
-        observation: Dict[str, Any],
+        constraint_event: ConstraintEvent,
         task_state: TaskStateTracker,
         plan: PersistentPlan,
         repair_memory_adapter: Optional[Any] = None,
         target_run_id: str = "target_run",
     ) -> Tuple[bool, str, List[PlanNode]]:
         """
-        Executes local plan repair.
+        Unified plan repair entry point for both pre-execution constraints and post-execution tool failures.
         Returns: (should_abort, reason_message, generated_repair_nodes)
         """
         robot_loc = task_state.robot_location
         active_node = plan.get_current_active_node()
         online_inst_id = f"online_repair_s{task_state.step_counter:02d}"
+
+        origin = constraint_event.origin
+        constraint_type = constraint_event.constraint_type
+        proposed_action = constraint_event.proposed_action or {}
+        tool_name = proposed_action.get("tool") or proposed_action.get("action", "")
+        params = proposed_action.get("params", {})
+        obs = constraint_event.observation or {}
 
         # 1. Dead-loop detection: check exact fact contents & versions rather than just count
         fact_signature = frozenset(
@@ -55,19 +59,20 @@ class RepairController:
             )
             for k, v in task_state.observed_facts.items()
         )
-        action_sig = (robot_loc, failed_tool, str(sorted(failed_params.items())), error_code, fact_signature)
+        action_sig = (robot_loc, tool_name, str(sorted(params.items())), constraint_type, fact_signature)
         repeat_count = sum(1 for h in self.failed_action_history if h.get("signature") == action_sig)
 
         self.failed_action_history.append({
             "signature": action_sig,
-            "tool": failed_tool,
-            "params": failed_params,
-            "error_code": error_code,
+            "origin": origin,
+            "tool": tool_name,
+            "params": params,
+            "constraint_type": constraint_type,
             "step": task_state.step_counter,
         })
 
         if repeat_count >= self.max_repeated_attempts - 1:
-            return True, f"DEAD_LOOP_ABORT: Action {failed_tool}({failed_params}) failed {repeat_count+1} times in state '{robot_loc}' with no new evidence.", []
+            return True, f"DEAD_LOOP_ABORT: Constraint '{constraint_type}' on {tool_name}({params}) occurred {repeat_count+1} times in state '{robot_loc}' with no new evidence.", []
 
         # 2. Check for matching repair memory if adapter provided (Group D)
         repair_nodes: List[PlanNode] = []
@@ -75,9 +80,9 @@ class RepairController:
 
         if repair_memory_adapter and hasattr(repair_memory_adapter, "retrieve_repair_plan"):
             matching_repair = repair_memory_adapter.retrieve_repair_plan(
-                failed_tool=failed_tool,
-                failed_params=failed_params,
-                error_code=error_code,
+                failed_tool=tool_name,
+                failed_params=params,
+                error_code=constraint_type,
                 current_state=task_state.get_public_state_summary(),
                 known_facts=task_state.observed_facts,
                 adjacency_map=self.adjacency_map,
@@ -90,8 +95,8 @@ class RepairController:
 
         # 3. Online Local Repair Synthesis (if no verified memory template retrieved)
         if not repair_nodes:
-            if error_code in ("DOORWAY_BLOCKED", "DOOR_BLOCKED"):
-                blocked_target = failed_params.get("target_zone")
+            if constraint_type in ("DOORWAY_BLOCKED", "DOOR_BLOCKED"):
+                blocked_target = params.get("target_zone")
                 # Identify next non-navigation goal destination
                 final_dest = None
                 for n in plan.nodes[plan.current_node_index:]:
@@ -101,7 +106,7 @@ class RepairController:
                 final_dest = final_dest or blocked_target
 
                 # Compute detour avoiding specific blocked edge (doorway)
-                blocked_edge = (robot_loc, blocked_target)
+                blocked_edge = constraint_event.blocked_edge or (robot_loc, blocked_target)
                 detour_path = plan.find_path(robot_loc, final_dest, avoid_edges={blocked_edge})
                 if not detour_path and blocked_target != final_dest:
                     detour_path = plan.find_path(robot_loc, final_dest, avoid={blocked_target})
@@ -123,7 +128,7 @@ class RepairController:
                             repair_instance_id=online_inst_id,
                         ))
 
-            elif error_code in ("SECURITY_BADGE_REQUIRED", "ACCESS_DENIED_NO_BADGE") or failed_tool == "acquire_credential":
+            elif constraint_type in ("SECURITY_BADGE_REQUIRED", "ACCESS_DENIED_NO_BADGE") or tool_name == "acquire_credential":
                 # Credential required: check if badge location is known from observations
                 known_badge_loc = task_state.get_fact_value("badge_location")
                 if not known_badge_loc:
@@ -140,7 +145,7 @@ class RepairController:
 
                 if known_badge_loc:
                     if self.enable_observation_guard:
-                        # Group C_guard: Generic observation guard rule before acquire
+                        # Group C_guard and Group D: Generic observation guard rule before acquire
                         if robot_loc != known_badge_loc:
                             nav_path = plan.find_path(robot_loc, known_badge_loc)
                             for hop in nav_path:
@@ -199,12 +204,16 @@ class RepairController:
                             repair_instance_id=online_inst_id,
                         ))
                 else:
-                    # Location unknown: check if current room has been inspected
-                    has_inspected_here = bool(
-                        task_state.get_fact_value(f"room_checked_empty_{robot_loc}")
-                        or task_state.get_fact_value(f"room_items_{robot_loc}")
+                    # Location unknown: check if current room (if not corridor) has been inspected
+                    should_inspect_here = (
+                        not robot_loc.startswith("Corridor")
+                        and not bool(
+                            task_state.get_fact_value(f"room_checked_empty_{robot_loc}")
+                            or task_state.get_fact_value(f"credential_not_found_in_{robot_loc}")
+                            or task_state.get_fact_value(f"room_items_{robot_loc}")
+                        )
                     )
-                    if not has_inspected_here:
+                    if should_inspect_here:
                         repair_nodes.append(PlanNode(
                             id=f"repair_observe_{robot_loc}",
                             goal=f"Observe room {robot_loc} to search for security_badge",
@@ -223,6 +232,7 @@ class RepairController:
                             z for z in sorted(self.adjacency_map.keys())
                             if not z.startswith("Corridor")
                             and not task_state.get_fact_value(f"room_checked_empty_{z}")
+                            and not task_state.get_fact_value(f"credential_not_found_in_{z}")
                             and not task_state.get_fact_value(f"room_items_{z}")
                             and z != "Lab_Secure" # Lab requires badge
                         ]
@@ -264,7 +274,7 @@ class RepairController:
                         else:
                             return True, "CREDENTIAL_UNAVAILABLE_IN_ACCESSIBLE_ROOMS: Checked all reachable rooms and found no security_badge.", []
 
-            elif error_code in ("BATTERY_LOW", "NOT_AT_CHARGER", "BATTERY_DEPLETED"):
+            elif constraint_type in ("BATTERY_LOW", "NOT_AT_CHARGER", "BATTERY_DEPLETED"):
                 # Recharge repair
                 if robot_loc != task_state.charger_location:
                     nav_path = plan.find_path(robot_loc, task_state.charger_location)
@@ -298,16 +308,46 @@ class RepairController:
         if repair_nodes:
             plan.insert_repair_nodes(
                 repair_nodes,
-                reason=f"Repaired failure on {failed_tool}: {error_code} (MemoryUsed={memory_used})",
+                reason=f"Repaired constraint [{origin}] on {tool_name}: {constraint_type} (MemoryUsed={memory_used})",
                 replace_blocked_subroute=True,
             )
             self.repair_history.append({
                 "step": task_state.step_counter,
-                "failed_tool": failed_tool,
-                "error_code": error_code,
+                "origin": origin,
+                "constraint_type": constraint_type,
+                "tool": tool_name,
                 "memory_used": memory_used,
                 "repair_nodes": [n.to_dict() for n in repair_nodes],
             })
-            return False, f"Local repair synthesized ({len(repair_nodes)} nodes inserted).", repair_nodes
+            return False, f"Local repair synthesized ({len(repair_nodes)} nodes inserted from {origin}).", repair_nodes
 
-        return False, f"No specific repair synthesized for error '{error_code}'.", []
+        return False, f"No specific repair synthesized for constraint '{constraint_type}'.", []
+
+    def handle_failure(
+        self,
+        failed_tool: str,
+        failed_params: Dict[str, Any],
+        error_code: str,
+        observation: Dict[str, Any],
+        task_state: TaskStateTracker,
+        plan: PersistentPlan,
+        repair_memory_adapter: Optional[Any] = None,
+        target_run_id: str = "target_run",
+    ) -> Tuple[bool, str, List[PlanNode]]:
+        """Legacy compatibility wrapper creating a tool_result ConstraintEvent."""
+        event = ConstraintEvent(
+            origin="tool_result",
+            constraint_type=error_code,
+            proposed_action={"tool": failed_tool, "params": failed_params},
+            affected_goal_id=getattr(plan.get_current_active_node(), "id", None),
+            observation=observation,
+            current_state_version=task_state.step_counter,
+            reason=f"Tool {failed_tool} failed with {error_code}",
+        )
+        return self.handle_constraint_event(
+            constraint_event=event,
+            task_state=task_state,
+            plan=plan,
+            repair_memory_adapter=repair_memory_adapter,
+            target_run_id=target_run_id,
+        )

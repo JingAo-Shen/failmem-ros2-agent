@@ -11,7 +11,7 @@ Tests:
   8. Repair memory applicability and ObservedFact equality correctly evaluated.
 """
 import pytest
-from research.agent_task_repair.agent.task_state import TaskStateTracker, ObligationStatus, ObservedFact
+from research.agent_task_repair.agent.task_state import TaskStateTracker, ObligationStatus, ObservedFact, ConstraintEvent
 from research.agent_task_repair.agent.plan_manager import PersistentPlan, PlanNode, PlanNodeStatus
 from research.agent_task_repair.agent.action_validator import ActionValidator, ValidationStatus
 from research.agent_task_repair.agent.repair_controller import RepairController
@@ -444,6 +444,9 @@ def test_credential_search_multi_room_closed_loop():
     plan = PersistentPlan(state)
     plan.initialize_initial_plan()
 
+    # Mark Lobby as already checked to specifically test transition from Office_A to Office_B
+    state.set_fact("room_checked_empty_Lobby", True, "evt_lobby_init", 0.0, "observe")
+
     # 1. Simulate failure at Lab_Secure
     controller = RepairController()
     abort, msg, r_nodes = controller.handle_failure(
@@ -457,13 +460,7 @@ def test_credential_search_multi_room_closed_loop():
     assert abort is False
     assert len(r_nodes) > 0
 
-    # Mark Lobby as already checked to specifically test transition from Office_A to Office_B
-    state.set_fact("room_checked_empty_Lobby", True, "evt_lobby_init", 0.0, "observe")
-
-    # 2. Observe Corridor_South (empty)
-    state.robot_location = "Corridor_South"
-    state.update_from_tool_result("observe", {"target": "Corridor_South"}, {"success": True, "observation": {"room": "Corridor_South", "items": []}}, "evt_obs_cs", 10.0)
-    plan.on_step_success("observe", {"target": "Corridor_South"}, "evt_obs_cs")
+    # 2. Next active node should lead to Office_A
 
     # 3. Next active node should lead to Office_A
     node_a = plan.get_current_active_node()
@@ -892,6 +889,267 @@ def test_regression_plan_deviation_does_not_complete_node():
     assert ok is False
     assert active.status != PlanNodeStatus.COMPLETED
     assert plan.get_current_active_node() == active
+
+
+def test_interface_1_known_door_restriction_pre_execution_repair():
+    """Test 1: Known door restriction, no badge -> pre-execution interception triggers handle_constraint_event -> repair plan inserted."""
+    validator = ActionValidator()
+    controller = RepairController(enable_observation_guard=True)
+    state = TaskStateTracker("Deliver pkg to Lab_Secure", {
+        "robot_location": "Corridor_South",
+        "battery": 100,
+        "inventory": ["pkg_1"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_1", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}]
+    })
+    state.set_fact("requires_credential(door_lab,security_badge)", True, "evt_seed_fact", 0.0, "observe")
+    state.set_fact("badge_location", "Office_A", "evt_seed_fact", 0.0, "observe")
+
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+
+    # Validator checks navigate to Lab_Secure without badge
+    v_res = validator.validate_action("navigate", {"target_zone": "Lab_Secure"}, state.get_public_state_summary(), state.observed_facts)
+    assert v_res.status == ValidationStatus.FAIL
+    assert v_res.is_schema_error is False
+    assert v_res.constraint_event is not None
+    assert v_res.constraint_event.origin == "pre_execution"
+    assert v_res.constraint_event.constraint_type == "SECURITY_BADGE_REQUIRED"
+
+    # Trigger handle_constraint_event
+    abort, msg, r_nodes = controller.handle_constraint_event(v_res.constraint_event, state, plan)
+    assert abort is False
+    assert len(r_nodes) > 0
+    # Repair sub-nodes should route to Office_A and observe
+    active = plan.get_current_active_node()
+    assert active is not None
+    assert active.is_repair_node is True
+    assert active.action_type == "navigate"
+    assert active.target in ("Corridor_North", "Office_A")
+
+
+def test_interface_2_unknown_door_restriction_tool_result_repair():
+    """Test 2: Unknown door restriction -> physical failure -> origin='tool_result' -> same repair flow."""
+    controller = RepairController(enable_observation_guard=True)
+    state = TaskStateTracker("Deliver pkg to Lab_Secure", {
+        "robot_location": "Corridor_South",
+        "battery": 100,
+        "inventory": ["pkg_1"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_1", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}]
+    })
+    state.set_fact("badge_location", "Office_A", "evt_seed_fact", 0.0, "observe")
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+
+    # Tool failure event
+    c_event = ConstraintEvent(
+        origin="tool_result",
+        constraint_type="SECURITY_BADGE_REQUIRED",
+        proposed_action={"tool": "navigate", "params": {"target_zone": "Lab_Secure"}},
+        observation={"door": "door_lab", "required_credential": "security_badge"},
+        current_state_version=1,
+        reason="Access denied: door_lab requires security_badge",
+    )
+    abort, msg, r_nodes = controller.handle_constraint_event(c_event, state, plan)
+    assert abort is False
+    assert len(r_nodes) > 0
+    active = plan.get_current_active_node()
+    assert active.is_repair_node is True
+
+
+def test_interface_3_arrival_at_candidate_badge_room_observation_obligation():
+    """Test 3: Arrival at candidate badge room -> observation obligation preserved and enforced."""
+    validator = ActionValidator()
+    state = TaskStateTracker("Deliver pkg to Lab_Secure", {
+        "robot_location": "Office_A",
+        "battery": 100,
+        "inventory": ["pkg_1"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_1", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}]
+    })
+    plan = PersistentPlan(state)
+    plan.nodes = [
+        PlanNode(
+            id="repair_observe_Office_A",
+            goal="Observe room Office_A to confirm security_badge presence",
+            action_type="observe",
+            target="Office_A",
+            params={"target": "Office_A"},
+            status=PlanNodeStatus.READY,
+            is_repair_node=True,
+        )
+    ]
+    # Agent tries to skip observe and immediately acquire or navigate
+    v_res = validator.validate_action("acquire_credential", {"credential_name": "security_badge"}, state.get_public_state_summary(), state.observed_facts, active_plan_node=plan.nodes[0])
+    assert v_res.status == ValidationStatus.FAIL
+    assert "Active observation obligation" in v_res.reason
+    assert v_res.suggested_revision == {"action": "observe", "params": {"target": "Office_A"}}
+
+
+def test_interface_4_candidate_room_empty_invalidates_acquire_continues_search():
+    """Test 4: Candidate room empty -> clears facts, invalidates acquire node, continues search."""
+    state = TaskStateTracker("Deliver pkg to Lab_Secure", {
+        "robot_location": "Office_A",
+        "battery": 100,
+        "inventory": ["pkg_1"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_1", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}]
+    })
+    state.set_fact("room_checked_empty_Lobby", True, "evt_lobby", 0.0, "observe")
+    plan = PersistentPlan(state)
+    plan.nodes = [
+        PlanNode(
+            id="repair_observe_Office_A",
+            goal="Observe room Office_A",
+            action_type="observe",
+            target="Office_A",
+            params={"target": "Office_A"},
+            status=PlanNodeStatus.READY,
+            is_repair_node=True,
+        ),
+        PlanNode(
+            id="repair_acquire_badge",
+            goal="Acquire security_badge",
+            action_type="acquire_credential",
+            target="security_badge",
+            params={"credential_name": "security_badge"},
+            status=PlanNodeStatus.PENDING,
+            is_repair_node=True,
+        ),
+    ]
+    # Tool result from observe Office_A returns empty items
+    obs_res = {"status": "SUCCESS", "success": True, "observation": {"room": "Office_A", "items": []}}
+    state.update_from_tool_result("observe", {"target": "Office_A"}, obs_res, "evt_obs_oa", 10.0)
+    plan.on_step_success("observe", {"target": "Office_A"}, "evt_obs_oa")
+
+    # Acquire node in Office_A should be INVALIDATED
+    invalidated_acq = [n for n in plan.nodes if n.action_type == "acquire_credential" and n.status == PlanNodeStatus.INVALIDATED]
+    assert len(invalidated_acq) == 1
+    # A subsequent search node to another uninspected room (e.g. Office_B) should be inserted/ready
+    active = plan.get_current_active_node()
+    assert active is not None
+    assert active.action_type in ("navigate", "observe")
+    assert "Office_B" in active.goal or active.target in ("Corridor_North", "Office_B")
+
+
+def test_interface_5_acquisition_success_restores_delivery_target_deduplicates():
+    """Test 5: Acquisition success -> restores delivery target, no duplicate acquire nodes."""
+    state = TaskStateTracker("Deliver pkg to Lab_Secure", {
+        "robot_location": "Office_A",
+        "battery": 100,
+        "inventory": ["pkg_1"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_1", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}]
+    })
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+
+    # Insert observe and acquire
+    obs_node = PlanNode(id="obs_oa", goal="Observe Office_A", action_type="observe", target="Office_A", params={"target": "Office_A"}, status=PlanNodeStatus.READY, is_repair_node=True)
+    plan.insert_repair_nodes([obs_node], reason="test_insert")
+
+    # Observe success with badge
+    obs_res = {"status": "SUCCESS", "success": True, "observation": {"room": "Office_A", "items": ["security_badge"]}}
+    state.update_from_tool_result("observe", {"target": "Office_A"}, obs_res, "evt_obs_oa", 10.0)
+    plan.on_step_success("observe", {"target": "Office_A"}, "evt_obs_oa")
+
+    # Active node is acquire
+    active = plan.get_current_active_node()
+    assert active is not None
+    assert active.action_type == "acquire_credential"
+
+    # Acquire success
+    state.credentials.add("security_badge")
+    plan.on_step_success("acquire_credential", {"credential_name": "security_badge"}, "evt_acq")
+
+    # Check no duplicate acquire nodes
+    remaining_acq = [n for n in plan.nodes if n.action_type == "acquire_credential" and n.status in (PlanNodeStatus.READY, PlanNodeStatus.PENDING)]
+    assert len(remaining_acq) == 0
+
+    # Next ready node should navigate towards Lab_Secure for delivery
+    active_after = plan.get_current_active_node()
+    assert active_after is not None
+    assert active_after.action_type in ("navigate", "deliver")
+
+
+def test_interface_6_template_invalidation_falls_back_to_online_recovery():
+    """Test 6: Template rejected or invalidated -> uses online recovery, does not abort task."""
+    store = RepairMemoryStore()
+    mem = store.propose_repair(
+        memory_id="mem_stale",
+        source_task_id="src_01",
+        failure_event={"action_name": "navigate", "target": "Lab_Secure", "error_code": "SECURITY_BADGE_REQUIRED"},
+        applicability={"target": "Lab_Secure"},
+        required_facts={"requires_credential(door_lab,security_badge)": True},
+        invalidation_conditions={"credential_not_found_in_Office_A": True},
+        expected_effects=["has_credential(security_badge)"],
+        repair_proposal=[{"action": "acquire_credential", "params": {"credential_name": "security_badge"}}],
+    )
+    traj = [
+        {"step": 1, "task_id": "src_01", "event_id": "evt_src_1", "tool": "navigate", "params": {"target_zone": "Lab_Secure"}, "result": {"success": False, "error_code": "SECURITY_BADGE_REQUIRED"}},
+        {"step": 2, "task_id": "src_01", "event_id": "evt_src_2", "tool": "acquire_credential", "params": {"credential_name": "security_badge"}, "result": {"success": True, "observation": {"credentials": ["security_badge"]}}},
+    ]
+    store.verify_and_promote("mem_stale", traj, ["has_credential(security_badge)"])
+
+    state = TaskStateTracker("Deliver pkg to Lab_Secure", {
+        "robot_location": "Corridor_South",
+        "battery": 100,
+        "inventory": ["pkg_1"],
+        "credentials": [],
+        "available_packages": [{"id": "pkg_1", "pickup_location": "Lobby", "target_room": "Lab_Secure", "recipient": "Bob"}]
+    })
+    # State has fact that invalidates the memory
+    state.set_fact("requires_credential(door_lab,security_badge)", True, "evt_1", 0.0, "observe")
+    state.set_fact("credential_not_found_in_Office_A", True, "evt_2", 0.0, "observe")
+    state.set_fact("room_checked_empty_Lobby", True, "evt_3", 0.0, "observe")
+    store.update_with_observation(state.observed_facts)
+    assert mem.lifecycle_state == MemoryLifecycleState.INVALIDATED
+
+    plan = PersistentPlan(state)
+    plan.initialize_initial_plan()
+
+    controller = RepairController(enable_observation_guard=True)
+    c_event = ConstraintEvent(
+        origin="pre_execution",
+        constraint_type="SECURITY_BADGE_REQUIRED",
+        proposed_action={"tool": "navigate", "params": {"target_zone": "Lab_Secure"}},
+        affected_goal_id="node_01",
+        reason="Security badge required",
+    )
+    abort, msg, r_nodes = controller.handle_constraint_event(c_event, state, plan, repair_memory_adapter=store)
+    assert abort is False
+    assert len(r_nodes) > 0
+    # Since memory was invalidated and Office_A/Lobby are empty, online repair should search Office_B
+    assert any("Office_B" in n.goal or n.target == "Office_B" for n in r_nodes)
+
+
+def test_interface_7_repeated_constraint_zero_progress_dead_loop_abort():
+    """Test 7: Repeated constraint with zero progress -> terminates with DEAD_LOOP_ABORT."""
+    controller = RepairController(max_repeated_attempts=3)
+    state = TaskStateTracker("Test dead loop", {"robot_location": "Corridor_South"})
+    plan = PersistentPlan(state)
+
+    c_event = ConstraintEvent(
+        origin="pre_execution",
+        constraint_type="SECURITY_BADGE_REQUIRED",
+        proposed_action={"tool": "navigate", "params": {"target_zone": "Lab_Secure"}},
+        affected_goal_id="node_01",
+        reason="Security badge required",
+    )
+
+    # Attempt 1
+    abort1, msg1, _ = controller.handle_constraint_event(c_event, state, plan)
+    assert abort1 is False
+
+    # Attempt 2 (no state change)
+    abort2, msg2, _ = controller.handle_constraint_event(c_event, state, plan)
+    assert abort2 is False
+
+    # Attempt 3 (no state change -> aborts)
+    abort3, msg3, _ = controller.handle_constraint_event(c_event, state, plan)
+    assert abort3 is True
+    assert "DEAD_LOOP_ABORT" in msg3
 
 
 
