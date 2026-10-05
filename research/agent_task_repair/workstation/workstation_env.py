@@ -46,7 +46,6 @@ class WorkstationEnv:
     def reset(self) -> Dict[str, Any]:
         """Reset environment to initial state."""
         self.state = copy.deepcopy(self.initial_config)
-        # Ensure default keys if missing
         for sub, default_props in self.DEFAULT_CONFIG.items():
             if sub not in self.state:
                 self.state[sub] = copy.deepcopy(default_props)
@@ -140,12 +139,12 @@ class WorkstationEnv:
                 "status": StatusCode.SUCCESS,
                 "subsystem": subsystem,
                 "isolated": True,
+                "effects": {"isolated": True, "pressure_bar" if subsystem == "pneumatic_line" else "voltage_v": 0.0},
                 "message": f"Safety isolation ENGAGED on '{subsystem}'. Energy discharged to zero.",
             }
         else:  # release
             self.state[subsystem]["isolated"] = False
             if subsystem == "pneumatic_line":
-                # Restore pressure depending on fault state
                 if self.state[subsystem]["status"] == "nominal":
                     self.state[subsystem]["pressure_bar"] = 5.0
                 elif self.state[subsystem]["status"] == "overpressure_fault":
@@ -158,6 +157,7 @@ class WorkstationEnv:
                 "status": StatusCode.SUCCESS,
                 "subsystem": subsystem,
                 "isolated": False,
+                "effects": {"isolated": False, "pressure_bar" if subsystem == "pneumatic_line" else "voltage_v": self.state[subsystem].get("pressure_bar" if subsystem == "pneumatic_line" else "voltage_v")},
                 "message": f"Safety isolation RELEASED on '{subsystem}'. Line re-energized.",
             }
 
@@ -217,15 +217,19 @@ class WorkstationEnv:
         old_status = self.state[subsystem].get("status")
         self.state[subsystem]["status"] = "nominal"
 
+        effects: Dict[str, Any] = {"status": "nominal"}
+
         # Side effect on load
         if subsystem == "arm_gripper" and self.state["arm_gripper"].get("holding_load", False):
             self.state["arm_gripper"]["holding_load"] = False
+            effects["holding_load"] = False
 
         # Invalidation trigger: Clearing hardware faults on arm_gripper or pneumatic_line
         # physically shifts mechanisms, invalidating existing sensor calibration and self_test!
         if subsystem in ["arm_gripper", "pneumatic_line"]:
             if self.state["camera_sensor"].get("calibrated", False):
                 self.state["camera_sensor"]["calibrated"] = False
+                effects["camera_sensor_calibrated_invalidated"] = False
                 inv = {
                     "trigger_action": f"clear_fault({subsystem})",
                     "invalidated_target": "camera_sensor.calibrated",
@@ -240,7 +244,8 @@ class WorkstationEnv:
             "subsystem": subsystem,
             "previous_status": old_status,
             "current_status": "nominal",
-            "message": f"Fault on '{subsystem}' successfully cleared.",
+            "effects": effects,
+            "message": f"Fault on '{subsystem}' successfully cleared." + (" Workpiece load safely released." if effects.get("holding_load") is False else ""),
         }
         self._record_step("clear_fault", {"subsystem": subsystem}, res)
         return res
@@ -267,6 +272,8 @@ class WorkstationEnv:
             self._record_step("reset", {"subsystem": subsystem}, res)
             return res
 
+        effects: Dict[str, Any] = {"reset": True}
+
         if subsystem == "pneumatic_line":
             if self.state["pneumatic_line"].get("isolated", False):
                 res = {
@@ -276,6 +283,7 @@ class WorkstationEnv:
                 self._record_step("reset", {"subsystem": subsystem}, res)
                 return res
             self.state["pneumatic_line"]["pressure_bar"] = 5.0
+            effects["pressure_bar"] = 5.0
 
         elif subsystem == "power_unit":
             if self.state["power_unit"].get("isolated", False):
@@ -286,6 +294,7 @@ class WorkstationEnv:
                 self._record_step("reset", {"subsystem": subsystem}, res)
                 return res
             self.state["power_unit"]["voltage_v"] = 24.0
+            effects["voltage_v"] = 24.0
 
         elif subsystem == "arm_gripper":
             if self.state["power_unit"].get("status") != "nominal" or self.state["power_unit"].get("isolated", False):
@@ -306,6 +315,7 @@ class WorkstationEnv:
             # Invalidation trigger: Arm homing invalidates camera alignment calibration!
             if self.state["camera_sensor"].get("calibrated", False):
                 self.state["camera_sensor"]["calibrated"] = False
+                effects["camera_sensor_calibrated_invalidated"] = False
                 inv = {
                     "trigger_action": "reset(arm_gripper)",
                     "invalidated_target": "camera_sensor.calibrated",
@@ -317,6 +327,7 @@ class WorkstationEnv:
         res = {
             "status": StatusCode.SUCCESS,
             "subsystem": subsystem,
+            "effects": effects,
             "message": f"Subsystem '{subsystem}' successfully reset to home/operating state.",
         }
         self._record_step("reset", {"subsystem": subsystem}, res)
@@ -358,13 +369,16 @@ class WorkstationEnv:
             return res
 
         self.state[subsystem]["calibrated"] = True
+        effects: Dict[str, Any] = {"calibrated": True}
         if subsystem == "camera_sensor":
             self.state["camera_sensor"]["drift_offset_mm"] = 0.0
+            effects["drift_offset_mm"] = 0.0
 
         res = {
             "status": StatusCode.SUCCESS,
             "subsystem": subsystem,
             "calibrated": True,
+            "effects": effects,
             "message": f"Calibration of '{subsystem}' completed successfully.",
         }
         self._record_step("calibrate", {"subsystem": subsystem}, res)
@@ -413,6 +427,7 @@ class WorkstationEnv:
                 "status": StatusCode.SYSTEM_NOT_READY,
                 "passed": False,
                 "unmet_conditions": errors,
+                "effects": {"self_test_passed": False},
                 "message": f"Workstation self-test FAILED ({len(errors)} unmet condition(s)).",
             }
         else:
@@ -420,6 +435,7 @@ class WorkstationEnv:
             res = {
                 "status": StatusCode.SUCCESS,
                 "passed": True,
+                "effects": {"self_test_passed": True},
                 "message": "All 5 subsystems passed self-test. Ready for resumption.",
             }
 
@@ -447,6 +463,7 @@ class WorkstationEnv:
         res = {
             "status": StatusCode.SUCCESS,
             "resumed": True,
+            "effects": {"resumed": True},
             "message": "Workstation production RESUMED successfully. Task objective achieved.",
         }
         self._record_step("resume", {"target": target}, res)

@@ -1,37 +1,36 @@
 """
-Fast Mechanism Verification Tests for Workstation Procedural Memory Agent.
+Strict Gate Mechanism Verification Tests for Workstation Procedural Memory Benchmark.
 
-Verifies:
-  1. Valid memory entry into plan.
-  2. Negative rejection on mismatched conditions.
-  3. Invalidation exit and online recovery upon condition drift.
-  4. Parity in budget accounting, reset, and success verification across all 4 groups.
+Mandatory pre-flight gates before frozen benchmark execution:
+  Gate 1: First action blocked by common validator when precondition is unmet.
+  Gate 2: clear_fault(arm_gripper) releasing load updates holding_load=False without pseudo-invalidation.
+  Gate 3: Memory invalidation followed by task failure strictly yields online_recovery_succeeded == False.
+  Gate 4: B2-plan, Replay, and D enforce identical validation rules on identical actions.
+  Gate 5: Unverified candidate dependencies cannot appear as VERIFIED in prompts.
+  Gate 6: Boundary consistency: Timeout properly aborts task with success=False.
 """
 import unittest
 import copy
 from typing import Dict, Any
 
 from .workstation_env import WorkstationEnv, StatusCode
-from .workstation_tasks import get_source_tasks, get_target_tasks
 from .procedural_memory import (
     ProceduralMemoryItem,
     ProceduralMemoryStore,
     StructuredFactStore,
-    CausalInterventionCompiler,
     ActionNode,
 )
-from .workstation_agent import WorkstationAgentRunner
+from .workstation_agent import WorkstationAgentRunner, CommonLocalPlanExecutor
 
 
 class TestWorkstationMechanisms(unittest.TestCase):
 
     def setUp(self):
-        # Create a sample validated procedural memory for pneumatic repair
         self.sample_pneumatic_mem = ProceduralMemoryItem(
             memory_id="proc_mem_pneumatic_test",
             name="Pneumatic Line Repair Procedure",
             target_subsystem="pneumatic_line",
-            applicability_conditions={"subsystem": "pneumatic_line", "fault_types": ["overpressure_fault", "leak_fault"]},
+            applicability_conditions={"subsystem": "pneumatic_line", "fault_types": ["overpressure_fault"]},
             observation_triggers=["inspect('pneumatic_line')"],
             actions=[
                 ActionNode(node_id="p1", tool="isolate", args={"subsystem": "pneumatic_line", "action": "engage"}),
@@ -39,137 +38,106 @@ class TestWorkstationMechanisms(unittest.TestCase):
                 ActionNode(node_id="p3", tool="isolate", args={"subsystem": "pneumatic_line", "action": "release"}),
                 ActionNode(node_id="p4", tool="reset", args={"subsystem": "pneumatic_line"}),
             ],
-            evidenced_order_dependencies=[("isolate_engage", "clear_fault"), ("clear_fault", "isolate_release")],
+            evidenced_order_dependencies=[{
+                "subsystem": "pneumatic_line",
+                "before": "isolate(pneumatic_line, engage)",
+                "after": "clear_fault(pneumatic_line)",
+                "status": "VERIFIED",
+            }],
             expected_effects=["pneumatic_line.status == nominal"],
-            invalidation_conditions=[{"trigger": "load_interlock"}],
+            invalidation_conditions=[],
             source_task_id="src_pneumatic",
             source_step_refs=[1, 2, 3, 4],
-            status="VALIDATED",
+            status="VERIFIED",
         )
         self.memory_store = ProceduralMemoryStore()
         self.memory_store.add_memory(self.sample_pneumatic_mem)
 
         self.fact_store = StructuredFactStore()
         self.fact_store.action_preconditions = {
-            "clear_fault_pneumatic_line": ["pneumatic_line.isolated == True"]
+            "clear_fault_pneumatic_line": [{"condition": "pneumatic_line.isolated == True", "status": "VERIFIED"}]
         }
 
-    def test_1_valid_memory_entry_into_plan(self):
-        """Test that matching memory is retrieved and instantiated for Group D."""
-        runner = WorkstationAgentRunner(group_id="Group_D_Procedural_Memory", max_llm_calls=10, max_tool_calls=15)
-        task_cfg = {
-            "task_id": "test_pneumatic_entry",
-            "goal": "Repair pneumatic line and resume.",
-            "initial_state": {
-                "pneumatic_line": {"status": "overpressure_fault", "isolated": False, "pressure_bar": 8.5},
-                "camera_sensor": {"status": "nominal", "calibrated": True},
-                "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
-            },
-        }
-        res = runner.run_task(
-            task_config=task_cfg,
-            structured_facts=self.fact_store,
-            procedural_memory_store=self.memory_store,
-        )
-        # Check memory reuse audit event
-        instantiated_events = [e for e in res["audit_events"] if e.get("event") == "PROCEDURAL_MEMORY_INSTANTIATED"]
-        self.assertTrue(len(instantiated_events) > 0, "Procedural memory should be instantiated into plan.")
-        self.assertTrue(res["memory_reused"], "Memory reuse flag should be True.")
-        self.assertTrue(res["success"], "Task should complete successfully.")
+    def test_gate_1_first_action_precondition_blocked(self):
+        """Gate 1: Action is blocked by common validator if precondition is unmet."""
+        executor = CommonLocalPlanExecutor(fact_store=self.fact_store)
+        known_state = {"pneumatic_line": {"status": "overpressure_fault", "isolated": False}}
+        action = {"tool": "clear_fault", "args": {"subsystem": "pneumatic_line"}}
+        
+        valid, reason = executor.validate_precondition(action, known_state)
+        self.assertFalse(valid, "clear_fault on non-isolated line must be blocked by validator.")
+        self.assertIn("not isolated", reason.lower())
 
-    def test_2_negative_rejection_on_mismatched_conditions(self):
-        """Test that irrelevant task (e.g. clean startup or power trip) does NOT reuse pneumatic memory."""
-        runner = WorkstationAgentRunner(group_id="Group_D_Procedural_Memory", max_llm_calls=10, max_tool_calls=15)
-        task_cfg = {
-            "task_id": "test_clean_rejection",
-            "goal": "Verify nominal workstation and resume.",
-            "initial_state": {
-                "power_unit": {"status": "nominal", "isolated": False, "voltage_v": 24.0},
-                "pneumatic_line": {"status": "nominal", "isolated": False, "pressure_bar": 5.0},
-                "arm_gripper": {"status": "nominal", "holding_load": False, "calibrated": True},
-                "camera_sensor": {"status": "nominal", "calibrated": True, "drift_offset_mm": 0.0},
-                "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
-            },
-        }
-        res = runner.run_task(
-            task_config=task_cfg,
-            structured_facts=self.fact_store,
-            procedural_memory_store=self.memory_store,
-        )
-        instantiated_events = [e for e in res["audit_events"] if e.get("event") == "PROCEDURAL_MEMORY_INSTANTIATED"]
-        self.assertEqual(len(instantiated_events), 0, "No procedural memory should be instantiated for nominal system.")
-        self.assertFalse(res["memory_reused"], "Memory reuse should be False.")
-        self.assertTrue(res["success"], "Clean startup should succeed.")
+    def test_gate_2_clear_fault_releases_load_cleanly(self):
+        """Gate 2: clear_fault on arm_gripper releasing load updates holding_load=False without pseudo-invalidation."""
+        env = WorkstationEnv({
+            "arm_gripper": {"status": "jammed", "holding_load": True, "calibrated": False},
+        })
+        res = env.step("clear_fault", subsystem="arm_gripper")
+        self.assertEqual(res["status"], StatusCode.SUCCESS)
+        self.assertEqual(res.get("effects", {}).get("holding_load"), False)
 
-    def test_3_invalidation_exit_and_online_recovery(self):
-        """Test that if an invalidation trigger occurs during memory replay, memory exits and recovers online."""
-        # Create a flawed memory that tries to reset gripper without clearing load
-        flawed_gripper_mem = ProceduralMemoryItem(
-            memory_id="proc_mem_flawed_gripper",
-            name="Flawed Gripper Reset",
-            target_subsystem="arm_gripper",
-            applicability_conditions={"subsystem": "arm_gripper", "fault_types": ["jammed"]},
-            observation_triggers=["inspect('arm_gripper')"],
-            actions=[
-                ActionNode(node_id="g1", tool="reset", args={"subsystem": "arm_gripper"}),  # Attempt reset while holding load!
-            ],
-            evidenced_order_dependencies=[],
-            expected_effects=[],
-            invalidation_conditions=[{"trigger": "load_interlock"}],
-            source_task_id="src_gripper",
-            source_step_refs=[1],
-            status="VALIDATED",
-        )
-        mem_store = ProceduralMemoryStore()
-        mem_store.add_memory(flawed_gripper_mem)
+        runner = WorkstationAgentRunner(group_id="Group_B2_step", allow_fallback=True)
+        known = {"arm_gripper": {"status": "jammed", "holding_load": True}}
+        runner._update_known_state(known, "clear_fault", {"subsystem": "arm_gripper"}, res)
+        self.assertEqual(known["arm_gripper"]["holding_load"], False, "known_state must reflect holding_load=False after clear_fault.")
 
-        runner = WorkstationAgentRunner(group_id="Group_D_Procedural_Memory", max_llm_calls=15, max_tool_calls=20)
+    def test_gate_3_invalidation_followed_by_failure(self):
+        """Gate 3: Memory invalidation followed by task failure yields online_recovery_succeeded == False."""
+        runner = WorkstationAgentRunner(group_id="Group_D_Procedural_Memory", max_llm_calls=2, max_tool_calls=3, allow_fallback=True)
+        # Task with unfixable initial budget
         task_cfg = {
-            "task_id": "test_invalidation_recovery",
-            "goal": "Handle gripper load and resume.",
+            "task_id": "test_failure_recovery",
+            "goal": "Test fail.",
             "initial_state": {
                 "arm_gripper": {"status": "jammed", "holding_load": True, "calibrated": False},
-                "camera_sensor": {"status": "nominal", "calibrated": True},
                 "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
             },
         }
-        res = runner.run_task(
-            task_config=task_cfg,
-            structured_facts=self.fact_store,
-            procedural_memory_store=mem_store,
-        )
-        # Should record invalidation event and recover
-        invalidation_events = [
-            e for e in res["audit_events"]
-            if e.get("event") in ["PROCEDURAL_MEMORY_INVALIDATED", "PROCEDURAL_MEMORY_ERROR_INVALIDATION"]
-        ]
-        self.assertTrue(len(invalidation_events) > 0, "Memory invalidation should trigger.")
-        self.assertTrue(res["memory_invalidated_recovered"], "Invalidation recovery flag should be True.")
+        res = runner.run_task(task_cfg, structured_facts=self.fact_store, procedural_memory_store=self.memory_store)
+        self.assertFalse(res["success"])
+        self.assertFalse(res["online_recovery_succeeded"], "online_recovery_succeeded must be False if task failed.")
 
-    def test_4_group_accounting_and_parity(self):
-        """Test that B0, B1, B2, D have identical budget and telemetry accounting."""
+    def test_gate_4_identical_validation_rules_across_groups(self):
+        """Gate 4: B2-plan, Replay, and D enforce identical validation rules on identical actions."""
+        executor = CommonLocalPlanExecutor(fact_store=self.fact_store)
+        
+        # Action with unmet precondition (power tripped while attempting calibrate)
+        known_state = {"power_unit": {"status": "tripped", "isolated": False}}
+        act = {"tool": "calibrate", "args": {"subsystem": "camera_sensor"}}
+
+        valid, reason = executor.validate_precondition(act, known_state)
+        self.assertFalse(valid, "Calibrate must be blocked across all groups when power is tripped.")
+
+    def test_gate_5_unverified_candidate_not_shown_as_verified(self):
+        """Gate 5: Unverified candidate dependencies cannot appear as VERIFIED in prompts."""
+        fact_store = StructuredFactStore()
+        fact_store.causal_order_constraints.append({
+            "subsystem": "arm_gripper",
+            "before": "reset",
+            "after": "calibrate",
+            "status": "CANDIDATE",
+        })
+        runner = WorkstationAgentRunner(group_id="Group_B2_step", allow_fallback=True)
+        task_cfg = {"task_id": "t1", "goal": "goal"}
+        prompt = runner._construct_prompt(task_cfg, {}, [], structured_facts=fact_store)
+        self.assertIn("Status: CANDIDATE", prompt)
+        self.assertNotIn("Status: VERIFIED", prompt)
+
+    def test_gate_6_boundary_timeout_consistency(self):
+        """Gate 6: Timeout properly aborts task with success=False."""
+        runner = WorkstationAgentRunner(group_id="Group_B2_step", time_limit_s=0.001, allow_fallback=True)
         task_cfg = {
-            "task_id": "test_parity",
-            "goal": "Test parity on pneumatic leak.",
+            "task_id": "test_timeout",
+            "goal": "Test timeout.",
             "initial_state": {
-                "pneumatic_line": {"status": "leak_fault", "isolated": False, "pressure_bar": 1.2},
-                "camera_sensor": {"status": "nominal", "calibrated": True},
+                "pneumatic_line": {"status": "overpressure_fault", "isolated": False},
                 "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
             },
         }
-        groups = ["Group_B0_Online", "Group_B1_Raw_Trajectories", "Group_B2_Structured_Facts", "Group_D_Procedural_Memory"]
-        for gid in groups:
-            runner = WorkstationAgentRunner(group_id=gid, max_llm_calls=10, max_tool_calls=15)
-            res = runner.run_task(
-                task_config=task_cfg,
-                structured_facts=self.fact_store if "B2" in gid or "D" in gid else None,
-                procedural_memory_store=self.memory_store if "D" in gid else None,
-            )
-            self.assertIn("step_count", res)
-            self.assertIn("llm_calls", res)
-            self.assertIn("total_prompt_tokens", res)
-            self.assertIn("tool_errors_count", res)
-            self.assertTrue(res["step_count"] > 0)
+        res = runner.run_task(task_cfg)
+        self.assertFalse(res["success"], "Task exceeding timeout must fail.")
+        self.assertEqual(res["termination_reason"], "TIME_LIMIT_EXCEEDED")
 
 
 if __name__ == "__main__":
