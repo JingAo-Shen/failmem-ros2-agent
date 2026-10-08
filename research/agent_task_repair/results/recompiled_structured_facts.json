@@ -1,0 +1,679 @@
+{
+  "metadata": {
+    "compiler_config": {
+      "max_intervention_budget": 60
+    },
+    "total_intervention_tool_calls": 31,
+    "source_episodes_count": 4
+  },
+  "verified_transitions": [
+    {
+      "evidence_id": "src_pneumatic:att1:step3",
+      "task_id": "src_pneumatic",
+      "attempt": 1,
+      "step_id": 3,
+      "action": {
+        "tool": "isolate",
+        "args": {
+          "subsystem": "pneumatic_line",
+          "action": "engage"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "isolated": true,
+        "pressure_bar": 0.0
+      },
+      "message": "Safety isolation ENGAGED on 'pneumatic_line'. Energy discharged to zero."
+    },
+    {
+      "evidence_id": "src_pneumatic:att1:step4",
+      "task_id": "src_pneumatic",
+      "attempt": 1,
+      "step_id": 4,
+      "action": {
+        "tool": "clear_fault",
+        "args": {
+          "subsystem": "pneumatic_line"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "status": "nominal",
+        "camera_sensor_calibrated_invalidated": false
+      },
+      "message": "Fault on 'pneumatic_line' successfully cleared."
+    },
+    {
+      "evidence_id": "src_pneumatic:att1:step5",
+      "task_id": "src_pneumatic",
+      "attempt": 1,
+      "step_id": 5,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "calibrated": true,
+        "drift_offset_mm": 0.0
+      },
+      "message": "Calibration of 'camera_sensor' completed successfully."
+    },
+    {
+      "evidence_id": "src_pneumatic:att1:step7",
+      "task_id": "src_pneumatic",
+      "attempt": 1,
+      "step_id": 7,
+      "action": {
+        "tool": "isolate",
+        "args": {
+          "subsystem": "pneumatic_line",
+          "action": "release"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "isolated": false,
+        "pressure_bar": 5.0
+      },
+      "message": "Safety isolation RELEASED on 'pneumatic_line'. Line re-energized."
+    },
+    {
+      "evidence_id": "src_pneumatic:att1:step8",
+      "task_id": "src_pneumatic",
+      "attempt": 1,
+      "step_id": 8,
+      "action": {
+        "tool": "self_test",
+        "args": {
+          "target": "workstation"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "self_test_passed": true
+      },
+      "message": "All 5 subsystems passed self-test. Ready for resumption."
+    },
+    {
+      "evidence_id": "src_pneumatic:att1:step9",
+      "task_id": "src_pneumatic",
+      "attempt": 1,
+      "step_id": 9,
+      "action": {
+        "tool": "resume",
+        "args": {
+          "target": "workstation"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "resumed": true
+      },
+      "message": "Workstation production RESUMED successfully. Task objective achieved."
+    },
+    {
+      "evidence_id": "src_sensor_actuator:att1:step2",
+      "task_id": "src_sensor_actuator",
+      "attempt": 1,
+      "step_id": 2,
+      "action": {
+        "tool": "clear_fault",
+        "args": {
+          "subsystem": "arm_gripper"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "status": "nominal"
+      },
+      "message": "Fault on 'arm_gripper' successfully cleared."
+    },
+    {
+      "evidence_id": "src_sensor_actuator:att1:step3",
+      "task_id": "src_sensor_actuator",
+      "attempt": 1,
+      "step_id": 3,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "arm_gripper"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "calibrated": true
+      },
+      "message": "Calibration of 'arm_gripper' completed successfully."
+    },
+    {
+      "evidence_id": "src_sensor_actuator:att1:step5",
+      "task_id": "src_sensor_actuator",
+      "attempt": 1,
+      "step_id": 5,
+      "action": {
+        "tool": "clear_fault",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "status": "nominal"
+      },
+      "message": "Fault on 'camera_sensor' successfully cleared."
+    },
+    {
+      "evidence_id": "src_sensor_actuator:att1:step6",
+      "task_id": "src_sensor_actuator",
+      "attempt": 1,
+      "step_id": 6,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "calibrated": true,
+        "drift_offset_mm": 0.0
+      },
+      "message": "Calibration of 'camera_sensor' completed successfully."
+    },
+    {
+      "evidence_id": "src_sensor_actuator:att1:step7",
+      "task_id": "src_sensor_actuator",
+      "attempt": 1,
+      "step_id": 7,
+      "action": {
+        "tool": "self_test",
+        "args": {
+          "target": "workstation"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "self_test_passed": true
+      },
+      "message": "All 5 subsystems passed self-test. Ready for resumption."
+    },
+    {
+      "evidence_id": "src_sensor_actuator:att1:step8",
+      "task_id": "src_sensor_actuator",
+      "attempt": 1,
+      "step_id": 8,
+      "action": {
+        "tool": "resume",
+        "args": {
+          "target": "workstation"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "resumed": true
+      },
+      "message": "Workstation production RESUMED successfully. Task objective achieved."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step2",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 2,
+      "action": {
+        "tool": "isolate",
+        "args": {
+          "subsystem": "power_unit",
+          "action": "engage"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "isolated": true,
+        "voltage_v": 0.0
+      },
+      "message": "Safety isolation ENGAGED on 'power_unit'. Energy discharged to zero."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step3",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 3,
+      "action": {
+        "tool": "isolate",
+        "args": {
+          "subsystem": "power_unit",
+          "action": "release"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "isolated": false,
+        "voltage_v": 0.0
+      },
+      "message": "Safety isolation RELEASED on 'power_unit'. Line re-energized."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step4",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 4,
+      "action": {
+        "tool": "isolate",
+        "args": {
+          "subsystem": "pneumatic_line",
+          "action": "engage"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "isolated": true,
+        "pressure_bar": 0.0
+      },
+      "message": "Safety isolation ENGAGED on 'pneumatic_line'. Energy discharged to zero."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step5",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 5,
+      "action": {
+        "tool": "clear_fault",
+        "args": {
+          "subsystem": "pneumatic_line"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "status": "nominal",
+        "camera_sensor_calibrated_invalidated": false
+      },
+      "message": "Fault on 'pneumatic_line' successfully cleared."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step7",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 7,
+      "action": {
+        "tool": "reset",
+        "args": {
+          "subsystem": "power_unit"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "reset": true,
+        "voltage_v": 24.0
+      },
+      "message": "Subsystem 'power_unit' successfully reset to home/operating state."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step2",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 2,
+      "action": {
+        "tool": "isolate",
+        "args": {
+          "subsystem": "power_unit",
+          "action": "engage"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "isolated": true,
+        "voltage_v": 0.0
+      },
+      "message": "Safety isolation ENGAGED on 'power_unit'. Energy discharged to zero."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step3",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 3,
+      "action": {
+        "tool": "isolate",
+        "args": {
+          "subsystem": "power_unit",
+          "action": "release"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "isolated": false,
+        "voltage_v": 0.0
+      },
+      "message": "Safety isolation RELEASED on 'power_unit'. Line re-energized."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step4",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 4,
+      "action": {
+        "tool": "isolate",
+        "args": {
+          "subsystem": "pneumatic_line",
+          "action": "engage"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "isolated": true,
+        "pressure_bar": 0.0
+      },
+      "message": "Safety isolation ENGAGED on 'pneumatic_line'. Energy discharged to zero."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step5",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 5,
+      "action": {
+        "tool": "clear_fault",
+        "args": {
+          "subsystem": "pneumatic_line"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "status": "nominal",
+        "camera_sensor_calibrated_invalidated": false
+      },
+      "message": "Fault on 'pneumatic_line' successfully cleared."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step7",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 7,
+      "action": {
+        "tool": "reset",
+        "args": {
+          "subsystem": "power_unit"
+        }
+      },
+      "result_status": "SUCCESS",
+      "observed_effects": {
+        "reset": true,
+        "voltage_v": 24.0
+      },
+      "message": "Subsystem 'power_unit' successfully reset to home/operating state."
+    }
+  ],
+  "negative_preconditions": [
+    {
+      "evidence_id": "src_pneumatic:att1:step2",
+      "task_id": "src_pneumatic",
+      "attempt": 1,
+      "step_id": 2,
+      "action": {
+        "tool": "clear_fault",
+        "args": {
+          "subsystem": "pneumatic_line"
+        }
+      },
+      "error_status": "SAFETY_INTERLOCK_ERROR",
+      "error_message": "Safety Interlock: Cannot service pneumatic_line while pressurized! You MUST call isolate(subsystem='pneumatic_line', action='engage') first."
+    },
+    {
+      "evidence_id": "src_pneumatic:att1:step6",
+      "task_id": "src_pneumatic",
+      "attempt": 1,
+      "step_id": 6,
+      "action": {
+        "tool": "self_test",
+        "args": {
+          "target": "workstation"
+        }
+      },
+      "error_status": "SYSTEM_NOT_READY",
+      "error_message": ""
+    },
+    {
+      "evidence_id": "src_sensor_actuator:att1:step4",
+      "task_id": "src_sensor_actuator",
+      "attempt": 1,
+      "step_id": 4,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "PRECONDITION_NOT_MET",
+      "error_message": "Precondition Failed: Cannot calibrate 'camera_sensor' with active fault status 'optical_drift'. Must clear fault first."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step6",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 6,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step9",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 9,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step10",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 10,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step11",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 11,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att1:step12",
+      "task_id": "src_dual_subsystems",
+      "attempt": 1,
+      "step_id": 12,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step6",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 6,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step9",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 9,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step10",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 10,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step11",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 11,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    },
+    {
+      "evidence_id": "src_dual_subsystems:att2:step12",
+      "task_id": "src_dual_subsystems",
+      "attempt": 2,
+      "step_id": 12,
+      "action": {
+        "tool": "calibrate",
+        "args": {
+          "subsystem": "camera_sensor"
+        }
+      },
+      "error_status": "POWER_INTERLOCK_ERROR",
+      "error_message": "Power Interlock: Cannot calibrate camera_sensor when power_unit is tripped or isolated."
+    }
+  ],
+  "action_preconditions": {
+    "clear_fault_pneumatic_line": [
+      {
+        "condition": "pneumatic_line.isolated == True",
+        "status": "VERIFIED",
+        "evidence_ref": "intervention_src_pneumatic_att1_interlock_pneumatic_line"
+      }
+    ]
+  },
+  "invalidation_rules": [],
+  "causal_order_constraints": [
+    {
+      "subsystem": "pneumatic_line",
+      "before": "isolate(pneumatic_line, engage)",
+      "after": "clear_fault(pneumatic_line)",
+      "status": "VERIFIED",
+      "evidence_ref": "intervention_src_pneumatic_att1_interlock_pneumatic_line"
+    },
+    {
+      "subsystem": "pneumatic_line",
+      "before": "isolate(pneumatic_line, release)",
+      "after": "reset(pneumatic_line)",
+      "status": "VERIFIED",
+      "evidence_ref": "intervention_src_pneumatic_att1_reset_iso_pneumatic_line"
+    },
+    {
+      "subsystem": "pneumatic_line",
+      "before": "clear_fault(pneumatic_line)",
+      "after": "isolate(pneumatic_line, release)",
+      "status": "VERIFIED",
+      "evidence_ref": "intervention_src_pneumatic_att1_clear_after_release_pneumatic_line"
+    }
+  ],
+  "commutative_subsystems": [],
+  "intervention_logs": [
+    {
+      "test_id": "intervention_src_pneumatic_att1_interlock_pneumatic_line",
+      "subsystem": "pneumatic_line",
+      "action": "clear_fault",
+      "intervention": "Attempt clear_fault(pneumatic_line) without isolate(pneumatic_line, engage)",
+      "tool_status": "SAFETY_INTERLOCK_ERROR",
+      "observed_message": "Safety Interlock: Cannot service pneumatic_line while pressurized! You MUST call isolate(subsystem='pneumatic_line', action='engage') first."
+    },
+    {
+      "test_id": "intervention_src_pneumatic_att1_reset_iso_pneumatic_line",
+      "subsystem": "pneumatic_line",
+      "action": "reset",
+      "intervention": "Attempt reset(pneumatic_line) while still isolated",
+      "tool_status": "PRECONDITION_NOT_MET",
+      "observed_message": "Pneumatic line is still isolated. Release isolation before reset."
+    },
+    {
+      "test_id": "intervention_src_pneumatic_att1_clear_after_release_pneumatic_line",
+      "subsystem": "pneumatic_line",
+      "action": "clear_fault",
+      "intervention": "Attempt clear_fault(pneumatic_line) after isolate released",
+      "tool_status": "SAFETY_INTERLOCK_ERROR",
+      "observed_message": "Safety Interlock: Cannot service pneumatic_line while pressurized! You MUST call isolate(subsystem='pneumatic_line', action='engage') first."
+    },
+    {
+      "test_id": "intervention_src_pneumatic_att1_invalidation_pneumatic_line_camera",
+      "subsystem": "pneumatic_line",
+      "action": "reset(pneumatic_line)",
+      "intervention": "Inspect camera_sensor.calibrated before and after reset(pneumatic_line)",
+      "prep_succeeded": true,
+      "pre_calibration": true,
+      "post_calibration": true
+    },
+    {
+      "test_id": "intervention_src_sensor_actuator_att1_invalidation_arm_gripper_camera",
+      "subsystem": "arm_gripper",
+      "action": "reset(arm_gripper)",
+      "intervention": "Prep calibration on camera_sensor failed (cannot test invalidation)",
+      "prep_succeeded": false
+    },
+    {
+      "subsystems": [
+        "power_unit",
+        "pneumatic_line"
+      ],
+      "test_id": "commutative_test_power_pneumatics",
+      "order_1_power_then_pneumatics_passed": false,
+      "order_2_pneumatics_then_power_passed": false,
+      "status": "CANDIDATE"
+    }
+  ],
+  "total_intervention_tool_calls": 31
+}

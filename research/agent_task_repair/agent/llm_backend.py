@@ -6,10 +6,13 @@ Supports:
   - Native Thinking Mode (`enable_thinking=True` / `enable_thinking=False`)
   - Accurate telemetry: prompt/generated tokens, latency, peak VRAM, tokens/sec.
 """
+import os
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 from typing import Dict, Any, List, Optional, Tuple
 import time
 import json
 import re
+import gc
 import torch
 
 
@@ -120,15 +123,22 @@ class LLMBackend:
             self.total_generated_tokens += res["generated_tokens"]
             return res
 
+        if isinstance(messages, str):
+            chat_messages = [{"role": "user", "content": messages}]
+        elif isinstance(messages, list):
+            chat_messages = messages
+        else:
+            chat_messages = [{"role": "user", "content": str(messages)}]
+
         template_kwargs: Dict[str, Any] = {"add_generation_prompt": True, "tokenize": False}
         if self.enable_thinking is not None:
             template_kwargs["enable_thinking"] = self.enable_thinking
 
         try:
-            prompt_text = self.tokenizer.apply_chat_template(messages, **template_kwargs)
+            prompt_text = self.tokenizer.apply_chat_template(chat_messages, **template_kwargs)
         except TypeError:
             # Fallback if tokenizer does not take enable_thinking arg
-            prompt_text = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+            prompt_text = self.tokenizer.apply_chat_template(chat_messages, add_generation_prompt=True, tokenize=False)
 
         # Robust device determination
         if hasattr(self.model, "device"):
@@ -140,7 +150,7 @@ class LLMBackend:
         prompt_len = inputs.input_ids.shape[1]
 
         do_sample = self.temperature > 0.0
-        with torch.no_grad():
+        with torch.inference_mode():
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=self.max_new_tokens,
@@ -149,10 +159,15 @@ class LLMBackend:
                 pad_token_id=self.tokenizer.eos_token_id,
             )
 
-        gen_tokens = outputs[0][prompt_len:]
+        gen_tokens = outputs[0][prompt_len:].cpu()
         full_output = self.tokenizer.decode(gen_tokens, skip_special_tokens=False).strip()
         t1 = time.time()
         latency = t1 - t0
+
+        del inputs
+        del outputs
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # Separate thinking reasoning content and final JSON content
         reasoning_content = ""

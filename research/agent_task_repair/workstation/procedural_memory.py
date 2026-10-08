@@ -5,13 +5,15 @@ Data structures:
   - ProceduralMemoryItem: Conditional local repair procedure with applicability,
     observation triggers, actions with pre/post conditions, evidenced ordering,
     expected effects, invalidation triggers, and source refs.
-  - StructuredFactStore: Homologous structured history provided to B2 and D.
+  - StructuredFactStore: Homologous structured history provided to B2, B1, and D.
   - CausalInterventionCompiler: Extracts real trajectories, executes budget-bounded
     interventions using public tool calls in source environment copies, verifies true
     causal dependencies, and compiles validated procedural memories.
 """
 from typing import Dict, Any, List, Optional, Tuple, Set
 import copy
+import hashlib
+import json
 from dataclasses import dataclass, field, asdict
 from .workstation_env import WorkstationEnv, StatusCode
 
@@ -23,7 +25,7 @@ class ActionNode:
     args: Dict[str, Any]
     observed_preconditions: Dict[str, Any] = field(default_factory=dict)
     expected_postconditions: Dict[str, Any] = field(default_factory=dict)
-    source_step_id: Optional[int] = None
+    source_evidence_id: Optional[str] = None  # task_id:attempt:step_id
 
 
 @dataclass
@@ -39,6 +41,7 @@ class ProceduralMemoryItem:
     invalidation_conditions: List[Dict[str, Any]]
     source_task_id: str
     source_step_refs: List[int]
+    evidence_ids: List[str] = field(default_factory=list)
     status: str = "VERIFIED"  # VERIFIED or CANDIDATE
 
     def to_dict(self) -> Dict[str, Any]:
@@ -54,6 +57,7 @@ class ProceduralMemoryItem:
             "invalidation_conditions": copy.deepcopy(self.invalidation_conditions),
             "source_task_id": self.source_task_id,
             "source_step_refs": copy.deepcopy(self.source_step_refs),
+            "evidence_ids": copy.deepcopy(self.evidence_ids),
             "status": self.status,
         }
 
@@ -72,15 +76,17 @@ class ProceduralMemoryItem:
             invalidation_conditions=d.get("invalidation_conditions", []),
             source_task_id=d.get("source_task_id", ""),
             source_step_refs=d.get("source_step_refs", []),
+            evidence_ids=d.get("evidence_ids", []),
             status=d.get("status", "VERIFIED"),
         )
 
 
 class StructuredFactStore:
     """
-    Rich structured history repository provided to Group B2 and Group D.
+    Rich structured history repository provided to Group B2, Group B1, and Group D.
     Contains:
-      - verified_transitions: list of (source_step_id, action, observed_effects, message)
+      - verified_transitions: list of (evidence_id, action, observed_effects, message)
+      - negative_preconditions: errors / interlocks learned from failed attempts
       - action_preconditions: verified preconditions for tools with intervention evidence
       - invalidation_rules: verified side effects of operations (e.g. resets invalidating calibrations)
       - causal_order_constraints: verified orderings within subsystems with intervention evidence
@@ -90,16 +96,20 @@ class StructuredFactStore:
     """
     def __init__(self):
         self.verified_transitions: List[Dict[str, Any]] = []
+        self.negative_preconditions: List[Dict[str, Any]] = []
         self.action_preconditions: Dict[str, List[Dict[str, Any]]] = {}
         self.invalidation_rules: List[Dict[str, Any]] = []
         self.causal_order_constraints: List[Dict[str, Any]] = []
         self.commutative_subsystems: List[Dict[str, Any]] = []
         self.intervention_logs: List[Dict[str, Any]] = []
         self.total_intervention_tool_calls: int = 0
+        self.metadata: Dict[str, Any] = {}
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "metadata": copy.deepcopy(self.metadata),
             "verified_transitions": copy.deepcopy(self.verified_transitions),
+            "negative_preconditions": copy.deepcopy(self.negative_preconditions),
             "action_preconditions": copy.deepcopy(self.action_preconditions),
             "invalidation_rules": copy.deepcopy(self.invalidation_rules),
             "causal_order_constraints": copy.deepcopy(self.causal_order_constraints),
@@ -108,11 +118,16 @@ class StructuredFactStore:
             "total_intervention_tool_calls": self.total_intervention_tool_calls,
         }
 
+    def compute_hash(self) -> str:
+        s = json.dumps(self.to_dict(), sort_keys=True)
+        return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
 
 class ProceduralMemoryStore:
     """Library of validated procedural repair memories for Group D."""
     def __init__(self):
         self.memories: Dict[str, ProceduralMemoryItem] = {}
+        self.metadata: Dict[str, Any] = {}
 
     def add_memory(self, item: ProceduralMemoryItem):
         self.memories[item.memory_id] = item
@@ -134,7 +149,14 @@ class ProceduralMemoryStore:
         return matches
 
     def to_dict(self) -> Dict[str, Any]:
-        return {mid: mem.to_dict() for mid, mem in self.memories.items()}
+        return {
+            "metadata": copy.deepcopy(self.metadata),
+            "memories": {mid: mem.to_dict() for mid, mem in self.memories.items()}
+        }
+
+    def compute_hash(self) -> str:
+        s = json.dumps(self.to_dict(), sort_keys=True)
+        return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
 class CausalInterventionCompiler:
@@ -143,11 +165,11 @@ class CausalInterventionCompiler:
     Takes raw episode trajectories from Phase A source tasks, tests ordering & invalidation
     hypotheses via budget-bounded interventions in isolated environment copies using public
     inspection tools, and produces:
-      1. StructuredFactStore (for B2 & D)
+      1. StructuredFactStore (for B2, B1, and D)
       2. ProceduralMemoryStore (for D)
     """
 
-    def __init__(self, max_intervention_budget: int = 30):
+    def __init__(self, max_intervention_budget: int = 60):
         self.max_intervention_budget = max_intervention_budget
         self.intervention_tool_calls = 0
 
@@ -165,31 +187,64 @@ class CausalInterventionCompiler:
     ) -> Tuple[StructuredFactStore, ProceduralMemoryStore]:
         """
         Compile raw source trajectories into StructuredFactStore and ProceduralMemoryStore.
+        Preserves all 4 source attempts (including failed attempts) and extracts positive & negative facts.
         """
         fact_store = StructuredFactStore()
         memory_store = ProceduralMemoryStore()
 
         config_by_id = {t["task_id"]: t for t in source_task_configs}
 
+        attempt_tracker: Dict[str, int] = {}
+
         for ep in source_episodes:
             traj = ep.get("trajectory", [])
             task_id = ep.get("task_id", "")
             task_cfg = config_by_id.get(task_id, {})
+            attempt_tracker[task_id] = attempt_tracker.get(task_id, 0) + 1
+            attempt_idx = attempt_tracker[task_id]
 
-            # 1. Extract verified state transitions from real trajectory (from both successful & failed tasks)
-            transitions = self._extract_verified_transitions(traj)
-            for tr in transitions:
-                if tr not in fact_store.verified_transitions:
-                    fact_store.verified_transitions.append(tr)
+            # 1. Extract verified state transitions and negative errors with unique (task_id, attempt, step_id) IDs
+            for step in traj:
+                step_idx = step.get("step_index", 0)
+                evidence_id = f"{task_id}:att{attempt_idx}:step{step_idx}"
+                tool = step.get("tool")
+                args = step.get("args", {})
+                res = step.get("result", {})
+                is_err = step.get("is_error", False) or res.get("status") != StatusCode.SUCCESS
 
-            # Only extract validated procedural memories from successful episodes
+                if tool == "inspect":
+                    continue
+
+                if not is_err and res.get("status") == StatusCode.SUCCESS:
+                    tr = {
+                        "evidence_id": evidence_id,
+                        "task_id": task_id,
+                        "attempt": attempt_idx,
+                        "step_id": step_idx,
+                        "action": {"tool": tool, "args": copy.deepcopy(args)},
+                        "result_status": res.get("status"),
+                        "observed_effects": copy.deepcopy(res.get("effects", {})),
+                        "message": res.get("message", ""),
+                    }
+                    if tr not in fact_store.verified_transitions:
+                        fact_store.verified_transitions.append(tr)
+                else:
+                    neg_fact = {
+                        "evidence_id": evidence_id,
+                        "task_id": task_id,
+                        "attempt": attempt_idx,
+                        "step_id": step_idx,
+                        "action": {"tool": tool, "args": copy.deepcopy(args)},
+                        "error_status": res.get("status"),
+                        "error_message": res.get("error", ""),
+                    }
+                    if neg_fact not in fact_store.negative_preconditions:
+                        fact_store.negative_preconditions.append(neg_fact)
+
             if not ep.get("success", False):
                 continue
 
-            # 2. Extract observed fault symptoms
             observed_faults = self._extract_observed_faults(traj)
-
-            # 3. Extract subsystem-specific sub-sequences
             subsystem_traces = self._segment_trajectory_by_subsystem(traj)
 
             for sub, actions in subsystem_traces.items():
@@ -200,12 +255,10 @@ class CausalInterventionCompiler:
                 if not sub_fault:
                     continue
 
-                # Run causal interventions to verify true dependencies
                 order_deps, preconds, invalidations = self._test_causal_dependencies(
-                    sub, actions, task_cfg, fact_store
+                    sub, actions, task_cfg, fact_store, task_id, attempt_idx
                 )
 
-                # Record structured facts
                 for a_name, req_list in preconds.items():
                     if a_name not in fact_store.action_preconditions:
                         fact_store.action_preconditions[a_name] = []
@@ -221,41 +274,27 @@ class CausalInterventionCompiler:
                     if dep not in fact_store.causal_order_constraints:
                         fact_store.causal_order_constraints.append(dep)
 
-                # Compile ProceduralMemoryItem with evidenced fault types
                 mem_item = self._create_procedural_memory_item(
-                    sub, sub_fault, actions, order_deps, invalidations, task_id
+                    sub, sub_fault, actions, order_deps, invalidations, task_id, attempt_idx
                 )
                 memory_store.add_memory(mem_item)
 
-        # 4. Test commutative independence between distinct subsystems (if budget permits)
         commutative = self._test_commutative_subsystems(source_task_configs, fact_store)
         fact_store.commutative_subsystems = commutative
         fact_store.total_intervention_tool_calls = self.intervention_tool_calls
 
+        fact_store.metadata = {
+            "compiler_config": {"max_intervention_budget": self.max_intervention_budget},
+            "total_intervention_tool_calls": self.intervention_tool_calls,
+            "source_episodes_count": len(source_episodes),
+        }
+        memory_store.metadata = {
+            "compiler_config": {"max_intervention_budget": self.max_intervention_budget},
+            "total_intervention_tool_calls": self.intervention_tool_calls,
+            "compiled_memories_count": len(memory_store.memories),
+        }
+
         return fact_store, memory_store
-
-    def _extract_verified_transitions(self, trajectory: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Extract verified state transitions (source_step_id, action, observed_effects)."""
-        transitions = []
-        for step in trajectory:
-            tool = step.get("tool")
-            args = step.get("args", {})
-            res = step.get("result", {})
-            step_idx = step.get("step_index")
-
-            if tool == "inspect":
-                continue
-
-            if res.get("status") == StatusCode.SUCCESS:
-                tr = {
-                    "source_step_id": step_idx,
-                    "action": {"tool": tool, "args": copy.deepcopy(args)},
-                    "result_status": res.get("status"),
-                    "observed_effects": copy.deepcopy(res.get("effects", {})),
-                    "message": res.get("message", ""),
-                }
-                transitions.append(tr)
-        return transitions
 
     def _extract_observed_faults(self, trajectory: List[Dict[str, Any]]) -> Dict[str, str]:
         """Extract observed initial fault status for each subsystem from inspect tool returns."""
@@ -297,6 +336,8 @@ class CausalInterventionCompiler:
         actions: List[Dict[str, Any]],
         task_cfg: Dict[str, Any],
         fact_store: StructuredFactStore,
+        task_id: str,
+        attempt_idx: int,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]], List[Dict[str, Any]]]:
         """
         Run budget-bounded interventions in isolated environment copies to verify causal dependencies.
@@ -314,8 +355,9 @@ class CausalInterventionCompiler:
             test_env = WorkstationEnv(task_cfg["initial_state"])
             res = self._step_env(test_env, "clear_fault", subsystem=subsystem)
             if res is not None:
+                test_id = f"intervention_{task_id}_att{attempt_idx}_interlock_{subsystem}"
                 inv_log = {
-                    "test_id": f"interlock_test_{subsystem}",
+                    "test_id": test_id,
                     "subsystem": subsystem,
                     "action": "clear_fault",
                     "intervention": f"Attempt clear_fault({subsystem}) without isolate({subsystem}, engage)",
@@ -325,29 +367,29 @@ class CausalInterventionCompiler:
                 fact_store.intervention_logs.append(inv_log)
 
                 if res.get("status") == StatusCode.SAFETY_INTERLOCK_ERROR:
-                    # 1. Directly evidenced: isolate(engage) must precede clear_fault
                     dep1 = {
                         "subsystem": subsystem,
                         "before": f"isolate({subsystem}, engage)",
                         "after": f"clear_fault({subsystem})",
                         "status": "VERIFIED",
-                        "evidence_ref": f"interlock_test_{subsystem}",
+                        "evidence_ref": test_id,
                     }
                     order_deps.append(dep1)
                     preconds[f"clear_fault_{subsystem}"] = [{
                         "condition": f"{subsystem}.isolated == True",
                         "status": "VERIFIED",
-                        "evidence_ref": f"interlock_test_{subsystem}",
+                        "evidence_ref": test_id,
                     }]
 
-                    # 2. Test reset while still isolated
+                    # Test 2: Test reset while still isolated
                     env_iso = WorkstationEnv(task_cfg["initial_state"])
                     self._step_env(env_iso, "isolate", subsystem=subsystem, action="engage")
                     self._step_env(env_iso, "clear_fault", subsystem=subsystem)
                     res_reset_iso = self._step_env(env_iso, "reset", subsystem=subsystem)
                     if res_reset_iso is not None:
+                        test_id_reset = f"intervention_{task_id}_att{attempt_idx}_reset_iso_{subsystem}"
                         inv_log2 = {
-                            "test_id": f"reset_isolated_test_{subsystem}",
+                            "test_id": test_id_reset,
                             "subsystem": subsystem,
                             "action": "reset",
                             "intervention": f"Attempt reset({subsystem}) while still isolated",
@@ -355,20 +397,14 @@ class CausalInterventionCompiler:
                             "observed_message": res_reset_iso.get("error", ""),
                         }
                         fact_store.intervention_logs.append(inv_log2)
-                        if res_reset_iso.get("status") == StatusCode.SAFETY_INTERLOCK_ERROR:
+                        
+                        if res_reset_iso.get("status") in [StatusCode.SAFETY_INTERLOCK_ERROR, StatusCode.PRECONDITION_NOT_MET]:
                             order_deps.append({
                                 "subsystem": subsystem,
                                 "before": f"isolate({subsystem}, release)",
                                 "after": f"reset({subsystem})",
                                 "status": "VERIFIED",
-                                "evidence_ref": f"reset_isolated_test_{subsystem}",
-                            })
-                            order_deps.append({
-                                "subsystem": subsystem,
-                                "before": f"clear_fault({subsystem})",
-                                "after": f"isolate({subsystem}, release)",
-                                "status": "VERIFIED",
-                                "evidence_ref": f"reset_isolated_test_{subsystem}",
+                                "evidence_ref": test_id_reset,
                             })
                         else:
                             order_deps.append({
@@ -378,26 +414,57 @@ class CausalInterventionCompiler:
                                 "status": "CANDIDATE",
                             })
 
-        # Test 2: Invalidation test for actuator reset and sensor calibration
+                    # Test 3: Test clear_fault after release vs before release
+                    env_rel = WorkstationEnv(task_cfg["initial_state"])
+                    self._step_env(env_rel, "isolate", subsystem=subsystem, action="engage")
+                    self._step_env(env_rel, "isolate", subsystem=subsystem, action="release")
+                    res_cf_rel = self._step_env(env_rel, "clear_fault", subsystem=subsystem)
+                    if res_cf_rel is not None:
+                        test_id_cf = f"intervention_{task_id}_att{attempt_idx}_clear_after_release_{subsystem}"
+                        inv_log3 = {
+                            "test_id": test_id_cf,
+                            "subsystem": subsystem,
+                            "action": "clear_fault",
+                            "intervention": f"Attempt clear_fault({subsystem}) after isolate released",
+                            "tool_status": res_cf_rel.get("status"),
+                            "observed_message": res_cf_rel.get("error", ""),
+                        }
+                        fact_store.intervention_logs.append(inv_log3)
+                        if res_cf_rel.get("status") == StatusCode.SAFETY_INTERLOCK_ERROR:
+                            order_deps.append({
+                                "subsystem": subsystem,
+                                "before": f"clear_fault({subsystem})",
+                                "after": f"isolate({subsystem}, release)",
+                                "status": "VERIFIED",
+                                "evidence_ref": test_id_cf,
+                            })
+
+        # Test 4: Invalidation test for actuator reset and sensor calibration
         if subsystem in ["arm_gripper", "pneumatic_line"]:
             test_env = WorkstationEnv(task_cfg["initial_state"])
+            test_id_inv = f"intervention_{task_id}_att{attempt_idx}_invalidation_{subsystem}_camera"
+            
             # Step 1: Calibrate camera
             r_cal = self._step_env(test_env, "calibrate", subsystem="camera_sensor")
-            # Step 2: Public inspection of camera
+            # Step 2: Public inspection of camera to check if prep succeeded
             insp_pre = self._step_env(test_env, "inspect", subsystem="camera_sensor")
             cal_pre = insp_pre.get("data", {}).get("calibrated", False) if insp_pre else False
-            # Step 3: Reset actuator
-            r_reset = self._step_env(test_env, "reset", subsystem=subsystem)
-            # Step 4: Public inspection after reset
-            insp_post = self._step_env(test_env, "inspect", subsystem="camera_sensor")
-            cal_post = insp_post.get("data", {}).get("calibrated", False) if insp_post else False
+            
+            prep_succeeded = (r_cal is not None and r_cal.get("status") == StatusCode.SUCCESS and cal_pre is True)
 
-            if insp_pre is not None and insp_post is not None:
+            if prep_succeeded:
+                # Step 3: Reset actuator
+                r_reset = self._step_env(test_env, "reset", subsystem=subsystem)
+                # Step 4: Public inspection after reset
+                insp_post = self._step_env(test_env, "inspect", subsystem="camera_sensor")
+                cal_post = insp_post.get("data", {}).get("calibrated", False) if insp_post else False
+
                 inv_log = {
-                    "test_id": f"invalidation_test_{subsystem}_camera",
+                    "test_id": test_id_inv,
                     "subsystem": subsystem,
                     "action": f"reset({subsystem})",
                     "intervention": f"Inspect camera_sensor.calibrated before and after reset({subsystem})",
+                    "prep_succeeded": prep_succeeded,
                     "pre_calibration": cal_pre,
                     "post_calibration": cal_post,
                 }
@@ -409,7 +476,7 @@ class CausalInterventionCompiler:
                         "invalidated_state": "camera_sensor.calibrated = False",
                         "reason": f"Physical motion of {subsystem} alters optical alignment.",
                         "status": "VERIFIED",
-                        "evidence_ref": f"invalidation_test_{subsystem}_camera",
+                        "evidence_ref": test_id_inv,
                     }
                     invalidations.append(inv_rule)
                     order_deps.append({
@@ -417,8 +484,17 @@ class CausalInterventionCompiler:
                         "before": f"reset({subsystem})",
                         "after": "calibrate(camera_sensor)",
                         "status": "VERIFIED",
-                        "evidence_ref": f"invalidation_test_{subsystem}_camera",
+                        "evidence_ref": test_id_inv,
                     })
+            else:
+                inv_log = {
+                    "test_id": test_id_inv,
+                    "subsystem": subsystem,
+                    "action": f"reset({subsystem})",
+                    "intervention": f"Prep calibration on camera_sensor failed (cannot test invalidation)",
+                    "prep_succeeded": False,
+                }
+                fact_store.intervention_logs.append(inv_log)
 
         return order_deps, preconds, invalidations
 
@@ -477,13 +553,17 @@ class CausalInterventionCompiler:
         order_deps: List[Dict[str, Any]],
         invalidations: List[Dict[str, Any]],
         source_task_id: str,
+        attempt_idx: int,
     ) -> ProceduralMemoryItem:
         """Create structured ProceduralMemoryItem from verified actions and real observed fault."""
         action_nodes = []
         step_refs = []
+        evidence_ids = []
         for idx, step in enumerate(actions):
             s_idx = step.get("step_index", idx + 1)
             step_refs.append(s_idx)
+            e_id = f"{source_task_id}:att{attempt_idx}:step{s_idx}"
+            evidence_ids.append(e_id)
             tool = step.get("tool", "")
             args = step.get("args", {})
             effects = step.get("result", {}).get("effects", {})
@@ -493,7 +573,7 @@ class CausalInterventionCompiler:
                 args=copy.deepcopy(args),
                 observed_preconditions={"subsystem": subsystem},
                 expected_postconditions=copy.deepcopy(effects),
-                source_step_id=s_idx,
+                source_evidence_id=e_id,
             ))
 
         return ProceduralMemoryItem(
@@ -502,7 +582,7 @@ class CausalInterventionCompiler:
             target_subsystem=subsystem,
             applicability_conditions={
                 "subsystem": subsystem,
-                "fault_types": [observed_fault],  # Strictly evidenced from real source run!
+                "fault_types": [observed_fault],
             },
             observation_triggers=[f"inspect({subsystem})"],
             actions=action_nodes,
@@ -511,5 +591,6 @@ class CausalInterventionCompiler:
             invalidation_conditions=invalidations,
             source_task_id=source_task_id,
             source_step_refs=step_refs,
+            evidence_ids=evidence_ids,
             status="VERIFIED",
         )

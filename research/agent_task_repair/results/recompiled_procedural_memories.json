@@ -1,0 +1,235 @@
+{
+  "metadata": {
+    "compiler_config": {
+      "max_intervention_budget": 60
+    },
+    "total_intervention_tool_calls": 31,
+    "compiled_memories_count": 3
+  },
+  "memories": {
+    "proc_mem_pneumatic_line_src_pneumatic": {
+      "memory_id": "proc_mem_pneumatic_line_src_pneumatic",
+      "name": "Procedural Repair: pneumatic_line (overpressure_fault)",
+      "target_subsystem": "pneumatic_line",
+      "applicability_conditions": {
+        "subsystem": "pneumatic_line",
+        "fault_types": [
+          "overpressure_fault"
+        ]
+      },
+      "observation_triggers": [
+        "inspect(pneumatic_line)"
+      ],
+      "actions": [
+        {
+          "node_id": "pneumatic_line_step_1_isolate",
+          "tool": "isolate",
+          "args": {
+            "subsystem": "pneumatic_line",
+            "action": "engage"
+          },
+          "observed_preconditions": {
+            "subsystem": "pneumatic_line"
+          },
+          "expected_postconditions": {
+            "isolated": true,
+            "pressure_bar": 0.0
+          },
+          "source_evidence_id": "src_pneumatic:att1:step3"
+        },
+        {
+          "node_id": "pneumatic_line_step_2_clear_fault",
+          "tool": "clear_fault",
+          "args": {
+            "subsystem": "pneumatic_line"
+          },
+          "observed_preconditions": {
+            "subsystem": "pneumatic_line"
+          },
+          "expected_postconditions": {
+            "status": "nominal",
+            "camera_sensor_calibrated_invalidated": false
+          },
+          "source_evidence_id": "src_pneumatic:att1:step4"
+        },
+        {
+          "node_id": "pneumatic_line_step_3_isolate",
+          "tool": "isolate",
+          "args": {
+            "subsystem": "pneumatic_line",
+            "action": "release"
+          },
+          "observed_preconditions": {
+            "subsystem": "pneumatic_line"
+          },
+          "expected_postconditions": {
+            "isolated": false,
+            "pressure_bar": 5.0
+          },
+          "source_evidence_id": "src_pneumatic:att1:step7"
+        }
+      ],
+      "evidenced_order_dependencies": [
+        {
+          "subsystem": "pneumatic_line",
+          "before": "isolate(pneumatic_line, engage)",
+          "after": "clear_fault(pneumatic_line)",
+          "status": "VERIFIED",
+          "evidence_ref": "intervention_src_pneumatic_att1_interlock_pneumatic_line"
+        },
+        {
+          "subsystem": "pneumatic_line",
+          "before": "isolate(pneumatic_line, release)",
+          "after": "reset(pneumatic_line)",
+          "status": "VERIFIED",
+          "evidence_ref": "intervention_src_pneumatic_att1_reset_iso_pneumatic_line"
+        },
+        {
+          "subsystem": "pneumatic_line",
+          "before": "clear_fault(pneumatic_line)",
+          "after": "isolate(pneumatic_line, release)",
+          "status": "VERIFIED",
+          "evidence_ref": "intervention_src_pneumatic_att1_clear_after_release_pneumatic_line"
+        }
+      ],
+      "expected_effects": [
+        "pneumatic_line.status == nominal",
+        "pneumatic_line.isolated == False"
+      ],
+      "invalidation_conditions": [],
+      "source_task_id": "src_pneumatic",
+      "source_step_refs": [
+        3,
+        4,
+        7
+      ],
+      "evidence_ids": [
+        "src_pneumatic:att1:step3",
+        "src_pneumatic:att1:step4",
+        "src_pneumatic:att1:step7"
+      ],
+      "status": "VERIFIED"
+    },
+    "proc_mem_arm_gripper_src_sensor_actuator": {
+      "memory_id": "proc_mem_arm_gripper_src_sensor_actuator",
+      "name": "Procedural Repair: arm_gripper (jammed)",
+      "target_subsystem": "arm_gripper",
+      "applicability_conditions": {
+        "subsystem": "arm_gripper",
+        "fault_types": [
+          "jammed"
+        ]
+      },
+      "observation_triggers": [
+        "inspect(arm_gripper)"
+      ],
+      "actions": [
+        {
+          "node_id": "arm_gripper_step_1_clear_fault",
+          "tool": "clear_fault",
+          "args": {
+            "subsystem": "arm_gripper"
+          },
+          "observed_preconditions": {
+            "subsystem": "arm_gripper"
+          },
+          "expected_postconditions": {
+            "status": "nominal"
+          },
+          "source_evidence_id": "src_sensor_actuator:att1:step2"
+        },
+        {
+          "node_id": "arm_gripper_step_2_calibrate",
+          "tool": "calibrate",
+          "args": {
+            "subsystem": "arm_gripper"
+          },
+          "observed_preconditions": {
+            "subsystem": "arm_gripper"
+          },
+          "expected_postconditions": {
+            "calibrated": true
+          },
+          "source_evidence_id": "src_sensor_actuator:att1:step3"
+        }
+      ],
+      "evidenced_order_dependencies": [],
+      "expected_effects": [
+        "arm_gripper.status == nominal",
+        "arm_gripper.isolated == False"
+      ],
+      "invalidation_conditions": [],
+      "source_task_id": "src_sensor_actuator",
+      "source_step_refs": [
+        2,
+        3
+      ],
+      "evidence_ids": [
+        "src_sensor_actuator:att1:step2",
+        "src_sensor_actuator:att1:step3"
+      ],
+      "status": "VERIFIED"
+    },
+    "proc_mem_camera_sensor_src_sensor_actuator": {
+      "memory_id": "proc_mem_camera_sensor_src_sensor_actuator",
+      "name": "Procedural Repair: camera_sensor (optical_drift)",
+      "target_subsystem": "camera_sensor",
+      "applicability_conditions": {
+        "subsystem": "camera_sensor",
+        "fault_types": [
+          "optical_drift"
+        ]
+      },
+      "observation_triggers": [
+        "inspect(camera_sensor)"
+      ],
+      "actions": [
+        {
+          "node_id": "camera_sensor_step_1_clear_fault",
+          "tool": "clear_fault",
+          "args": {
+            "subsystem": "camera_sensor"
+          },
+          "observed_preconditions": {
+            "subsystem": "camera_sensor"
+          },
+          "expected_postconditions": {
+            "status": "nominal"
+          },
+          "source_evidence_id": "src_sensor_actuator:att1:step5"
+        },
+        {
+          "node_id": "camera_sensor_step_2_calibrate",
+          "tool": "calibrate",
+          "args": {
+            "subsystem": "camera_sensor"
+          },
+          "observed_preconditions": {
+            "subsystem": "camera_sensor"
+          },
+          "expected_postconditions": {
+            "calibrated": true,
+            "drift_offset_mm": 0.0
+          },
+          "source_evidence_id": "src_sensor_actuator:att1:step6"
+        }
+      ],
+      "evidenced_order_dependencies": [],
+      "expected_effects": [
+        "camera_sensor.status == nominal",
+        "camera_sensor.isolated == False"
+      ],
+      "invalidation_conditions": [],
+      "source_task_id": "src_sensor_actuator",
+      "source_step_refs": [
+        5,
+        6
+      ],
+      "evidence_ids": [
+        "src_sensor_actuator:att1:step5",
+        "src_sensor_actuator:att1:step6"
+      ],
+      "status": "VERIFIED"
+    }
+  }
+}

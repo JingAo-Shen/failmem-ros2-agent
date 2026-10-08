@@ -1,0 +1,171 @@
+{
+  "benchmark_name": "Workstation Multi-Fault Heldout Evaluation Benchmark",
+  "total_instances": 24,
+  "manifest_sha256": "6a58f6ceef113ab7e4f9e65f3dc5ceb173d8d4073886b250a71f8f38e528ee74",
+  "category_distribution": {
+    "Cat1_seen_mechanism_new_state": 6,
+    "Cat2_new_fault_combinations": 6,
+    "Cat3_cross_subsystem_dependencies": 6,
+    "Cat4_irrelevant_or_partial": 6
+  },
+  "template_distribution": {
+    "cat1_tpl1_pneumatic_overpressure": 2,
+    "cat1_tpl2_gripper_misalignment": 2,
+    "cat1_tpl3_sensor_drift": 2,
+    "cat2_tpl1_pneumatics_and_gripper": 2,
+    "cat2_tpl2_power_and_pneumatic": 2,
+    "cat2_tpl3_triple_actuator_sensor": 2,
+    "cat3_tpl1_power_interlock_cascade": 2,
+    "cat3_tpl2_double_interlock_load_power": 2,
+    "cat3_tpl3_multistage_interlock": 2,
+    "cat4_tpl1_controller_maintenance": 2,
+    "cat4_tpl2_isolated_sensor_drift": 2,
+    "cat4_tpl3_nominal_startup": 2
+  },
+  "task_manifest": [
+    {
+      "task_id": "heldout_cat1_tpl1_inst1_pneu_high",
+      "category": "Cat1_seen_mechanism_new_state",
+      "template_id": "cat1_tpl1_pneumatic_overpressure",
+      "name": "Heldout 1.1A: Pneumatic Pressure Spike (7.8 bar)"
+    },
+    {
+      "task_id": "heldout_cat1_tpl1_inst2_pneu_extreme",
+      "category": "Cat1_seen_mechanism_new_state",
+      "template_id": "cat1_tpl1_pneumatic_overpressure",
+      "name": "Heldout 1.1B: Pneumatic Extreme Pressure Spike (9.4 bar)"
+    },
+    {
+      "task_id": "heldout_cat1_tpl2_inst1_gripper_misaligned_light",
+      "category": "Cat1_seen_mechanism_new_state",
+      "template_id": "cat1_tpl2_gripper_misalignment",
+      "name": "Heldout 1.2A: Gripper Misalignment (Minor Angular Offset)"
+    },
+    {
+      "task_id": "heldout_cat1_tpl2_inst2_gripper_misaligned_severe",
+      "category": "Cat1_seen_mechanism_new_state",
+      "template_id": "cat1_tpl2_gripper_misalignment",
+      "name": "Heldout 1.2B: Gripper Misalignment (Severe Axis Drift)"
+    },
+    {
+      "task_id": "heldout_cat1_tpl3_inst1_sensor_drift_low",
+      "category": "Cat1_seen_mechanism_new_state",
+      "template_id": "cat1_tpl3_sensor_drift",
+      "name": "Heldout 1.3A: Vision Sensor Drift (1.7 mm)"
+    },
+    {
+      "task_id": "heldout_cat1_tpl3_inst2_sensor_drift_high",
+      "category": "Cat1_seen_mechanism_new_state",
+      "template_id": "cat1_tpl3_sensor_drift",
+      "name": "Heldout 1.3B: Vision Sensor Drift (3.6 mm)"
+    },
+    {
+      "task_id": "heldout_cat2_tpl1_inst1_pneu_gripper_combo_a",
+      "category": "Cat2_new_fault_combinations",
+      "template_id": "cat2_tpl1_pneumatics_and_gripper",
+      "name": "Heldout 2.1A: Pneumatic Pressure Drop (1.4 bar) and Gripper Jam"
+    },
+    {
+      "task_id": "heldout_cat2_tpl1_inst2_pneu_gripper_combo_b",
+      "category": "Cat2_new_fault_combinations",
+      "template_id": "cat2_tpl1_pneumatics_and_gripper",
+      "name": "Heldout 2.1B: Pneumatic Overpressure (8.6 bar) and Gripper Jam"
+    },
+    {
+      "task_id": "heldout_cat2_tpl2_inst1_power_pneu_combo_a",
+      "category": "Cat2_new_fault_combinations",
+      "template_id": "cat2_tpl2_power_and_pneumatic",
+      "name": "Heldout 2.2A: Power Supply Trip and Pneumatic Overpressure"
+    },
+    {
+      "task_id": "heldout_cat2_tpl2_inst2_power_pneu_combo_b",
+      "category": "Cat2_new_fault_combinations",
+      "template_id": "cat2_tpl2_power_and_pneumatic",
+      "name": "Heldout 2.2B: Power Supply Trip and Pneumatic Pressure Decay"
+    },
+    {
+      "task_id": "heldout_cat2_tpl3_inst1_triple_combo_a",
+      "category": "Cat2_new_fault_combinations",
+      "template_id": "cat2_tpl3_triple_actuator_sensor",
+      "name": "Heldout 2.3A: Pneumatic Decay, Gripper Misaligned, and Optical Drift"
+    },
+    {
+      "task_id": "heldout_cat2_tpl3_inst2_triple_combo_b",
+      "category": "Cat2_new_fault_combinations",
+      "template_id": "cat2_tpl3_triple_actuator_sensor",
+      "name": "Heldout 2.3B: Pneumatic Overpressure, Gripper Jam, and Optical Drift"
+    },
+    {
+      "task_id": "heldout_cat3_tpl1_inst1_power_blocks_gripper_sensor_a",
+      "category": "Cat3_cross_subsystem_dependencies",
+      "template_id": "cat3_tpl1_power_interlock_cascade",
+      "name": "Heldout 3.1A: Tripped Power Interlocking Jammed Gripper and Vision"
+    },
+    {
+      "task_id": "heldout_cat3_tpl1_inst2_power_blocks_gripper_sensor_b",
+      "category": "Cat3_cross_subsystem_dependencies",
+      "template_id": "cat3_tpl1_power_interlock_cascade",
+      "name": "Heldout 3.1B: Tripped Power Interlocking Misaligned Gripper and Vision"
+    },
+    {
+      "task_id": "heldout_cat3_tpl2_inst1_double_interlock_load_power_a",
+      "category": "Cat3_cross_subsystem_dependencies",
+      "template_id": "cat3_tpl2_double_interlock_load_power",
+      "name": "Heldout 3.2A: Gripper Holding Load with Tripped Main Power"
+    },
+    {
+      "task_id": "heldout_cat3_tpl2_inst2_double_interlock_load_power_b",
+      "category": "Cat3_cross_subsystem_dependencies",
+      "template_id": "cat3_tpl2_double_interlock_load_power",
+      "name": "Heldout 3.2B: Gripper Holding Load with Tripped Power and Vision Drift"
+    },
+    {
+      "task_id": "heldout_cat3_tpl3_inst1_multistage_interlock_a",
+      "category": "Cat3_cross_subsystem_dependencies",
+      "template_id": "cat3_tpl3_multistage_interlock",
+      "name": "Heldout 3.3A: Pneumatic Isolation and Power Interlocked Vision Recovery"
+    },
+    {
+      "task_id": "heldout_cat3_tpl3_inst2_multistage_interlock_b",
+      "category": "Cat3_cross_subsystem_dependencies",
+      "template_id": "cat3_tpl3_multistage_interlock",
+      "name": "Heldout 3.3B: Pneumatic Leak and Power Interlocked Vision Recovery"
+    },
+    {
+      "task_id": "heldout_cat4_tpl1_inst1_controller_counter_overflow",
+      "category": "Cat4_irrelevant_or_partial",
+      "template_id": "cat4_tpl1_controller_maintenance",
+      "name": "Heldout 4.1A: Controller Maintenance Counter Reset"
+    },
+    {
+      "task_id": "heldout_cat4_tpl1_inst2_controller_watchdog_fault",
+      "category": "Cat4_irrelevant_or_partial",
+      "template_id": "cat4_tpl1_controller_maintenance",
+      "name": "Heldout 4.1B: Controller Sequence Watchdog Reset"
+    },
+    {
+      "task_id": "heldout_cat4_tpl2_inst1_clean_system_sensor_drift_a",
+      "category": "Cat4_irrelevant_or_partial",
+      "template_id": "cat4_tpl2_isolated_sensor_drift",
+      "name": "Heldout 4.2A: Isolated Vision Sensor Calibration (Nominal Actuators)"
+    },
+    {
+      "task_id": "heldout_cat4_tpl2_inst2_clean_system_sensor_drift_b",
+      "category": "Cat4_irrelevant_or_partial",
+      "template_id": "cat4_tpl2_isolated_sensor_drift",
+      "name": "Heldout 4.2B: Isolated Vision Sensor Calibration (Sub-millimeter Drift)"
+    },
+    {
+      "task_id": "heldout_cat4_tpl3_inst1_nominal_startup_standard",
+      "category": "Cat4_irrelevant_or_partial",
+      "template_id": "cat4_tpl3_nominal_startup",
+      "name": "Heldout 4.3A: Fully Nominal Workstation Clean Startup (Standard)"
+    },
+    {
+      "task_id": "heldout_cat4_tpl3_inst2_nominal_startup_high_pneu",
+      "category": "Cat4_irrelevant_or_partial",
+      "template_id": "cat4_tpl3_nominal_startup",
+      "name": "Heldout 4.3B: Fully Nominal Workstation Clean Startup (High Nominal Pressure)"
+    }
+  ]
+}
