@@ -297,6 +297,67 @@ class TestWorkstationIntegrationMechanisms(unittest.TestCase):
             self.assertIn(("Group_B2_plan", "task_2"), done_keys)
             self.assertNotIn(("Group_B2_plan", "task_3"), done_keys)
 
+    def test_gate_10_camera_sensor_invalidation_routing(self):
+        """Gate 10: Bug 1 fix - clear_fault side effects route camera_sensor invalidation correctly without polluting target subsystem."""
+        runner = WorkstationAgentRunner(group_id="Group_B2_plan")
+        known_state = {
+            "pneumatic_line": {"status": "leak_fault", "isolated": True},
+            "camera_sensor": {"status": "nominal", "calibrated": True},
+        }
+        tool_res = {
+            "status": StatusCode.SUCCESS,
+            "effects": {"status": "nominal", "camera_sensor_calibrated_invalidated": False},
+        }
+        runner._update_known_state(known_state, "clear_fault", {"subsystem": "pneumatic_line"}, tool_res)
+        self.assertEqual(known_state["camera_sensor"]["calibrated"], False, "camera_sensor.calibrated must be updated to False!")
+        self.assertNotIn("camera_sensor_calibrated_invalidated", known_state["pneumatic_line"], "Target subsystem must not contain cross-subsystem invalidation keys!")
+        self.assertEqual(known_state["pneumatic_line"]["status"], "nominal")
+
+    def test_gate_11_single_inspect_initialization(self):
+        """Gate 11: Bug 2 fix - inspect on single subsystem initializes known_state even if known_state was empty."""
+        runner = WorkstationAgentRunner(group_id="Group_B2_plan")
+        known_state = {}
+        tool_res = {
+            "status": StatusCode.SUCCESS,
+            "subsystem": "power_unit",
+            "data": {"status": "tripped", "isolated": False, "voltage_v": 0.0},
+        }
+        runner._update_known_state(known_state, "inspect", {"subsystem": "power_unit"}, tool_res)
+        self.assertIn("power_unit", known_state, "Single inspect must initialize known_state['power_unit']!")
+        self.assertEqual(known_state["power_unit"]["status"], "tripped")
+        self.assertEqual(known_state["power_unit"]["voltage_v"], 0.0)
+
+    def test_gate_12_repetition_interception_and_constraint_repair_planning(self):
+        """Gate 12: Repetition gate triggers repair planning on 2nd repeat and terminates on 3rd repeat."""
+        task_cfg = {
+            "task_id": "test_repetition_interception",
+            "goal": "Test repetition interception and termination",
+            "initial_state": {
+                "power_unit": {"status": "tripped", "isolated": False, "voltage_v": 0.0},
+                "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
+            },
+        }
+        # Script that repeatedly proposes the same failing action
+        failing_action = '{"thought": "Try clear fault without isolation", "tool": "clear_fault", "args": {"subsystem": "power_unit"}}'
+        mock_llm = MockLLMBackendWithCustomScript([
+            failing_action,  # Initial attempt (count=1)
+            failing_action,  # 1st repeat: feedback (count=2)
+            failing_action,  # 2nd repeat: triggers repair planning (count=3)
+            failing_action,  # Repair planning response (still failing)
+            failing_action,  # 3rd repeat: terminates loop (count=4)
+        ])
+        runner = WorkstationAgentRunner(
+            group_id="Group_B2_plan",
+            llm_backend=mock_llm,
+            max_llm_calls=10,
+            max_tool_calls=10,
+            enable_constraint_repair_planning=True,
+        )
+        res = runner.run_task(task_cfg)
+        self.assertEqual(res["termination_reason"], "REPEATED_CONSTRAINT_VIOLATION", "Agent must terminate on 3rd repetition!")
+        repair_calls = [r for r in res.get("llm_call_records", []) if r.get("call_type") == "constraint_repair_planning"]
+        self.assertGreaterEqual(len(repair_calls), 1, "Constraint repair planning must have been triggered!")
+
 
 if __name__ == "__main__":
     unittest.main()

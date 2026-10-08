@@ -49,10 +49,10 @@ The workstation consists of 5 subsystems:
 
 Available Tools:
   - inspect(subsystem="all"|"power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Query diagnostic state.
-  - isolate(subsystem="power_unit"|"pneumatic_line", action="engage"|"release"): Safety lockout (engage) or restore energy line (release).
-  - clear_fault(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Clear active fault.
-  - reset(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Reset subsystem to operating/home state.
-  - calibrate(subsystem="camera_sensor"|"arm_gripper"): Run precision calibration.
+  - isolate(subsystem="power_unit"|"pneumatic_line", action="engage"|"release"): Safety lockout (engage) or restore energy line (release). Energy lines MUST be isolated (engage) before clearing faults.
+  - clear_fault(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Clear active fault. For power_unit/pneumatic_line: requires isolate 'engage' first, then clear_fault, then isolate 'release'.
+  - reset(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Reset subsystem to operating/home state (e.g. power voltage to 24V, line pressure to 5.0 bar, arm to home). Note: reset does NOT clear tripped or faulted status; clear_fault is required for faults.
+  - calibrate(subsystem="camera_sensor"|"arm_gripper"): Run precision calibration (requires nominal, unisolated power and no active faults).
   - self_test(target="workstation"): Run comprehensive safety self-test (all subsystems must be nominal and calibrated).
   - resume(target="workstation"): Resume normal production (requires successful self_test).
 
@@ -77,10 +77,10 @@ The workstation consists of 5 subsystems:
 
 Available Tools:
   - inspect(subsystem="all"|"power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Query diagnostic state.
-  - isolate(subsystem="power_unit"|"pneumatic_line", action="engage"|"release"): Safety lockout (engage) or restore energy line (release).
-  - clear_fault(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Clear active fault.
-  - reset(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Reset subsystem to operating/home state.
-  - calibrate(subsystem="camera_sensor"|"arm_gripper"): Run precision calibration.
+  - isolate(subsystem="power_unit"|"pneumatic_line", action="engage"|"release"): Safety lockout (engage) or restore energy line (release). Energy lines MUST be isolated (engage) before clearing faults.
+  - clear_fault(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Clear active fault. For power_unit/pneumatic_line: requires isolate 'engage' first, then clear_fault, then isolate 'release'.
+  - reset(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Reset subsystem to operating/home state (e.g. power voltage to 24V, line pressure to 5.0 bar, arm to home). Note: reset does NOT clear tripped or faulted status; clear_fault is required for faults.
+  - calibrate(subsystem="camera_sensor"|"arm_gripper"): Run precision calibration (requires nominal, unisolated power and no active faults).
   - self_test(target="workstation"): Run comprehensive safety self-test (all subsystems must be nominal and calibrated).
   - resume(target="workstation"): Resume normal production (requires successful self_test).
 
@@ -199,6 +199,15 @@ class ConstraintEvent:
         if self.cancellation_reason:
             lines.append(f"  - Detail: {self.cancellation_reason}")
         return "\n".join(lines)
+
+
+@dataclass
+class DecisionEvent:
+    relevant_state_hash: str
+    action_signature: str
+    unmet_predicates: Tuple[str, ...]
+    result_category: str  # "PRECONDITION_BLOCKED", "TOOL_EXECUTION_ERROR", "NO_PROGRESS", "PROGRESS_SUCCESS", "POSTCONDITION_MISMATCH"
+    reason: str = ""
 
 
 @dataclass
@@ -394,6 +403,7 @@ class WorkstationAgentRunner:
         max_tool_calls: int = 40,
         time_limit_s: float = 1800.0,
         allow_fallback: bool = False,
+        enable_constraint_repair_planning: bool = True,
     ):
         self.group_id = group_id
         self.llm_backend = llm_backend
@@ -401,6 +411,7 @@ class WorkstationAgentRunner:
         self.max_tool_calls = max_tool_calls
         self.time_limit_s = time_limit_s
         self.allow_fallback = allow_fallback
+        self.enable_constraint_repair_planning = enable_constraint_repair_planning
 
     def run_task(
         self,
@@ -440,6 +451,13 @@ class WorkstationAgentRunner:
         gen_tokens_total = 0
         tool_errors_count = 0
         plan_deviations = 0
+
+        # Decision Event & Repetition Tracking
+        last_failure_event: Optional[DecisionEvent] = None
+        consecutive_repeat_count = 0
+
+        # LLM detailed call records
+        llm_call_records: List[Dict[str, Any]] = []
 
         memory_selected_count = 0
         memory_action_executed_count = 0
@@ -602,7 +620,12 @@ class WorkstationAgentRunner:
                         is_multistep=is_multistep,
                     )
 
-                    response_text, p_tok, g_tok = self._call_llm(prompt, is_multistep=is_multistep)
+                    response_text, p_tok, g_tok = self._call_llm(
+                        prompt,
+                        is_multistep=is_multistep,
+                        call_type="standard_planning" if is_multistep else "step_planning",
+                        llm_call_records=llm_call_records,
+                    )
                     prompt_tokens_total += p_tok
                     gen_tokens_total += g_tok
 
@@ -655,7 +678,16 @@ class WorkstationAgentRunner:
             if not valid and constraint_event:
                 if active_cstr:
                     constraint_tracker.add_constraint(active_cstr, step_index=len(trajectory) + 1)
-                active_constraint_events.append(constraint_event)
+                
+                unmet_preds = tuple(sorted(constraint_event.unmet_conditions))
+                rel_state_hash = self._hash_relevant_state(known_state, tool_args.get("subsystem"))
+                d_evt = DecisionEvent(
+                    relevant_state_hash=rel_state_hash,
+                    action_signature=act_sig,
+                    unmet_predicates=unmet_preds,
+                    result_category="PRECONDITION_BLOCKED",
+                    reason=constraint_event.cancellation_reason,
+                )
                 audit_events.append(asdict(constraint_event))
                 tried_invalid_repairs.append({"tool": tool_name, "args": tool_args, "reason": constraint_event.cancellation_reason})
 
@@ -669,7 +701,46 @@ class WorkstationAgentRunner:
                         active_memory_exec = None
 
                 executor.clear()
-                continue
+
+                # Repetition check
+                is_same = (
+                    last_failure_event is not None
+                    and last_failure_event.relevant_state_hash == d_evt.relevant_state_hash
+                    and last_failure_event.action_signature == d_evt.action_signature
+                    and last_failure_event.unmet_predicates == d_evt.unmet_predicates
+                    and last_failure_event.result_category == d_evt.result_category
+                )
+                if is_same:
+                    consecutive_repeat_count += 1
+                else:
+                    consecutive_repeat_count = 1
+                    last_failure_event = d_evt
+
+                if consecutive_repeat_count == 1:
+                    active_constraint_events.append(constraint_event)
+                    continue
+                elif consecutive_repeat_count == 2:
+                    if constraint_event.to_prompt_str() not in [e.to_prompt_str() for e in active_constraint_events]:
+                        active_constraint_events.append(constraint_event)
+                    continue
+                elif consecutive_repeat_count == 3:
+                    if self.enable_constraint_repair_planning and llm_calls < self.max_llm_calls:
+                        llm_calls += 1
+                        repair_acts = self._plan_constraint_repair(
+                            task_config=task_config,
+                            known_state=known_state,
+                            blocked_action={"tool": tool_name, "args": tool_args},
+                            unmet_predicates=list(unmet_preds),
+                            cancellation_reason=constraint_event.cancellation_reason,
+                            structured_facts=structured_facts,
+                            llm_call_records=llm_call_records,
+                        )
+                        if repair_acts:
+                            executor.enqueue_plan(repair_acts, source_tag="constraint_repair_plan")
+                    continue
+                else:
+                    termination_reason = "REPEATED_CONSTRAINT_VIOLATION"
+                    break
 
             # -------------------------------------------------------------
             # Stage C: Execute Action (env.step)
@@ -688,7 +759,7 @@ class WorkstationAgentRunner:
             constraint_tracker.update_with_observation(known_state, step_index=len(trajectory) + 1)
 
             # Check for stagnation / no-progress
-            is_no_progress = (state_before_hash == state_after_hash)
+            is_no_progress = (not is_err) and (state_before_hash == state_after_hash)
             stagnation_history.append({
                 "act_sig": act_sig,
                 "no_progress": is_no_progress,
@@ -696,36 +767,29 @@ class WorkstationAgentRunner:
                 "tool": tool_name,
             })
 
-            # Detect repeated loop without progress
-            if len(stagnation_history) >= 2:
-                last1 = stagnation_history[-1]
-                last2 = stagnation_history[-2]
-                if last1["act_sig"] == last2["act_sig"] and (last1["no_progress"] or last1["is_err"]):
-                    stagnation_replan_count += 1
-                    stag_evt = ConstraintEvent(
-                        event_type="STAGNATION_LOOP",
-                        blocked_action={"tool": tool_name, "args": tool_args},
-                        unmet_conditions=["Repeated action yielded no state progress or cleared faults."],
-                        condition_status="FALSE",
-                        cancellation_reason=f"Action {tool_name}({tool_args}) repeated without state progress. Diagnose workstation or try alternative strategy.",
-                        observed_evidence=copy.deepcopy(known_state),
-                    )
-                    active_constraint_events.append(stag_evt)
-                    audit_events.append(asdict(stag_evt))
-                    executor.clear()
-                    if active_memory_exec:
-                        invalidated_memories.add(active_memory_exec.memory_id)
-                        active_memory_exec.status = "INVALIDATED"
-                        active_memory_exec = None
+            # Record step in trajectory
+            step_record = {
+                "step_index": len(trajectory) + 1,
+                "action_source": action_source,
+                "tool": tool_name,
+                "args": copy.deepcopy(tool_args),
+                "thought": thought,
+                "result": copy.deepcopy(tool_res),
+                "is_error": is_err,
+                "known_state_after": copy.deepcopy(known_state),
+                "active_constraints_count": len(constraint_tracker.get_active_constraints()),
+            }
+            trajectory.append(step_record)
 
             if is_err:
                 tool_errors_count += 1
+                err_msg = tool_res.get("error", "Tool execution error")
                 err_evt = ConstraintEvent(
                     event_type="TOOL_EXECUTION_ERROR",
                     blocked_action={"tool": tool_name, "args": tool_args},
-                    unmet_conditions=[tool_res.get("error", "Tool execution error")],
+                    unmet_conditions=[err_msg],
                     condition_status="FALSE",
-                    cancellation_reason=tool_res.get("error", "Tool failed"),
+                    cancellation_reason=err_msg,
                     observed_evidence=copy.deepcopy(known_state),
                     tried_invalid_repairs=copy.deepcopy(tried_invalid_repairs),
                 )
@@ -742,10 +806,122 @@ class WorkstationAgentRunner:
                         active_memory_exec = None
                 executor.clear()
 
+                rel_state_hash = self._hash_relevant_state(known_state, tool_args.get("subsystem"))
+                d_evt = DecisionEvent(
+                    relevant_state_hash=rel_state_hash,
+                    action_signature=act_sig,
+                    unmet_predicates=(err_msg,),
+                    result_category="TOOL_EXECUTION_ERROR",
+                    reason=err_msg,
+                )
+                is_same = (
+                    last_failure_event is not None
+                    and last_failure_event.relevant_state_hash == d_evt.relevant_state_hash
+                    and last_failure_event.action_signature == d_evt.action_signature
+                    and last_failure_event.unmet_predicates == d_evt.unmet_predicates
+                    and last_failure_event.result_category == d_evt.result_category
+                )
+                if is_same:
+                    consecutive_repeat_count += 1
+                else:
+                    consecutive_repeat_count = 1
+                    last_failure_event = d_evt
+
+                if consecutive_repeat_count == 1:
+                    continue
+                elif consecutive_repeat_count == 2:
+                    continue
+                elif consecutive_repeat_count == 3:
+                    if self.enable_constraint_repair_planning and llm_calls < self.max_llm_calls:
+                        llm_calls += 1
+                        repair_acts = self._plan_constraint_repair(
+                            task_config=task_config,
+                            known_state=known_state,
+                            blocked_action={"tool": tool_name, "args": tool_args},
+                            unmet_predicates=[err_msg],
+                            cancellation_reason=err_msg,
+                            structured_facts=structured_facts,
+                            llm_call_records=llm_call_records,
+                        )
+                        if repair_acts:
+                            executor.enqueue_plan(repair_acts, source_tag="constraint_repair_plan")
+                    continue
+                else:
+                    termination_reason = "REPEATED_CONSTRAINT_VIOLATION"
+                    break
+
+            elif is_no_progress:
+                stag_reasons = f"Action {tool_name}({tool_args}) repeated without state progress. Diagnose workstation or try alternative strategy."
+                stag_evt = ConstraintEvent(
+                    event_type="STAGNATION_LOOP",
+                    blocked_action={"tool": tool_name, "args": tool_args},
+                    unmet_conditions=["Repeated action yielded no state progress or cleared faults."],
+                    condition_status="FALSE",
+                    cancellation_reason=stag_reasons,
+                    observed_evidence=copy.deepcopy(known_state),
+                )
+                active_constraint_events.append(stag_evt)
+                audit_events.append(asdict(stag_evt))
+
+                if action_source in ["procedural_memory", "naive_replay"]:
+                    memory_invalidated_count += 1
+                    has_invalidation_occurred = True
+                    online_recovery_attempted_count += 1
+                    if active_memory_exec:
+                        invalidated_memories.add(active_memory_exec.memory_id)
+                        active_memory_exec.status = "INVALIDATED"
+                        active_memory_exec = None
+                executor.clear()
+
+                rel_state_hash = self._hash_relevant_state(known_state, tool_args.get("subsystem"))
+                d_evt = DecisionEvent(
+                    relevant_state_hash=rel_state_hash,
+                    action_signature=act_sig,
+                    unmet_predicates=("No state progress observed",),
+                    result_category="NO_PROGRESS",
+                    reason=stag_reasons,
+                )
+                is_same = (
+                    last_failure_event is not None
+                    and last_failure_event.relevant_state_hash == d_evt.relevant_state_hash
+                    and last_failure_event.action_signature == d_evt.action_signature
+                    and last_failure_event.unmet_predicates == d_evt.unmet_predicates
+                    and last_failure_event.result_category == d_evt.result_category
+                )
+                if is_same:
+                    consecutive_repeat_count += 1
+                else:
+                    consecutive_repeat_count = 1
+                    last_failure_event = d_evt
+
+                if consecutive_repeat_count == 1:
+                    continue
+                elif consecutive_repeat_count == 2:
+                    continue
+                elif consecutive_repeat_count == 3:
+                    if self.enable_constraint_repair_planning and llm_calls < self.max_llm_calls:
+                        llm_calls += 1
+                        repair_acts = self._plan_constraint_repair(
+                            task_config=task_config,
+                            known_state=known_state,
+                            blocked_action={"tool": tool_name, "args": tool_args},
+                            unmet_predicates=["No state progress observed: action repeated without state change"],
+                            cancellation_reason=stag_reasons,
+                            structured_facts=structured_facts,
+                            llm_call_records=llm_call_records,
+                        )
+                        if repair_acts:
+                            executor.enqueue_plan(repair_acts, source_tag="constraint_repair_plan")
+                    continue
+                else:
+                    termination_reason = "REPEATED_CONSTRAINT_VIOLATION"
+                    break
+
             else:
-                # Clear transient constraint events only if real progress was made
-                if not is_no_progress:
-                    active_constraint_events = [e for e in active_constraint_events if e.event_type != "STAGNATION_LOOP"]
+                # Genuine state progress was achieved! Reset repetition streak
+                consecutive_repeat_count = 0
+                last_failure_event = None
+                active_constraint_events = [e for e in active_constraint_events if e.event_type not in ["STAGNATION_LOOP", "TOOL_EXECUTION_ERROR"]]
 
                 # -------------------------------------------------------------
                 # Stage D: Postcondition Verification
@@ -780,20 +956,6 @@ class WorkstationAgentRunner:
                     invalidated_memories.add(active_memory_exec.memory_id)
                     active_memory_exec = None
 
-            # Record step in trajectory
-            step_record = {
-                "step_index": len(trajectory) + 1,
-                "action_source": action_source,
-                "tool": tool_name,
-                "args": copy.deepcopy(tool_args),
-                "thought": thought,
-                "result": copy.deepcopy(tool_res),
-                "is_error": is_err,
-                "known_state_after": copy.deepcopy(known_state),
-                "active_constraints_count": len(constraint_tracker.get_active_constraints()),
-            }
-            trajectory.append(step_record)
-
         wall_time_s = round(time.time() - t0, 2)
 
         return {
@@ -824,6 +986,7 @@ class WorkstationAgentRunner:
             "audit_events": audit_events,
             "constraint_history": constraint_tracker.history,
             "final_env_summary": env.get_summary(),
+            "llm_call_records": llm_call_records,
         }
 
     def _normalize_action(self, raw: Any, default_thought: str = "") -> Optional[Dict[str, Any]]:
@@ -886,6 +1049,16 @@ class WorkstationAgentRunner:
     def _hash_state(self, state: Dict[str, Any]) -> str:
         s = json.dumps(state, sort_keys=True)
         return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+    def _hash_relevant_state(self, known_state: Dict[str, Any], subsystem: Optional[str] = None) -> str:
+        if subsystem and subsystem in known_state:
+            rel = {
+                subsystem: known_state.get(subsystem),
+                "power_unit": known_state.get("power_unit"),
+            }
+        else:
+            rel = known_state
+        return hashlib.md5(json.dumps(rel, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
     def _build_memory_execution(self, mem: ProceduralMemoryItem, source_tag: str) -> ActiveMemoryExecution:
         actions = [
@@ -1034,15 +1207,30 @@ class WorkstationAgentRunner:
                 for k, v in data.items():
                     if isinstance(v, dict):
                         known_state[k] = copy.deepcopy(v)
-            elif sub in data and isinstance(data[sub], dict):
-                known_state[sub] = copy.deepcopy(data[sub])
-            elif isinstance(data, dict) and sub in known_state:
-                known_state[sub].update(copy.deepcopy(data))
+            elif isinstance(data, dict):
+                if sub in data and isinstance(data[sub], dict):
+                    sub_dict = data[sub]
+                else:
+                    sub_dict = data
+                if sub not in known_state:
+                    known_state[sub] = {}
+                known_state[sub].update(copy.deepcopy(sub_dict))
 
         effects = tool_res.get("effects", {})
         sub = tool_args.get("subsystem")
-        if sub and sub in known_state and isinstance(effects, dict):
-            known_state[sub].update(copy.deepcopy(effects))
+        if isinstance(effects, dict):
+            # Bug 1 fix: Route camera sensor invalidation to camera_sensor
+            if "camera_sensor_calibrated_invalidated" in effects:
+                if "camera_sensor" not in known_state:
+                    known_state["camera_sensor"] = {}
+                known_state["camera_sensor"]["calibrated"] = False
+
+            # Update subsystem properties without polluting with cross-subsystem keys
+            cleaned_effects = {k: v for k, v in effects.items() if not k.endswith("_invalidated")}
+            if sub and cleaned_effects:
+                if sub not in known_state:
+                    known_state[sub] = {}
+                known_state[sub].update(copy.deepcopy(cleaned_effects))
 
         if tool_name == "self_test":
             if "controller" not in known_state:
@@ -1119,12 +1307,20 @@ class WorkstationAgentRunner:
             if cstr_str:
                 parts.append(f"\n{cstr_str}")
 
-        # Active Interlock Feedback from events (bounded to recent 4)
+        # Active Interlock Feedback from events (deduplicated, bounded to recent 4)
         if active_constraint_events:
             parts.append("\n=== Recent Interlock Feedback & Warnings ===")
-            recent_events = active_constraint_events[-4:] if len(active_constraint_events) > 4 else active_constraint_events
-            for evt in recent_events:
-                parts.append(evt.to_prompt_str())
+            seen_prompts = set()
+            unique_recent = []
+            for evt in reversed(active_constraint_events):
+                p_str = evt.to_prompt_str()
+                if p_str not in seen_prompts:
+                    seen_prompts.add(p_str)
+                    unique_recent.append(p_str)
+                if len(unique_recent) >= 4:
+                    break
+            for p_str in reversed(unique_recent):
+                parts.append(p_str)
 
         # Public Known State
         parts.append("\n=== Current Known Workstation State (Public Observations) ===")
@@ -1149,16 +1345,101 @@ class WorkstationAgentRunner:
         parts.append("\nWhat action should be taken next? Respond strictly in JSON.")
         return "\n".join(parts)
 
-    def _call_llm(self, prompt: str, is_multistep: bool = False) -> Tuple[str, int, int]:
+    def _call_llm(
+        self,
+        prompt: str,
+        is_multistep: bool = False,
+        call_type: str = "standard_planning",
+        llm_call_records: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[str, int, int]:
+        t_call_start = time.time()
         if not self.llm_backend:
             mock_res = json.dumps({"thought": "Inspect workstation.", "plan": [{"tool": "inspect", "args": {"subsystem": "all"}}]}) if is_multistep else json.dumps({"thought": "Inspect workstation.", "tool": "inspect", "args": {"subsystem": "all"}})
-            return mock_res, len(prompt) // 4, 30
+            p_tok = len(prompt) // 4
+            g_tok = len(mock_res) // 4
+            latency_s = round(time.time() - t_call_start, 3)
+            parsed = self._parse_llm_response(mock_res)
+            if llm_call_records is not None:
+                llm_call_records.append({
+                    "call_index": len(llm_call_records) + 1,
+                    "timestamp": time.time(),
+                    "call_type": call_type,
+                    "prompt": prompt,
+                    "raw_output": mock_res,
+                    "parsed_output": parsed,
+                    "prompt_tokens": p_tok,
+                    "generated_tokens": g_tok,
+                    "latency_s": latency_s,
+                })
+            return mock_res, p_tok, g_tok
 
         res = self.llm_backend.generate(prompt)
         text_out = res.get("content") or res.get("text") or res.get("raw_output", "")
         p_tok = res.get("prompt_tokens", len(prompt) // 4)
         g_tok = res.get("generated_tokens", len(text_out) // 4)
+        latency_s = round(time.time() - t_call_start, 3)
+        parsed = self._parse_llm_response(text_out)
+        if llm_call_records is not None:
+            llm_call_records.append({
+                "call_index": len(llm_call_records) + 1,
+                "timestamp": time.time(),
+                "call_type": call_type,
+                "prompt": prompt,
+                "raw_output": text_out,
+                "parsed_output": parsed,
+                "prompt_tokens": p_tok,
+                "generated_tokens": g_tok,
+                "latency_s": latency_s,
+            })
         return text_out, p_tok, g_tok
+
+    def _plan_constraint_repair(
+        self,
+        task_config: Dict[str, Any],
+        known_state: Dict[str, Any],
+        blocked_action: Dict[str, Any],
+        unmet_predicates: List[str],
+        cancellation_reason: str,
+        structured_facts: Optional[StructuredFactStore] = None,
+        llm_call_records: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[Dict[str, Any]]:
+        tool = blocked_action.get("tool", "")
+        args = blocked_action.get("args", {})
+        
+        prompt_parts = [
+            WORKSTATION_SYSTEM_PROMPT_PLAN,
+            "\n=== Current Task Objective ===",
+            f"Goal: {task_config.get('goal')}",
+            "\n=== CRITICAL CONSTRAINT REPAIR TRIGGERED ===",
+            f"A recurring failure occurred when attempting: {tool}({args})",
+            f"Unmet Predicates / Interlock: {'; '.join(unmet_predicates)}",
+            f"Failure Reason: {cancellation_reason}",
+            "\nDomain Interlock Protocols:",
+            "  1. Power Unit: If power_unit is tripped, call isolate('power_unit', 'engage') -> clear_fault('power_unit') -> isolate('power_unit', 'release').",
+            "  2. Pneumatic Line: If pneumatic_line has a fault, call isolate('pneumatic_line', 'engage') -> clear_fault('pneumatic_line') -> isolate('pneumatic_line', 'release').",
+            "  3. Gripper Load: If arm_gripper is jammed or holding load, call clear_fault('arm_gripper') to release load before resetting/homing.",
+            "  4. Sensor Calibration: Camera calibration requires power_unit to be nominal and not isolated.",
+            "\n=== Current Known Workstation State ===",
+            json.dumps(known_state, indent=2),
+            "\nPlease formulate a 1 to 4 step corrective action plan to satisfy the unmet preconditions and unblock the system.",
+            "Respond strictly in JSON format with a 'plan' array."
+        ]
+        prompt = "\n".join(prompt_parts)
+        
+        raw_res, _, _ = self._call_llm(
+            prompt,
+            is_multistep=True,
+            call_type="constraint_repair_planning",
+            llm_call_records=llm_call_records,
+        )
+        parsed = self._parse_llm_response(raw_res)
+        plan_acts = []
+        if parsed and isinstance(parsed, dict) and "plan" in parsed and isinstance(parsed["plan"], list):
+            for raw_a in parsed["plan"]:
+                norm_a = self._normalize_action(raw_a, default_thought=parsed.get("thought", ""))
+                if norm_a:
+                    plan_acts.append(norm_a)
+        return plan_acts
 
     def _parse_llm_response(self, text: str) -> Optional[Dict[str, Any]]:
         cleaned = text.strip()

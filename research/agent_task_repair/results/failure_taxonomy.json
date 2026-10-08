@@ -1,0 +1,630 @@
+{
+  "audit_metadata": {
+    "total_failed_runs": 32,
+    "failed_tasks_count": 8,
+    "failed_task_ids": [
+      "heldout_cat2_tpl2_inst1_power_pneu_combo_a",
+      "heldout_cat2_tpl2_inst2_power_pneu_combo_b",
+      "heldout_cat3_tpl1_inst1_power_blocks_gripper_sensor_a",
+      "heldout_cat3_tpl1_inst2_power_blocks_gripper_sensor_b",
+      "heldout_cat3_tpl2_inst1_double_interlock_load_power_a",
+      "heldout_cat3_tpl2_inst2_double_interlock_load_power_b",
+      "heldout_cat3_tpl3_inst1_multistage_interlock_a",
+      "heldout_cat3_tpl3_inst2_multistage_interlock_b"
+    ],
+    "environmental_semantics_check": {
+      "power_unit_reset_semantics": "reset(power_unit) resets line voltage_v=24.0 but does NOT clear status=\"tripped\".",
+      "power_unit_repair_requirement": "To clear tripped status, power_unit must be safely isolated (isolate engage), cleared (clear_fault), and re-energized (isolate release).",
+      "offline_reference_solvability": "Verified 24/24 tasks mathematically solvable via offline reference planner without modifying environment semantics."
+    }
+  },
+  "failure_mode_counts": {
+    "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)": 17,
+    "预算耗尽终止 (LLM Budget Exhaustion)": 30,
+    "相同状态下重复执行前拦截与无进展自旋循环 (Repeated Pre-execution Interception & Stagnation Loop)": 2,
+    "记忆暂缓后前置条件始终未满足 (Memory Deferred But Condition Never Satisfied)": 6,
+    "超时终止 (Protection Timeout Exceeded)": 2
+  },
+  "per_run_diagnosis": [
+    {
+      "group_id": "Group_B2_plan",
+      "task_id": "heldout_cat2_tpl2_inst1_power_pneu_combo_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 12,
+      "llm_calls": 32,
+      "tool_errors_count": 3,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        },
+        {
+          "action": "self_test:{\"target\": \"workstation\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_Replay",
+      "task_id": "heldout_cat2_tpl2_inst1_power_pneu_combo_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 21,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "相同状态下重复执行前拦截与无进展自旋循环 (Repeated Pre-execution Interception & Stagnation Loop)",
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 8
+        },
+        {
+          "action": "inspect:{\"subsystem\": \"all\"}",
+          "count": 7
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B1_plan",
+      "task_id": "heldout_cat2_tpl2_inst1_power_pneu_combo_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 4,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_D_gated",
+      "task_id": "heldout_cat2_tpl2_inst1_power_pneu_combo_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 8,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "inspect:{\"subsystem\": \"controller\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_Replay",
+      "task_id": "heldout_cat2_tpl2_inst2_power_pneu_combo_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 10,
+      "llm_calls": 32,
+      "tool_errors_count": 2,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "inspect:{\"subsystem\": \"all\"}",
+          "count": 2
+        },
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_D_gated",
+      "task_id": "heldout_cat2_tpl2_inst2_power_pneu_combo_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 10,
+      "llm_calls": 32,
+      "tool_errors_count": 2,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "inspect:{\"subsystem\": \"all\"}",
+          "count": 2
+        },
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B2_plan",
+      "task_id": "heldout_cat2_tpl2_inst2_power_pneu_combo_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 10,
+      "llm_calls": 32,
+      "tool_errors_count": 2,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "inspect:{\"subsystem\": \"all\"}",
+          "count": 2
+        },
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B1_plan",
+      "task_id": "heldout_cat2_tpl2_inst2_power_pneu_combo_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 13,
+      "llm_calls": 32,
+      "tool_errors_count": 2,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "相同状态下重复执行前拦截与无进展自旋循环 (Repeated Pre-execution Interception & Stagnation Loop)",
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 4
+        },
+        {
+          "action": "inspect:{\"subsystem\": \"all\"}",
+          "count": 2
+        },
+        {
+          "action": "self_test:{\"target\": \"workstation\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_D_gated",
+      "task_id": "heldout_cat3_tpl1_inst1_power_blocks_gripper_sensor_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 6,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 2,
+      "primary_causes": [
+        "记忆暂缓后前置条件始终未满足 (Memory Deferred But Condition Never Satisfied)",
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B1_plan",
+      "task_id": "heldout_cat3_tpl1_inst1_power_blocks_gripper_sensor_a",
+      "termination_reason": "TIME_LIMIT_EXCEEDED",
+      "step_count": 3,
+      "llm_calls": 31,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "超时终止 (Protection Timeout Exceeded)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B2_plan",
+      "task_id": "heldout_cat3_tpl1_inst1_power_blocks_gripper_sensor_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 6,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_Replay",
+      "task_id": "heldout_cat3_tpl1_inst1_power_blocks_gripper_sensor_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 4,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "inspect:{\"subsystem\": \"all\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_Replay",
+      "task_id": "heldout_cat3_tpl1_inst2_power_blocks_gripper_sensor_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 4,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "inspect:{\"subsystem\": \"all\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_D_gated",
+      "task_id": "heldout_cat3_tpl1_inst2_power_blocks_gripper_sensor_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 4,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 1,
+      "primary_causes": [
+        "记忆暂缓后前置条件始终未满足 (Memory Deferred But Condition Never Satisfied)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B1_plan",
+      "task_id": "heldout_cat3_tpl1_inst2_power_blocks_gripper_sensor_b",
+      "termination_reason": "TIME_LIMIT_EXCEEDED",
+      "step_count": 3,
+      "llm_calls": 31,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "超时终止 (Protection Timeout Exceeded)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B2_plan",
+      "task_id": "heldout_cat3_tpl1_inst2_power_blocks_gripper_sensor_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 6,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B2_plan",
+      "task_id": "heldout_cat3_tpl2_inst1_double_interlock_load_power_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 6,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B1_plan",
+      "task_id": "heldout_cat3_tpl2_inst1_double_interlock_load_power_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 10,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        },
+        {
+          "action": "isolate:{\"action\": \"engage\", \"subsystem\": \"pneumatic_line\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_D_gated",
+      "task_id": "heldout_cat3_tpl2_inst1_double_interlock_load_power_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 8,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 1,
+      "primary_causes": [
+        "记忆暂缓后前置条件始终未满足 (Memory Deferred But Condition Never Satisfied)",
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_Replay",
+      "task_id": "heldout_cat3_tpl2_inst1_double_interlock_load_power_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 3,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_D_gated",
+      "task_id": "heldout_cat3_tpl2_inst2_double_interlock_load_power_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 8,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 2,
+      "primary_causes": [
+        "记忆暂缓后前置条件始终未满足 (Memory Deferred But Condition Never Satisfied)",
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B2_plan",
+      "task_id": "heldout_cat3_tpl2_inst2_double_interlock_load_power_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 8,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_Replay",
+      "task_id": "heldout_cat3_tpl2_inst2_double_interlock_load_power_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 3,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B1_plan",
+      "task_id": "heldout_cat3_tpl2_inst2_double_interlock_load_power_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 5,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B1_plan",
+      "task_id": "heldout_cat3_tpl3_inst1_multistage_interlock_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 4,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_D_gated",
+      "task_id": "heldout_cat3_tpl3_inst1_multistage_interlock_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 5,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 1,
+      "primary_causes": [
+        "记忆暂缓后前置条件始终未满足 (Memory Deferred But Condition Never Satisfied)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_Replay",
+      "task_id": "heldout_cat3_tpl3_inst1_multistage_interlock_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 5,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B2_plan",
+      "task_id": "heldout_cat3_tpl3_inst1_multistage_interlock_a",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 7,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B1_plan",
+      "task_id": "heldout_cat3_tpl3_inst2_multistage_interlock_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 4,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_D_gated",
+      "task_id": "heldout_cat3_tpl3_inst2_multistage_interlock_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 5,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 1,
+      "primary_causes": [
+        "记忆暂缓后前置条件始终未满足 (Memory Deferred But Condition Never Satisfied)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_B2_plan",
+      "task_id": "heldout_cat3_tpl3_inst2_multistage_interlock_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 7,
+      "llm_calls": 32,
+      "tool_errors_count": 1,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "工具执行报错与安全互锁拦截 (Tool Execution Error & Interlock Interception)",
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [
+        {
+          "action": "reset:{\"subsystem\": \"power_unit\"}",
+          "count": 2
+        }
+      ],
+      "missing_steps": []
+    },
+    {
+      "group_id": "Group_Replay",
+      "task_id": "heldout_cat3_tpl3_inst2_multistage_interlock_b",
+      "termination_reason": "LLM_BUDGET_EXHAUSTED",
+      "step_count": 5,
+      "llm_calls": 32,
+      "tool_errors_count": 0,
+      "memory_deferred_count": 0,
+      "primary_causes": [
+        "预算耗尽终止 (LLM Budget Exhaustion)"
+      ],
+      "top_repeated_actions": [],
+      "missing_steps": []
+    }
+  ]
+}
