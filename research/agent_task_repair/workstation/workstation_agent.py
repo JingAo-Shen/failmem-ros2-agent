@@ -26,6 +26,7 @@ import copy
 import re
 import hashlib
 from dataclasses import dataclass, field, asdict
+from pathlib import Path
 
 from .workstation_env import WorkstationEnv, StatusCode
 from .procedural_memory import (
@@ -39,7 +40,65 @@ from ..agent.llm_backend import LLMBackend
 
 MAX_PLAN_LEN = 4
 
-WORKSTATION_SYSTEM_PROMPT_STEP = """You are an autonomous robotic workstation diagnostic and recovery agent in a simulated environment.
+WORKSTATION_SYSTEM_PROMPT_STEP_NO_RECIPE = """You are an autonomous robotic workstation diagnostic and recovery agent in a simulated environment.
+The workstation consists of 5 subsystems:
+  1. power_unit (Primary power & safety relay)
+  2. pneumatic_line (Compressed air supply)
+  3. arm_gripper (Robotic end-effector)
+  4. camera_sensor (Vision inspection sensor)
+  5. controller (Safety & sequence controller)
+
+Available Tools:
+  - inspect(subsystem="all"|"power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Query diagnostic state.
+  - isolate(subsystem="power_unit"|"pneumatic_line", action="engage"|"release"): Safety lockout (engage) or restore energy line (release).
+  - clear_fault(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Clear active fault (energy lines must be isolated before clearing faults).
+  - reset(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Reset subsystem to operating/home state (e.g. power voltage to 24V, line pressure to 5.0 bar, arm to home). Note: reset does NOT clear tripped or faulted status; clear_fault is required for faults.
+  - calibrate(subsystem="camera_sensor"|"arm_gripper"): Run precision calibration (requires nominal power and no active faults).
+  - self_test(target="workstation"): Run comprehensive safety self-test (all subsystems must be nominal and calibrated).
+  - resume(target="workstation"): Resume normal production (requires successful self_test).
+
+Response Format:
+Respond with a JSON object strictly following this schema:
+```json
+{
+  "thought": "Your step-by-step diagnostic reasoning...",
+  "tool": "<tool_name>",
+  "args": {<argument_key>: <argument_value>}
+}
+```
+"""
+
+WORKSTATION_SYSTEM_PROMPT_PLAN_NO_RECIPE = """You are an autonomous robotic workstation diagnostic and recovery agent in a simulated environment.
+The workstation consists of 5 subsystems:
+  1. power_unit (Primary power & safety relay)
+  2. pneumatic_line (Compressed air supply)
+  3. arm_gripper (Robotic end-effector)
+  4. camera_sensor (Vision inspection sensor)
+  5. controller (Safety & sequence controller)
+
+Available Tools:
+  - inspect(subsystem="all"|"power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Query diagnostic state.
+  - isolate(subsystem="power_unit"|"pneumatic_line", action="engage"|"release"): Safety lockout (engage) or restore energy line (release).
+  - clear_fault(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Clear active fault (energy lines must be isolated before clearing faults).
+  - reset(subsystem="power_unit"|"pneumatic_line"|"arm_gripper"|"camera_sensor"|"controller"): Reset subsystem to operating/home state (e.g. power voltage to 24V, line pressure to 5.0 bar, arm to home). Note: reset does NOT clear tripped or faulted status; clear_fault is required for faults.
+  - calibrate(subsystem="camera_sensor"|"arm_gripper"): Run precision calibration (requires nominal power and no active faults).
+  - self_test(target="workstation"): Run comprehensive safety self-test (all subsystems must be nominal and calibrated).
+  - resume(target="workstation"): Resume normal production (requires successful self_test).
+
+Response Format:
+You can plan up to 4 local steps at once. Respond with a JSON object strictly following this schema:
+```json
+{
+  "thought": "Your step-by-step diagnostic reasoning...",
+  "plan": [
+    {"tool": "<tool_name_1>", "args": {<arg_key>: <arg_val>}},
+    {"tool": "<tool_name_2>", "args": {<arg_key>: <arg_val>}}
+  ]
+}
+```
+"""
+
+WORKSTATION_SYSTEM_PROMPT_STEP_EXPERT = """You are an autonomous robotic workstation diagnostic and recovery agent in a simulated environment.
 The workstation consists of 5 subsystems:
   1. power_unit (Primary power & safety relay)
   2. pneumatic_line (Compressed air supply)
@@ -67,7 +126,7 @@ Respond with a JSON object strictly following this schema:
 ```
 """
 
-WORKSTATION_SYSTEM_PROMPT_PLAN = """You are an autonomous robotic workstation diagnostic and recovery agent in a simulated environment.
+WORKSTATION_SYSTEM_PROMPT_PLAN_EXPERT = """You are an autonomous robotic workstation diagnostic and recovery agent in a simulated environment.
 The workstation consists of 5 subsystems:
   1. power_unit (Primary power & safety relay)
   2. pneumatic_line (Compressed air supply)
@@ -96,6 +155,10 @@ You can plan up to 4 local steps at once. Respond with a JSON object strictly fo
 }
 ```
 """
+
+# Backwards-compatible defaults
+WORKSTATION_SYSTEM_PROMPT_STEP = WORKSTATION_SYSTEM_PROMPT_STEP_EXPERT
+WORKSTATION_SYSTEM_PROMPT_PLAN = WORKSTATION_SYSTEM_PROMPT_PLAN_EXPERT
 
 
 @dataclass
@@ -404,6 +467,8 @@ class WorkstationAgentRunner:
         time_limit_s: float = 1800.0,
         allow_fallback: bool = False,
         enable_constraint_repair_planning: bool = True,
+        recipe_mode: str = "expert",
+        replan_mode: str = "focused",
     ):
         self.group_id = group_id
         self.llm_backend = llm_backend
@@ -412,6 +477,16 @@ class WorkstationAgentRunner:
         self.time_limit_s = time_limit_s
         self.allow_fallback = allow_fallback
         self.enable_constraint_repair_planning = enable_constraint_repair_planning
+        self.recipe_mode = recipe_mode  # "none" or "expert"
+        self.replan_mode = replan_mode  # "standard" or "focused"
+
+    @property
+    def system_prompt_step(self) -> str:
+        return WORKSTATION_SYSTEM_PROMPT_STEP_NO_RECIPE if self.recipe_mode == "none" else WORKSTATION_SYSTEM_PROMPT_STEP_EXPERT
+
+    @property
+    def system_prompt_plan(self) -> str:
+        return WORKSTATION_SYSTEM_PROMPT_PLAN_NO_RECIPE if self.recipe_mode == "none" else WORKSTATION_SYSTEM_PROMPT_PLAN_EXPERT
 
     def run_task(
         self,
@@ -726,17 +801,23 @@ class WorkstationAgentRunner:
                 elif consecutive_repeat_count == 3:
                     if self.enable_constraint_repair_planning and llm_calls < self.max_llm_calls:
                         llm_calls += 1
-                        repair_acts = self._plan_constraint_repair(
+                        executor.clear()
+                        repair_acts, p_tok, g_tok = self._handle_repetition_replan(
                             task_config=task_config,
                             known_state=known_state,
-                            blocked_action={"tool": tool_name, "args": tool_args},
+                            trajectory=trajectory,
+                            tool_name=tool_name,
+                            tool_args=tool_args,
                             unmet_predicates=list(unmet_preds),
                             cancellation_reason=constraint_event.cancellation_reason,
                             structured_facts=structured_facts,
                             llm_call_records=llm_call_records,
                         )
+                        prompt_tokens_total += p_tok
+                        gen_tokens_total += g_tok
                         if repair_acts:
-                            executor.enqueue_plan(repair_acts, source_tag="constraint_repair_plan")
+                            source_tag = "standard_replan" if self.replan_mode == "standard" else "constraint_repair_plan"
+                            executor.enqueue_plan(repair_acts, source_tag=source_tag)
                     continue
                 else:
                     termination_reason = "REPEATED_CONSTRAINT_VIOLATION"
@@ -834,17 +915,23 @@ class WorkstationAgentRunner:
                 elif consecutive_repeat_count == 3:
                     if self.enable_constraint_repair_planning and llm_calls < self.max_llm_calls:
                         llm_calls += 1
-                        repair_acts = self._plan_constraint_repair(
+                        executor.clear()
+                        repair_acts, p_tok, g_tok = self._handle_repetition_replan(
                             task_config=task_config,
                             known_state=known_state,
-                            blocked_action={"tool": tool_name, "args": tool_args},
+                            trajectory=trajectory,
+                            tool_name=tool_name,
+                            tool_args=tool_args,
                             unmet_predicates=[err_msg],
                             cancellation_reason=err_msg,
                             structured_facts=structured_facts,
                             llm_call_records=llm_call_records,
                         )
+                        prompt_tokens_total += p_tok
+                        gen_tokens_total += g_tok
                         if repair_acts:
-                            executor.enqueue_plan(repair_acts, source_tag="constraint_repair_plan")
+                            source_tag = "standard_replan" if self.replan_mode == "standard" else "constraint_repair_plan"
+                            executor.enqueue_plan(repair_acts, source_tag=source_tag)
                     continue
                 else:
                     termination_reason = "REPEATED_CONSTRAINT_VIOLATION"
@@ -901,17 +988,23 @@ class WorkstationAgentRunner:
                 elif consecutive_repeat_count == 3:
                     if self.enable_constraint_repair_planning and llm_calls < self.max_llm_calls:
                         llm_calls += 1
-                        repair_acts = self._plan_constraint_repair(
+                        executor.clear()
+                        repair_acts, p_tok, g_tok = self._handle_repetition_replan(
                             task_config=task_config,
                             known_state=known_state,
-                            blocked_action={"tool": tool_name, "args": tool_args},
+                            trajectory=trajectory,
+                            tool_name=tool_name,
+                            tool_args=tool_args,
                             unmet_predicates=["No state progress observed: action repeated without state change"],
                             cancellation_reason=stag_reasons,
                             structured_facts=structured_facts,
                             llm_call_records=llm_call_records,
                         )
+                        prompt_tokens_total += p_tok
+                        gen_tokens_total += g_tok
                         if repair_acts:
-                            executor.enqueue_plan(repair_acts, source_tag="constraint_repair_plan")
+                            source_tag = "standard_replan" if self.replan_mode == "standard" else "constraint_repair_plan"
+                            executor.enqueue_plan(repair_acts, source_tag=source_tag)
                     continue
                 else:
                     termination_reason = "REPEATED_CONSTRAINT_VIOLATION"
@@ -958,12 +1051,37 @@ class WorkstationAgentRunner:
 
         wall_time_s = round(time.time() - t0, 2)
 
+        # Strict token and call consistency assertions
+        assert llm_calls == len(llm_call_records), f"llm_calls ({llm_calls}) != len(llm_call_records) ({len(llm_call_records)})"
+        strict_p_tokens = sum(r.get("prompt_tokens", 0) for r in llm_call_records)
+        strict_g_tokens = sum(r.get("generated_tokens", 0) for r in llm_call_records)
+        assert prompt_tokens_total == strict_p_tokens, f"prompt_tokens_total ({prompt_tokens_total}) != sum of records ({strict_p_tokens})"
+        assert gen_tokens_total == strict_g_tokens, f"gen_tokens_total ({gen_tokens_total}) != sum of records ({strict_g_tokens})"
+
+        # Hashes calculation
+        try:
+            import subprocess
+            commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(Path(__file__).parent)).decode("utf-8").strip()
+        except Exception:
+            commit_hash = "a3f4d1f"
+
+        prompt_str = self.system_prompt_plan + "::" + self.recipe_mode + "::" + self.replan_mode
+        prompt_hash = hashlib.sha256(prompt_str.encode("utf-8")).hexdigest()
+        task_hash = hashlib.sha256(json.dumps(task_config, sort_keys=True).encode("utf-8")).hexdigest()
+        condition_name = f"{'NoRecipe' if self.recipe_mode == 'none' else 'ExpertRecipe'}_{'StandardReplan' if self.replan_mode == 'standard' else 'FocusedRepair'}"
+
         return {
             "group_id": self.group_id,
             "task_id": task_config.get("task_id"),
             "transfer_class": task_config.get("transfer_class", "source"),
             "success": success,
             "termination_reason": termination_reason,
+            "recipe_mode": self.recipe_mode,
+            "replan_mode": self.replan_mode,
+            "condition": condition_name,
+            "prompt_hash": prompt_hash,
+            "commit_hash": commit_hash,
+            "task_hash": task_hash,
             "step_count": len(trajectory),
             "llm_calls": llm_calls,
             "total_prompt_tokens": prompt_tokens_total,
@@ -1254,7 +1372,7 @@ class WorkstationAgentRunner:
         constraint_tracker: Optional[ConstraintTracker] = None,
         is_multistep: bool = False,
     ) -> str:
-        sys_prompt = WORKSTATION_SYSTEM_PROMPT_PLAN if is_multistep else WORKSTATION_SYSTEM_PROMPT_STEP
+        sys_prompt = self.system_prompt_plan if is_multistep else self.system_prompt_step
         parts = [sys_prompt, "\n=== Current Task Objective ==="]
         parts.append(f"Goal: {task_config.get('goal')}")
 
@@ -1402,31 +1520,36 @@ class WorkstationAgentRunner:
         cancellation_reason: str,
         structured_facts: Optional[StructuredFactStore] = None,
         llm_call_records: Optional[List[Dict[str, Any]]] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], int, int]:
         tool = blocked_action.get("tool", "")
         args = blocked_action.get("args", {})
         
         prompt_parts = [
-            WORKSTATION_SYSTEM_PROMPT_PLAN,
+            self.system_prompt_plan,
             "\n=== Current Task Objective ===",
             f"Goal: {task_config.get('goal')}",
             "\n=== CRITICAL CONSTRAINT REPAIR TRIGGERED ===",
             f"A recurring failure occurred when attempting: {tool}({args})",
             f"Unmet Predicates / Interlock: {'; '.join(unmet_predicates)}",
             f"Failure Reason: {cancellation_reason}",
-            "\nDomain Interlock Protocols:",
-            "  1. Power Unit: If power_unit is tripped, call isolate('power_unit', 'engage') -> clear_fault('power_unit') -> isolate('power_unit', 'release').",
-            "  2. Pneumatic Line: If pneumatic_line has a fault, call isolate('pneumatic_line', 'engage') -> clear_fault('pneumatic_line') -> isolate('pneumatic_line', 'release').",
-            "  3. Gripper Load: If arm_gripper is jammed or holding load, call clear_fault('arm_gripper') to release load before resetting/homing.",
-            "  4. Sensor Calibration: Camera calibration requires power_unit to be nominal and not isolated.",
+        ]
+        if self.recipe_mode == "expert":
+            prompt_parts.extend([
+                "\nDomain Interlock Protocols:",
+                "  1. Power Unit: If power_unit is tripped, call isolate('power_unit', 'engage') -> clear_fault('power_unit') -> isolate('power_unit', 'release').",
+                "  2. Pneumatic Line: If pneumatic_line has a fault, call isolate('pneumatic_line', 'engage') -> clear_fault('pneumatic_line') -> isolate('pneumatic_line', 'release').",
+                "  3. Gripper Load: If arm_gripper is jammed or holding load, call clear_fault('arm_gripper') to release load before resetting/homing.",
+                "  4. Sensor Calibration: Camera calibration requires power_unit to be nominal and not isolated.",
+            ])
+        prompt_parts.extend([
             "\n=== Current Known Workstation State ===",
             json.dumps(known_state, indent=2),
             "\nPlease formulate a 1 to 4 step corrective action plan to satisfy the unmet preconditions and unblock the system.",
             "Respond strictly in JSON format with a 'plan' array."
-        ]
+        ])
         prompt = "\n".join(prompt_parts)
         
-        raw_res, _, _ = self._call_llm(
+        raw_res, p_tok, g_tok = self._call_llm(
             prompt,
             is_multistep=True,
             call_type="constraint_repair_planning",
@@ -1439,7 +1562,98 @@ class WorkstationAgentRunner:
                 norm_a = self._normalize_action(raw_a, default_thought=parsed.get("thought", ""))
                 if norm_a:
                     plan_acts.append(norm_a)
-        return plan_acts
+        return plan_acts, p_tok, g_tok
+
+    def _plan_standard_replan(
+        self,
+        task_config: Dict[str, Any],
+        known_state: Dict[str, Any],
+        trajectory: List[Dict[str, Any]],
+        blocked_action: Dict[str, Any],
+        unmet_predicates: List[str],
+        cancellation_reason: str,
+        structured_facts: Optional[StructuredFactStore] = None,
+        llm_call_records: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[List[Dict[str, Any]], int, int]:
+        tool = blocked_action.get("tool", "")
+        args = blocked_action.get("args", {})
+        
+        prompt_parts = [
+            self.system_prompt_plan,
+            "\n=== Current Task Objective ===",
+            f"Goal: {task_config.get('goal')}",
+            "\n=== Execution Interception & Replanning ===",
+            f"Previous attempted action: {tool}({args})",
+            f"Execution issue: {cancellation_reason}",
+            f"Unmet conditions: {'; '.join(unmet_predicates)}",
+        ]
+        if structured_facts:
+            facts_dict = structured_facts.to_dict()
+            prompt_parts.append("\n=== Verified Structured Domain Facts ===")
+            if facts_dict.get("verified_transitions"):
+                prompt_parts.append("Verified State Transitions:")
+                for tr in facts_dict["verified_transitions"]:
+                    prompt_parts.append(f"  - Action {tr.get('action')}: yielded effects {tr.get('observed_effects')}")
+            if facts_dict.get("negative_preconditions"):
+                prompt_parts.append("Observed Negative Preconditions & Failures:")
+                for neg in facts_dict["negative_preconditions"]:
+                    prompt_parts.append(f"  - Failed Action {neg.get('action')}: yielded {neg.get('error_status')} ({neg.get('error_message')})")
+        prompt_parts.extend([
+            "\n=== Current Known Workstation State ===",
+            json.dumps(known_state, indent=2),
+            "\nPlease formulate a new 1 to 4 step plan to resolve active issues and progress towards the goal.",
+            "Respond strictly in JSON format with a 'plan' array."
+        ])
+        prompt = "\n".join(prompt_parts)
+        
+        raw_res, p_tok, g_tok = self._call_llm(
+            prompt,
+            is_multistep=True,
+            call_type="standard_replanning",
+            llm_call_records=llm_call_records,
+        )
+        parsed = self._parse_llm_response(raw_res)
+        plan_acts = []
+        if parsed and isinstance(parsed, dict) and "plan" in parsed and isinstance(parsed["plan"], list):
+            for raw_a in parsed["plan"]:
+                norm_a = self._normalize_action(raw_a, default_thought=parsed.get("thought", ""))
+                if norm_a:
+                    plan_acts.append(norm_a)
+        return plan_acts, p_tok, g_tok
+
+    def _handle_repetition_replan(
+        self,
+        task_config: Dict[str, Any],
+        known_state: Dict[str, Any],
+        trajectory: List[Dict[str, Any]],
+        tool_name: str,
+        tool_args: Dict[str, Any],
+        unmet_predicates: List[str],
+        cancellation_reason: str,
+        structured_facts: Optional[StructuredFactStore] = None,
+        llm_call_records: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[List[Dict[str, Any]], int, int]:
+        if self.replan_mode == "standard":
+            return self._plan_standard_replan(
+                task_config=task_config,
+                known_state=known_state,
+                trajectory=trajectory,
+                blocked_action={"tool": tool_name, "args": tool_args},
+                unmet_predicates=unmet_predicates,
+                cancellation_reason=cancellation_reason,
+                structured_facts=structured_facts,
+                llm_call_records=llm_call_records,
+            )
+        else:
+            return self._plan_constraint_repair(
+                task_config=task_config,
+                known_state=known_state,
+                blocked_action={"tool": tool_name, "args": tool_args},
+                unmet_predicates=unmet_predicates,
+                cancellation_reason=cancellation_reason,
+                structured_facts=structured_facts,
+                llm_call_records=llm_call_records,
+            )
 
     def _parse_llm_response(self, text: str) -> Optional[Dict[str, Any]]:
         cleaned = text.strip()

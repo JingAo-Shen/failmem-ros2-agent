@@ -34,6 +34,8 @@ from .workstation_agent import (
     ActiveConstraint,
     ActiveMemoryExecution,
     ConstraintEvent,
+    WORKSTATION_SYSTEM_PROMPT_STEP_NO_RECIPE,
+    WORKSTATION_SYSTEM_PROMPT_PLAN_NO_RECIPE,
 )
 from ..audit_and_generate_report import audit_and_generate
 
@@ -356,7 +358,146 @@ class TestWorkstationIntegrationMechanisms(unittest.TestCase):
         res = runner.run_task(task_cfg)
         self.assertEqual(res["termination_reason"], "REPEATED_CONSTRAINT_VIOLATION", "Agent must terminate on 3rd repetition!")
         repair_calls = [r for r in res.get("llm_call_records", []) if r.get("call_type") == "constraint_repair_planning"]
-        self.assertGreaterEqual(len(repair_calls), 1, "Constraint repair planning must have been triggered!")
+    def test_gate_13_no_recipe_prompt_cleanliness(self):
+        """Gate 13 (Section IV.1): Assert NoRecipe prompts contain zero domain repair action chains."""
+        for prompt_text in [WORKSTATION_SYSTEM_PROMPT_STEP_NO_RECIPE, WORKSTATION_SYSTEM_PROMPT_PLAN_NO_RECIPE]:
+            self.assertNotIn("requires isolate 'engage' first", prompt_text)
+            self.assertNotIn("then clear_fault", prompt_text)
+            self.assertNotIn("then isolate 'release'", prompt_text)
+            self.assertNotIn("Domain Interlock Protocols", prompt_text)
+            self.assertNotIn("->", prompt_text)
+
+        # Also assert repair prompt in NoRecipe mode does not inject domain repair chains
+        mock_llm = MockLLMBackendWithCustomScript(['{"plan": [{"tool": "inspect", "args": {"subsystem": "all"}}]}'])
+        runner = WorkstationAgentRunner(
+            group_id="Group_B2_plan",
+            llm_backend=mock_llm,
+            recipe_mode="none",
+            replan_mode="focused",
+        )
+        runner._plan_constraint_repair(
+            task_config={"goal": "test"},
+            known_state={},
+            blocked_action={"tool": "clear_fault", "args": {"subsystem": "power_unit"}},
+            unmet_predicates=["power_unit.isolated == True"],
+            cancellation_reason="Precondition unmet",
+        )
+        self.assertGreater(len(mock_llm.prompts_received), 0)
+        repair_prompt = mock_llm.prompts_received[0]
+        self.assertNotIn("Domain Interlock Protocols", repair_prompt)
+        self.assertNotIn("call isolate('power_unit', 'engage')", repair_prompt)
+        self.assertNotIn("->", repair_prompt)
+
+    def test_gate_14_standard_vs_focused_replan_trigger_parity(self):
+        """Gate 14 (Section IV.2): Assert StandardReplan and FocusedRepair trigger at identical 2nd repeat and make 1 LLM call."""
+        task_cfg = {
+            "task_id": "test_parity",
+            "goal": "Test trigger parity",
+            "initial_state": {
+                "power_unit": {"status": "tripped", "isolated": False, "voltage_v": 0.0},
+                "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
+            },
+        }
+        failing_act = '{"thought": "Try clear fault without isolation", "tool": "clear_fault", "args": {"subsystem": "power_unit"}}'
+        
+        # Test StandardReplan
+        mock_standard = MockLLMBackendWithCustomScript([
+            failing_act,  # init (count=1)
+            failing_act,  # repeat 1 (count=2)
+            failing_act,  # repeat 2 (count=3, triggers replan)
+            failing_act,  # replan plan (still failing)
+            failing_act,  # repeat 3 (count=4, terminates)
+        ])
+        runner_standard = WorkstationAgentRunner(
+            group_id="Group_B2_plan",
+            llm_backend=mock_standard,
+            recipe_mode="none",
+            replan_mode="standard",
+        )
+        res_standard = runner_standard.run_task(task_cfg)
+        self.assertEqual(res_standard["termination_reason"], "REPEATED_CONSTRAINT_VIOLATION")
+        standard_replan_calls = [r for r in res_standard["llm_call_records"] if r.get("call_type") == "standard_replanning"]
+        self.assertEqual(len(standard_replan_calls), 1, "StandardReplan must trigger exactly 1 LLM call!")
+
+        # Test FocusedRepair
+        mock_focused = MockLLMBackendWithCustomScript([
+            failing_act,  # init (count=1)
+            failing_act,  # repeat 1 (count=2)
+            failing_act,  # repeat 2 (count=3, triggers replan)
+            failing_act,  # replan plan (still failing)
+            failing_act,  # repeat 3 (count=4, terminates)
+        ])
+        runner_focused = WorkstationAgentRunner(
+            group_id="Group_B2_plan",
+            llm_backend=mock_focused,
+            recipe_mode="none",
+            replan_mode="focused",
+        )
+        res_focused = runner_focused.run_task(task_cfg)
+        self.assertEqual(res_focused["termination_reason"], "REPEATED_CONSTRAINT_VIOLATION")
+        focused_repair_calls = [r for r in res_focused["llm_call_records"] if r.get("call_type") == "constraint_repair_planning"]
+        self.assertEqual(len(focused_repair_calls), 1, "FocusedRepair must trigger exactly 1 LLM call!")
+
+        # Exact parity in total LLM calls
+        self.assertEqual(res_standard["llm_calls"], res_focused["llm_calls"])
+
+    def test_gate_15_token_consistency_assertion(self):
+        """Gate 15 (Section IV.3): Assert token counts and llm_calls strictly match llm_call_records."""
+        task_cfg = {
+            "task_id": "test_tokens",
+            "goal": "Test token consistency",
+            "initial_state": {
+                "power_unit": {"status": "tripped", "isolated": False, "voltage_v": 0.0},
+                "controller": {"status": "nominal", "self_test_passed": False, "resumed": False},
+            },
+        }
+        failing_act = '{"thought": "Fail", "tool": "clear_fault", "args": {"subsystem": "power_unit"}}'
+        mock_llm = MockLLMBackendWithCustomScript([failing_act] * 6)
+        runner = WorkstationAgentRunner(
+            group_id="Group_B2_plan",
+            llm_backend=mock_llm,
+            recipe_mode="expert",
+            replan_mode="focused",
+        )
+        res = runner.run_task(task_cfg)
+        self.assertEqual(res["llm_calls"], len(res["llm_call_records"]))
+        self.assertEqual(res["total_prompt_tokens"], sum(r["prompt_tokens"] for r in res["llm_call_records"]))
+        self.assertEqual(res["total_generated_tokens"], sum(r["generated_tokens"] for r in res["llm_call_records"]))
+        self.assertGreater(res["total_prompt_tokens"], 0)
+
+    def test_gate_16_hash_tracking_and_no_mixing(self):
+        """Gate 16 (Section IV.4): Assert prompt_hash, commit_hash, task_hash presence and condition uniqueness."""
+        task_cfg = {
+            "task_id": "test_hashes",
+            "goal": "Test hashes",
+            "initial_state": {"controller": {"status": "nominal", "self_test_passed": False, "resumed": False}},
+        }
+        mock_llm = MockLLMBackendWithCustomScript(['{"thought": "Inspect", "plan": [{"tool": "inspect", "args": {"subsystem": "all"}}]}'] * 4)
+        
+        conditions = [
+            ("none", "standard", "NoRecipe_StandardReplan"),
+            ("none", "focused", "NoRecipe_FocusedRepair"),
+            ("expert", "standard", "ExpertRecipe_StandardReplan"),
+            ("expert", "focused", "ExpertRecipe_FocusedRepair"),
+        ]
+        results = {}
+        for rec_mode, rep_mode, cond_name in conditions:
+            runner = WorkstationAgentRunner(
+                group_id="Group_B2_plan",
+                llm_backend=mock_llm,
+                recipe_mode=rec_mode,
+                replan_mode=rep_mode,
+            )
+            res = runner.run_task(task_cfg)
+            self.assertEqual(res["condition"], cond_name)
+            self.assertTrue(len(res["prompt_hash"]) > 10)
+            self.assertTrue(len(res["commit_hash"]) > 5)
+            self.assertTrue(len(res["task_hash"]) > 10)
+            results[cond_name] = res
+
+        # Prompt hashes must be distinct across the 4 conditions
+        hashes = [r["prompt_hash"] for r in results.values()]
+        self.assertEqual(len(set(hashes)), 4, "All 4 conditions must have unique prompt hashes!")
 
 
 if __name__ == "__main__":

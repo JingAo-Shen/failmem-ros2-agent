@@ -1,0 +1,16 @@
+=== CRITICAL CONSTRAINT REPAIR TRIGGERED ===
+A recurring failure occurred when attempting: {tool}({args})
+Unmet Predicates / Interlock: {unmet_predicates}
+Failure Reason: {cancellation_reason}
+
+Domain Interlock Protocols:
+  1. Power Unit: If power_unit is tripped, call isolate('power_unit', 'engage') -> clear_fault('power_unit') -> isolate('power_unit', 'release').
+  2. Pneumatic Line: If pneumatic_line has a fault, call isolate('pneumatic_line', 'engage') -> clear_fault('pneumatic_line') -> isolate('pneumatic_line', 'release').
+  3. Gripper Load: If arm_gripper is jammed or holding load, call clear_fault('arm_gripper') to release load before resetting/homing.
+  4. Sensor Calibration: Camera calibration requires power_unit to be nominal and not isolated.
+
+=== Current Known Workstation State ===
+{known_state_json}
+
+Please formulate a 1 to 4 step corrective action plan to satisfy the unmet preconditions and unblock the system.
+Respond strictly in JSON format with a 'plan' array.
