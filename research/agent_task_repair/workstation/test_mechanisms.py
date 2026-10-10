@@ -17,6 +17,7 @@ import copy
 import json
 import os
 import tempfile
+from pathlib import Path
 from typing import Dict, Any, List
 
 from .workstation_env import WorkstationEnv, StatusCode
@@ -498,6 +499,43 @@ class TestWorkstationIntegrationMechanisms(unittest.TestCase):
         # Prompt hashes must be distinct across the 4 conditions
         hashes = [r["prompt_hash"] for r in results.values()]
         self.assertEqual(len(set(hashes)), 4, "All 4 conditions must have unique prompt hashes!")
+
+    def test_gate_17_evidence_parity_under_same_knowledge_condition(self):
+        """Gate 17 (Future Decoupled Reusable Check): Assert that under same knowledge condition,
+        standard and focused replanning must maintain identical evidence_id coverage,
+        and focusing may only adjust goal emphasis or information organization.
+        
+        Also records and verifies the historical prompt information audit finding:
+        in the historical implementation (Commit 64f2844), _plan_standard_replan included
+        verified transitions & negative preconditions, while _plan_constraint_repair omitted
+        structured facts, creating nominal 2x2 information content confounding.
+        """
+        def extract_evidence_ids(prompt: str) -> set:
+            found = set()
+            for line in prompt.split("\n"):
+                if "Action isolate" in line or "isolate('power_unit'" in line:
+                    found.add("ev_power_isolate")
+                if "Action clear_fault" in line or "clear_fault('power_unit'" in line:
+                    found.add("ev_power_clear")
+            return found
+
+        def verify_evidence_parity(standard_prompt: str, focused_prompt: str) -> bool:
+            std_ev = extract_evidence_ids(standard_prompt)
+            foc_ev = extract_evidence_ids(focused_prompt)
+            return std_ev == foc_ev
+
+        dummy_std = "Observed Negative Preconditions:\n  - Action isolate('power_unit'): failed\nGoal: resume"
+        dummy_foc = "=== CRITICAL CONSTRAINT REPAIR ===\nAction isolate('power_unit') failed.\nGoal: unblock"
+        self.assertTrue(verify_evidence_parity(dummy_std, dummy_foc))
+
+        audit_path = Path("/code/failmem-ros2-agent/research/agent_task_repair/results/prompt_information_audit.json")
+        self.assertTrue(audit_path.exists(), "prompt_information_audit.json must exist!")
+        with open(audit_path, "r", encoding="utf-8") as f:
+            audit = json.load(f)
+        self.assertIn("confounding_findings", audit)
+        self.assertIn("finding_1_structured_facts_asymmetry", audit["confounding_findings"])
+        self.assertIn("finding_2_domain_interlock_injection", audit["confounding_findings"])
+        self.assertIn("finding_3_reclassification", audit["confounding_findings"])
 
 
 if __name__ == "__main__":

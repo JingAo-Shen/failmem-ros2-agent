@@ -1,5 +1,9 @@
 # 重复拦截诊断、人工流程提示与自主约束修复贡献判别报告 (Batch 1 & Batch 2 评测纠正版)
 
+> ⚠️ **后续研究审计与证据纠正链接**：
+> - **项目研究证据总表**：参见 [项目研究证据总表 (research_evidence_ledger.md)](./research_evidence_ledger.md)；
+> - **后续 2×2 比较报告**：参见 [名义 2×2 提示配置比较报告 (attribution_32_report.md)](./attribution_32_report.md) 与 [提示信息审计报告 (prompt_information_audit.json)](./prompt_information_audit.json)。
+
 > **研究定位修正说明**：
 > 1. **Batch 1 定位纠正**：Batch 1 严格标记为**“带人工领域流程提示的开发诊断”**。本轮评测中 8/8 的高成功率**不能**归因于智能体自主发现约束修复动作，因为实验中向模型显式注入了人工编写的领域修复动作链。
 > 2. **人工流程注入点披露（两处完整披露）**：

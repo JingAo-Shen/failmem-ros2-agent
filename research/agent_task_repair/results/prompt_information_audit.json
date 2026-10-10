@@ -1,0 +1,358 @@
+{
+  "audit_metadata": {
+    "source_results_file": "/code/failmem-ros2-agent/research/agent_task_repair/results/attribution_2x2_results.json",
+    "total_runs": 32,
+    "investigation_focus": "Nominal 2x2 configuration vs actual prompt information content audit"
+  },
+  "conditions_audit": {
+    "NoRecipe_StandardReplan": {
+      "recipe_mode": "none",
+      "replan_mode": "standard",
+      "description": "Clean prompt (no action chains) + standard goal-directed replan",
+      "total_runs": 8,
+      "observed_call_types": [
+        "standard_planning",
+        "standard_replanning"
+      ],
+      "call_type_information_content": {
+        "standard_planning": {
+          "tool_descriptions": true,
+          "human_action_chains": {
+            "in_tool_description": false,
+            "in_repair_prompt_domain_interlock": false,
+            "explicit_power_chain": false,
+            "explicit_pneu_chain": false
+          },
+          "source_state_transitions": {
+            "present": true,
+            "count_extracted": 0
+          },
+          "source_failure_facts": {
+            "present": true,
+            "has_negative_preconditions": true,
+            "negative_preconditions_count": 0,
+            "has_action_preconditions": true
+          },
+          "current_observations": {
+            "present": true,
+            "is_empty_or_unknown": true
+          },
+          "current_unmet_conditions": {
+            "present": false,
+            "has_unmet_predicates": false,
+            "has_failure_reason": false
+          },
+          "trajectory_history": {
+            "present": true,
+            "has_actions_recorded": false
+          },
+          "repair_instructions": {
+            "mode": "standard_planning",
+            "prompts_unblocking": false,
+            "prompts_goal_progress": false
+          }
+        },
+        "standard_replanning": {
+          "tool_descriptions": true,
+          "human_action_chains": {
+            "in_tool_description": false,
+            "in_repair_prompt_domain_interlock": false,
+            "explicit_power_chain": false,
+            "explicit_pneu_chain": false
+          },
+          "source_state_transitions": {
+            "present": true,
+            "count_extracted": 0
+          },
+          "source_failure_facts": {
+            "present": true,
+            "has_negative_preconditions": true,
+            "negative_preconditions_count": 0,
+            "has_action_preconditions": false
+          },
+          "current_observations": {
+            "present": true,
+            "is_empty_or_unknown": false
+          },
+          "current_unmet_conditions": {
+            "present": true,
+            "has_unmet_predicates": true,
+            "has_failure_reason": true
+          },
+          "trajectory_history": {
+            "present": false,
+            "has_actions_recorded": false
+          },
+          "repair_instructions": {
+            "mode": "execution_interception_replanning",
+            "prompts_unblocking": false,
+            "prompts_goal_progress": true
+          }
+        }
+      }
+    },
+    "NoRecipe_FocusedRepair": {
+      "recipe_mode": "none",
+      "replan_mode": "focused",
+      "description": "Clean prompt (no action chains) + focused precondition unblocking",
+      "total_runs": 8,
+      "observed_call_types": [
+        "standard_planning",
+        "constraint_repair_planning"
+      ],
+      "call_type_information_content": {
+        "standard_planning": {
+          "tool_descriptions": true,
+          "human_action_chains": {
+            "in_tool_description": false,
+            "in_repair_prompt_domain_interlock": false,
+            "explicit_power_chain": false,
+            "explicit_pneu_chain": false
+          },
+          "source_state_transitions": {
+            "present": true,
+            "count_extracted": 0
+          },
+          "source_failure_facts": {
+            "present": true,
+            "has_negative_preconditions": true,
+            "negative_preconditions_count": 0,
+            "has_action_preconditions": true
+          },
+          "current_observations": {
+            "present": true,
+            "is_empty_or_unknown": true
+          },
+          "current_unmet_conditions": {
+            "present": false,
+            "has_unmet_predicates": false,
+            "has_failure_reason": false
+          },
+          "trajectory_history": {
+            "present": true,
+            "has_actions_recorded": false
+          },
+          "repair_instructions": {
+            "mode": "standard_planning",
+            "prompts_unblocking": false,
+            "prompts_goal_progress": false
+          }
+        },
+        "constraint_repair_planning": {
+          "tool_descriptions": true,
+          "human_action_chains": {
+            "in_tool_description": false,
+            "in_repair_prompt_domain_interlock": false,
+            "explicit_power_chain": false,
+            "explicit_pneu_chain": false
+          },
+          "source_state_transitions": {
+            "present": false,
+            "count_extracted": 0
+          },
+          "source_failure_facts": {
+            "present": false,
+            "has_negative_preconditions": false,
+            "negative_preconditions_count": 0,
+            "has_action_preconditions": false
+          },
+          "current_observations": {
+            "present": true,
+            "is_empty_or_unknown": false
+          },
+          "current_unmet_conditions": {
+            "present": true,
+            "has_unmet_predicates": true,
+            "has_failure_reason": true
+          },
+          "trajectory_history": {
+            "present": false,
+            "has_actions_recorded": false
+          },
+          "repair_instructions": {
+            "mode": "critical_constraint_repair",
+            "prompts_unblocking": true,
+            "prompts_goal_progress": false
+          }
+        }
+      }
+    },
+    "ExpertRecipe_StandardReplan": {
+      "recipe_mode": "expert",
+      "replan_mode": "standard",
+      "description": "Expert prompt (tool action chains) + standard goal-directed replan",
+      "total_runs": 8,
+      "observed_call_types": [
+        "standard_planning",
+        "standard_replanning"
+      ],
+      "call_type_information_content": {
+        "standard_planning": {
+          "tool_descriptions": true,
+          "human_action_chains": {
+            "in_tool_description": true,
+            "in_repair_prompt_domain_interlock": false,
+            "explicit_power_chain": false,
+            "explicit_pneu_chain": false
+          },
+          "source_state_transitions": {
+            "present": true,
+            "count_extracted": 0
+          },
+          "source_failure_facts": {
+            "present": true,
+            "has_negative_preconditions": true,
+            "negative_preconditions_count": 0,
+            "has_action_preconditions": true
+          },
+          "current_observations": {
+            "present": true,
+            "is_empty_or_unknown": true
+          },
+          "current_unmet_conditions": {
+            "present": false,
+            "has_unmet_predicates": false,
+            "has_failure_reason": false
+          },
+          "trajectory_history": {
+            "present": true,
+            "has_actions_recorded": false
+          },
+          "repair_instructions": {
+            "mode": "standard_planning",
+            "prompts_unblocking": false,
+            "prompts_goal_progress": false
+          }
+        },
+        "standard_replanning": {
+          "tool_descriptions": true,
+          "human_action_chains": {
+            "in_tool_description": true,
+            "in_repair_prompt_domain_interlock": false,
+            "explicit_power_chain": false,
+            "explicit_pneu_chain": false
+          },
+          "source_state_transitions": {
+            "present": true,
+            "count_extracted": 0
+          },
+          "source_failure_facts": {
+            "present": true,
+            "has_negative_preconditions": true,
+            "negative_preconditions_count": 0,
+            "has_action_preconditions": false
+          },
+          "current_observations": {
+            "present": true,
+            "is_empty_or_unknown": false
+          },
+          "current_unmet_conditions": {
+            "present": true,
+            "has_unmet_predicates": true,
+            "has_failure_reason": true
+          },
+          "trajectory_history": {
+            "present": false,
+            "has_actions_recorded": false
+          },
+          "repair_instructions": {
+            "mode": "execution_interception_replanning",
+            "prompts_unblocking": false,
+            "prompts_goal_progress": true
+          }
+        }
+      }
+    },
+    "ExpertRecipe_FocusedRepair": {
+      "recipe_mode": "expert",
+      "replan_mode": "focused",
+      "description": "Expert prompt (tool action chains + Domain Interlock Protocols) + focused repair",
+      "total_runs": 8,
+      "observed_call_types": [
+        "standard_planning",
+        "constraint_repair_planning"
+      ],
+      "call_type_information_content": {
+        "standard_planning": {
+          "tool_descriptions": true,
+          "human_action_chains": {
+            "in_tool_description": true,
+            "in_repair_prompt_domain_interlock": false,
+            "explicit_power_chain": false,
+            "explicit_pneu_chain": false
+          },
+          "source_state_transitions": {
+            "present": true,
+            "count_extracted": 0
+          },
+          "source_failure_facts": {
+            "present": true,
+            "has_negative_preconditions": true,
+            "negative_preconditions_count": 0,
+            "has_action_preconditions": true
+          },
+          "current_observations": {
+            "present": true,
+            "is_empty_or_unknown": true
+          },
+          "current_unmet_conditions": {
+            "present": false,
+            "has_unmet_predicates": false,
+            "has_failure_reason": false
+          },
+          "trajectory_history": {
+            "present": true,
+            "has_actions_recorded": false
+          },
+          "repair_instructions": {
+            "mode": "standard_planning",
+            "prompts_unblocking": false,
+            "prompts_goal_progress": false
+          }
+        },
+        "constraint_repair_planning": {
+          "tool_descriptions": true,
+          "human_action_chains": {
+            "in_tool_description": true,
+            "in_repair_prompt_domain_interlock": true,
+            "explicit_power_chain": true,
+            "explicit_pneu_chain": true
+          },
+          "source_state_transitions": {
+            "present": false,
+            "count_extracted": 0
+          },
+          "source_failure_facts": {
+            "present": false,
+            "has_negative_preconditions": false,
+            "negative_preconditions_count": 0,
+            "has_action_preconditions": false
+          },
+          "current_observations": {
+            "present": true,
+            "is_empty_or_unknown": false
+          },
+          "current_unmet_conditions": {
+            "present": true,
+            "has_unmet_predicates": true,
+            "has_failure_reason": true
+          },
+          "trajectory_history": {
+            "present": false,
+            "has_actions_recorded": false
+          },
+          "repair_instructions": {
+            "mode": "critical_constraint_repair",
+            "prompts_unblocking": true,
+            "prompts_goal_progress": false
+          }
+        }
+      }
+    }
+  },
+  "confounding_findings": {
+    "finding_1_structured_facts_asymmetry": "_plan_standard_replan actively appends verified_transitions and negative_preconditions from structured_facts, whereas _plan_constraint_repair receives structured_facts as an argument but completely omits it from the prompt string.",
+    "finding_2_domain_interlock_injection": "ExpertRecipe_FocusedRepair injects Domain Interlock Protocols directly into the repair prompt, giving the agent an explicit step-by-step unblocking recipe (isolate -> clear_fault -> release) that no other condition receives at replan time.",
+    "finding_3_reclassification": "The 4 conditions represent a 'Nominal 2x2 prompt configuration comparison with confounded information content' (名义 2×2 提示配置比较，存在信息内容混杂), and CANNOT be treated as a 'strictly decoupled causal attribution' (严格解耦的因果归因)."
+  }
+}
