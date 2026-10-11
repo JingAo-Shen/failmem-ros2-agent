@@ -1,0 +1,72 @@
+================================================================================
+FAILMEM CPU CONTAINER MECHANISM VERIFICATION SUITE
+Timestamp: 2026-10-11 02:58:27 UTC
+Testing 3 Real Container Failure Mechanisms across 4 States: A, B, C, D
+================================================================================
+
+--- Testing Mechanism 1: Port Occupancy (Socket Listener) ---
+  [State A]: Setting up persistent condition...
+    Probe Data: {'port': 18080, 'is_occupied': True, 'timestamp': 1791687507.5891542}
+    Applicability Evaluation: APPLICABLE
+    Target Action Result: success=False, code=98, stderr='[Errno 98] Address already in use'
+    -> [State A PASSED]
+  [State B]: Clearing condition...
+    Probe Data: {'port': 18080, 'is_occupied': False, 'timestamp': 1791687507.791059}
+    Applicability Evaluation: NOT_APPLICABLE
+    Target Action Result: success=True, code=0
+    -> [State B PASSED]
+  [State C]: Modifying only irrelevant attributes...
+    Probe Data: {'port': 18080, 'is_occupied': True, 'timestamp': 1791687508.092799}
+    Applicability Evaluation: APPLICABLE
+    Target Action Result: success=False, code=98, stderr='[Errno 98] Address already in use'
+    -> [State C PASSED]
+  [State D]: Testing observation expiration and uninspected state...
+    Case D1 (Expired probe delta_t=10s > TTL=2s): UNKNOWN
+    Case D2 (Missing probe data): UNKNOWN
+    -> [State D PASSED]
+
+--- Testing Mechanism 2: File Permission (0444 vs 0664) ---
+  [State A]: Setting up persistent condition...
+    Probe Data: {'exists': True, 'mode_octal': '644', 'writable_by_non_root': False, 'timestamp': 1791687508.0958097}
+    Applicability Evaluation: APPLICABLE
+    Target Action Result: success=False, code=1, stderr='bash: line 1: /tmp/constraint_env_test/protected_app.conf: Permission denied'
+    -> [State A PASSED]
+  [State B]: Clearing condition...
+    Probe Data: {'exists': True, 'mode_octal': '666', 'writable_by_non_root': True, 'timestamp': 1791687508.116108}
+    Applicability Evaluation: NOT_APPLICABLE
+    Target Action Result: success=True, code=0
+    -> [State B PASSED]
+  [State C]: Modifying only irrelevant attributes...
+    Probe Data: {'exists': True, 'mode_octal': '644', 'writable_by_non_root': False, 'timestamp': 1791687508.126593}
+    Applicability Evaluation: APPLICABLE
+    Target Action Result: success=False, code=1, stderr='bash: line 1: /tmp/constraint_env_test/protected_app.conf: Permission denied'
+    -> [State C PASSED]
+  [State D]: Testing observation expiration and uninspected state...
+    Case D1 (Expired probe delta_t=10s > TTL=2s): UNKNOWN
+    Case D2 (Missing probe data): UNKNOWN
+    -> [State D PASSED]
+
+--- Testing Mechanism 3: Config Protocol Version (build script) ---
+  [State A]: Setting up persistent condition...
+    Probe Data: {'exists': True, 'version': '1.0', 'is_compatible': False, 'timestamp': 1791687508.1360798}
+    Applicability Evaluation: APPLICABLE
+    Target Action Result: success=False, code=2, stderr='BUILD_ERROR: Incompatible protocol version '1.0'. Minimum required: 2.0'
+    -> [State A PASSED]
+  [State B]: Clearing condition...
+    Probe Data: {'exists': True, 'version': '2.0', 'is_compatible': True, 'timestamp': 1791687508.1566057}
+    Applicability Evaluation: NOT_APPLICABLE
+    Target Action Result: success=True, code=0
+    -> [State B PASSED]
+  [State C]: Modifying only irrelevant attributes...
+    Probe Data: {'exists': True, 'version': '1.0', 'is_compatible': False, 'timestamp': 1791687508.1775057}
+    Applicability Evaluation: APPLICABLE
+    Target Action Result: success=False, code=2, stderr='BUILD_ERROR: Incompatible protocol version '1.0'. Minimum required: 2.0'
+    -> [State C PASSED]
+  [State D]: Testing observation expiration and uninspected state...
+    Case D1 (Expired probe delta_t=10s > TTL=2s): UNKNOWN
+    Case D2 (Missing probe data): UNKNOWN
+    -> [State D PASSED]
+
+================================================================================
+>>> ALL 3 MECHANISMS ACROSS ALL 4 STATES (A, B, C, D) 100% VERIFIED SUCCESSFUL!
+================================================================================
