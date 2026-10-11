@@ -230,6 +230,117 @@ class TestConstraintLifecycle(unittest.TestCase):
         d = self.manager.make_gate_decision("access_file")
         self.assertEqual(d["decision"], GateDecision.PROBE)
 
+    def test_multi_rule_order_invariance(self):
+        """Test that matching rules evaluated in any permutation order produce identical aggregated gate decisions."""
+        pred = PreconditionPredicate(key="port_18080_state", expected_value=True, ttl=10.0)
+        self.manager.register_observation("port_18080_state", True, timestamp=1000.0)
+
+        r_candidate = ConstraintRule(
+            rule_id="r_cand",
+            action_signature="start_service:port=18080",
+            predicates=[pred],
+            failure_evidence={"error_code": 98},
+            validity_state=ValidityState.CANDIDATE,
+            support_threshold=2,
+            support_count=1
+        )
+        r_supported = ConstraintRule(
+            rule_id="r_supp",
+            action_signature="start_service:port=18080",
+            predicates=[pred],
+            failure_evidence={"error_code": 98},
+            validity_state=ValidityState.SUPPORTED,
+            support_threshold=2,
+            support_count=2
+        )
+
+        # Order 1: Candidate first, Supported second
+        mgr1 = ConstraintLifecycleManager(time_provider=self.clock.time)
+        mgr1.register_observation("port_18080_state", True, timestamp=1000.0)
+        mgr1.add_rule(r_candidate)
+        mgr1.add_rule(r_supported)
+        dec1 = mgr1.make_gate_decision("start_service:port=18080")
+
+        # Order 2: Supported first, Candidate second
+        mgr2 = ConstraintLifecycleManager(time_provider=self.clock.time)
+        mgr2.register_observation("port_18080_state", True, timestamp=1000.0)
+        mgr2.add_rule(r_supported)
+        mgr2.add_rule(r_candidate)
+        dec2 = mgr2.make_gate_decision("start_service:port=18080")
+
+        # Both MUST BLOCK because Supported rule is APPLICABLE, candidate must not short-circuit to ALLOW
+        self.assertEqual(dec1["decision"], GateDecision.BLOCK, "Candidate must not short-circuit Supported block in Order 1")
+        self.assertEqual(dec2["decision"], GateDecision.BLOCK, "Supported must block in Order 2")
+        self.assertEqual(dec1["decision"], dec2["decision"])
+
+    def test_pre_action_snapshot_preservation(self):
+        """Test that outcome updating uses pre-action applicability instead of post-action contaminated observation."""
+        pred = PreconditionPredicate(key="resource_locked", expected_value=True, ttl=10.0)
+        self.manager.register_observation("resource_locked", True, timestamp=1000.0)
+
+        rule = ConstraintRule(
+            rule_id="r_snap",
+            action_signature="acquire_lock",
+            predicates=[pred],
+            failure_evidence={"error_code": 5},
+            validity_state=ValidityState.SUPPORTED,
+            support_count=2
+        )
+        self.manager.add_rule(rule)
+
+        # Pre-action evaluation: APPLICABLE
+        pre_app = {"r_snap": self.manager.evaluate_applicability(rule)}
+        self.assertEqual(pre_app["r_snap"], ApplicabilityState.APPLICABLE)
+
+        # Environment changes during/after action execution (resource is now unlocked)
+        self.manager.register_observation("resource_locked", False, timestamp=1001.0)
+        self.assertEqual(self.manager.evaluate_applicability(rule), ApplicabilityState.NOT_APPLICABLE)
+
+        # If action succeeded, updating with pre-action applicability MUST detect counter-evidence!
+        updates = self.manager.record_action_outcome(
+            "acquire_lock",
+            success=True,
+            pre_action_applicability=pre_app
+        )
+        self.assertEqual(rule.validity_state, ValidityState.CONTRADICTED, "Must be contradicted based on pre-action APPLICABLE state")
+        self.assertEqual(updates[0]["prior_applicability"], ApplicabilityState.APPLICABLE)
+
+    def test_evidence_deduplication(self):
+        """Test that duplicate evidence IDs do not artificially inflate rule support count."""
+        pred = PreconditionPredicate(key="file_perm", expected_value=False, ttl=10.0)
+        self.manager.register_observation("file_perm", False, timestamp=1000.0)
+
+        rule = ConstraintRule(
+            rule_id="r_dedup",
+            action_signature="write_file",
+            predicates=[pred],
+            failure_evidence={"error_code": 13, "evidence_id": "ev_001"},
+            validity_state=ValidityState.CANDIDATE,
+            support_threshold=2,
+            support_count=1,
+            evidence_ids=["ev_001"]
+        )
+        self.manager.add_rule(rule)
+
+        # Duplicate evidence: ev_001 again
+        self.manager.record_action_outcome(
+            "write_file",
+            success=False,
+            error_details={"error_code": 13, "evidence_id": "ev_001"}
+        )
+        self.assertEqual(rule.support_count, 1, "Duplicate evidence ID must not increment support count")
+        self.assertEqual(rule.validity_state, ValidityState.CANDIDATE, "Must remain CANDIDATE with duplicate evidence")
+
+        # Distinct fresh evidence: ev_002
+        self.manager.record_action_outcome(
+            "write_file",
+            success=False,
+            error_details={"error_code": 13, "evidence_id": "ev_002"}
+        )
+        self.assertEqual(rule.support_count, 2, "Distinct evidence ID must increment support count to 2")
+        self.assertEqual(rule.validity_state, ValidityState.SUPPORTED, "Must promote to SUPPORTED upon 2 distinct evidences")
+
 
 if __name__ == "__main__":
     unittest.main()
+

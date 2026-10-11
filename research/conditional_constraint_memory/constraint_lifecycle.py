@@ -60,16 +60,24 @@ class PreconditionPredicate:
 class ConstraintRule:
     """A conditional failure constraint rule."""
     rule_id: str
-    action_signature: str  # e.g. "bind_port:18080" or "write_file:/tmp/app.conf"
+    action_signature: str  # e.g. "start_service:port=18080" or "write_config:filepath=..."
     predicates: List[PreconditionPredicate]
-    failure_evidence: Dict[str, Any]  # e.g. {"error_code": 98, "stderr": "Address already in use"}
+    failure_evidence: Dict[str, Any]  # e.g. {"error_code": 98, "stderr": "Address already in use", "evidence_id": ...}
     validity_state: ValidityState = ValidityState.CANDIDATE
     support_threshold: int = 2
     support_count: int = 1
     contradict_count: int = 0
+    evidence_ids: List[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     last_supported_at: float = field(default_factory=time.time)
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        ev_id = self.failure_evidence.get("evidence_id")
+        if ev_id and ev_id not in self.evidence_ids:
+            self.evidence_ids.append(ev_id)
+        if self.evidence_ids:
+            self.support_count = len(set(self.evidence_ids))
 
 
 class ConstraintLifecycleManager:
@@ -88,7 +96,11 @@ class ConstraintLifecycleManager:
         """Add a constraint rule to the manager."""
         self.rules[rule.rule_id] = rule
 
-    def evaluate_applicability(self, rule: ConstraintRule) -> ApplicabilityState:
+    def evaluate_applicability(
+        self,
+        rule: ConstraintRule,
+        snapshot: Optional[Dict[str, PredicateObservation]] = None,
+    ) -> ApplicabilityState:
         """
         Evaluates the current applicability of a rule's precondition predicates.
         Conjunction semantics:
@@ -97,11 +109,12 @@ class ConstraintLifecycleManager:
         - Otherwise -> UNKNOWN
         """
         now = self.time_provider()
+        obs_source = snapshot if snapshot is not None else self.observations
         any_false = False
         any_unknown = False
 
         for pred in rule.predicates:
-            obs = self.observations.get(pred.key)
+            obs = obs_source.get(pred.key)
             if obs is None:
                 any_unknown = True
             elif (now - obs.timestamp) > pred.ttl:
@@ -121,9 +134,13 @@ class ConstraintLifecycleManager:
         else:
             return ApplicabilityState.APPLICABLE
 
-    def make_gate_decision(self, action_signature: str) -> Dict[str, Any]:
+    def make_gate_decision(
+        self,
+        action_signature: str,
+        observations_snapshot: Optional[Dict[str, PredicateObservation]] = None,
+    ) -> Dict[str, Any]:
         """
-        Computes the gating decision for a proposed action signature.
+        Computes the gating decision for a proposed action signature with multi-rule order-invariant aggregation.
         Returns: {
             "decision": GateDecision,
             "matching_rule_id": Optional[str],
@@ -143,61 +160,74 @@ class ConstraintLifecycleManager:
                 "reason": "No constraint rule matches proposed action."
             }
 
-        # Check each matching rule
-        for rule in matching_rules:
-            app_state = self.evaluate_applicability(rule)
+        blocking_rule: Optional[Tuple[ConstraintRule, ApplicabilityState]] = None
+        probing_rule: Optional[Tuple[ConstraintRule, ApplicabilityState]] = None
+        candidate_allow_rule: Optional[Tuple[ConstraintRule, ApplicabilityState]] = None
 
-            # Invariant 1: RETIRED / CONTRADICTED cannot hard-block
+        # Check each matching rule and aggregate without order sensitivity
+        for rule in matching_rules:
+            # Invariant 1: RETIRED / CONTRADICTED cannot block or require probe
             if rule.validity_state in [ValidityState.RETIRED, ValidityState.CONTRADICTED]:
                 continue
 
-            # Invariant 3: CANDIDATE does not hard block; allows probationary trial
-            if rule.validity_state == ValidityState.CANDIDATE:
+            app_state = self.evaluate_applicability(rule, snapshot=observations_snapshot)
+
+            if rule.validity_state == ValidityState.SUPPORTED:
                 if app_state == ApplicabilityState.APPLICABLE:
-                    # In probation: record presence but do not hard-block
-                    return {
-                        "decision": GateDecision.ALLOW,
-                        "matching_rule_id": rule.rule_id,
-                        "validity": rule.validity_state,
-                        "applicability": app_state,
-                        "probationary": True,
-                        "reason": "Rule is in CANDIDATE state; allowed under probationary trial."
-                    }
+                    # SUPPORTED and APPLICABLE takes highest priority: MUST BLOCK
+                    blocking_rule = (rule, app_state)
+                    break  # Hard block cannot be overridden
                 elif app_state == ApplicabilityState.UNKNOWN:
-                    return {
-                        "decision": GateDecision.PROBE,
-                        "matching_rule_id": rule.rule_id,
-                        "validity": rule.validity_state,
-                        "applicability": app_state,
-                        "probationary": True,
-                        "reason": "Candidate rule premise unknown; probe recommended."
-                    }
-                else:
-                    continue
+                    if probing_rule is None:
+                        probing_rule = (rule, app_state)
+            elif rule.validity_state == ValidityState.CANDIDATE:
+                if app_state == ApplicabilityState.UNKNOWN:
+                    if probing_rule is None:
+                        probing_rule = (rule, app_state)
+                elif app_state == ApplicabilityState.APPLICABLE:
+                    if candidate_allow_rule is None:
+                        candidate_allow_rule = (rule, app_state)
 
-            # Here rule is SUPPORTED
-            if app_state == ApplicabilityState.APPLICABLE:
-                return {
-                    "decision": GateDecision.BLOCK,
-                    "matching_rule_id": rule.rule_id,
-                    "validity": rule.validity_state,
-                    "applicability": app_state,
-                    "reason": f"Action blocked: Rule {rule.rule_id} is SUPPORTED and APPLICABLE."
-                }
-            elif app_state == ApplicabilityState.UNKNOWN:
-                return {
-                    "decision": GateDecision.PROBE,
-                    "matching_rule_id": rule.rule_id,
-                    "validity": rule.validity_state,
-                    "applicability": app_state,
-                    "reason": f"Action deferred: Rule {rule.rule_id} premise is UNKNOWN; probe required."
-                }
+        # 1. Highest priority: BLOCK
+        if blocking_rule:
+            rule, app_state = blocking_rule
+            return {
+                "decision": GateDecision.BLOCK,
+                "matching_rule_id": rule.rule_id,
+                "validity": rule.validity_state,
+                "applicability": app_state,
+                "reason": f"Action blocked: Rule {rule.rule_id} is SUPPORTED and APPLICABLE."
+            }
 
+        # 2. Next priority: PROBE (if any active rule premise is UNKNOWN)
+        if probing_rule:
+            rule, app_state = probing_rule
+            return {
+                "decision": GateDecision.PROBE,
+                "matching_rule_id": rule.rule_id,
+                "validity": rule.validity_state,
+                "applicability": app_state,
+                "reason": f"Action deferred: Rule {rule.rule_id} premise is UNKNOWN; probe required."
+            }
+
+        # 3. Candidate allowed under probation
+        if candidate_allow_rule:
+            rule, app_state = candidate_allow_rule
+            return {
+                "decision": GateDecision.ALLOW,
+                "matching_rule_id": rule.rule_id,
+                "validity": rule.validity_state,
+                "applicability": app_state,
+                "probationary": True,
+                "reason": f"Rule {rule.rule_id} is in CANDIDATE state; allowed under probationary trial."
+            }
+
+        # 4. All active rules evaluated to NOT_APPLICABLE
         return {
             "decision": GateDecision.ALLOW,
             "matching_rule_id": None,
             "validity": None,
-            "applicability": None,
+            "applicability": ApplicabilityState.NOT_APPLICABLE,
             "reason": "All matching rules are NOT_APPLICABLE, RETIRED, or CONTRADICTED."
         }
 
@@ -205,18 +235,26 @@ class ConstraintLifecycleManager:
         self,
         action_signature: str,
         success: bool,
-        error_details: Optional[Dict[str, Any]] = None
+        error_details: Optional[Dict[str, Any]] = None,
+        pre_action_applicability: Optional[Dict[str, ApplicabilityState]] = None,
+        pre_action_snapshot: Optional[Dict[str, PredicateObservation]] = None,
+        evidence_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Updates rule validity based on actual action execution outcome.
-        Invariant 4: Success when NOT_APPLICABLE is expected causal behavior, NOT counter-evidence!
-        Counter-evidence ONLY occurs when action succeeds under confirmed APPLICABLE premise.
+        Uses pre-action applicability or pre-action snapshot to prevent post-action observation skew.
         """
         updates = []
         matching_rules = [r for r in self.rules.values() if r.action_signature == action_signature]
 
         for rule in matching_rules:
-            prior_app = self.evaluate_applicability(rule)
+            if pre_action_applicability and rule.rule_id in pre_action_applicability:
+                prior_app = pre_action_applicability[rule.rule_id]
+            elif pre_action_snapshot is not None:
+                prior_app = self.evaluate_applicability(rule, snapshot=pre_action_snapshot)
+            else:
+                prior_app = self.evaluate_applicability(rule)
+
             prior_val = rule.validity_state
             transition = "NO_CHANGE"
 
@@ -231,8 +269,29 @@ class ConstraintLifecycleManager:
                     transition = f"{prior_val} -> {rule.validity_state} (CONTRADICTED_BY_SUCCESS)"
                 else:
                     # Failure under matching premise reinforces rule
-                    if error_details and error_details.get("error_code") == rule.failure_evidence.get("error_code"):
-                        rule.support_count += 1
+                    err_code = error_details.get("error_code") if error_details else None
+                    if err_code is None and error_details:
+                        err_code = error_details.get("exit_code")
+                    rule_err_code = rule.failure_evidence.get("error_code")
+                    if rule_err_code is None:
+                        rule_err_code = rule.failure_evidence.get("exit_code")
+
+                    code_match = (err_code is not None and rule_err_code is not None and err_code == rule_err_code)
+                    type_match = False
+                    if error_details and "error_type" in error_details and "error_type" in rule.failure_evidence:
+                        type_match = (error_details["error_type"] == rule.failure_evidence["error_type"])
+
+                    is_matching_error = code_match or type_match or (err_code is None and rule_err_code is None)
+
+                    if is_matching_error:
+                        ev_id = evidence_id or (error_details.get("evidence_id") if error_details else None)
+                        if ev_id:
+                            if ev_id not in rule.evidence_ids:
+                                rule.evidence_ids.append(ev_id)
+                            rule.support_count = len(set(rule.evidence_ids))
+                        else:
+                            rule.support_count += 1
+
                         rule.last_supported_at = self.time_provider()
                         if rule.validity_state == ValidityState.CANDIDATE and rule.support_count >= rule.support_threshold:
                             rule.validity_state = ValidityState.SUPPORTED
@@ -265,4 +324,5 @@ class ConstraintLifecycleManager:
 
     # Alias for API compatibility
     register_action_outcome = record_action_outcome
+
 

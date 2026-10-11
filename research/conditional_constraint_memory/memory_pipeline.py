@@ -3,10 +3,13 @@ End-to-End Experience-to-Memory Extraction and Retrieval Pipeline.
 Connects:
 Source Task Execution -> Failure Trace -> Candidate Rule Extraction -> Evidence Binding -> Verification -> Target Retrieval/Injection.
 
-Strict Rules:
+Strict Methodological Rules:
+- Rule parser is explicitly documented as a DeterministicHeuristicRuleParser (human expert rules).
 - Inputs to extraction can ONLY be tool_name, tool_params, exit_code, stderr, stdout, and observation_snapshot.
-- No oracle rule names or cheat labels.
-- Rules must bind full source task evidence (run_id, step, error_signature, premise_snapshot).
+- Unrecognized or ambiguous failures are strictly REJECTED (no false assumptions).
+- Default validity state is CANDIDATE with support_count = 1 from a single evidence ID.
+- Evidence IDs are deduplicated.
+- Full provenance (evidence_id, run_id, step, error_code, exit_code, error_type, stderr, premise_snapshot) is preserved.
 """
 
 from dataclasses import dataclass, field
@@ -24,7 +27,7 @@ from .constraint_lifecycle import (
 
 @dataclass
 class FailureTrace:
-    """Raw failure trace from source task execution."""
+    """Raw failure trace from actual task execution without synthetic fabrication."""
     run_id: str
     step: int
     tool_name: str
@@ -33,7 +36,16 @@ class FailureTrace:
     stderr: str
     stdout: str
     observation_snapshot: Dict[str, Any]
+    error_code: Optional[int] = None
+    error_type: Optional[str] = None
+    evidence_id: str = ""
     timestamp: float = field(default_factory=time.time)
+
+    def __post_init__(self):
+        if not self.evidence_id:
+            self.evidence_id = f"ev_{self.run_id}_s{self.step}_{int(self.timestamp * 1000)}"
+        if self.error_code is None:
+            self.error_code = self.exit_code
 
 
 @dataclass
@@ -43,6 +55,7 @@ class StructuredFact:
     resource: str
     state_description: str
     error_signature: str
+    evidence_id: str
     run_id: str
     step: int
     timestamp: float
@@ -55,104 +68,134 @@ class StructuredFact:
         status = "ACTIVE" if self.is_fresh(current_time) else "UNCONFIRMED_EXPIRED"
         return (
             f"- [{status}] Resource '{self.resource}': {self.state_description} "
-            f"(Source: run '{self.run_id}' step {self.step}, Error: {self.error_signature})"
+            f"(Source: run '{self.run_id}' step {self.step}, Evidence: {self.evidence_id})"
         )
 
 
+class DeterministicHeuristicRuleParser:
+    """
+    Explicitly disclosed deterministic heuristic parser for system failures.
+    Strictly parses confirmed OS error signatures and rejects all unrecognized errors.
+    """
+
+    @staticmethod
+    def classify_failure(trace: FailureTrace) -> Optional[Dict[str, Any]]:
+        """
+        Classifies failure based on strict stdout/stderr inspection.
+        Returns failure classification dict or None if rejected.
+        """
+        if trace.exit_code == 0:
+            return None
+
+        stderr_lower = trace.stderr.lower()
+
+        # Port conflict classification
+        if trace.tool_name == "start_service":
+            if "address already in use" in stderr_lower or trace.exit_code == 98 or trace.error_code == 98:
+                port = trace.tool_params.get("port")
+                if port is None and "config_path" in trace.tool_params:
+                    try:
+                        with open(trace.tool_params["config_path"], "r", encoding="utf-8") as f:
+                            cfg = json.load(f)
+                        port = cfg.get("port")
+                    except Exception:
+                        pass
+                if port is not None:
+                    return {
+                        "category": "port_conflict",
+                        "resource": f"port:{port}",
+                        "action_signature": f"start_service:port={port}",
+                        "pred_key": f"port:{port}:occupied",
+                        "expected_val": True,
+                        "error_type": "AddressAlreadyInUse",
+                        "error_code": 98,
+                        "description": f"Port {port} is occupied / in use by another process.",
+                    }
+            # Any other start_service error (e.g. missing config, permission, syntax) is REJECTED
+            return None
+
+        # File permission classification
+        elif trace.tool_name == "write_config":
+            if "permission denied" in stderr_lower or trace.exit_code in (1, 13) or trace.error_code in (1, 13):
+                filepath = trace.tool_params.get("filepath") or trace.tool_params.get("config_path")
+                if filepath is not None:
+                    return {
+                        "category": "permission_denied",
+                        "resource": f"file:{filepath}",
+                        "action_signature": f"write_config:filepath={filepath}",
+                        "pred_key": f"file:{filepath}:writable",
+                        "expected_val": False,
+                        "error_type": "PermissionDenied",
+                        "error_code": trace.exit_code or 1,
+                        "description": f"File '{filepath}' lacks write permissions for current user context.",
+                    }
+            # Any other write error (e.g. disk full, read error, invalid content) is REJECTED
+            return None
+
+        return None
+
+
 class MemoryPipeline:
-    """Extracts facts and rules from raw failure traces without oracle labels."""
+    """Extracts facts and rules from raw failure traces via DeterministicHeuristicRuleParser."""
 
     @staticmethod
     def extract_fact_for_b2(trace: FailureTrace) -> Optional[StructuredFact]:
         """Extracts dynamic structured fact for Baseline B2 from tool failure."""
-        if trace.exit_code == 0:
+        classification = DeterministicHeuristicRuleParser.classify_failure(trace)
+        if classification is None:
             return None
 
-        stderr_lower = trace.stderr.lower()
-        if "address already in use" in stderr_lower or trace.tool_name == "start_service":
-            port = trace.tool_params.get("port")
-            return StructuredFact(
-                fact_id=f"fact_{trace.run_id}_{trace.step}",
-                resource=f"port:{port}",
-                state_description=f"Port {port} is occupied / in use by another process.",
-                error_signature=trace.stderr.strip(),
-                run_id=trace.run_id,
-                step=trace.step,
-                timestamp=trace.timestamp,
-            )
-        elif "permission denied" in stderr_lower or trace.tool_name == "write_config":
-            filepath = trace.tool_params.get("filepath")
-            return StructuredFact(
-                fact_id=f"fact_{trace.run_id}_{trace.step}",
-                resource=f"file:{filepath}",
-                state_description=f"File '{filepath}' is read-only / lacks write permissions for non-root agentuser.",
-                error_signature=trace.stderr.strip(),
-                run_id=trace.run_id,
-                step=trace.step,
-                timestamp=trace.timestamp,
-            )
-        return None
+        return StructuredFact(
+            fact_id=f"fact_{trace.run_id}_{trace.step}",
+            resource=classification["resource"],
+            state_description=classification["description"],
+            error_signature=trace.stderr.strip(),
+            evidence_id=trace.evidence_id,
+            run_id=trace.run_id,
+            step=trace.step,
+            timestamp=trace.timestamp,
+        )
 
     @staticmethod
-    def extract_rule_for_m(trace: FailureTrace, initial_validity: ValidityState = ValidityState.SUPPORTED) -> Optional[ConstraintRule]:
+    def extract_rule_for_m(
+        trace: FailureTrace,
+        initial_validity: ValidityState = ValidityState.CANDIDATE,
+    ) -> Optional[ConstraintRule]:
         """
-        Extracts candidate/supported rule for Method M from tool failure.
-        Inputs: only tool call, exit code, stderr, observation snapshot.
+        Extracts candidate rule for Method M from tool failure.
+        Default validity is strictly CANDIDATE with support_count = 1 from evidence deduplication.
         """
-        if trace.exit_code == 0:
+        classification = DeterministicHeuristicRuleParser.classify_failure(trace)
+        if classification is None:
             return None
 
-        stderr_lower = trace.stderr.lower()
-
-        if trace.tool_name == "start_service":
-            port = trace.tool_params.get("port")
-            action_sig = f"start_service:port={port}"
-            # Extract predicate key from observation snapshot
-            pred_key = f"port:{port}:occupied"
-            predicates = [
-                PreconditionPredicate(key=pred_key, expected_value=True, ttl=30.0)
-            ]
-            evidence = {
-                "run_id": trace.run_id,
-                "step": trace.step,
-                "error_signature": trace.stderr.strip(),
-                "premise_snapshot": trace.observation_snapshot,
-            }
-            return ConstraintRule(
-                rule_id=f"rule_{trace.run_id}_{trace.step}",
-                action_signature=action_sig,
-                predicates=predicates,
-                failure_evidence=evidence,
-                validity_state=initial_validity,
-                support_threshold=2,
-                support_count=1 if initial_validity == ValidityState.CANDIDATE else 2,
-                created_at=trace.timestamp,
-                last_supported_at=trace.timestamp,
+        predicates = [
+            PreconditionPredicate(
+                key=classification["pred_key"],
+                expected_value=classification["expected_val"],
+                ttl=30.0,
             )
+        ]
+        evidence = {
+            "evidence_id": trace.evidence_id,
+            "run_id": trace.run_id,
+            "step": trace.step,
+            "error_code": classification["error_code"],
+            "exit_code": trace.exit_code,
+            "error_type": classification["error_type"],
+            "error_signature": trace.stderr.strip(),
+            "premise_snapshot": dict(trace.observation_snapshot),
+        }
+        return ConstraintRule(
+            rule_id=f"rule_{trace.run_id}_{trace.step}",
+            action_signature=classification["action_signature"],
+            predicates=predicates,
+            failure_evidence=evidence,
+            validity_state=initial_validity,
+            support_threshold=2,
+            support_count=1,
+            evidence_ids=[trace.evidence_id],
+            created_at=trace.timestamp,
+            last_supported_at=trace.timestamp,
+        )
 
-        elif trace.tool_name == "write_config":
-            filepath = trace.tool_params.get("filepath")
-            action_sig = f"write_config:filepath={filepath}"
-            pred_key = f"file:{filepath}:writable"
-            predicates = [
-                PreconditionPredicate(key=pred_key, expected_value=False, ttl=30.0)
-            ]
-            evidence = {
-                "run_id": trace.run_id,
-                "step": trace.step,
-                "error_signature": trace.stderr.strip(),
-                "premise_snapshot": trace.observation_snapshot,
-            }
-            return ConstraintRule(
-                rule_id=f"rule_{trace.run_id}_{trace.step}",
-                action_signature=action_sig,
-                predicates=predicates,
-                failure_evidence=evidence,
-                validity_state=initial_validity,
-                support_threshold=2,
-                support_count=1 if initial_validity == ValidityState.CANDIDATE else 2,
-                created_at=trace.timestamp,
-                last_supported_at=trace.timestamp,
-            )
-
-        return None
