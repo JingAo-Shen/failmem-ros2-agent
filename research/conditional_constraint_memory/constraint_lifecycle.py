@@ -46,14 +46,31 @@ class PredicateObservation:
     key: str
     value: Any
     timestamp: float  # When the observation was sampled from the environment
+    call_id: str = ""  # Tool call provenance ID
 
 
 @dataclass
 class PreconditionPredicate:
-    """Precondition predicate required for a constraint rule."""
-    key: str
-    expected_value: Any
+    """
+    Structured Precondition Predicate for a constraint rule.
+    Structured fields: resource_type, resource_path, property, expected_value, ttl, key.
+    """
+    key: str = ""
+    expected_value: Any = None
     ttl: float = 5.0  # Freshness window in seconds
+    resource_type: str = ""  # e.g. "port", "directory", "file"
+    resource_path: str = ""  # e.g. "18080", "/etc/service_demo", "/etc/service_demo/app.conf"
+    property: str = ""       # e.g. "occupied", "writable"
+
+    def __post_init__(self):
+        if self.key and (not self.resource_type or not self.resource_path or not self.property):
+            parts = self.key.split(":")
+            if len(parts) >= 3:
+                self.resource_type = parts[0]
+                self.property = parts[-1]
+                self.resource_path = ":".join(parts[1:-1])
+        elif not self.key and self.resource_type and self.resource_path and self.property:
+            self.key = f"{self.resource_type}:{self.resource_path}:{self.property}"
 
 
 @dataclass
@@ -68,6 +85,7 @@ class ConstraintRule:
     support_count: int = 1
     contradict_count: int = 0
     evidence_ids: List[str] = field(default_factory=list)
+    contradiction_evidence_ids: List[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     last_supported_at: float = field(default_factory=time.time)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -87,10 +105,10 @@ class ConstraintLifecycleManager:
         self.rules: Dict[str, ConstraintRule] = {}
         self.observations: Dict[str, PredicateObservation] = {}
 
-    def register_observation(self, key: str, value: Any, timestamp: Optional[float] = None):
+    def register_observation(self, key: str, value: Any, timestamp: Optional[float] = None, call_id: Optional[str] = None):
         """Register or update an environment observation."""
         obs_time = timestamp if timestamp is not None else self.time_provider()
-        self.observations[key] = PredicateObservation(key=key, value=value, timestamp=obs_time)
+        self.observations[key] = PredicateObservation(key=key, value=value, timestamp=obs_time, call_id=call_id or "")
 
     def add_rule(self, rule: ConstraintRule):
         """Add a constraint rule to the manager."""
@@ -257,18 +275,27 @@ class ConstraintLifecycleManager:
 
             prior_val = rule.validity_state
             transition = "NO_CHANGE"
+            ev_id = evidence_id or (error_details.get("evidence_id") if error_details else None)
 
             if prior_app == ApplicabilityState.APPLICABLE:
                 if success:
                     # TRUE COUNTER-EVIDENCE: The premise confirmed present, but action SUCCEEDED!
-                    rule.contradict_count += 1
-                    if rule.contradict_count >= 1:
-                        rule.validity_state = ValidityState.CONTRADICTED
+                    if ev_id:
+                        if ev_id not in rule.contradiction_evidence_ids:
+                            rule.contradiction_evidence_ids.append(ev_id)
+                        rule.contradict_count = len(set(rule.contradiction_evidence_ids))
+                    else:
+                        rule.contradict_count += 1
+
                     if rule.contradict_count >= 2:
                         rule.validity_state = ValidityState.RETIRED
-                    transition = f"{prior_val} -> {rule.validity_state} (CONTRADICTED_BY_SUCCESS)"
+                    elif rule.contradict_count >= 1:
+                        rule.validity_state = ValidityState.CONTRADICTED
+                    transition = f"{prior_val} -> {rule.validity_state} (CONTRADICTED_BY_SUCCESS, count={rule.contradict_count})"
                 else:
-                    # Failure under matching premise reinforces rule
+                    # Failure under matching premise reinforces rule ONLY IF:
+                    # 1) ev_id is provided (no ghost increments without evidence ID)
+                    # 2) error type or code matches a known failure pattern
                     err_code = error_details.get("error_code") if error_details else None
                     if err_code is None and error_details:
                         err_code = error_details.get("exit_code")
@@ -276,28 +303,41 @@ class ConstraintLifecycleManager:
                     if rule_err_code is None:
                         rule_err_code = rule.failure_evidence.get("exit_code")
 
-                    code_match = (err_code is not None and rule_err_code is not None and err_code == rule_err_code)
-                    type_match = False
-                    if error_details and "error_type" in error_details and "error_type" in rule.failure_evidence:
-                        type_match = (error_details["error_type"] == rule.failure_evidence["error_type"])
+                    err_type = error_details.get("error_type") if error_details else None
+                    rule_err_type = rule.failure_evidence.get("error_type")
 
-                    is_matching_error = code_match or type_match or (err_code is None and rule_err_code is None)
+                    has_known_error = bool(err_type and err_type not in ("Unknown", "CommandExecutionError")) or (err_code is not None and err_code != 0)
+                    code_match = (err_code is not None and rule_err_code is not None and err_code == rule_err_code)
+                    type_match = (err_type is not None and rule_err_type is not None and err_type == rule_err_type)
+
+                    is_matching_error = has_known_error and (code_match or type_match or (rule_err_code is not None and err_code == rule_err_code))
 
                     if is_matching_error:
-                        ev_id = evidence_id or (error_details.get("evidence_id") if error_details else None)
                         if ev_id:
                             if ev_id not in rule.evidence_ids:
                                 rule.evidence_ids.append(ev_id)
-                            rule.support_count = len(set(rule.evidence_ids))
-                        else:
-                            rule.support_count += 1
+                                rule.support_count = len(set(rule.evidence_ids))
+                                rule.last_supported_at = self.time_provider()
 
-                        rule.last_supported_at = self.time_provider()
-                        if rule.validity_state == ValidityState.CANDIDATE and rule.support_count >= rule.support_threshold:
-                            rule.validity_state = ValidityState.SUPPORTED
-                            transition = f"CANDIDATE -> SUPPORTED (PROBATION_PASSED)"
+                                if rule.validity_state == ValidityState.CANDIDATE and rule.support_count >= rule.support_threshold:
+                                    rule.validity_state = ValidityState.SUPPORTED
+                                    transition = f"CANDIDATE -> SUPPORTED (PROBATION_PASSED, count={rule.support_count})"
+                                else:
+                                    transition = f"SUPPORTED_REINFORCED (count={rule.support_count})"
+                            else:
+                                transition = f"DUPLICATE_EVIDENCE_IGNORED (count={rule.support_count})"
+                        elif error_details and (error_details.get("error_code") or error_details.get("exit_code")):
+                            rule.support_count += 1
+                            rule.last_supported_at = self.time_provider()
+                            if rule.validity_state == ValidityState.CANDIDATE and rule.support_count >= rule.support_threshold:
+                                rule.validity_state = ValidityState.SUPPORTED
+                                transition = f"CANDIDATE -> SUPPORTED (PROBATION_PASSED, count={rule.support_count})"
+                            else:
+                                transition = f"SUPPORTED_REINFORCED (count={rule.support_count})"
                         else:
-                            transition = f"SUPPORTED_REINFORCED (count={rule.support_count})"
+                            transition = f"NON_MATCHING_OR_MISSING_EVIDENCE_IGNORED (validity retained: {rule.validity_state})"
+                    else:
+                        transition = f"NON_MATCHING_OR_MISSING_EVIDENCE_IGNORED (validity retained: {rule.validity_state})"
 
             elif prior_app == ApplicabilityState.NOT_APPLICABLE:
                 if success:

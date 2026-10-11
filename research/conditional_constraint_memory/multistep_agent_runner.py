@@ -144,9 +144,14 @@ Output strictly a single JSON block adhering to this schema:
             memory_text = "### Active Constraint Rules:\n"
             for r in lifecycle_manager.rules.values():
                 app = lifecycle_manager.evaluate_applicability(r)
+                pred_desc = " AND ".join(
+                    [f"{p.key} == {p.expected_value}" for p in r.predicates]
+                ) if r.predicates else "None"
+                err_type = r.failure_evidence.get("error_type", "ExecutionError")
+                err_code = r.failure_evidence.get("error_code", r.failure_evidence.get("exit_code", 1))
                 memory_text += (
-                    f"- Rule {r.rule_id} for '{r.action_signature}': "
-                    f"Validity={r.validity_state.value}, Applicability={app.value}, SupportCount={r.support_count}\n"
+                    f"- Rule {r.rule_id}: IF [{pred_desc}] THEN action '{r.action_signature}' fails with {err_type} (code {err_code}).\n"
+                    f"  Status: Validity={r.validity_state.value}, Applicability={app.value}, SupportCount={r.support_count}, Contradictions={r.contradict_count}\n"
                 )
 
         system_prompt = self.build_system_prompt(memory_text)
@@ -224,11 +229,20 @@ Output strictly a single JSON block adhering to this schema:
                         "is_tp": is_failing_action,
                     })
                 elif gate_eval["decision"] == GateDecision.PROBE:
+                    if tool_calls >= self.max_tool_calls or (time.time() - start_time) >= self.max_time_s:
+                        budget_exhausted = True
+                        termination_reason = "tool_budget_or_timeout_exhausted"
+                        break
                     unknown_probes += 1
                     probe_tool = gate_eval.get("probe_tool")
                     probe_params = gate_eval.get("probe_params", {})
                     tool_calls += 1
                     probe_res = self._execute_tool(env, probe_tool, probe_params)
+                    self._update_observations_from_probe_result(
+                        probe_tool, probe_params, probe_res,
+                        lifecycle_manager=lifecycle_manager,
+                        facts=facts,
+                    )
                     feedback = f"[PredicateGate Unknown Condition] Probed {probe_tool} with {probe_params}: Result={probe_res}. Re-evaluate your next action."
                     conversation.append({"role": "assistant", "content": raw_output})
                     conversation.append({"role": "user", "content": feedback})
@@ -266,6 +280,10 @@ Output strictly a single JSON block adhering to this schema:
                         "is_tp": is_failing_action,
                     })
                 elif decision == GateDecision.PROBE:
+                    if tool_calls >= self.max_tool_calls or (time.time() - start_time) >= self.max_time_s:
+                        budget_exhausted = True
+                        termination_reason = "tool_budget_or_timeout_exhausted"
+                        break
                     unknown_probes += 1
                     matching_rule_id = gate_eval.get("matching_rule_id")
                     target_rule = lifecycle_manager.rules.get(matching_rule_id) if matching_rule_id else None
@@ -274,7 +292,11 @@ Output strictly a single JSON block adhering to this schema:
                     if probe_info:
                         tool_calls += 1
                         probe_res = self._execute_tool(env, probe_info["tool"], probe_info["params"])
-                        self._register_probe_observation(lifecycle_manager, probe_info, probe_res)
+                        self._update_observations_from_probe_result(
+                            probe_info["tool"], probe_info["params"], probe_res,
+                            lifecycle_manager=lifecycle_manager,
+                            facts=facts,
+                        )
                         feedback = f"[ConstraintGate Probe Result] Probed {probe_info['tool']} {probe_info['params']}: {probe_res}. Re-evaluate your next action."
                         conversation.append({"role": "assistant", "content": raw_output})
                         conversation.append({"role": "user", "content": feedback})
@@ -300,14 +322,20 @@ Output strictly a single JSON block adhering to this schema:
                 continue
 
             # Check budget before executing tool
-            if tool_calls >= self.max_tool_calls:
+            if tool_calls >= self.max_tool_calls or (time.time() - start_time) >= self.max_time_s:
                 budget_exhausted = True
-                termination_reason = "tool_budget_exhausted"
+                termination_reason = "tool_budget_or_timeout_exhausted"
                 break
 
             # Execute Tool
             tool_calls += 1
             tool_res = self._execute_tool(env, tool_name, params)
+            if tool_name in ("probe_port", "probe_directory"):
+                self._update_observations_from_probe_result(
+                    tool_name, params, tool_res,
+                    lifecycle_manager=lifecycle_manager,
+                    facts=facts,
+                )
             tool_success = tool_res.get("success", tool_res.get("healthy", True) if tool_name == "check_health" else True)
             tool_exit_code = tool_res.get("exit_code", 0)
 
@@ -495,21 +523,126 @@ Output strictly a single JSON block adhering to this schema:
     def _resolve_probe_for_predicate(self, predicate: Any, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if not predicate:
             return None
+        res_type = getattr(predicate, "resource_type", "")
+        res_path = getattr(predicate, "resource_path", "")
         var_name = getattr(predicate, "key", getattr(predicate, "variable_name", ""))
-        if "port" in var_name:
-            match = re.search(r"port:(\d+)", var_name)
-            p = int(match.group(1)) if match else params.get("port", 18080)
+
+        if res_type == "port" or ("port" in var_name):
+            if res_path and res_path.isdigit():
+                p = int(res_path)
+            else:
+                match = re.search(r"port:(\d+)", var_name)
+                p = int(match.group(1)) if match else params.get("port", 18080)
             return {"tool": "probe_port", "params": {"port": p}, "key": var_name}
-        elif "dir" in var_name or "file" in var_name:
-            path = var_name.split(":", 1)[-1] if ":" in var_name else "/etc/service_demo"
-            if path.endswith(".conf") or path.endswith(".json"):
-                path = os.path.dirname(path)
-            return {"tool": "probe_directory", "params": {"dirpath": path}, "key": var_name}
+        elif res_type in ("dir", "directory", "file") or ("dir" in var_name or "file" in var_name):
+            target_path = res_path or (var_name.split(":", 1)[-1] if ":" in var_name else "/etc/service_demo")
+            if target_path.endswith(".conf") or target_path.endswith(".json") or ":writable" in target_path:
+                target_path = target_path.replace(":writable", "")
+                if "/" in target_path:
+                    target_path = os.path.dirname(target_path) or "/etc/service_demo"
+            return {"tool": "probe_directory", "params": {"dirpath": target_path}, "key": var_name}
         return None
 
-    def _register_probe_observation(self, lifecycle_manager: ConstraintLifecycleManager, probe_info: Dict[str, Any], probe_res: Dict[str, Any]):
-        key = probe_info.get("key", "")
-        if "occupied" in key:
-            lifecycle_manager.register_observation(key, probe_res.get("is_occupied", False))
-        elif "writable" in key:
-            lifecycle_manager.register_observation(key, probe_res.get("writable_by_user", False))
+    def _update_observations_from_probe_result(
+        self,
+        tool_name: str,
+        params: Dict[str, Any],
+        tool_res: Dict[str, Any],
+        lifecycle_manager: Optional[ConstraintLifecycleManager] = None,
+        facts: Optional[List[StructuredFact]] = None,
+    ):
+        """
+        Unified observation update entry point for BOTH normal tool calls and gate auto-probes.
+        Updates B2 facts, B2-G cache, and M observation store with call_id and timestamp.
+        """
+        ts = tool_res.get("timestamp", time.time())
+        cid = tool_res.get("call_id", "")
+
+        if tool_name == "probe_port":
+            port = params.get("port")
+            if port is not None:
+                is_occupied = tool_res.get("is_occupied", False)
+                if lifecycle_manager:
+                    lifecycle_manager.register_observation(
+                        f"port:{port}:occupied",
+                        is_occupied,
+                        timestamp=ts,
+                        call_id=cid,
+                    )
+                if facts is not None:
+                    res_str = f"port:{port}"
+                    state_desc = "occupied" if is_occupied else "free"
+                    found = False
+                    for f in facts:
+                        if res_str in f.resource:
+                            f.state_description = state_desc
+                            f.timestamp = ts
+                            f.evidence_id = cid or f.evidence_id
+                            found = True
+                            break
+                    if not found:
+                        facts.append(
+                            StructuredFact(
+                                fact_id=f"fact_probe_{port}_{int(ts*1000)}",
+                                resource=res_str,
+                                state_description=state_desc,
+                                error_signature="",
+                                evidence_id=cid or f"ev_{port}_{int(ts*1000)}",
+                                run_id="runtime_probe",
+                                step=0,
+                                timestamp=ts,
+                            )
+                        )
+
+        elif tool_name == "probe_directory":
+            dirpath = params.get("dirpath")
+            if dirpath:
+                is_writable = tool_res.get("writable_by_user", False)
+                if lifecycle_manager:
+                    lifecycle_manager.register_observation(
+                        f"file:{dirpath}:writable",
+                        is_writable,
+                        timestamp=ts,
+                        call_id=cid,
+                    )
+                    lifecycle_manager.register_observation(
+                        f"dir:{dirpath}:writable",
+                        is_writable,
+                        timestamp=ts,
+                        call_id=cid,
+                    )
+                    d_clean = dirpath.rstrip("/")
+                    for r in lifecycle_manager.rules.values():
+                        for p in r.predicates:
+                            if p.resource_type in ("file", "directory") and p.resource_path.startswith(d_clean):
+                                lifecycle_manager.register_observation(
+                                    p.key,
+                                    is_writable,
+                                    timestamp=ts,
+                                    call_id=cid,
+                                )
+
+                if facts is not None:
+                    res_str = dirpath
+                    state_desc = "writable directory" if is_writable else "non-writable directory"
+                    found = False
+                    for f in facts:
+                        if res_str in f.resource:
+                            f.state_description = state_desc
+                            f.timestamp = ts
+                            f.evidence_id = cid or f.evidence_id
+                            found = True
+                            break
+                    if not found:
+                        facts.append(
+                            StructuredFact(
+                                fact_id=f"fact_probe_dir_{int(ts*1000)}",
+                                resource=res_str,
+                                state_description=state_desc,
+                                error_signature="",
+                                evidence_id=cid or f"ev_dir_{int(ts*1000)}",
+                                run_id="runtime_probe",
+                                step=0,
+                                timestamp=ts,
+                            )
+                        )

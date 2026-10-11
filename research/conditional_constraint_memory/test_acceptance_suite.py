@@ -61,8 +61,8 @@ class MockLLM:
         }
 
 
-def test_1_no_hidden_state_injection():
-    """Verify that agent prompts and memory items never contain hidden state labels."""
+def test_1_no_hidden_state_injection_and_provenance_invariance():
+    """Verify that agent prompts never contain hidden state labels and tool calls emit traceable call_ids."""
     mock_llm = MockLLM(['{"action": "discover_environment", "params": {}}'])
     runner = MultiStepAgentRunner(mock_llm)
     prompt = runner.build_system_prompt("Known facts: Port 18080 occupied")
@@ -70,6 +70,17 @@ def test_1_no_hidden_state_injection():
     forbidden_patterns = ["State A", "State B", "State C", "State D", "inst1_", "inst2_", "hidden_state"]
     for pat in forbidden_patterns:
         assert pat.lower() not in prompt.lower(), f"Hidden label '{pat}' leaked into prompt!"
+
+    # Verify tool outputs always contain unique call_id and timestamp
+    env = MultiStepDeploymentEnv()
+    disc = env.discover_environment()
+    assert "call_id" in disc and disc["call_id"].startswith("call_")
+    assert "timestamp" in disc and disc["timestamp"] > 0
+
+    p_res = env.probe_port(18080)
+    assert "call_id" in p_res and p_res["call_id"].startswith("call_")
+    assert p_res["call_id"] != disc["call_id"], "call_id must be distinct per tool invocation!"
+    env.teardown()
 
 
 def test_2_traceable_provenance_and_deduplication():
@@ -240,32 +251,61 @@ def test_6_verifier_rejects_unapplied_and_fake_configs():
     env.teardown()
 
 
-def test_7_b2g_allows_when_condition_cleared():
-    """Verify B2-G allows action when condition evaluates to False."""
-    mock_llm = MockLLM([])
-    runner = MultiStepAgentRunner(mock_llm)
+def test_7_block_probe_unblock_lifecycle_on_same_resource():
+    """Verify entire Block -> Probe -> Unblock lifecycle on the same resource under Method M."""
     env = MultiStepDeploymentEnv()
-    env.setup("inst2_blockage_cleared")
+    env.setup("inst1_port_conflict_persistent")
+    assert is_port_listening(18080) is True
 
-    facts = [
-        StructuredFact(
-            fact_id="fact_1",
-            resource="/home/agentuser/service_conf",
-            state_description="writable directory",
-            error_signature="",
-            evidence_id="ev_1",
-            run_id="run_1",
-            step=1,
-            timestamp=time.time(),
-        )
-    ]
-    # Check write_config to /home/agentuser/service_conf/app.json (condition is not blocking)
-    gate_eval = runner._evaluate_generic_predicate_gate(
-        "write_config:/home/agentuser/service_conf/app.json:port=18080",
-        facts,
-        env,
+    mgr = ConstraintLifecycleManager()
+    pred = PreconditionPredicate(
+        key="port:18080:occupied",
+        expected_value=True,
+        ttl=1.5,
+        resource_type="port",
+        resource_path="18080",
+        property="occupied",
     )
-    assert gate_eval["decision"] == GateDecision.ALLOW
+    rule = ConstraintRule(
+        rule_id="r_lifecycle_same_resource",
+        action_signature="start_service:port=18080",
+        predicates=[pred],
+        failure_evidence={"error_code": 98, "evidence_id": "ev_init"},
+        validity_state=ValidityState.SUPPORTED,
+        support_threshold=2,
+        support_count=2,
+        evidence_ids=["ev_init", "ev_init2"],
+    )
+    mgr.add_rule(rule)
+    runner = MultiStepAgentRunner(MockLLM([]))
+
+    # Phase 1: Fresh observation that port 18080 is occupied -> Gate BLOCKS
+    probe1 = env.probe_port(18080)
+    runner._update_observations_from_probe_result("probe_port", {"port": 18080}, probe1, lifecycle_manager=mgr)
+    dec1 = mgr.make_gate_decision("start_service:port=18080")
+    assert dec1["decision"] == GateDecision.BLOCK
+
+    # Phase 2: Stale observation (TTL expired) -> Gate returns PROBE
+    time.sleep(1.6)
+    dec2 = mgr.make_gate_decision("start_service:port=18080")
+    assert dec2["decision"] == GateDecision.PROBE
+
+    # Phase 3: Port is freed and re-probed -> Gate UNBLOCKS (ALLOW)
+    env._stop_occupier(18080)
+    probe2 = env.probe_port(18080)
+    assert probe2["is_occupied"] is False
+    runner._update_observations_from_probe_result("probe_port", {"port": 18080}, probe2, lifecycle_manager=mgr)
+
+    dec3 = mgr.make_gate_decision("start_service:port=18080")
+    assert dec3["decision"] == GateDecision.ALLOW
+
+    # Verify execution succeeds
+    conf_path = "/home/agentuser/service_conf/unblocked_app.json"
+    env.write_config(conf_path, port=18080)
+    start_res = env.start_service(conf_path)
+    assert start_res["success"] is True
+    ok, _ = env.verify_completion()
+    assert ok is True
     env.teardown()
 
 
@@ -297,25 +337,40 @@ def test_8_budget_enforcement_and_cleanup():
     assert env.daemon_process is None
 
 
-def test_9_report_consistency_no_phantom_claims():
-    """Verify report logic does not claim blocks occurred when blocks == 0."""
+def test_9_report_consistency_calls_production_report_generator(tmp_path):
+    """Verify that calling the real production report generator enforces strict consistency without phantom claims."""
+    from research.conditional_constraint_memory.run_pilot_v2 import generate_pilot_report
+
     fake_summary = {
-        "B0": {"tp_blocks": 0, "fp_blocks": 0, "success_rate": 1.0},
-        "B2": {"tp_blocks": 0, "fp_blocks": 0, "success_rate": 1.0},
-        "B2-G": {"tp_blocks": 0, "fp_blocks": 0, "success_rate": 1.0},
-        "M": {"tp_blocks": 0, "fp_blocks": 0, "success_rate": 1.0},
+        "B0": {"success_count": 8, "success_rate": 1.0, "total_proposed_errors": 0, "total_executed_errors": 0, "tp_blocks": 0, "fp_blocks": 0, "unknown_probes": 0, "avg_llm_calls": 7.5, "avg_tool_calls": 7.5, "avg_prompt_tokens": 100, "avg_generated_tokens": 50, "avg_total_tokens": 150, "avg_inference_latency_s": 1.0, "avg_end_to_end_latency_s": 1.5},
+        "B2": {"success_count": 8, "success_rate": 1.0, "total_proposed_errors": 0, "total_executed_errors": 0, "tp_blocks": 0, "fp_blocks": 0, "unknown_probes": 0, "avg_llm_calls": 7.5, "avg_tool_calls": 7.5, "avg_prompt_tokens": 100, "avg_generated_tokens": 50, "avg_total_tokens": 150, "avg_inference_latency_s": 1.0, "avg_end_to_end_latency_s": 1.5},
+        "B2-G": {"success_count": 8, "success_rate": 1.0, "total_proposed_errors": 0, "total_executed_errors": 0, "tp_blocks": 0, "fp_blocks": 0, "unknown_probes": 0, "avg_llm_calls": 7.5, "avg_tool_calls": 7.5, "avg_prompt_tokens": 100, "avg_generated_tokens": 50, "avg_total_tokens": 150, "avg_inference_latency_s": 1.0, "avg_end_to_end_latency_s": 1.5},
+        "M": {"success_count": 8, "success_rate": 1.0, "total_proposed_errors": 0, "total_executed_errors": 0, "tp_blocks": 0, "fp_blocks": 0, "unknown_probes": 0, "avg_llm_calls": 7.5, "avg_tool_calls": 7.5, "avg_prompt_tokens": 100, "avg_generated_tokens": 50, "avg_total_tokens": 150, "avg_inference_latency_s": 1.0, "avg_end_to_end_latency_s": 1.5, "candidate_trials": 0},
+        "target_initial_memory_count": 0,
+        "extracted_rule_count": 0,
     }
+    fake_traces = [
+        {"episode_type": "source", "run_id": "src1", "tool_records": [{"exit_code": 0}]},
+        {"episode_type": "target", "run_id": "tgt1", "group": "B0", "instance_id": "inst1_port_conflict_persistent", "success": True, "steps": 8, "gate_events": []},
+    ]
 
-    # Helper function to produce report conclusion
-    def generate_conclusion_text(summary):
-        lines = []
-        for g, data in summary.items():
-            if data["tp_blocks"] == 0 and data["fp_blocks"] == 0:
-                lines.append(f"{g}: Gate was never triggered in practice (0 blocks). Cannot claim gate efficacy.")
-            else:
-                lines.append(f"{g}: Triggered {data['tp_blocks']} TP blocks.")
-        return "\n".join(lines)
+    report_path = tmp_path / "test_report.md"
+    content = generate_pilot_report(fake_summary, fake_traces, report_path)
 
-    text = generate_conclusion_text(fake_summary)
-    assert "Cannot claim gate efficacy" in text
-    assert "Triggered" not in text
+    # 1. Must contain all 6 audit metrics
+    for metric in [
+        "source_failure_count",
+        "extracted_rule_count",
+        "target_initial_memory_count",
+        "matched_rule_count",
+        "gate_opportunities",
+        "lifecycle_transition_count",
+    ]:
+        assert metric in content, f"Missing metric {metric} in generated report!"
+
+    # 2. Must contain empty memory disclaimer when memory was empty
+    assert "实验处理未实际生效，不能评价记忆的独立贡献" in content
+    assert "0 blocks recorded" in content
+    # 3. Must NOT claim gate protection or false positive reduction
+    assert "no claim of gate protection" in content
+    assert "空记忆条件下的多步部署基线验证；记忆方法效果证据不足" in content

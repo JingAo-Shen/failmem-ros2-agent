@@ -115,10 +115,14 @@ class MultiStepDeploymentEnv:
             # Port 18080 occupied
             self._start_occupier(18080, name="occupier_18080")
             wait_for_port(18080, should_be_listening=True, timeout=3.0)
+        elif instance_id == "inst7_midepisode_port_clash":
+            # Reserve port 18081 so only 18082 is viable when 18080 clashes mid-flight
+            self._start_occupier(18081, name="reserved_18081")
+            wait_for_port(18081, should_be_listening=True, timeout=3.0)
         elif instance_id in ("inst3_permission_fallback", "inst4_irrelevant_change", "inst6_counterexample_feasibility"):
             # Ports are free
             pass
-        elif instance_id in ("inst5_stale_observation", "inst7_midepisode_port_clash"):
+        elif instance_id in ("inst5_stale_observation",):
             # Ports initially free, dynamic event triggers mid-episode
             pass
 
@@ -156,11 +160,11 @@ while True:
             wait_for_port(port, should_be_listening=False, timeout=2.0)
 
     def _trigger_dynamic_events(self):
-        """Evaluates and fires mid-episode dynamic events."""
+        """Evaluates and fires mid-episode dynamic events adhering to T_obs < T_change < T_decision."""
         self.step_count += 1
         now = time.time()
 
-        if self.instance_id == "inst2_blockage_cleared" and self.step_count >= 2:
+        if self.instance_id == "inst2_blockage_cleared" and self.step_count >= 3:
             if 18080 in self.occupier_processes:
                 self._stop_occupier(18080)
                 self.state_events_log.append({
@@ -182,7 +186,7 @@ while True:
                 "detail": "System audit logger rotated background log; no service ports affected."
             })
 
-        elif self.instance_id == "inst5_stale_observation" and self.step_count >= 2:
+        elif self.instance_id == "inst5_stale_observation" and self.step_count >= 3:
             if 18080 not in self.occupier_processes:
                 self._start_occupier(18080, name="late_occupier_18080")
                 wait_for_port(18080, should_be_listening=True, timeout=2.0)
@@ -194,7 +198,7 @@ while True:
                     "detail": "Collocated daemon spawned and bound to port 18080."
                 })
 
-        elif self.instance_id == "inst7_midepisode_port_clash" and self.step_count >= 2:
+        elif self.instance_id == "inst7_midepisode_port_clash" and self.step_count >= 3:
             if 18080 not in self.occupier_processes:
                 self._start_occupier(18080, name="clash_occupier_18080")
                 wait_for_port(18080, should_be_listening=True, timeout=2.0)
@@ -205,6 +209,33 @@ while True:
                     "timestamp": now,
                     "detail": "Emergency utility daemon seized port 18080."
                 })
+
+    def simulate_service_crash(self, reason: str = "SIGTERM_CRASH") -> Dict[str, Any]:
+        """
+        Simulates an observable runtime process crash for recovery scenarios.
+        Terminates the running daemon process without removing the deployed config.
+        """
+        call_id = f"call_{uuid.uuid4().hex[:8]}"
+        now = time.time()
+        crashed = False
+        if self.daemon_process and self.daemon_process.poll() is None:
+            try:
+                self.daemon_process.kill()
+                self.daemon_process.wait(timeout=1.0)
+                crashed = True
+            except Exception:
+                pass
+            self.daemon_process = None
+
+        res = {
+            "call_id": call_id,
+            "event": "RUNTIME_SERVICE_CRASH",
+            "reason": reason,
+            "crashed": crashed,
+            "timestamp": now,
+        }
+        self.state_events_log.append(res)
+        return res
 
     # -------------------------------------------------------------
     # AGENT TOOLS
@@ -328,15 +359,37 @@ while True:
         )
 
         now = time.time()
+        raw_stderr = (sub_res.stderr or "").strip()
+        raw_stdout = (sub_res.stdout or "").strip()
         if sub_res.returncode != 0:
+            raw_lower = raw_stderr.lower()
+            if "permission denied" in raw_lower:
+                err_code = 13
+                err_type = "PermissionDenied"
+                err_msg = raw_stderr or f"Permission denied: unable to write configuration to {config_path}"
+            elif "no such file or directory" in raw_lower:
+                err_code = 2
+                err_type = "FileNotFound"
+                err_msg = raw_stderr or f"No such file or directory: {config_path}"
+            elif "read-only file system" in raw_lower:
+                err_code = 30
+                err_type = "ReadOnly"
+                err_msg = raw_stderr or f"Read-only file system: {config_path}"
+            else:
+                err_code = sub_res.returncode
+                err_type = "CommandExecutionError"
+                err_msg = raw_stderr or f"Command failed with exit code {sub_res.returncode}"
+
             res = {
                 "call_id": call_id,
                 "success": False,
                 "exit_code": sub_res.returncode,
-                "error_code": 13,
-                "error_type": "PermissionDenied",
-                "stderr": f"Permission denied: unable to write configuration to {config_path}",
-                "stdout": "",
+                "error_code": err_code,
+                "error_type": err_type,
+                "stderr": err_msg,
+                "stdout": raw_stdout,
+                "config_snapshot": {"service_name": service_name, "port": port},
+                "resource_id": f"file:{config_path}",
                 "timestamp": now,
             }
         else:
@@ -349,6 +402,8 @@ while True:
                 "error_type": None,
                 "config_path": str(target_path),
                 "port": port,
+                "config_snapshot": {"service_name": service_name, "port": port},
+                "resource_id": f"file:{config_path}",
                 "stderr": "",
                 "stdout": f"Configuration successfully written to {config_path}",
                 "timestamp": now,
@@ -489,9 +544,37 @@ while True:
                 else:
                     error_type = "ProcessExitError"
                 break
+
             if is_port_listening(port):
-                break
+                # Verify that it is OUR daemon listening and not an alien occupier process
+                try:
+                    s_chk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s_chk.settimeout(0.2)
+                    s_chk.connect(("127.0.0.1", port))
+                    s_chk.sendall(b"HEALTH_CHECK\n")
+                    chk_resp = s_chk.recv(1024).decode("utf-8", errors="ignore").strip()
+                    s_chk.close()
+                    if chk_resp.startswith("{"):
+                        chk_data = json.loads(chk_resp)
+                        if chk_data.get("pid") == proc.pid:
+                            # Confirmed: our daemon is listening and healthy!
+                            break
+                except Exception:
+                    pass
+
             time.sleep(0.05)
+
+        if not bind_failed and proc.poll() is not None:
+            bind_failed = True
+            exit_code = proc.returncode
+            _, stderr = proc.communicate()
+            err_msg = stderr.strip()
+            if "Address already in use" in err_msg or exit_code == 98:
+                error_type = "AddressAlreadyInUse"
+            elif "Permission denied" in err_msg or exit_code == 13:
+                error_type = "PermissionDenied"
+            else:
+                error_type = "ProcessExitError"
 
         if bind_failed:
             res = {
@@ -502,6 +585,8 @@ while True:
                 "error_type": error_type,
                 "stderr": err_msg or f"Service process exited prematurely with code {exit_code}",
                 "stdout": "",
+                "config_snapshot": {"port": port, "config_path": config_path},
+                "resource_id": f"port:{port}",
                 "timestamp": time.time(),
             }
         else:
@@ -516,6 +601,8 @@ while True:
                 "error_type": None,
                 "port": port,
                 "config_path": config_path,
+                "config_snapshot": {"port": port, "config_path": config_path},
+                "resource_id": f"port:{port}",
                 "pid": proc.pid,
                 "stderr": "",
                 "stdout": f"Service telemetry_agent successfully started and listening on 127.0.0.1:{port}",
@@ -690,8 +777,10 @@ def solve_instance(env: MultiStepDeploymentEnv, instance_id: str) -> bool:
         env.check_health(18081)
 
     elif instance_id == "inst2_blockage_cleared":
-        # Port 18080 occupied at step 1 -> probe at step 2 (cleared) -> use 18080
-        env.probe_directory("/home/agentuser/service_conf")
+        # Port 18080 occupied at step 1-2 -> probe at step 2 (occupied) -> step 3 clears -> recheck (free) -> use 18080
+        p0 = env.probe_port(18080)
+        assert p0["is_occupied"] is True
+        env.probe_directory("/home/agentuser/service_conf")  # triggers step 3 dynamic event (blockage cleared)
         p_cleared = env.probe_port(18080)
         assert p_cleared["is_occupied"] is False
         env.write_config(user_conf, port=18080)
@@ -714,9 +803,10 @@ def solve_instance(env: MultiStepDeploymentEnv, instance_id: str) -> bool:
         env.check_health(18080)
 
     elif instance_id == "inst5_stale_observation":
-        # 18080 free at step 1, but occupied at step 2 -> agent probes or catches failure, uses 18081
-        env.probe_port(18080)  # free at step 1
-        # Now step 2 dynamic event occupied 18080
+        # 18080 free at step 2 -> step 3 occupied -> agent probes or catches failure, uses 18081
+        p_init = env.probe_port(18080)
+        assert p_init["is_occupied"] is False
+        env.probe_directory("/home/agentuser/service_conf")  # triggers step 3 dynamic event (resource preempted)
         p_recheck = env.probe_port(18080)
         assert p_recheck["is_occupied"] is True
         env.write_config(user_conf, port=18081)
@@ -731,10 +821,14 @@ def solve_instance(env: MultiStepDeploymentEnv, instance_id: str) -> bool:
         env.check_health(18080)
 
     elif instance_id == "inst7_midepisode_port_clash":
-        # Mid-episode clash at step 2 on 18080 -> adapt to 18082
-        env.probe_port(18080)  # triggers step 1
-        p_clash = env.probe_port(18080)  # triggers step 2 -> occupied!
+        # Mid-episode clash at step 3 on 18080, port 18081 reserved -> adapt to 18082
+        p_init = env.probe_port(18080)
+        assert p_init["is_occupied"] is False
+        env.probe_directory("/home/agentuser/service_conf")  # triggers step 3 dynamic event (port clash)
+        p_clash = env.probe_port(18080)
         assert p_clash["is_occupied"] is True
+        p_reserved = env.probe_port(18081)
+        assert p_reserved["is_occupied"] is True
         env.write_config(user_conf, port=18082)
         env.start_service(user_conf)
         env.check_health(18082)

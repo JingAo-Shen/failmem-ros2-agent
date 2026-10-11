@@ -14,7 +14,10 @@ Strict Methodological Rules:
 
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
+import json
 import time
+from dataclasses import dataclass, field
+from typing import Dict, Any, List, Optional
 from .constraint_lifecycle import (
     ConstraintRule,
     PreconditionPredicate,
@@ -40,6 +43,9 @@ class FailureTrace:
     error_type: Optional[str] = None
     evidence_id: str = ""
     timestamp: float = field(default_factory=time.time)
+    config_snapshot: Optional[Dict[str, Any]] = None
+    resource_id: Optional[str] = None
+    user: Optional[str] = None
 
     def __post_init__(self):
         if not self.evidence_id:
@@ -76,12 +82,13 @@ class DeterministicHeuristicRuleParser:
     """
     Explicitly disclosed deterministic heuristic parser for system failures.
     Strictly parses confirmed OS error signatures and rejects all unrecognized errors.
+    Immutable: reads only from memory trace and never reads config files from disk post-teardown.
     """
 
     @staticmethod
     def classify_failure(trace: FailureTrace) -> Optional[Dict[str, Any]]:
         """
-        Classifies failure based on strict stdout/stderr inspection.
+        Classifies failure based on strict stdout/stderr and trace metadata inspection.
         Returns failure classification dict or None if rejected.
         """
         if trace.exit_code == 0:
@@ -93,16 +100,26 @@ class DeterministicHeuristicRuleParser:
         if trace.tool_name == "start_service":
             if "address already in use" in stderr_lower or trace.exit_code == 98 or trace.error_code == 98:
                 port = trace.tool_params.get("port")
-                if port is None and "config_path" in trace.tool_params:
-                    try:
-                        with open(trace.tool_params["config_path"], "r", encoding="utf-8") as f:
-                            cfg = json.load(f)
-                        port = cfg.get("port")
-                    except Exception:
-                        pass
+                if port is None and trace.config_snapshot:
+                    port = trace.config_snapshot.get("port")
+                if port is None and trace.observation_snapshot:
+                    for k in trace.observation_snapshot:
+                        if k.startswith("port:") and ":occupied" in k:
+                            parts = k.split(":")
+                            if len(parts) >= 2 and parts[1].isdigit():
+                                port = int(parts[1])
+                                break
+                if port is None and trace.resource_id and trace.resource_id.startswith("port:"):
+                    p_str = trace.resource_id.split(":")[-1]
+                    if p_str.isdigit():
+                        port = int(p_str)
+
                 if port is not None:
                     return {
                         "category": "port_conflict",
+                        "resource_type": "port",
+                        "resource_path": str(port),
+                        "property": "occupied",
                         "resource": f"port:{port}",
                         "action_signature": f"start_service:port={port}",
                         "pred_key": f"port:{port}:occupied",
@@ -116,17 +133,25 @@ class DeterministicHeuristicRuleParser:
 
         # File permission classification
         elif trace.tool_name == "write_config":
-            if "permission denied" in stderr_lower or trace.exit_code in (1, 13) or trace.error_code in (1, 13):
+            is_perm_denied = (
+                "permission denied" in stderr_lower
+                or trace.error_type == "PermissionDenied"
+                or (trace.exit_code in (1, 13) and "permission" in stderr_lower)
+            )
+            if is_perm_denied:
                 filepath = trace.tool_params.get("filepath") or trace.tool_params.get("config_path")
                 if filepath is not None:
                     return {
                         "category": "permission_denied",
+                        "resource_type": "file",
+                        "resource_path": filepath,
+                        "property": "writable",
                         "resource": f"file:{filepath}",
                         "action_signature": f"write_config:filepath={filepath}",
                         "pred_key": f"file:{filepath}:writable",
                         "expected_val": False,
                         "error_type": "PermissionDenied",
-                        "error_code": trace.exit_code or 1,
+                        "error_code": trace.error_code or 13,
                         "description": f"File '{filepath}' lacks write permissions for current user context.",
                     }
             # Any other write error (e.g. disk full, read error, invalid content) is REJECTED
@@ -174,6 +199,9 @@ class MemoryPipeline:
                 key=classification["pred_key"],
                 expected_value=classification["expected_val"],
                 ttl=30.0,
+                resource_type=classification.get("resource_type", ""),
+                resource_path=classification.get("resource_path", ""),
+                property=classification.get("property", ""),
             )
         ]
         evidence = {
@@ -198,4 +226,5 @@ class MemoryPipeline:
             created_at=trace.timestamp,
             last_supported_at=trace.timestamp,
         )
+
 

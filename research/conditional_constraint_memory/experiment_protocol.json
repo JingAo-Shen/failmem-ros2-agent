@@ -1,12 +1,14 @@
 {
-  "protocol_version": "2.0-multistep-deployment",
+  "protocol_version": "3.0-two-stage-conditional-constraint-transfer",
+  "description": "Two-Stage Symmetrical Protocol for Conditional Failure Constraint Memory Evaluation. Enforces strictly separated failure trace generation from autonomous transfer evaluation.",
   "model_config": {
     "model_path": "/models/Qwen3-14B-AWQ",
     "device": "cuda",
     "torch_dtype": "float16",
     "quantization": "awq_4bit",
     "temperature": 0.0,
-    "max_new_tokens": 256
+    "max_new_tokens": 256,
+    "enable_thinking": false
   },
   "budget": {
     "max_total_runs": 36,
@@ -17,80 +19,116 @@
     "max_llm_calls_per_run": 20,
     "max_tool_calls_per_run": 30
   },
-  "groups": [
-    {
-      "group_id": "B0",
-      "name": "No-Memory Baseline",
-      "description": "Standard multi-step ReAct agent without cross-task memory"
+  "stages": {
+    "stage_1_controlled_failure_extraction_and_acceptance": {
+      "objective": "Harvest genuine FailureTrace objects from actual OS environment errors without model extrapolation or synthetic fabrication.",
+      "prerequisites": [
+        "All 36 CPU unit, integration, and acceptance tests pass 100%",
+        "Real OS sockets and file permissions used (no mocked filesystem)",
+        "Zero hidden state leakage (no instance IDs or State A/B/C/D labels)",
+        "Deterministic heuristic rule parser strictly documented"
+      ],
+      "guaranteed_non_empty_memory_criteria": {
+        "min_source_failures": 2,
+        "min_extracted_rules": 2,
+        "required_rule_types": [
+          "AddressAlreadyInUse (port conflict)",
+          "PermissionDenied (file write access)"
+        ],
+        "initial_validity_state": "CANDIDATE"
+      }
     },
-    {
-      "group_id": "B2",
-      "name": "Dynamic Fact Memory",
-      "description": "Structured world facts injected into prompt; model autonomously decides"
-    },
-    {
-      "group_id": "B2-G",
-      "name": "Generic Predicate Gate",
-      "description": "B2 dynamic facts plus generic predicate gate: blocks if fresh True, probes if Unknown, allows if False"
-    },
-    {
-      "group_id": "M",
-      "name": "Candidate Lifecycle Gate",
-      "description": "Lifecycle gating: CANDIDATE probation trial, SUPPORTED blocking, UNKNOWN probing, contradiction downgrade"
+    "stage_2_autonomous_agent_transfer_evaluation": {
+      "objective": "Transfer verified non-empty memory into symmetrical target evaluation suite across 4 arms.",
+      "evaluation_arms": [
+        {
+          "group_id": "B0",
+          "name": "No-Memory Baseline",
+          "description": "Standard multi-step ReAct agent without cross-task memory"
+        },
+        {
+          "group_id": "B2",
+          "name": "Dynamic Fact Memory",
+          "description": "Structured world facts injected into prompt; model autonomously decides"
+        },
+        {
+          "group_id": "B2-G",
+          "name": "Generic Predicate Gate",
+          "description": "B2 dynamic facts plus generic predicate gate: blocks if fresh True, probes if Unknown, allows if False"
+        },
+        {
+          "group_id": "M",
+          "name": "Candidate Lifecycle Gate",
+          "description": "Lifecycle gating: CANDIDATE probation trial, SUPPORTED blocking, UNKNOWN probing, contradiction downgrade"
+        }
+      ],
+      "target_matrix_episodes": 32,
+      "audit_metrics_mandate": [
+        "source_failure_count",
+        "extracted_rule_count",
+        "target_initial_memory_count",
+        "matched_rule_count",
+        "gate_opportunities",
+        "lifecycle_transition_count"
+      ]
     }
-  ],
-  "source_tasks": [
-    {
-      "task_id": "source_port_conflict",
-      "instance_id": "inst1_port_conflict_persistent",
-      "goal": "Deploy telemetry_agent service; port 18080 occupied by background occupier"
-    },
-    {
-      "task_id": "source_permission_denial",
-      "instance_id": "inst3_permission_fallback",
-      "goal": "Deploy telemetry_agent service; /etc/service_demo is non-writable by agentuser"
-    }
-  ],
-  "target_tasks": [
+  },
+  "task_coverage_matrix": [
     {
       "instance_id": "inst1_port_conflict_persistent",
-      "description": "Port 18080 persistently occupied; legal fallback port 18081 available",
-      "research_question": "Does agent adapt to persistent port conflict without hard-coded recipes?"
+      "dynamic_event": "Port 18080 persistently occupied by background occupier at setup",
+      "timing": "Persistent across entire episode",
+      "research_question": "Does Method M immediately block known occupied port and prevent redundant failure trial?",
+      "expected_behavior": "Supported rule blocks start_service:port=18080; agent deploys on port 18081"
     },
     {
       "instance_id": "inst2_blockage_cleared",
-      "description": "Port 18080 occupied initially, clears at step 2; unblocked path feasible",
-      "research_question": "Does gating avoid over-blocking when blocking premise is cleared mid-episode?"
+      "dynamic_event": "Port 18080 occupied at setup, clears at step >= 3 after initial observation",
+      "timing": "T_obs (step 2) < T_change (step 3) < T_decision (step >= 4)",
+      "research_question": "Does gating avoid permanent over-blocking when the blocking premise is cleared mid-episode?",
+      "expected_behavior": "Observation refreshed to False; applicability updates to NOT_APPLICABLE; gate unblocks 18080 without rule contradiction"
     },
     {
       "instance_id": "inst3_permission_fallback",
-      "description": "/etc/service_demo is 0755 root-owned; legal fallback /home/agentuser/service_conf available",
-      "research_question": "Does agent identify permission failure and fall back without confusing with port errors?"
+      "dynamic_event": "/etc/service_demo is 0755 root-owned; non-writable by unprivileged agentuser",
+      "timing": "Persistent permission constraint",
+      "research_question": "Does agent distinguish file permission failure from port errors and fallback to user directory?",
+      "expected_behavior": "PermissionDenied rule blocks write_config to /etc/service_demo; agent uses /home/agentuser/service_conf"
     },
     {
       "instance_id": "inst4_irrelevant_change",
-      "description": "Irrelevant background log rotated mid-episode; ports and paths remain functional",
-      "research_question": "Does agent maintain plan stability despite irrelevant environment noise?"
+      "dynamic_event": "System audit logger writes to background log file at step 2; no ports affected",
+      "timing": "Step 2 background tick",
+      "research_question": "Does gating maintain plan stability without false positive blocks on irrelevant environment changes?",
+      "expected_behavior": "Zero false positive blocks; nominal deployment on port 18080"
     },
     {
       "instance_id": "inst5_stale_observation",
-      "description": "Port 18080 free initially, preempted at step 2 by collocated daemon",
-      "research_question": "Does gating / agent recognize stale observations before action execution?"
+      "dynamic_event": "Port 18080 free initially at step 2, preempted at step >= 3 by collocated daemon",
+      "timing": "T_obs (step 2) < T_change (step 3) < T_decision (step >= 4)",
+      "research_question": "Does observation TTL expiration trigger active probing before critical action execution?",
+      "expected_behavior": "Gate returns PROBE on stale premise; fresh probe detects preemption; agent redirects to port 18081"
     },
     {
       "instance_id": "inst6_counterexample_feasibility",
-      "description": "Candidate rule suggests potential clash, but conditions are satisfied and 18080 succeeds",
-      "research_question": "Does candidate rule probation prevent premature blocking of viable paths?"
+      "dynamic_event": "Candidate rule exists from external hint suggesting clash, but port 18080 is actually free and viable",
+      "timing": "Candidate rule evaluated on initial action",
+      "research_question": "Does probationary trial prevent premature permanent blocking of viable paths?",
+      "expected_behavior": "Gate allows probation trial; action succeeds; counter-evidence downgrades rule to CONTRADICTED and RETIRED"
     },
     {
       "instance_id": "inst7_midepisode_port_clash",
-      "description": "Port 18080 preempted at step 2; agent recovers on port 18082",
-      "research_question": "Can agent dynamically recover and reconfigure service on tertiary legal port?"
+      "dynamic_event": "Port 18081 reserved at setup; port 18080 free at step 2, seized at step >= 3",
+      "timing": "T_obs (step 2) < T_change (step 3) < T_decision (step >= 4)",
+      "research_question": "Can agent dynamically adapt to mid-flight preemption when secondary port is reserved, forcing tertiary fallback?",
+      "expected_behavior": "Detects conflict on 18080 and reservation on 18081; successfully configures and recovers on port 18082"
     },
     {
       "instance_id": "inst8_permission_and_port_composition",
-      "description": "/etc/service_demo non-writable AND port 18080 occupied; requires dual-constraint handling",
-      "research_question": "Can agent solve composed multi-constraint deployment in single episode?"
+      "dynamic_event": "/etc/service_demo non-writable AND port 18080 occupied at setup",
+      "timing": "Persistent dual-constraint composition",
+      "research_question": "Can agent simultaneously satisfy conjunction of distinct resource constraints?",
+      "expected_behavior": "Both file and port constraints evaluated simultaneously; deploys in /home/agentuser/service_conf on port 18081"
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Controlled Pilot Experiment Report (Version 2.0)
 
-**Execution Date**: 2026-10-11 10:49:18 UTC  
+**Execution Date**: 2026-10-11 12:18:28 UTC  
 **Environment**: Multi-Step Service Deployment Environment (Real Socket + Non-Root User Permissions)  
 **Model**: Qwen3-14B-AWQ (RTX 2080 Ti, temp=0.0, AWQ 4-bit, enable_thinking=False)  
 **Budget Adherence**: Exactly 36 model episodes executed (2 Smoke + 2 Source + 32 Target).  
@@ -14,6 +14,23 @@
 - **Executed Errors**: B0: 0, B2: 0, B2-G: 0, M: 0.
 - **Gate Triggers**: Total TP Blocks across all groups: 0, Total FP Blocks: 0, Active UNKNOWN Probes: 0.
 - **Gate Efficacy Assessment**: Because gate triggers did not occur in practice (0 blocks recorded), no claim of gate protection or false-positive reduction can be established from this pilot.
+
+### Memory Treatment & Lifecycle Audit Metrics:
+
+| Audit Metric | Value | Audit Meaning / Operational Definition |
+| :--- | :---: | :--- |
+| **source_failure_count** | 0 | Genuine failure traces produced during source task runs |
+| **extracted_rule_count** | 0 | Constraint rules successfully extracted via deterministic parser |
+| **target_initial_memory_count** | 0 | Non-empty memory items injected into target evaluation suite |
+| **matched_rule_count** | 0 | Target action proposals matching active memory constraint signatures |
+| **gate_opportunities** | 0 | Instances where preconditions were evaluated against proposed actions |
+| **lifecycle_transition_count** | 0 | Transitions across CANDIDATE, SUPPORTED, CONTRADICTED, RETIRED |
+
+> [!IMPORTANT]
+> **空记忆审计特别声明**：`target_initial_memory_count = 0`。
+> 因为源任务中 Agent 自发采取主动探测策略未产生自然执行失败，进入目标评测的记忆库保持为空。
+> **实验处理未实际生效，不能评价记忆的独立贡献**。
+> 当前实验结果属于空记忆条件下的多步部署基线验证，不能作为证伪或证实记忆机制独立价值的有效证据。
 
 ---
 
@@ -54,5 +71,5 @@
 
 ## 4. Formal Research Conclusion
 
-**Final Verdict**: **本轮未观察到独立收益**
-**Rationale**: All baseline groups and Method M achieved comparable task outcomes; gating mechanisms did not provide an independent advantage over dynamic facts baseline.
+- **科学定性**: **空记忆条件下的多步部署基线验证；记忆方法效果证据不足**
+- **客观事实与归因**: 全量实测数据表明：四组均8/8成功、零执行错误、平均7.50次调用。但因源任务未产生执行报错，目标记忆库为空，实验处理未实际生效，不能评价记忆的独立贡献。当前数据证明了多步任务部署基线的可运行性与规划稳健性，但尚未构成对约束记忆机制有效性或冗余性的充分检验证据。
