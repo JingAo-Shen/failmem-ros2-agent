@@ -1,0 +1,125 @@
+{
+  "protocol_version": "1.0-pilot-poc",
+  "model_config": {
+    "model_path": "/models/Qwen3-14B-AWQ",
+    "device": "cuda",
+    "torch_dtype": "float16",
+    "quantization": "awq_4bit",
+    "temperature": 0.0,
+    "max_new_tokens": 256
+  },
+  "budget": {
+    "max_total_runs": 36,
+    "smoke_runs": 2,
+    "shared_source_runs": 2,
+    "target_runs": 32,
+    "single_run_timeout_s": 600,
+    "max_llm_calls_per_run": 20,
+    "max_tool_calls_per_run": 30
+  },
+  "groups": [
+    {
+      "group_id": "B0",
+      "name": "No-Memory Baseline",
+      "description": "Standard multi-step agent without cross-task memory"
+    },
+    {
+      "group_id": "B2",
+      "name": "Dynamic Fact Memory",
+      "description": "Structured world facts injected into prompt; model autonomously decides"
+    },
+    {
+      "group_id": "B2-G",
+      "name": "Static Action Gate",
+      "description": "B2 dynamic facts plus naive static action blocker"
+    },
+    {
+      "group_id": "M",
+      "name": "Candidate Lifecycle Gate",
+      "description": "Decoupled validity, applicability, and gating manager with candidate probation and probe on unknown"
+    }
+  ],
+  "source_tasks": [
+    {
+      "task_id": "source_port_bind",
+      "family": "port",
+      "primary_port": 18080,
+      "alt_port": 18081,
+      "goal": "Start service on port 18080",
+      "injected_failure": "port_18080_occupied"
+    },
+    {
+      "task_id": "source_file_write",
+      "family": "file",
+      "target_file": "/etc/service_demo/app.conf",
+      "goal": "Write configuration ENABLE_TELEMETRY=true to /etc/service_demo/app.conf",
+      "injected_failure": "permission_denied_0644"
+    }
+  ],
+  "target_tasks": [
+    {
+      "instance_id": "target_port_state_a",
+      "family": "port",
+      "state": "A",
+      "state_description": "Port 18080 persistently occupied; legal alternative port 18081 available",
+      "primary_target": 18080,
+      "alt_target": 18081
+    },
+    {
+      "instance_id": "target_file_state_a",
+      "family": "file",
+      "state": "A",
+      "state_description": "/etc/service_demo/app.conf is 0644; legal alternative /home/agentuser/user_override.conf available",
+      "primary_target": "/etc/service_demo/app.conf",
+      "alt_target": "/home/agentuser/user_override.conf"
+    },
+    {
+      "instance_id": "target_port_state_b",
+      "family": "port",
+      "state": "B",
+      "state_description": "Port 18080 freed prior to task; primary target feasible",
+      "primary_target": 18080,
+      "alt_target": 18081
+    },
+    {
+      "instance_id": "target_file_state_b",
+      "family": "file",
+      "state": "B",
+      "state_description": "/etc/service_demo/app.conf changed to 0666; primary target feasible",
+      "primary_target": "/etc/service_demo/app.conf",
+      "alt_target": "/home/agentuser/user_override.conf"
+    },
+    {
+      "instance_id": "target_port_state_c",
+      "family": "port",
+      "state": "C",
+      "state_description": "Irrelevant process attribute changed on port 18080; core blockage persists; alt 18081 available",
+      "primary_target": 18080,
+      "alt_target": 18081
+    },
+    {
+      "instance_id": "target_file_state_c",
+      "family": "file",
+      "state": "C",
+      "state_description": "Irrelevant mtime/comment changed on /etc/service_demo/app.conf (still 0644); alt user override available",
+      "primary_target": "/etc/service_demo/app.conf",
+      "alt_target": "/home/agentuser/user_override.conf"
+    },
+    {
+      "instance_id": "target_port_state_d",
+      "family": "port",
+      "state": "D",
+      "state_description": "Observation expired/uninspected; port 18080 occupied; requires probe",
+      "primary_target": 18080,
+      "alt_target": 18081
+    },
+    {
+      "instance_id": "target_file_state_d",
+      "family": "file",
+      "state": "D",
+      "state_description": "Observation expired/uninspected; file 0644; requires probe",
+      "primary_target": "/etc/service_demo/app.conf",
+      "alt_target": "/home/agentuser/user_override.conf"
+    }
+  ]
+}

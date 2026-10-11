@@ -1,0 +1,2033 @@
+[
+  {
+    "group": "B0",
+    "task_family": "port",
+    "state": "B",
+    "run_id": "smoke_port_01",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 240,
+    "total_generated_tokens": 56,
+    "latency_s": 18.85,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18080
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18080"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 240,
+        "generated_tokens": 56,
+        "latency_s": 18.638354539871216
+      }
+    ],
+    "episode_type": "smoke"
+  },
+  {
+    "group": "B0",
+    "task_family": "file",
+    "state": "B",
+    "run_id": "smoke_file_02",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 611,
+    "total_generated_tokens": 133,
+    "latency_s": 42.94,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": true,
+          "mode": "0666",
+          "timestamp": 1791696390.0779648
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /etc/service_demo/app.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 261,
+        "generated_tokens": 58,
+        "latency_s": 18.71153235435486
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is writable, so I will append the configuration entry directly to it.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 350,
+        "generated_tokens": 75,
+        "latency_s": 24.207165718078613
+      }
+    ],
+    "episode_type": "smoke"
+  },
+  {
+    "group": "B0",
+    "task_family": "port",
+    "state": "A",
+    "run_id": "source_port_01",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 532,
+    "total_generated_tokens": 124,
+    "latency_s": 39.62,
+    "proposed_error_actions": 1,
+    "executed_error_actions": 1,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 1,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18080
+        },
+        "exit_code": 98,
+        "result": {
+          "success": false,
+          "error_code": 98,
+          "error_type": "AddressAlreadyInUse",
+          "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+          "stdout": ""
+        }
+      },
+      {
+        "step": 2,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 221,
+        "generated_tokens": 56,
+        "latency_s": 17.526408672332764
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is already in use, attempting to start the network service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 311,
+        "generated_tokens": 68,
+        "latency_s": 21.856104135513306
+      }
+    ],
+    "episode_type": "source"
+  },
+  {
+    "group": "B0",
+    "task_family": "file",
+    "state": "A",
+    "run_id": "source_file_02",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 577,
+    "total_generated_tokens": 142,
+    "latency_s": 45.15,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": false,
+          "mode": "0644",
+          "timestamp": 1791696472.422501
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 244,
+        "generated_tokens": 58,
+        "latency_s": 18.401741981506348
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is not writable by the non-root user 'agentuser', so writing to the fallback user override file.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 333,
+        "generated_tokens": 84,
+        "latency_s": 26.73468565940857
+      }
+    ],
+    "episode_type": "source"
+  },
+  {
+    "group": "B0",
+    "task_family": "port",
+    "state": "A",
+    "run_id": "target_port_state_a_b0",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 570,
+    "total_generated_tokens": 124,
+    "latency_s": 40.33,
+    "proposed_error_actions": 1,
+    "executed_error_actions": 1,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 1,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18080
+        },
+        "exit_code": 98,
+        "result": {
+          "success": false,
+          "error_code": 98,
+          "error_type": "AddressAlreadyInUse",
+          "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+          "stdout": ""
+        }
+      },
+      {
+        "step": 2,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 240,
+        "generated_tokens": 56,
+        "latency_s": 17.843337535858154
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is already in use, attempting to start the network service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 330,
+        "generated_tokens": 68,
+        "latency_s": 22.248761892318726
+      }
+    ],
+    "instance_id": "port_state_a",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2",
+    "task_family": "port",
+    "state": "A",
+    "run_id": "target_port_state_a_b2",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 319,
+    "total_generated_tokens": 66,
+    "latency_s": 21.59,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 319,
+        "generated_tokens": 66,
+        "latency_s": 21.355728149414062
+      }
+    ],
+    "instance_id": "port_state_a",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2-G",
+    "task_family": "port",
+    "state": "A",
+    "run_id": "target_port_state_a_b2_g",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 319,
+    "total_generated_tokens": 66,
+    "latency_s": 21.55,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 319,
+        "generated_tokens": 66,
+        "latency_s": 21.3249933719635
+      }
+    ],
+    "instance_id": "port_state_a",
+    "episode_type": "target"
+  },
+  {
+    "group": "M",
+    "task_family": "port",
+    "state": "A",
+    "run_id": "target_port_state_a_m",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 659,
+    "total_generated_tokens": 128,
+    "latency_s": 42.07,
+    "proposed_error_actions": 1,
+    "executed_error_actions": 0,
+    "tp_blocks": 1,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 2,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 282,
+        "generated_tokens": 56,
+        "latency_s": 18.209139347076416
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary port 18080 is blocked by a rule, so attempting to start the network service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 377,
+        "generated_tokens": 72,
+        "latency_s": 23.61878538131714
+      }
+    ],
+    "instance_id": "port_state_a",
+    "episode_type": "target"
+  },
+  {
+    "group": "B0",
+    "task_family": "file",
+    "state": "A",
+    "run_id": "target_file_state_a_b0",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 611,
+    "total_generated_tokens": 134,
+    "latency_s": 43.2,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": false,
+          "mode": "0644",
+          "timestamp": 1791696643.8243809
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 261,
+        "generated_tokens": 58,
+        "latency_s": 18.679038286209106
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is not writable, so writing to the fallback user override file.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 350,
+        "generated_tokens": 76,
+        "latency_s": 24.49226999282837
+      }
+    ],
+    "instance_id": "file_state_a",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2",
+    "task_family": "file",
+    "state": "A",
+    "run_id": "target_file_state_a_b2",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 339,
+    "total_generated_tokens": 82,
+    "latency_s": 26.21,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is read-only and lacks write permissions for non-root agentuser, so the fallback user override file will be used.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 339,
+        "generated_tokens": 82,
+        "latency_s": 26.196437120437622
+      }
+    ],
+    "instance_id": "file_state_a",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2-G",
+    "task_family": "file",
+    "state": "A",
+    "run_id": "target_file_state_a_b2_g",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 339,
+    "total_generated_tokens": 73,
+    "latency_s": 23.66,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is read-only, so the fallback user override file will be used.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 339,
+        "generated_tokens": 73,
+        "latency_s": 23.643166542053223
+      }
+    ],
+    "instance_id": "file_state_a",
+    "episode_type": "target"
+  },
+  {
+    "group": "M",
+    "task_family": "file",
+    "state": "A",
+    "run_id": "target_file_state_a_m",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 691,
+    "total_generated_tokens": 134,
+    "latency_s": 44.06,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": false,
+          "mode": "0644",
+          "timestamp": 1791696736.0639205
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}",
+        "prompt_tokens": 303,
+        "generated_tokens": 54,
+        "latency_s": 17.860675573349
+      },
+      {
+        "step": 2,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is not writable by the non-root user 'agentuser', so writing to the fallback user override file.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 388,
+        "generated_tokens": 80,
+        "latency_s": 26.180045127868652
+      }
+    ],
+    "instance_id": "file_state_a",
+    "episode_type": "target"
+  },
+  {
+    "group": "B0",
+    "task_family": "port",
+    "state": "B",
+    "run_id": "target_port_state_b_b0",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 240,
+    "total_generated_tokens": 56,
+    "latency_s": 18.04,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18080
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18080"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 240,
+        "generated_tokens": 56,
+        "latency_s": 17.879687070846558
+      }
+    ],
+    "instance_id": "port_state_b",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2",
+    "task_family": "port",
+    "state": "B",
+    "run_id": "target_port_state_b_b2",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 319,
+    "total_generated_tokens": 66,
+    "latency_s": 21.52,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 319,
+        "generated_tokens": 66,
+        "latency_s": 21.358670949935913
+      }
+    ],
+    "instance_id": "port_state_b",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2-G",
+    "task_family": "port",
+    "state": "B",
+    "run_id": "target_port_state_b_b2_g",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 319,
+    "total_generated_tokens": 66,
+    "latency_s": 21.52,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 319,
+        "generated_tokens": 66,
+        "latency_s": 21.354060411453247
+      }
+    ],
+    "instance_id": "port_state_b",
+    "episode_type": "target"
+  },
+  {
+    "group": "M",
+    "task_family": "port",
+    "state": "B",
+    "run_id": "target_port_state_b_m",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 283,
+    "total_generated_tokens": 56,
+    "latency_s": 18.38,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18080
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18080"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 283,
+        "generated_tokens": 56,
+        "latency_s": 18.21669912338257
+      }
+    ],
+    "instance_id": "port_state_b",
+    "episode_type": "target"
+  },
+  {
+    "group": "B0",
+    "task_family": "file",
+    "state": "B",
+    "run_id": "target_file_state_b_b0",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 611,
+    "total_generated_tokens": 133,
+    "latency_s": 42.94,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": true,
+          "mode": "0666",
+          "timestamp": 1791696860.852911
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /etc/service_demo/app.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 261,
+        "generated_tokens": 58,
+        "latency_s": 18.712889909744263
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is writable, so I will append the configuration entry directly to it.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 350,
+        "generated_tokens": 75,
+        "latency_s": 24.207768440246582
+      }
+    ],
+    "instance_id": "file_state_b",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2",
+    "task_family": "file",
+    "state": "B",
+    "run_id": "target_file_state_b_b2",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 339,
+    "total_generated_tokens": 82,
+    "latency_s": 26.18,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is read-only and lacks write permissions for non-root agentuser, so the fallback user override file will be used.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 339,
+        "generated_tokens": 82,
+        "latency_s": 26.161177158355713
+      }
+    ],
+    "instance_id": "file_state_b",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2-G",
+    "task_family": "file",
+    "state": "B",
+    "run_id": "target_file_state_b_b2_g",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 339,
+    "total_generated_tokens": 82,
+    "latency_s": 26.2,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is read-only and lacks write permissions for non-root agentuser, so the fallback user override file will be used.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 339,
+        "generated_tokens": 82,
+        "latency_s": 26.186766147613525
+      }
+    ],
+    "instance_id": "file_state_b",
+    "episode_type": "target"
+  },
+  {
+    "group": "M",
+    "task_family": "file",
+    "state": "B",
+    "run_id": "target_file_state_b_m",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 697,
+    "total_generated_tokens": 133,
+    "latency_s": 43.85,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": true,
+          "mode": "0666",
+          "timestamp": 1791696956.5312524
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /etc/service_demo/app.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 304,
+        "generated_tokens": 58,
+        "latency_s": 19.074307203292847
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is writable, so I will append the configuration entry directly to it.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 393,
+        "generated_tokens": 75,
+        "latency_s": 24.755427360534668
+      }
+    ],
+    "instance_id": "file_state_b",
+    "episode_type": "target"
+  },
+  {
+    "group": "B0",
+    "task_family": "port",
+    "state": "C",
+    "run_id": "target_port_state_c_b0",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 570,
+    "total_generated_tokens": 124,
+    "latency_s": 40.21,
+    "proposed_error_actions": 1,
+    "executed_error_actions": 1,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 1,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18080
+        },
+        "exit_code": 98,
+        "result": {
+          "success": false,
+          "error_code": 98,
+          "error_type": "AddressAlreadyInUse",
+          "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+          "stdout": ""
+        }
+      },
+      {
+        "step": 2,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 240,
+        "generated_tokens": 56,
+        "latency_s": 17.77706503868103
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is already in use, attempting to start the network service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 330,
+        "generated_tokens": 68,
+        "latency_s": 22.20608687400818
+      }
+    ],
+    "instance_id": "port_state_c",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2",
+    "task_family": "port",
+    "state": "C",
+    "run_id": "target_port_state_c_b2",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 319,
+    "total_generated_tokens": 66,
+    "latency_s": 21.63,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 319,
+        "generated_tokens": 66,
+        "latency_s": 21.395084142684937
+      }
+    ],
+    "instance_id": "port_state_c",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2-G",
+    "task_family": "port",
+    "state": "C",
+    "run_id": "target_port_state_c_b2_g",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 319,
+    "total_generated_tokens": 66,
+    "latency_s": 21.58,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 319,
+        "generated_tokens": 66,
+        "latency_s": 21.349468231201172
+      }
+    ],
+    "instance_id": "port_state_c",
+    "episode_type": "target"
+  },
+  {
+    "group": "M",
+    "task_family": "port",
+    "state": "C",
+    "run_id": "target_port_state_c_m",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 659,
+    "total_generated_tokens": 128,
+    "latency_s": 42.0,
+    "proposed_error_actions": 1,
+    "executed_error_actions": 0,
+    "tp_blocks": 1,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 2,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 282,
+        "generated_tokens": 56,
+        "latency_s": 18.158620834350586
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary port 18080 is blocked by a rule, so attempting to start the network service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 377,
+        "generated_tokens": 72,
+        "latency_s": 23.608955144882202
+      }
+    ],
+    "instance_id": "port_state_c",
+    "episode_type": "target"
+  },
+  {
+    "group": "B0",
+    "task_family": "file",
+    "state": "C",
+    "run_id": "target_file_state_c_b0",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 611,
+    "total_generated_tokens": 137,
+    "latency_s": 44.06,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": false,
+          "mode": "0644",
+          "timestamp": 1791697125.844355
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 261,
+        "generated_tokens": 58,
+        "latency_s": 18.70098352432251
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is not writable by 'agentuser', so using the fallback user override file.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 350,
+        "generated_tokens": 79,
+        "latency_s": 25.335923671722412
+      }
+    ],
+    "instance_id": "file_state_c",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2",
+    "task_family": "file",
+    "state": "C",
+    "run_id": "target_file_state_c_b2",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 339,
+    "total_generated_tokens": 82,
+    "latency_s": 26.2,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is read-only and lacks write permissions for non-root agentuser, so the fallback user override file will be used.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 339,
+        "generated_tokens": 82,
+        "latency_s": 26.185392141342163
+      }
+    ],
+    "instance_id": "file_state_c",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2-G",
+    "task_family": "file",
+    "state": "C",
+    "run_id": "target_file_state_c_b2_g",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 339,
+    "total_generated_tokens": 73,
+    "latency_s": 23.6,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is read-only, so the fallback user override file will be used.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 339,
+        "generated_tokens": 73,
+        "latency_s": 23.584465980529785
+      }
+    ],
+    "instance_id": "file_state_c",
+    "episode_type": "target"
+  },
+  {
+    "group": "M",
+    "task_family": "file",
+    "state": "C",
+    "run_id": "target_file_state_c_m",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 695,
+    "total_generated_tokens": 134,
+    "latency_s": 44.12,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": false,
+          "mode": "0644",
+          "timestamp": 1791697220.042351
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 303,
+        "generated_tokens": 58,
+        "latency_s": 19.04744839668274
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is not writable, so writing to the fallback user override file.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 392,
+        "generated_tokens": 76,
+        "latency_s": 25.055236101150513
+      }
+    ],
+    "instance_id": "file_state_c",
+    "episode_type": "target"
+  },
+  {
+    "group": "B0",
+    "task_family": "port",
+    "state": "D",
+    "run_id": "target_port_state_d_b0",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 570,
+    "total_generated_tokens": 124,
+    "latency_s": 40.36,
+    "proposed_error_actions": 1,
+    "executed_error_actions": 1,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 1,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18080
+        },
+        "exit_code": 98,
+        "result": {
+          "success": false,
+          "error_code": 98,
+          "error_type": "AddressAlreadyInUse",
+          "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+          "stdout": ""
+        }
+      },
+      {
+        "step": 2,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 240,
+        "generated_tokens": 56,
+        "latency_s": 17.872944355010986
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is already in use, attempting to start the network service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 330,
+        "generated_tokens": 68,
+        "latency_s": 22.24800395965576
+      }
+    ],
+    "instance_id": "port_state_d",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2",
+    "task_family": "port",
+    "state": "D",
+    "run_id": "target_port_state_d_b2",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 319,
+    "total_generated_tokens": 66,
+    "latency_s": 21.57,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 319,
+        "generated_tokens": 66,
+        "latency_s": 21.351261138916016
+      }
+    ],
+    "instance_id": "port_state_d",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2-G",
+    "task_family": "port",
+    "state": "D",
+    "run_id": "target_port_state_d_b2_g",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 319,
+    "total_generated_tokens": 66,
+    "latency_s": 21.57,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 319,
+        "generated_tokens": 66,
+        "latency_s": 21.335920095443726
+      }
+    ],
+    "instance_id": "port_state_d",
+    "episode_type": "target"
+  },
+  {
+    "group": "M",
+    "task_family": "port",
+    "state": "D",
+    "run_id": "target_port_state_d_m",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 654,
+    "total_generated_tokens": 123,
+    "latency_s": 40.52,
+    "proposed_error_actions": 1,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_port",
+        "params": {
+          "port": 18080
+        },
+        "exit_code": 0,
+        "result": {
+          "port": 18080,
+          "status": "OCCUPIED",
+          "is_occupied": true,
+          "timestamp": 1791697347.2366736
+        }
+      },
+      {
+        "step": 2,
+        "tool": "start_service",
+        "params": {
+          "port": 18081
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Service successfully started and listening on 127.0.0.1:18081"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Attempting to start the network service on the primary port 18080.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18080\n  }\n}\n```",
+        "prompt_tokens": 280,
+        "generated_tokens": 56,
+        "latency_s": 18.14738440513611
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"Port 18080 is occupied, so attempting to start the network service on the fallback port 18081.\",\n  \"action\": \"start_service\",\n  \"params\": {\n    \"port\": 18081\n  }\n}\n```",
+        "prompt_tokens": 374,
+        "generated_tokens": 67,
+        "latency_s": 22.137613773345947
+      }
+    ],
+    "instance_id": "port_state_d",
+    "episode_type": "target"
+  },
+  {
+    "group": "B0",
+    "task_family": "file",
+    "state": "D",
+    "run_id": "target_file_state_d_b0",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 611,
+    "total_generated_tokens": 137,
+    "latency_s": 44.07,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": false,
+          "mode": "0644",
+          "timestamp": 1791697388.250944
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 261,
+        "generated_tokens": 58,
+        "latency_s": 18.70008134841919
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is not writable by 'agentuser', so using the fallback user override file.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 350,
+        "generated_tokens": 79,
+        "latency_s": 25.352867603302002
+      }
+    ],
+    "instance_id": "file_state_d",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2",
+    "task_family": "file",
+    "state": "D",
+    "run_id": "target_file_state_d_b2",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 339,
+    "total_generated_tokens": 82,
+    "latency_s": 26.19,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is read-only and lacks write permissions for non-root agentuser, so the fallback user override file will be used.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 339,
+        "generated_tokens": 82,
+        "latency_s": 26.175673961639404
+      }
+    ],
+    "instance_id": "file_state_d",
+    "episode_type": "target"
+  },
+  {
+    "group": "B2-G",
+    "task_family": "file",
+    "state": "D",
+    "run_id": "target_file_state_d_b2_g",
+    "success": true,
+    "steps": 1,
+    "llm_calls": 1,
+    "total_prompt_tokens": 339,
+    "total_generated_tokens": 73,
+    "latency_s": 23.64,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 0,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "{\n  \"decision_summary\": \"The primary configuration file is read-only, so the fallback user override file will be used.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}",
+        "prompt_tokens": 339,
+        "generated_tokens": 73,
+        "latency_s": 23.62464714050293
+      }
+    ],
+    "instance_id": "file_state_d",
+    "episode_type": "target"
+  },
+  {
+    "group": "M",
+    "task_family": "file",
+    "state": "D",
+    "run_id": "target_file_state_d_m",
+    "success": true,
+    "steps": 2,
+    "llm_calls": 2,
+    "total_prompt_tokens": 691,
+    "total_generated_tokens": 134,
+    "latency_s": 44.05,
+    "proposed_error_actions": 0,
+    "executed_error_actions": 0,
+    "tp_blocks": 0,
+    "fp_blocks": 0,
+    "fn_blocks": 0,
+    "active_probe_calls": 1,
+    "tool_records": [
+      {
+        "step": 1,
+        "tool": "probe_file_permission",
+        "params": {
+          "filepath": "/etc/service_demo/app.conf"
+        },
+        "exit_code": 0,
+        "result": {
+          "filepath": "/etc/service_demo/app.conf",
+          "exists": true,
+          "writable_by_agentuser": false,
+          "mode": "0644",
+          "timestamp": 1791697482.4721804
+        }
+      },
+      {
+        "step": 2,
+        "tool": "write_config",
+        "params": {
+          "filepath": "/home/agentuser/user_override.conf",
+          "key": "ENABLE_TELEMETRY",
+          "value": "true"
+        },
+        "exit_code": 0,
+        "result": {
+          "success": true,
+          "error_code": 0,
+          "error_type": null,
+          "stderr": "",
+          "stdout": "Configuration successfully written to /home/agentuser/user_override.conf"
+        }
+      }
+    ],
+    "llm_records": [
+      {
+        "step": 1,
+        "output": "```json\n{\n  \"decision_summary\": \"Checking if the primary configuration file is writable by the non-root user 'agentuser'.\",\n  \"action\": \"probe_file_permission\",\n  \"params\": {\n    \"filepath\": \"/etc/service_demo/app.conf\"\n  }\n}\n```",
+        "prompt_tokens": 301,
+        "generated_tokens": 58,
+        "latency_s": 19.020649671554565
+      },
+      {
+        "step": 2,
+        "output": "```json\n{\n  \"decision_summary\": \"The primary configuration file is not writable, so writing to the fallback user override file.\",\n  \"action\": \"write_config\",\n  \"params\": {\n    \"filepath\": \"/home/agentuser/user_override.conf\",\n    \"key\": \"ENABLE_TELEMETRY\",\n    \"value\": \"true\"\n  }\n}\n```",
+        "prompt_tokens": 390,
+        "generated_tokens": 76,
+        "latency_s": 25.010525226593018
+      }
+    ],
+    "instance_id": "file_state_d",
+    "episode_type": "target"
+  }
+]
