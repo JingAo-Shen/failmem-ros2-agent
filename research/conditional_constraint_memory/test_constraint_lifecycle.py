@@ -20,7 +20,8 @@ from constraint_lifecycle import (
     PreconditionPredicate,
     ValidityState,
     ApplicabilityState,
-    GateDecision
+    GateDecision,
+    FrozenMemorySnapshot,
 )
 
 class MockClock:
@@ -100,10 +101,11 @@ class TestConstraintLifecycle(unittest.TestCase):
             rule_id="c_promote",
             action_signature="bind_port:18080",
             predicates=[pred],
-            failure_evidence={"error_code": 98},
+            failure_evidence={"error_code": 98, "evidence_id": "ev_init_1"},
             validity_state=ValidityState.CANDIDATE,
             support_threshold=2,
-            support_count=1
+            support_count=1,
+            evidence_ids=["ev_init_1"]
         )
         self.manager.add_rule(rule)
 
@@ -112,7 +114,11 @@ class TestConstraintLifecycle(unittest.TestCase):
         self.assertEqual(d1["decision"], GateDecision.ALLOW)
 
         # Action is executed and fails again with matching evidence under APPLICABLE premise
-        updates = self.manager.record_action_outcome("bind_port:18080", success=False, error_details={"error_code": 98})
+        updates = self.manager.record_action_outcome(
+            "bind_port:18080",
+            success=False,
+            error_details={"error_code": 98, "evidence_id": "ev_cand_promote"},
+        )
         self.assertEqual(rule.validity_state, ValidityState.SUPPORTED)
         self.assertEqual(rule.support_count, 2)
 
@@ -194,7 +200,7 @@ class TestConstraintLifecycle(unittest.TestCase):
         self.assertEqual(self.manager.evaluate_applicability(rule), ApplicabilityState.APPLICABLE)
 
         # Action is executed anyway and SUCCEEDS! (True contradiction)
-        self.manager.record_action_outcome("bind_port:18080", success=True)
+        self.manager.record_action_outcome("bind_port:18080", success=True, evidence_id="ev_counter_1")
         self.assertEqual(rule.validity_state, ValidityState.CONTRADICTED)
         self.assertEqual(rule.contradict_count, 1)
 
@@ -300,7 +306,8 @@ class TestConstraintLifecycle(unittest.TestCase):
         updates = self.manager.record_action_outcome(
             "acquire_lock",
             success=True,
-            pre_action_applicability=pre_app
+            pre_action_applicability=pre_app,
+            evidence_id="ev_pre_counter",
         )
         self.assertEqual(rule.validity_state, ValidityState.CONTRADICTED, "Must be contradicted based on pre-action APPLICABLE state")
         self.assertEqual(updates[0]["prior_applicability"], ApplicabilityState.APPLICABLE)
@@ -339,6 +346,85 @@ class TestConstraintLifecycle(unittest.TestCase):
         )
         self.assertEqual(rule.support_count, 2, "Distinct evidence ID must increment support count to 2")
         self.assertEqual(rule.validity_state, ValidityState.SUPPORTED, "Must promote to SUPPORTED upon 2 distinct evidences")
+
+    def test_missing_evidence_id_strictly_ignored(self):
+        """Test that missing evidence_id strictly does NOT increment support or contradict count."""
+        pred = PreconditionPredicate(key="port:18080:occupied", expected_value=True, ttl=10.0)
+        self.manager.register_observation("port:18080:occupied", True, timestamp=1000.0)
+
+        rule = ConstraintRule(
+            rule_id="r_no_id",
+            action_signature="start_service:port=18080",
+            predicates=[pred],
+            failure_evidence={"error_code": 98, "evidence_id": "ev_init"},
+            validity_state=ValidityState.CANDIDATE,
+            support_threshold=2,
+            support_count=1,
+            evidence_ids=["ev_init"],
+        )
+        self.manager.add_rule(rule)
+
+        # 1. Failure without evidence_id: must NOT increment support_count
+        res_fail = self.manager.record_action_outcome(
+            "start_service:port=18080",
+            success=False,
+            error_details={"error_code": 98},  # No evidence_id
+            evidence_id=None,
+        )
+        self.assertEqual(rule.support_count, 1, "Missing evidence_id must NOT increment support_count")
+        self.assertEqual(rule.validity_state, ValidityState.CANDIDATE)
+        self.assertIn("MISSING_EVIDENCE_ID_IGNORED", res_fail[0]["transition"])
+
+        # 2. Success under APPLICABLE premise without evidence_id: must NOT increment contradict_count
+        res_succ = self.manager.record_action_outcome(
+            "start_service:port=18080",
+            success=True,
+            evidence_id=None,
+        )
+        self.assertEqual(rule.contradict_count, 0, "Missing evidence_id must NOT increment contradict_count")
+        self.assertEqual(rule.validity_state, ValidityState.CANDIDATE)
+        self.assertIn("MISSING_EVIDENCE_ID_IGNORED", res_succ[0]["transition"])
+
+    def test_frozen_memory_snapshot_immutability_and_hash(self):
+        """Test FrozenMemorySnapshot immutability, integrity verification, and clone isolation."""
+        pred = PreconditionPredicate(key="port:18080:occupied", expected_value=True, ttl=30.0)
+        rule = ConstraintRule(
+            rule_id="r_snap_iso",
+            action_signature="start_service:port=18080",
+            predicates=[pred],
+            failure_evidence={"error_code": 98, "evidence_id": "ev_s1"},
+            validity_state=ValidityState.SUPPORTED,
+            support_threshold=2,
+            support_count=2,
+            evidence_ids=["ev_s1", "ev_s2"],
+        )
+        self.manager.add_rule(rule)
+        self.manager.register_observation("port:18080:occupied", True, timestamp=1000.0)
+
+        # Create immutable snapshot
+        snapshot = self.manager.create_snapshot()
+        self.assertTrue(snapshot.verify_integrity())
+        orig_hash = snapshot.snapshot_hash
+
+        # Test clone preserves full hash including observations
+        cloned = self.manager.clone()
+        self.assertEqual(cloned.compute_hash(), self.manager.compute_hash())
+
+        # Instantiate isolated manager for an episode from snapshot
+        ep_mgr = snapshot.instantiate_manager()
+        self.assertEqual(len(ep_mgr.rules), len(self.manager.rules))
+        self.assertEqual(ep_mgr.rules["r_snap_iso"].validity_state, self.manager.rules["r_snap_iso"].validity_state)
+
+        # Modify ep_mgr inside episode
+        ep_mgr.register_observation("port:18080:occupied", False, timestamp=1005.0)
+        ep_rule = ep_mgr.rules["r_snap_iso"]
+        ep_rule.validity_state = ValidityState.RETIRED
+
+        # Verify snapshot and source manager remain completely untainted
+        self.assertTrue(snapshot.verify_integrity())
+        self.assertEqual(snapshot.snapshot_hash, orig_hash)
+        self.assertEqual(self.manager.rules["r_snap_iso"].validity_state, ValidityState.SUPPORTED)
+        self.assertEqual(self.manager.observations["port:18080:occupied"].value, True)
 
 
 if __name__ == "__main__":

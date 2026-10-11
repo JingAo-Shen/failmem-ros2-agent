@@ -12,10 +12,10 @@ Strict Methodological Rules:
 - Full provenance (evidence_id, run_id, step, error_code, exit_code, error_type, stderr, premise_snapshot) is preserved.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
+import os
 import json
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
 from .constraint_lifecycle import (
@@ -102,13 +102,6 @@ class DeterministicHeuristicRuleParser:
                 port = trace.tool_params.get("port")
                 if port is None and trace.config_snapshot:
                     port = trace.config_snapshot.get("port")
-                if port is None and trace.observation_snapshot:
-                    for k in trace.observation_snapshot:
-                        if k.startswith("port:") and ":occupied" in k:
-                            parts = k.split(":")
-                            if len(parts) >= 2 and parts[1].isdigit():
-                                port = int(parts[1])
-                                break
                 if port is None and trace.resource_id and trace.resource_id.startswith("port:"):
                     p_str = trace.resource_id.split(":")[-1]
                     if p_str.isdigit():
@@ -141,18 +134,37 @@ class DeterministicHeuristicRuleParser:
             if is_perm_denied:
                 filepath = trace.tool_params.get("filepath") or trace.tool_params.get("config_path")
                 if filepath is not None:
+                    # Classify resource type strictly from memory trace without post-teardown disk access
+                    is_dir = (
+                        (trace.resource_id and trace.resource_id.startswith("dir:"))
+                        or filepath.endswith("/")
+                        or (not ("." in os.path.basename(filepath)))
+                    )
+                    if is_dir:
+                        res_type = "dir"
+                        res_path = filepath.rstrip("/")
+                        prop = "writable"
+                        pred_k = f"dir:{res_path}:writable"
+                        desc = f"Directory '{res_path}' lacks write permissions for current user context."
+                    else:
+                        res_type = "file"
+                        res_path = filepath
+                        prop = "writable"
+                        pred_k = f"file:{res_path}:writable"
+                        desc = f"File '{res_path}' lacks write permissions for current user context."
+
                     return {
                         "category": "permission_denied",
-                        "resource_type": "file",
-                        "resource_path": filepath,
-                        "property": "writable",
-                        "resource": f"file:{filepath}",
+                        "resource_type": res_type,
+                        "resource_path": res_path,
+                        "property": prop,
+                        "resource": f"{res_type}:{res_path}",
                         "action_signature": f"write_config:filepath={filepath}",
-                        "pred_key": f"file:{filepath}:writable",
+                        "pred_key": pred_k,
                         "expected_val": False,
                         "error_type": "PermissionDenied",
                         "error_code": trace.error_code or 13,
-                        "description": f"File '{filepath}' lacks write permissions for current user context.",
+                        "description": desc,
                     }
             # Any other write error (e.g. disk full, read error, invalid content) is REJECTED
             return None
@@ -182,13 +194,11 @@ class MemoryPipeline:
         )
 
     @staticmethod
-    def extract_rule_for_m(
-        trace: FailureTrace,
-        initial_validity: ValidityState = ValidityState.CANDIDATE,
-    ) -> Optional[ConstraintRule]:
+    def extract_rule_for_m(trace: FailureTrace) -> Optional[ConstraintRule]:
         """
         Extracts candidate rule for Method M from tool failure.
         Default validity is strictly CANDIDATE with support_count = 1 from evidence deduplication.
+        Callers cannot pass initial_validity=SUPPORTED to bypass probation.
         """
         classification = DeterministicHeuristicRuleParser.classify_failure(trace)
         if classification is None:
@@ -219,7 +229,7 @@ class MemoryPipeline:
             action_signature=classification["action_signature"],
             predicates=predicates,
             failure_evidence=evidence,
-            validity_state=initial_validity,
+            validity_state=ValidityState.CANDIDATE,
             support_threshold=2,
             support_count=1,
             evidence_ids=[trace.evidence_id],

@@ -377,12 +377,17 @@ def test_loop_h_unprivileged_write_permission_denied_and_memory_extraction(env):
         evidence_id="ev_h_perm",
     )
 
-    # Extract rule without reading disk
-    extracted_rule = MemoryPipeline.extract_rule_for_m(trace, initial_validity=ValidityState.SUPPORTED)
+    # Extract rule without reading disk (enforces CANDIDATE from production pipeline)
+    extracted_rule = MemoryPipeline.extract_rule_for_m(trace)
     assert extracted_rule is not None
+    assert extracted_rule.validity_state == ValidityState.CANDIDATE
     assert extracted_rule.action_signature == f"write_config:filepath={bad_conf}"
     assert extracted_rule.predicates[0].resource_type == "file"
     assert extracted_rule.predicates[0].expected_value is False
+
+    # Explicit fixture upgrade to SUPPORTED for downstream gate test
+    extracted_rule.validity_state = ValidityState.SUPPORTED
+    extracted_rule.support_count = 2
 
     mgr = ConstraintLifecycleManager()
     mgr.add_rule(extracted_rule)

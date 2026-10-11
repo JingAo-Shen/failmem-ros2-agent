@@ -78,8 +78,8 @@
       "instance_id": "inst1_port_conflict_persistent",
       "dynamic_event": "Port 18080 persistently occupied by background occupier at setup",
       "timing": "Persistent across entire episode",
-      "research_question": "Does Method M immediately block known occupied port and prevent redundant failure trial?",
-      "expected_behavior": "Supported rule blocks start_service:port=18080; agent deploys on port 18081"
+      "research_question": "Does Method M verify candidate rules via probationary trial, promote them upon real error reproduction, and hard-block once SUPPORTED?",
+      "expected_behavior": "Candidate rules allow a single probationary trial; once promoted to SUPPORTED, rule strictly blocks start_service:port=18080, guiding agent to deploy on port 18081"
     },
     {
       "instance_id": "inst2_blockage_cleared",
@@ -111,10 +111,10 @@
     },
     {
       "instance_id": "inst6_counterexample_feasibility",
-      "dynamic_event": "Candidate rule exists from external hint suggesting clash, but port 18080 is actually free and viable",
-      "timing": "Candidate rule evaluated on initial action",
-      "research_question": "Does probationary trial prevent premature permanent blocking of viable paths?",
-      "expected_behavior": "Gate allows probation trial; action succeeds; counter-evidence downgrades rule to CONTRADICTED and RETIRED"
+      "dynamic_event": "Hypothesis tested where premise is free vs occupied; verifying causal boundary",
+      "timing": "Evaluation of action execution against rule premise applicability",
+      "research_question": "Does gating distinguish between premise cleared (NOT_APPLICABLE, causal non-contradiction) vs genuine counterexample under satisfied premise (CONTRADICTED)?",
+      "expected_behavior": "Action success when port is free evaluates to NOT_APPLICABLE and preserves rule without contradiction. Only true execution success while premise is satisfied constitutes a genuine counterexample downgrading rule to CONTRADICTED and RETIRED"
     },
     {
       "instance_id": "inst7_midepisode_port_clash",

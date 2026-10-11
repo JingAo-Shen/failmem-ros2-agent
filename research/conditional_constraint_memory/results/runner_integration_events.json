@@ -1,0 +1,91 @@
+[
+  {
+    "timestamp": 1791731358.8459206,
+    "event_type": "PATH_A_RULE_EXTRACTED",
+    "details": {
+      "rule_id": "rule_run_path_a_src_2",
+      "validity": "CANDIDATE",
+      "support_count": 1,
+      "evidence_id": "call_f2147381"
+    }
+  },
+  {
+    "timestamp": 1791731359.1416829,
+    "event_type": "PATH_A_PROBATION_PROMOTED",
+    "details": {
+      "rule_id": "rule_run_path_a_src_2",
+      "new_validity": "SUPPORTED",
+      "support_count": 2,
+      "evidence_ids": [
+        "call_f2147381",
+        "call_873b1a46"
+      ],
+      "transitions": [
+        {
+          "rule_id": "rule_run_path_a_src_2",
+          "prior_applicability": "APPLICABLE",
+          "prior_validity": "CANDIDATE",
+          "new_validity": "SUPPORTED",
+          "transition": "CANDIDATE -> SUPPORTED (PROBATION_PASSED, count=2)"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": 1791731359.4209266,
+    "event_type": "PATH_A_GATE_BLOCKED_AND_VERIFIED",
+    "details": {
+      "tp_blocks": 1,
+      "gate_events": [
+        {
+          "step": 3,
+          "action": "start_service:port=18080",
+          "decision": "BLOCK",
+          "reason": "Action blocked: Rule rule_run_path_a_src_2 is SUPPORTED and APPLICABLE.",
+          "is_tp": true
+        }
+      ],
+      "final_success": true
+    }
+  },
+  {
+    "timestamp": 1791731361.8854318,
+    "event_type": "PATH_B_CLEARED_AND_RESTORED_VERIFIED",
+    "details": {
+      "rule_id": "r_cleared_test",
+      "validity": "SUPPORTED",
+      "contradict_count": 0,
+      "restored_gate_decision": "BLOCK"
+    }
+  },
+  {
+    "timestamp": 1791731362.3044732,
+    "event_type": "PATH_C_AUTOPROBE_VERIFIED",
+    "details": {
+      "unknown_probes": 1,
+      "observed_key": "port:18080:occupied",
+      "observed_val": true,
+      "call_id": "call_67c9adad",
+      "success": true
+    }
+  },
+  {
+    "timestamp": 1791731364.6672504,
+    "event_type": "ORDER_INVARIANCE_VERIFIED",
+    "details": {
+      "source_hash": "5c93e71373639fbe018e3a9e8c9a1709dcd552f63b862a9fd8c7dccd0e7126c8",
+      "order1_hashes": {
+        "B0": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b",
+        "B2": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b",
+        "B2-G": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b",
+        "M": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b"
+      },
+      "order2_hashes": {
+        "M": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b",
+        "B2-G": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b",
+        "B2": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b",
+        "B0": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b"
+      }
+    }
+  }
+]

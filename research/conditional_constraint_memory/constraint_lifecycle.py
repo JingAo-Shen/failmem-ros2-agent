@@ -17,8 +17,11 @@ Core Invariants:
 """
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, Tuple
 import time
+import hashlib
+import copy
+import json
 
 
 class ValidityState(str, Enum):
@@ -98,12 +101,155 @@ class ConstraintRule:
             self.support_count = len(set(self.evidence_ids))
 
 
+@dataclass(frozen=True)
+class FrozenMemorySnapshot:
+    """
+    Immutable, integrity-verified snapshot of learned memory (rules and facts).
+    Enforces isolation across evaluation episodes.
+    """
+    canonical_json: str
+    snapshot_hash: str
+
+    @staticmethod
+    def create(
+        rules: List[ConstraintRule],
+        facts: Optional[List[Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> "FrozenMemorySnapshot":
+        canonical_rules = []
+        for r in sorted(rules, key=lambda x: x.rule_id):
+            preds_serialized = [
+                {
+                    "key": p.key,
+                    "expected_value": p.expected_value,
+                    "ttl": p.ttl,
+                    "resource_type": p.resource_type,
+                    "resource_path": p.resource_path,
+                    "property": p.property,
+                }
+                for p in r.predicates
+            ]
+            canonical_rules.append({
+                "rule_id": r.rule_id,
+                "action_signature": r.action_signature,
+                "predicates": preds_serialized,
+                "failure_evidence": r.failure_evidence,
+                "validity_state": r.validity_state.value,
+                "support_threshold": r.support_threshold,
+                "support_count": r.support_count,
+                "contradict_count": r.contradict_count,
+                "evidence_ids": sorted(list(set(r.evidence_ids))),
+                "contradiction_evidence_ids": sorted(list(set(r.contradiction_evidence_ids))),
+                "created_at": r.created_at,
+                "last_supported_at": r.last_supported_at,
+                "metadata": r.metadata,
+            })
+
+        canonical_facts = []
+        if facts:
+            for f in sorted(facts, key=lambda x: getattr(x, "fact_id", str(x))):
+                canonical_facts.append({
+                    "fact_id": f.fact_id,
+                    "resource": f.resource,
+                    "state_description": f.state_description,
+                    "error_signature": f.error_signature,
+                    "evidence_id": f.evidence_id,
+                    "run_id": f.run_id,
+                    "step": f.step,
+                    "timestamp": f.timestamp,
+                    "ttl": getattr(f, "ttl", 60.0),
+                })
+
+        meta_dict = metadata or {}
+        payload = {
+            "rules": canonical_rules,
+            "facts": canonical_facts,
+            "metadata": meta_dict,
+        }
+        serialized = json.dumps(payload, sort_keys=True)
+        h = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+        return FrozenMemorySnapshot(canonical_json=serialized, snapshot_hash=h)
+
+    def verify_integrity(self) -> bool:
+        """Verifies that the immutable snapshot matches its SHA256 digest."""
+        h = hashlib.sha256(self.canonical_json.encode("utf-8")).hexdigest()
+        return h == self.snapshot_hash
+
+    def instantiate_manager(self, time_provider: Optional[Callable[[], float]] = None) -> "ConstraintLifecycleManager":
+        """Instantiates an isolated, deep-copied ConstraintLifecycleManager for an episode."""
+        data = json.loads(self.canonical_json)
+        mgr = ConstraintLifecycleManager(time_provider=time_provider)
+        for d in data["rules"]:
+            preds = [PreconditionPredicate(**p) for p in d["predicates"]]
+            rule = ConstraintRule(
+                rule_id=d["rule_id"],
+                action_signature=d["action_signature"],
+                predicates=preds,
+                failure_evidence=copy.deepcopy(d["failure_evidence"]),
+                validity_state=ValidityState(d["validity_state"]),
+                support_threshold=d["support_threshold"],
+                support_count=d["support_count"],
+                contradict_count=d["contradict_count"],
+                evidence_ids=list(d["evidence_ids"]),
+                contradiction_evidence_ids=list(d["contradiction_evidence_ids"]),
+                created_at=d["created_at"],
+                last_supported_at=d["last_supported_at"],
+                metadata=copy.deepcopy(d["metadata"]),
+            )
+            mgr.add_rule(rule)
+        return mgr
+
+    def instantiate_facts(self) -> List[Any]:
+        """Returns isolated, deep-copied list of StructuredFacts."""
+        from .memory_pipeline import StructuredFact
+        data = json.loads(self.canonical_json)
+        facts = []
+        for d in data["facts"]:
+            facts.append(StructuredFact(**d))
+        return facts
+
+
 class ConstraintLifecycleManager:
     """Manages rule validity, current applicability, and execution gating."""
     def __init__(self, time_provider: Optional[Callable[[], float]] = None):
         self.time_provider = time_provider or time.time
         self.rules: Dict[str, ConstraintRule] = {}
         self.observations: Dict[str, PredicateObservation] = {}
+
+    def compute_hash(self) -> str:
+        """Computes deterministic SHA256 digest of current rules, evidence, and observations."""
+        canonical_rules = []
+        for r in sorted(self.rules.values(), key=lambda x: x.rule_id):
+            canonical_rules.append({
+                "rule_id": r.rule_id,
+                "action_signature": r.action_signature,
+                "validity_state": r.validity_state.value,
+                "support_count": r.support_count,
+                "contradict_count": r.contradict_count,
+                "evidence_ids": sorted(list(set(r.evidence_ids))),
+                "contradiction_evidence_ids": sorted(list(set(r.contradiction_evidence_ids))),
+            })
+        canonical_obs = []
+        for k in sorted(self.observations.keys()):
+            obs = self.observations[k]
+            canonical_obs.append({"key": obs.key, "value": obs.value, "call_id": obs.call_id})
+        payload = {"rules": canonical_rules, "observations": canonical_obs}
+        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+
+    def clone(self) -> "ConstraintLifecycleManager":
+        """Deep copy for episode isolation."""
+        new_mgr = ConstraintLifecycleManager(time_provider=self.time_provider)
+        new_mgr.rules = copy.deepcopy(self.rules)
+        new_mgr.observations = copy.deepcopy(self.observations)
+        return new_mgr
+
+    def create_snapshot(self, facts: Optional[List[Any]] = None, metadata: Optional[Dict[str, Any]] = None) -> FrozenMemorySnapshot:
+        """Freezes current manager rules into an immutable FrozenMemorySnapshot."""
+        return FrozenMemorySnapshot.create(
+            rules=list(self.rules.values()),
+            facts=facts,
+            metadata=metadata,
+        )
 
     def register_observation(self, key: str, value: Any, timestamp: Optional[float] = None, call_id: Optional[str] = None):
         """Register or update an environment observation."""
@@ -284,36 +430,37 @@ class ConstraintLifecycleManager:
                         if ev_id not in rule.contradiction_evidence_ids:
                             rule.contradiction_evidence_ids.append(ev_id)
                         rule.contradict_count = len(set(rule.contradiction_evidence_ids))
+                        if rule.contradict_count >= 2:
+                            rule.validity_state = ValidityState.RETIRED
+                        elif rule.contradict_count >= 1:
+                            rule.validity_state = ValidityState.CONTRADICTED
+                        transition = f"{prior_val} -> {rule.validity_state} (CONTRADICTED_BY_SUCCESS, count={rule.contradict_count})"
                     else:
-                        rule.contradict_count += 1
-
-                    if rule.contradict_count >= 2:
-                        rule.validity_state = ValidityState.RETIRED
-                    elif rule.contradict_count >= 1:
-                        rule.validity_state = ValidityState.CONTRADICTED
-                    transition = f"{prior_val} -> {rule.validity_state} (CONTRADICTED_BY_SUCCESS, count={rule.contradict_count})"
+                        transition = f"MISSING_EVIDENCE_ID_IGNORED (validity retained: {rule.validity_state})"
                 else:
                     # Failure under matching premise reinforces rule ONLY IF:
                     # 1) ev_id is provided (no ghost increments without evidence ID)
                     # 2) error type or code matches a known failure pattern
-                    err_code = error_details.get("error_code") if error_details else None
-                    if err_code is None and error_details:
-                        err_code = error_details.get("exit_code")
-                    rule_err_code = rule.failure_evidence.get("error_code")
-                    if rule_err_code is None:
-                        rule_err_code = rule.failure_evidence.get("exit_code")
+                    if not ev_id:
+                        transition = f"MISSING_EVIDENCE_ID_IGNORED (validity retained: {rule.validity_state})"
+                    else:
+                        err_code = error_details.get("error_code") if error_details else None
+                        if err_code is None and error_details:
+                            err_code = error_details.get("exit_code")
+                        rule_err_code = rule.failure_evidence.get("error_code")
+                        if rule_err_code is None:
+                            rule_err_code = rule.failure_evidence.get("exit_code")
 
-                    err_type = error_details.get("error_type") if error_details else None
-                    rule_err_type = rule.failure_evidence.get("error_type")
+                        err_type = error_details.get("error_type") if error_details else None
+                        rule_err_type = rule.failure_evidence.get("error_type")
 
-                    has_known_error = bool(err_type and err_type not in ("Unknown", "CommandExecutionError")) or (err_code is not None and err_code != 0)
-                    code_match = (err_code is not None and rule_err_code is not None and err_code == rule_err_code)
-                    type_match = (err_type is not None and rule_err_type is not None and err_type == rule_err_type)
+                        has_known_error = bool(err_type and err_type not in ("Unknown", "CommandExecutionError")) or (err_code is not None and err_code != 0)
+                        code_match = (err_code is not None and rule_err_code is not None and err_code == rule_err_code)
+                        type_match = (err_type is not None and rule_err_type is not None and err_type == rule_err_type)
 
-                    is_matching_error = has_known_error and (code_match or type_match or (rule_err_code is not None and err_code == rule_err_code))
+                        is_matching_error = has_known_error and (code_match or type_match or (rule_err_code is not None and err_code == rule_err_code))
 
-                    if is_matching_error:
-                        if ev_id:
+                        if is_matching_error:
                             if ev_id not in rule.evidence_ids:
                                 rule.evidence_ids.append(ev_id)
                                 rule.support_count = len(set(rule.evidence_ids))
@@ -326,18 +473,8 @@ class ConstraintLifecycleManager:
                                     transition = f"SUPPORTED_REINFORCED (count={rule.support_count})"
                             else:
                                 transition = f"DUPLICATE_EVIDENCE_IGNORED (count={rule.support_count})"
-                        elif error_details and (error_details.get("error_code") or error_details.get("exit_code")):
-                            rule.support_count += 1
-                            rule.last_supported_at = self.time_provider()
-                            if rule.validity_state == ValidityState.CANDIDATE and rule.support_count >= rule.support_threshold:
-                                rule.validity_state = ValidityState.SUPPORTED
-                                transition = f"CANDIDATE -> SUPPORTED (PROBATION_PASSED, count={rule.support_count})"
-                            else:
-                                transition = f"SUPPORTED_REINFORCED (count={rule.support_count})"
                         else:
                             transition = f"NON_MATCHING_OR_MISSING_EVIDENCE_IGNORED (validity retained: {rule.validity_state})"
-                    else:
-                        transition = f"NON_MATCHING_OR_MISSING_EVIDENCE_IGNORED (validity retained: {rule.validity_state})"
 
             elif prior_app == ApplicabilityState.NOT_APPLICABLE:
                 if success:
