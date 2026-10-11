@@ -16,6 +16,7 @@ import sys
 import time
 import json
 import re
+import hashlib
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -84,11 +85,13 @@ Your objective is to successfully configure and deploy the 'telemetry_agent' ser
    Params: `{"port": <int>}`
 3. `probe_directory(dirpath)`: Check if a directory exists and is writable by agentuser.
    Params: `{"dirpath": "<string>"}`
-4. `write_config(config_path, port, service_name)`: Write service configuration file to disk.
+4. `probe_file(filepath)`: Check if a configuration file is writable (or creatable in its parent directory) by agentuser.
+   Params: `{"filepath": "<string>"}`
+5. `write_config(config_path, port, service_name)`: Write service configuration file to disk.
    Params: `{"config_path": "<string>", "port": <int>, "service_name": "<string>"}`
-5. `start_service(config_path)`: Launch the service daemon using the specified config file.
+6. `start_service(config_path)`: Launch the service daemon using the specified config file.
    Params: `{"config_path": "<string>"}`
-6. `check_health(port)`: Query the live service health endpoint on the specified port.
+7. `check_health(port)`: Query the live service health endpoint on the specified port.
    Params: `{"port": <int>}`
 
 ### Output Format:
@@ -155,14 +158,19 @@ Output strictly a single JSON block adhering to this schema:
         run_id: str,
         facts: Optional[List[StructuredFact]] = None,
         lifecycle_manager: Optional[ConstraintLifecycleManager] = None,
-        max_steps: int = 10,
+        max_steps: int = 20,
     ) -> Dict[str, Any]:
         """Runs a complete multi-step deployment episode."""
         start_time = time.time()
         env.setup(instance_id)
 
         # Integrity tracking
-        initial_memory_hash = lifecycle_manager.compute_hash() if lifecycle_manager else ""
+        if lifecycle_manager:
+            initial_memory_hash = lifecycle_manager.compute_hash()
+        elif facts:
+            initial_memory_hash = hashlib.sha256(json.dumps([f.to_dict() for f in facts], sort_keys=True).encode()).hexdigest()
+        else:
+            initial_memory_hash = hashlib.sha256(b"empty_initial_memory").hexdigest()
         lifecycle_transitions: List[Dict[str, Any]] = []
 
         # Telemetry metrics
@@ -225,6 +233,11 @@ Output strictly a single JSON block adhering to this schema:
 
             tool_name = action_data.get("action", "")
             params = action_data.get("params", {})
+            if tool_name in ("finish", "stop", "exit"):
+                success = False
+                termination_reason = "agent_finished"
+                break
+
             action_sig = self._derive_action_signature(tool_name, params)
 
             # Check if proposed action is objectively failing in current environment
@@ -233,38 +246,36 @@ Output strictly a single JSON block adhering to this schema:
                 proposed_error_actions += 1
 
             # -------------------------------------------------------------
-            # GATING LOGIC
+            # GATING LOGIC (Unified Pending Action Flow for B2-G and M)
             # -------------------------------------------------------------
             gate_blocked = False
             gate_reason = ""
             pre_action_applicability = None
+            deferred_unknown = False
 
-            if group == "B2-G":
-                # Generic Predicate Gating:
-                gate_eval = self._evaluate_generic_predicate_gate(action_sig, facts, env, lifecycle_manager=lifecycle_manager)
-                if gate_eval["decision"] == GateDecision.BLOCK:
-                    gate_blocked = True
-                    gate_reason = gate_eval["reason"]
-                    if is_failing_action:
-                        tp_blocks += 1
-                    else:
-                        fp_blocks += 1
-                    gate_events.append({
-                        "step": step,
-                        "action": action_sig,
-                        "decision": "BLOCK",
-                        "reason": gate_reason,
-                        "is_tp": is_failing_action,
-                    })
-                elif gate_eval["decision"] == GateDecision.PROBE:
+            if group == "B2-G" and lifecycle_manager:
+                gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager)
+                # Auto-probe loop for UNKNOWN premises (up to 2 retries)
+                probe_retries = 0
+                max_probe_retries = 2
+                while gate_eval["decision"] == GateDecision.PROBE and probe_retries < max_probe_retries:
+                    probe_retries += 1
                     if tool_calls >= self.max_tool_calls or (time.time() - start_time) >= self.max_time_s:
                         budget_exhausted = True
                         termination_reason = "tool_budget_or_timeout_exhausted"
                         break
                     unknown_probes += 1
-                    probe_tool = gate_eval.get("probe_tool")
-                    probe_params = gate_eval.get("probe_params", {})
+                    probe_info = gate_eval.get("probe_info")
+                    if not probe_info:
+                        matching_rule_id = gate_eval.get("matching_rule_id")
+                        target_rule = lifecycle_manager.rules.get(matching_rule_id) if matching_rule_id else None
+                        unknown_pred = self._find_unknown_predicate_for_rule(lifecycle_manager, target_rule)
+                        probe_info = self._resolve_probe_for_predicate(unknown_pred, params)
+                    if not probe_info:
+                        break
                     tool_calls += 1
+                    probe_tool = probe_info["tool"]
+                    probe_params = probe_info["params"]
                     probe_res = self._execute_tool(env, probe_tool, probe_params)
                     self._update_observations_from_probe_result(
                         probe_tool, probe_params, probe_res,
@@ -274,28 +285,18 @@ Output strictly a single JSON block adhering to this schema:
                     conversation[0]["content"] = self.build_system_prompt(
                         self._render_memory_text(group, facts=facts, lifecycle_manager=lifecycle_manager)
                     )
-                    feedback = f"[PredicateGate Unknown Condition] Probed {probe_tool} with {probe_params}: Result={probe_res}. Re-evaluate your next action."
-                    conversation.append({"role": "assistant", "content": raw_output})
-                    conversation.append({"role": "user", "content": feedback})
                     gate_events.append({
                         "step": step,
                         "action": action_sig,
                         "decision": "PROBE",
                         "probe_tool": probe_tool,
+                        "probe_params": probe_params,
                         "probe_res": probe_res,
                     })
-                    continue
+                    # Re-evaluate the same pending action without calling model
+                    gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager)
 
-            elif group == "M" and lifecycle_manager:
-                # Candidate Lifecycle Gate:
-                pre_app = {}
-                for r_id, r in lifecycle_manager.rules.items():
-                    if r.action_signature == action_sig:
-                        pre_app[r_id] = lifecycle_manager.evaluate_applicability(r)
-                gate_eval = lifecycle_manager.make_gate_decision(action_sig)
                 decision = gate_eval["decision"]
-                pre_action_applicability = pre_app
-
                 if decision == GateDecision.BLOCK:
                     gate_blocked = True
                     gate_reason = gate_eval["reason"]
@@ -311,6 +312,34 @@ Output strictly a single JSON block adhering to this schema:
                         "is_tp": is_failing_action,
                     })
                 elif decision == GateDecision.PROBE:
+                    deferred_unknown = True
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "DEFERRED_UNKNOWN",
+                        "reason": gate_eval["reason"],
+                    })
+                elif decision == GateDecision.ALLOW:
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "ALLOW",
+                        "reason": gate_eval.get("reason", "Generic gate allowed."),
+                    })
+
+            elif group == "M" and lifecycle_manager:
+                pre_app = {}
+                for r_id, r in lifecycle_manager.rules.items():
+                    if r.action_signature == action_sig:
+                        pre_app[r_id] = lifecycle_manager.evaluate_applicability(r)
+                gate_eval = lifecycle_manager.make_gate_decision(action_sig)
+                pre_action_applicability = pre_app
+
+                # Auto-probe loop for UNKNOWN premises (up to 2 retries)
+                probe_retries = 0
+                max_probe_retries = 2
+                while gate_eval["decision"] == GateDecision.PROBE and probe_retries < max_probe_retries:
+                    probe_retries += 1
                     if tool_calls >= self.max_tool_calls or (time.time() - start_time) >= self.max_time_s:
                         budget_exhausted = True
                         termination_reason = "tool_budget_or_timeout_exhausted"
@@ -320,27 +349,59 @@ Output strictly a single JSON block adhering to this schema:
                     target_rule = lifecycle_manager.rules.get(matching_rule_id) if matching_rule_id else None
                     unknown_pred = self._find_unknown_predicate_for_rule(lifecycle_manager, target_rule)
                     probe_info = self._resolve_probe_for_predicate(unknown_pred, params)
-                    if probe_info:
-                        tool_calls += 1
-                        probe_res = self._execute_tool(env, probe_info["tool"], probe_info["params"])
-                        self._update_observations_from_probe_result(
-                            probe_info["tool"], probe_info["params"], probe_res,
-                            lifecycle_manager=lifecycle_manager,
-                            facts=facts,
-                        )
-                        conversation[0]["content"] = self.build_system_prompt(
-                            self._render_memory_text(group, facts=facts, lifecycle_manager=lifecycle_manager)
-                        )
-                        feedback = f"[ConstraintGate Probe Result] Probed {probe_info['tool']} {probe_info['params']}: {probe_res}. Re-evaluate your next action."
-                        conversation.append({"role": "assistant", "content": raw_output})
-                        conversation.append({"role": "user", "content": feedback})
-                        gate_events.append({
-                            "step": step,
-                            "action": action_sig,
-                            "decision": "PROBE",
-                            "probe_info": probe_info,
-                        })
-                        continue
+                    if not probe_info:
+                        break
+                    tool_calls += 1
+                    probe_tool = probe_info["tool"]
+                    probe_params = probe_info["params"]
+                    probe_res = self._execute_tool(env, probe_tool, probe_params)
+                    self._update_observations_from_probe_result(
+                        probe_tool, probe_params, probe_res,
+                        lifecycle_manager=lifecycle_manager,
+                        facts=facts,
+                    )
+                    conversation[0]["content"] = self.build_system_prompt(
+                        self._render_memory_text(group, facts=facts, lifecycle_manager=lifecycle_manager)
+                    )
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "PROBE",
+                        "probe_tool": probe_tool,
+                        "probe_params": probe_params,
+                        "probe_res": probe_res,
+                    })
+                    # Re-evaluate pre_action_applicability and gate decision
+                    pre_app = {}
+                    for r_id, r in lifecycle_manager.rules.items():
+                        if r.action_signature == action_sig:
+                            pre_app[r_id] = lifecycle_manager.evaluate_applicability(r)
+                    pre_action_applicability = pre_app
+                    gate_eval = lifecycle_manager.make_gate_decision(action_sig)
+
+                decision = gate_eval["decision"]
+                if decision == GateDecision.BLOCK:
+                    gate_blocked = True
+                    gate_reason = gate_eval["reason"]
+                    if is_failing_action:
+                        tp_blocks += 1
+                    else:
+                        fp_blocks += 1
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "BLOCK",
+                        "reason": gate_reason,
+                        "is_tp": is_failing_action,
+                    })
+                elif decision == GateDecision.PROBE:
+                    deferred_unknown = True
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "DEFERRED_UNKNOWN",
+                        "reason": gate_eval["reason"],
+                    })
                 elif decision == GateDecision.ALLOW and "candidate" in gate_eval.get("reason", "").lower():
                     candidate_trials += 1
                     gate_events.append({
@@ -349,10 +410,25 @@ Output strictly a single JSON block adhering to this schema:
                         "decision": "CANDIDATE_TRIAL",
                         "reason": gate_eval["reason"],
                     })
+                elif decision == GateDecision.ALLOW:
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "ALLOW",
+                        "reason": gate_eval.get("reason", "Lifecycle gate allowed."),
+                    })
+
+            if budget_exhausted:
+                break
 
             if gate_blocked:
                 conversation.append({"role": "assistant", "content": raw_output})
-                conversation.append({"role": "user", "content": f"[Constraint Gate Blocked] Action '{action_sig}' blocked: {gate_reason}. Please select an alternative action."})
+                conversation.append({"role": "user", "content": f"[Constraint Gate Blocked] Action '{action_sig}' blocked: {gate_reason}. Original action was NOT executed. Please select an alternative action."})
+                continue
+
+            if deferred_unknown:
+                conversation.append({"role": "assistant", "content": raw_output})
+                conversation.append({"role": "user", "content": f"[Constraint Gate Deferred] Action '{action_sig}' deferred: Precondition remains UNKNOWN after probe. Original action was NOT executed. Please inspect environment or select an alternative action."})
                 continue
 
             # Check budget before executing tool
@@ -361,10 +437,10 @@ Output strictly a single JSON block adhering to this schema:
                 termination_reason = "tool_budget_or_timeout_exhausted"
                 break
 
-            # Execute Tool
+            # Execute Tool (Pending Action allowed)
             tool_calls += 1
             tool_res = self._execute_tool(env, tool_name, params)
-            if tool_name in ("probe_port", "probe_directory"):
+            if tool_name in ("probe_port", "probe_directory", "probe_file"):
                 self._update_observations_from_probe_result(
                     tool_name, params, tool_res,
                     lifecycle_manager=lifecycle_manager,
@@ -415,7 +491,12 @@ Output strictly a single JSON block adhering to this schema:
         is_verified, verifier_msg = env.verify_completion()
         final_success = success and is_verified
 
-        final_memory_hash = lifecycle_manager.compute_hash() if lifecycle_manager else ""
+        if lifecycle_manager:
+            final_memory_hash = lifecycle_manager.compute_hash()
+        elif facts:
+            final_memory_hash = hashlib.sha256(json.dumps([f.to_dict() for f in facts], sort_keys=True).encode()).hexdigest()
+        else:
+            final_memory_hash = hashlib.sha256(b"empty_final_memory").hexdigest()
 
         return {
             "run_id": run_id,
@@ -470,6 +551,8 @@ Output strictly a single JSON block adhering to this schema:
             return f"probe_port:{params.get('port')}"
         elif tool_name == "probe_directory":
             return f"probe_directory:{params.get('dirpath')}"
+        elif tool_name == "probe_file":
+            return f"probe_file:{params.get('filepath')}"
         elif tool_name == "check_health":
             return f"check_health:{params.get('port')}"
         return f"{tool_name}"
@@ -505,6 +588,8 @@ Output strictly a single JSON block adhering to this schema:
             return env.probe_port(params.get("port", 18080))
         elif tool_name == "probe_directory":
             return env.probe_directory(params.get("dirpath", "/etc/service_demo"))
+        elif tool_name == "probe_file":
+            return env.probe_file(params.get("filepath", "/home/agentuser/service_conf/app.json"))
         elif tool_name == "write_config":
             return env.write_config(
                 config_path=params.get("config_path", "/home/agentuser/service_conf/app.json"),
@@ -521,87 +606,40 @@ Output strictly a single JSON block adhering to this schema:
     def _evaluate_generic_predicate_gate(
         self,
         action_sig: str,
-        facts: Optional[List[StructuredFact]],
-        env: MultiStepDeploymentEnv,
-        lifecycle_manager: Optional[ConstraintLifecycleManager] = None,
+        lifecycle_manager: ConstraintLifecycleManager,
     ) -> Dict[str, Any]:
         """
-        Generic predicate gate for B2-G using structured predicate evaluation.
+        Generic predicate gate for B2-G using structured predicate evaluation over lifecycle_manager.rules.
         Evaluates precondition predicates:
         - APPLICABLE (premise True) -> BLOCK (no candidate probation)
         - UNKNOWN (premise missing or expired) -> PROBE
         - NOT_APPLICABLE (premise False) -> ALLOW
         """
-        if lifecycle_manager and lifecycle_manager.rules:
-            matching_rules = [r for r in lifecycle_manager.rules.values() if r.action_signature == action_sig]
-            for r in matching_rules:
-                if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
-                    continue
-                app = lifecycle_manager.evaluate_applicability(r)
-                if app == ApplicabilityState.APPLICABLE:
-                    return {
-                        "decision": GateDecision.BLOCK,
-                        "matching_rule_id": r.rule_id,
-                        "reason": f"Generic predicate gate blocked: rule {r.rule_id} premise confirmed APPLICABLE.",
-                    }
-                elif app == ApplicabilityState.UNKNOWN:
-                    unknown_pred = self._find_unknown_predicate_for_rule(lifecycle_manager, r)
-                    probe_info = self._resolve_probe_for_predicate(unknown_pred, {})
-                    return {
-                        "decision": GateDecision.PROBE,
-                        "matching_rule_id": r.rule_id,
-                        "probe_tool": probe_info["tool"] if probe_info else "probe_port",
-                        "probe_params": probe_info["params"] if probe_info else {},
-                        "reason": f"Generic predicate gate deferred: rule {r.rule_id} premise is UNKNOWN; probe required.",
-                    }
-            return {"decision": GateDecision.ALLOW, "reason": "No blocking predicate matches."}
+        if not lifecycle_manager or not lifecycle_manager.rules:
+            return {"decision": GateDecision.ALLOW, "reason": "No rules available."}
 
-        # Fallback to structured facts if no lifecycle_manager
-        if not facts:
-            return {"decision": GateDecision.ALLOW, "reason": "No facts available."}
-
-        now = time.time()
-        DEFAULT_TTL = 30.0  # Uniform TTL = 30.0s for both B2-G and M
-
-        if action_sig.startswith("start_service:port="):
-            match = re.search(r"port=(\d+)", action_sig)
-            target_port = int(match.group(1)) if match else None
-            if target_port is not None:
-                res_str = f"port:{target_port}"
-                for f in facts:
-                    if f.resource == res_str:
-                        age = now - f.timestamp
-                        if age > DEFAULT_TTL or f.state_description == "UNKNOWN":
-                            return {
-                                "decision": GateDecision.PROBE,
-                                "probe_tool": "probe_port",
-                                "probe_params": {"port": target_port},
-                                "reason": f"Fact about port {target_port} is stale or unknown. Probe required.",
-                            }
-                        elif f.state_description == "occupied":
-                            return {
-                                "decision": GateDecision.BLOCK,
-                                "reason": f"Predicate gate blocked: port {target_port} is recorded as occupied.",
-                            }
-        elif action_sig.startswith("write_config:filepath="):
-            target_file = action_sig.split("filepath=", 1)[-1]
-            parent_dir = str(Path(target_file).parent)
-            for f in facts:
-                if f.resource == parent_dir or f.resource == f"dir:{parent_dir}":
-                    age = now - f.timestamp
-                    if age > DEFAULT_TTL or "unknown" in f.state_description.lower():
-                        return {
-                            "decision": GateDecision.PROBE,
-                            "probe_tool": "probe_directory",
-                            "probe_params": {"dirpath": parent_dir},
-                            "reason": f"Fact about directory {parent_dir} is stale or unknown. Probe required.",
-                        }
-                    elif "non-writable" in f.state_description.lower():
-                        return {
-                            "decision": GateDecision.BLOCK,
-                            "reason": f"Predicate gate blocked: {parent_dir} is known to be non-writable.",
-                        }
-
+        matching_rules = [r for r in lifecycle_manager.rules.values() if r.action_signature == action_sig]
+        for r in matching_rules:
+            if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
+                continue
+            app = lifecycle_manager.evaluate_applicability(r)
+            if app == ApplicabilityState.APPLICABLE:
+                return {
+                    "decision": GateDecision.BLOCK,
+                    "matching_rule_id": r.rule_id,
+                    "reason": f"Generic predicate gate blocked: rule {r.rule_id} premise confirmed APPLICABLE.",
+                }
+            elif app == ApplicabilityState.UNKNOWN:
+                unknown_pred = self._find_unknown_predicate_for_rule(lifecycle_manager, r)
+                probe_info = self._resolve_probe_for_predicate(unknown_pred, {})
+                return {
+                    "decision": GateDecision.PROBE,
+                    "matching_rule_id": r.rule_id,
+                    "probe_info": probe_info,
+                    "probe_tool": probe_info["tool"] if probe_info else "probe_port",
+                    "probe_params": probe_info["params"] if probe_info else {},
+                    "reason": f"Generic predicate gate deferred: rule {r.rule_id} premise is UNKNOWN; probe required.",
+                }
         return {"decision": GateDecision.ALLOW, "reason": "No blocking predicate matches."}
 
     def _find_unknown_predicate_for_rule(self, lifecycle_manager: ConstraintLifecycleManager, rule: Optional[ConstraintRule]):
@@ -634,11 +672,14 @@ Output strictly a single JSON block adhering to this schema:
                 target_path = target_path.replace(":writable", "")
             return {"tool": "probe_directory", "params": {"dirpath": target_path}, "key": var_name}
         elif res_type == "file" or var_name.startswith("file:"):
-            target_path = res_path or (var_name.split(":", 1)[1] if ":" in var_name else "/etc/service_demo")
+            target_path = res_path or (var_name.split(":", 1)[1] if ":" in var_name else "/etc/service_demo/app.conf")
             if target_path.endswith(":writable"):
                 target_path = target_path.replace(":writable", "")
-            dirpath = str(Path(target_path).parent)
-            return {"tool": "probe_directory", "params": {"dirpath": dirpath}, "key": var_name}
+            if not target_path and "filepath" in params:
+                target_path = params["filepath"]
+            elif not target_path and "config_path" in params:
+                target_path = params["config_path"]
+            return {"tool": "probe_file", "params": {"filepath": target_path}, "key": var_name}
         return None
 
     def _update_observations_from_probe_result(
@@ -749,6 +790,53 @@ Output strictly a single JSON block adhering to this schema:
                                     state_description=state_desc,
                                     error_signature="",
                                     evidence_id=cid or f"ev_dir_{int(ts*1000)}",
+                                    run_id="runtime_probe",
+                                    step=0,
+                                    timestamp=ts,
+                                )
+                            )
+
+        elif tool_name == "probe_file":
+            filepath = params.get("filepath")
+            if filepath:
+                key = f"file:{filepath}:writable"
+                if not success or exit_code != 0 or "writable_by_user" not in tool_res:
+                    # Invalidate old observation: probe failed or missing field -> UNKNOWN
+                    if lifecycle_manager and key in lifecycle_manager.observations:
+                        del lifecycle_manager.observations[key]
+                    if facts is not None:
+                        for f in facts:
+                            if f.resource == filepath or f.resource == f"file:{filepath}":
+                                f.state_description = "UNKNOWN"
+                                f.timestamp = ts
+                else:
+                    is_writable = tool_res["writable_by_user"]
+                    if lifecycle_manager:
+                        lifecycle_manager.register_observation(
+                            key,
+                            is_writable,
+                            timestamp=ts,
+                            call_id=cid,
+                        )
+                    if facts is not None:
+                        res_str = filepath
+                        state_desc = "writable file" if is_writable else "non-writable file"
+                        found = False
+                        for f in facts:
+                            if f.resource == res_str or f.resource == f"file:{filepath}":
+                                f.state_description = state_desc
+                                f.timestamp = ts
+                                f.evidence_id = cid or f.evidence_id
+                                found = True
+                                break
+                        if not found:
+                            facts.append(
+                                StructuredFact(
+                                    fact_id=f"fact_probe_file_{int(ts*1000)}",
+                                    resource=res_str,
+                                    state_description=state_desc,
+                                    error_signature="",
+                                    evidence_id=cid or f"ev_file_{int(ts*1000)}",
                                     run_id="runtime_probe",
                                     step=0,
                                     timestamp=ts,

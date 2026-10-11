@@ -1,24 +1,24 @@
 [
   {
-    "timestamp": 1791731358.8459206,
+    "timestamp": 1791741086.913535,
     "event_type": "PATH_A_RULE_EXTRACTED",
     "details": {
       "rule_id": "rule_run_path_a_src_2",
       "validity": "CANDIDATE",
       "support_count": 1,
-      "evidence_id": "call_f2147381"
+      "evidence_id": "call_e8b7df56"
     }
   },
   {
-    "timestamp": 1791731359.1416829,
+    "timestamp": 1791741087.1635742,
     "event_type": "PATH_A_PROBATION_PROMOTED",
     "details": {
       "rule_id": "rule_run_path_a_src_2",
       "new_validity": "SUPPORTED",
       "support_count": 2,
       "evidence_ids": [
-        "call_f2147381",
-        "call_873b1a46"
+        "call_e8b7df56",
+        "call_a75203ba"
       ],
       "transitions": [
         {
@@ -32,24 +32,54 @@
     }
   },
   {
-    "timestamp": 1791731359.4209266,
+    "timestamp": 1791741087.4615011,
     "event_type": "PATH_A_GATE_BLOCKED_AND_VERIFIED",
     "details": {
       "tp_blocks": 1,
       "gate_events": [
+        {
+          "step": 1,
+          "action": "write_config:filepath=/home/agentuser/service_conf/app_a.json",
+          "decision": "ALLOW",
+          "reason": "No constraint rule matches proposed action."
+        },
+        {
+          "step": 2,
+          "action": "probe_port:18080",
+          "decision": "ALLOW",
+          "reason": "No constraint rule matches proposed action."
+        },
         {
           "step": 3,
           "action": "start_service:port=18080",
           "decision": "BLOCK",
           "reason": "Action blocked: Rule rule_run_path_a_src_2 is SUPPORTED and APPLICABLE.",
           "is_tp": true
+        },
+        {
+          "step": 4,
+          "action": "write_config:filepath=/home/agentuser/service_conf/app_a_ok.json",
+          "decision": "ALLOW",
+          "reason": "No constraint rule matches proposed action."
+        },
+        {
+          "step": 5,
+          "action": "start_service:port=18081",
+          "decision": "ALLOW",
+          "reason": "No constraint rule matches proposed action."
+        },
+        {
+          "step": 6,
+          "action": "check_health:18081",
+          "decision": "ALLOW",
+          "reason": "No constraint rule matches proposed action."
         }
       ],
       "final_success": true
     }
   },
   {
-    "timestamp": 1791731361.8854318,
+    "timestamp": 1791741089.9095097,
     "event_type": "PATH_B_CLEARED_AND_RESTORED_VERIFIED",
     "details": {
       "rule_id": "r_cleared_test",
@@ -59,21 +89,21 @@
     }
   },
   {
-    "timestamp": 1791731362.3044732,
+    "timestamp": 1791741090.3164096,
     "event_type": "PATH_C_AUTOPROBE_VERIFIED",
     "details": {
       "unknown_probes": 1,
       "observed_key": "port:18080:occupied",
       "observed_val": true,
-      "call_id": "call_67c9adad",
+      "call_id": "call_e4efcd17",
       "success": true
     }
   },
   {
-    "timestamp": 1791731364.6672504,
+    "timestamp": 1791741092.6340976,
     "event_type": "ORDER_INVARIANCE_VERIFIED",
     "details": {
-      "source_hash": "5c93e71373639fbe018e3a9e8c9a1709dcd552f63b862a9fd8c7dccd0e7126c8",
+      "source_hash": "68e55a723188f1a5e01205e77582e888f274760791d153e91a9be9c268bfeb25",
       "order1_hashes": {
         "B0": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b",
         "B2": "e0c20f6e6369b916c68de6ed398a7b1a083743b75389a88d70cd1c1fa75d359b",

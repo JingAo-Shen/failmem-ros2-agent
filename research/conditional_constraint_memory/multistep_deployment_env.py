@@ -336,6 +336,79 @@ while True:
         })
         return res
 
+    def probe_file(self, filepath: str) -> Dict[str, Any]:
+        """
+        Probes whether a target file path is writable by non-root user.
+        Distinguishes:
+        - Overwriting existing file: checks writability of target file.
+        - Creating new file: checks existence and writability of parent directory.
+        """
+        self._trigger_dynamic_events()
+        call_id = f"call_{uuid.uuid4().hex[:8]}"
+        p = Path(filepath)
+        file_exists = p.exists()
+        parent_dir = str(p.parent)
+        now = time.time()
+
+        if file_exists:
+            cmd_str = f"test -w '{filepath}'"
+            sub_res = subprocess.run(
+                ["su", "-s", "/bin/bash", self.non_root_user, "-c", cmd_str],
+                capture_output=True,
+            )
+            is_writable = (sub_res.returncode == 0)
+            try:
+                st = os.stat(p)
+                mode = oct(st.st_mode)[-4:]
+                owner_uid = st.st_uid
+            except Exception:
+                mode = "none"
+                owner_uid = None
+            is_new = False
+        else:
+            is_new = True
+            parent_p = Path(parent_dir)
+            if not parent_p.exists():
+                is_writable = False
+                mode = "none"
+                owner_uid = None
+            else:
+                cmd_str = f"test -w '{parent_dir}'"
+                sub_res = subprocess.run(
+                    ["su", "-s", "/bin/bash", self.non_root_user, "-c", cmd_str],
+                    capture_output=True,
+                )
+                is_writable = (sub_res.returncode == 0)
+                try:
+                    st = os.stat(parent_p)
+                    mode = oct(st.st_mode)[-4:]
+                    owner_uid = st.st_uid
+                except Exception:
+                    mode = "none"
+                    owner_uid = None
+
+        res = {
+            "call_id": call_id,
+            "filepath": filepath,
+            "exists": file_exists,
+            "is_new": is_new,
+            "parent_dir": parent_dir,
+            "writable_by_user": is_writable,
+            "mode": mode,
+            "owner_uid": owner_uid,
+            "timestamp": now,
+        }
+        self.tool_call_history.append({
+            "call_id": call_id,
+            "step": self.step_count,
+            "tool": "probe_file",
+            "params": {"filepath": filepath},
+            "exit_code": 0,
+            "result": res,
+            "timestamp": now,
+        })
+        return res
+
     def write_config(self, config_path: str, port: int, service_name: str = "telemetry_agent") -> Dict[str, Any]:
         """Writes configuration file to disk as non-root user."""
         self._trigger_dynamic_events()

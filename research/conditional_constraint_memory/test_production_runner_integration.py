@@ -73,7 +73,7 @@ class ScriptedPolicyBackend:
         if self.actions:
             action = self.actions.pop(0)
         else:
-            action = {"action": "check_health", "params": {"port": 18080}}
+            action = {"action": "finish", "params": {}}
 
         content = json.dumps({
             "decision_summary": f"Scripted step {self.invocations}",
@@ -553,3 +553,292 @@ def test_loop_e_success_under_cleared_premise_unit():
     mgr.record_action_outcome("start_service:port=18080", success=True, pre_action_applicability=pre_app, evidence_id="ev_s1")
     assert rule.validity_state == ValidityState.SUPPORTED
     assert rule.contradict_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Targeted Regression Suite: Gating Symmetry, Probing, and Pending Execution
+# ---------------------------------------------------------------------------
+def test_regression_1_unknown_probed_feasible_executes_original_action(env):
+    """
+    Regression 1: Action matched to UNKNOWN premise triggers auto-probe;
+    upon proving premise NOT_APPLICABLE (feasible), the pending original
+    action is actually executed and succeeds, without dropping the action.
+    """
+    pred = PreconditionPredicate("port:18081:occupied", True, ttl=30.0)
+    rule = ConstraintRule(
+        rule_id="r_reg1",
+        action_signature="start_service:port=18081",
+        predicates=[pred],
+        failure_evidence={"error_code": 98, "evidence_id": "ev_reg1"},
+        validity_state=ValidityState.SUPPORTED,
+        support_threshold=2,
+        support_count=2,
+        evidence_ids=["ev_reg1", "ev_reg1_b"],
+    )
+    mgr = ConstraintLifecycleManager()
+    mgr.add_rule(rule)
+
+    # Observation is initially missing -> UNKNOWN
+    assert mgr.evaluate_applicability(rule) == ApplicabilityState.UNKNOWN
+
+    # Script: config written, then start_service proposed directly (no manual probe)
+    # Runner auto-probe should probe 18081 -> finds it FREE -> executes start_service!
+    script = [
+        {"action": "write_config", "params": {"config_path": "/home/agentuser/service_conf/app_reg1.json", "port": 18081}},
+        {"action": "start_service", "params": {"config_path": "/home/agentuser/service_conf/app_reg1.json", "port": 18081}},
+        {"action": "check_health", "params": {"port": 18081}},
+    ]
+    runner = MultiStepAgentRunner(ScriptedPolicyBackend(script))
+    res = runner.run_episode(
+        group="M",
+        env=env,
+        instance_id="inst1_port_conflict_persistent",
+        run_id="run_reg1",
+        lifecycle_manager=mgr,
+        max_steps=6,
+    )
+
+    assert res["success"] is True, f"Episode failed: {res.get('verifier_message')}"
+    # Verify auto-probe happened and pending start_service was executed
+    probe_events = [e for e in res["gate_events"] if e.get("decision") == "PROBE"]
+    assert len(probe_events) >= 1
+    # Check that start_service tool actually ran and succeeded
+    start_calls = [c for c in res["tool_records"] if c["tool"] == "start_service"]
+    assert len(start_calls) == 1
+    assert start_calls[0]["exit_code"] == 0
+
+
+def test_regression_2_unknown_probed_infeasible_blocks_and_requests_replan(env):
+    """
+    Regression 2: Action matched to UNKNOWN premise triggers auto-probe;
+    upon proving premise APPLICABLE (infeasible), the action is BLOCKED.
+    The original tool is NOT executed, and agent is requested to replan.
+    """
+    pred = PreconditionPredicate("port:18080:occupied", True, ttl=30.0)
+    rule = ConstraintRule(
+        rule_id="r_reg2",
+        action_signature="start_service:port=18080",
+        predicates=[pred],
+        failure_evidence={"error_code": 98, "evidence_id": "ev_reg2"},
+        validity_state=ValidityState.SUPPORTED,
+        support_threshold=2,
+        support_count=2,
+        evidence_ids=["ev_reg2", "ev_reg2_b"],
+    )
+    mgr = ConstraintLifecycleManager()
+    mgr.add_rule(rule)
+
+    # In inst1, port 18080 is persistently occupied
+    script = [
+        {"action": "write_config", "params": {"config_path": "/home/agentuser/service_conf/app_reg2.json", "port": 18080}},
+        {"action": "start_service", "params": {"config_path": "/home/agentuser/service_conf/app_reg2.json", "port": 18080}},
+    ]
+    runner = MultiStepAgentRunner(ScriptedPolicyBackend(script))
+    res = runner.run_episode(
+        group="M",
+        env=env,
+        instance_id="inst1_port_conflict_persistent",
+        run_id="run_reg2",
+        lifecycle_manager=mgr,
+        max_steps=5,
+    )
+
+    # start_service should NOT have been executed
+    start_calls = [c for c in res["tool_records"] if c["tool"] == "start_service"]
+    assert len(start_calls) == 0, "Blocked action must NOT be executed!"
+    # Must have recorded PROBE followed by BLOCK
+    decisions = [e.get("decision") for e in res["gate_events"]]
+    assert "PROBE" in decisions
+    assert "BLOCK" in decisions
+    assert res["tp_blocks"] >= 1
+
+
+def test_regression_3_probe_file_exits_unknown_for_file_predicates(env):
+    """
+    Regression 3: File predicates exit UNKNOWN only via probe_file.
+    probe_directory does NOT resolve file predicates, preventing false assumptions.
+    """
+    mgr = ConstraintLifecycleManager()
+    filepath = "/home/agentuser/service_conf/test_perm.json"
+    pred = PreconditionPredicate(f"file:{filepath}:writable", False, ttl=30.0)
+    rule = ConstraintRule(
+        rule_id="r_reg3",
+        action_signature=f"write_config:filepath={filepath}",
+        predicates=[pred],
+        failure_evidence={"error_code": 13, "evidence_id": "ev_reg3"},
+        validity_state=ValidityState.SUPPORTED,
+        support_threshold=2,
+        support_count=2,
+        evidence_ids=["ev_reg3", "ev_reg3_b"],
+    )
+    mgr.add_rule(rule)
+
+    runner = MultiStepAgentRunner(ScriptedPolicyBackend([]))
+
+    # Probing directory should NOT resolve file predicate
+    probe_dir_res = env.probe_directory("/home/agentuser/service_conf")
+    runner._update_observations_from_probe_result("probe_directory", {"dirpath": "/home/agentuser/service_conf"}, probe_dir_res, lifecycle_manager=mgr)
+    assert mgr.evaluate_applicability(rule) == ApplicabilityState.UNKNOWN
+
+    # Calling probe_file resolves the file predicate
+    probe_f_res = env.probe_file(filepath)
+    runner._update_observations_from_probe_result("probe_file", {"filepath": filepath}, probe_f_res, lifecycle_manager=mgr)
+    assert f"file:{filepath}:writable" in mgr.observations
+    # Since /home/agentuser/service_conf is writable, new file is writable -> NOT_APPLICABLE
+    assert mgr.evaluate_applicability(rule) == ApplicabilityState.NOT_APPLICABLE
+
+
+def test_regression_4_b2g_and_m_identical_gating_on_identical_rules(env):
+    """
+    Regression 4: B2-G and M exhibit identical gating decisions given identical
+    rules and observation states when rule is SUPPORTED.
+    """
+    pred = PreconditionPredicate("port:18080:occupied", True, ttl=30.0)
+    rule = ConstraintRule(
+        rule_id="r_reg4",
+        action_signature="start_service:port=18080",
+        predicates=[pred],
+        failure_evidence={"error_code": 98, "evidence_id": "ev_reg4"},
+        validity_state=ValidityState.SUPPORTED,
+        support_threshold=2,
+        support_count=2,
+        evidence_ids=["ev_reg4", "ev_reg4_b"],
+    )
+
+    mgr_b2g = ConstraintLifecycleManager()
+    mgr_b2g.add_rule(rule)
+
+    mgr_m = ConstraintLifecycleManager()
+    mgr_m.add_rule(rule)
+
+    runner = MultiStepAgentRunner(ScriptedPolicyBackend([]))
+
+    # State 1: UNKNOWN premise -> Both PROBE
+    d_b2g_1 = runner._evaluate_generic_predicate_gate("start_service:port=18080", lifecycle_manager=mgr_b2g)
+    d_m_1 = mgr_m.make_gate_decision("start_service:port=18080")
+    assert d_b2g_1["decision"] == GateDecision.PROBE
+    assert d_m_1["decision"] == GateDecision.PROBE
+
+    # State 2: APPLICABLE premise (occupied) -> Both BLOCK
+    now = time.time()
+    mgr_b2g.register_observation("port:18080:occupied", True, timestamp=now)
+    mgr_m.register_observation("port:18080:occupied", True, timestamp=now)
+    d_b2g_2 = runner._evaluate_generic_predicate_gate("start_service:port=18080", lifecycle_manager=mgr_b2g)
+    d_m_2 = mgr_m.make_gate_decision("start_service:port=18080")
+    assert d_b2g_2["decision"] == GateDecision.BLOCK
+    assert d_m_2["decision"] == GateDecision.BLOCK
+
+    # State 3: NOT_APPLICABLE premise (free) -> Both ALLOW
+    mgr_b2g.register_observation("port:18080:occupied", False, timestamp=now)
+    mgr_m.register_observation("port:18080:occupied", False, timestamp=now)
+    d_b2g_3 = runner._evaluate_generic_predicate_gate("start_service:port=18080", lifecycle_manager=mgr_b2g)
+    d_m_3 = mgr_m.make_gate_decision("start_service:port=18080")
+    assert d_b2g_3["decision"] == GateDecision.ALLOW
+    assert d_m_3["decision"] == GateDecision.ALLOW
+
+
+def test_regression_5_divergence_only_on_candidate_probation():
+    """
+    Regression 5: Divergence between B2-G and M occurs STRICTLY when a rule is in CANDIDATE state:
+    B2-G generic gate blocks matching actions immediately (no probation trial),
+    whereas M lifecycle gate allows execution under probationary trial.
+    """
+    pred = PreconditionPredicate("port:18080:occupied", True, ttl=30.0)
+    rule_cand = ConstraintRule(
+        rule_id="r_reg5_cand",
+        action_signature="start_service:port=18080",
+        predicates=[pred],
+        failure_evidence={"error_code": 98, "evidence_id": "ev_reg5"},
+        validity_state=ValidityState.CANDIDATE,
+        support_threshold=2,
+        support_count=1,
+        evidence_ids=["ev_reg5"],
+    )
+
+    mgr_b2g = ConstraintLifecycleManager()
+    mgr_b2g.add_rule(rule_cand)
+    mgr_b2g.register_observation("port:18080:occupied", True, timestamp=time.time())
+
+    mgr_m = ConstraintLifecycleManager()
+    mgr_m.add_rule(rule_cand)
+    mgr_m.register_observation("port:18080:occupied", True, timestamp=time.time())
+
+    runner = MultiStepAgentRunner(ScriptedPolicyBackend([]))
+
+    # B2-G generic predicate gate blocks on confirmed APPLICABLE premise
+    d_b2g = runner._evaluate_generic_predicate_gate("start_service:port=18080", lifecycle_manager=mgr_b2g)
+    assert d_b2g["decision"] == GateDecision.BLOCK
+
+    # M candidate lifecycle gate allows trial execution
+    d_m = mgr_m.make_gate_decision("start_service:port=18080")
+    assert d_m["decision"] == GateDecision.ALLOW
+    assert "candidate" in d_m["reason"].lower()
+
+
+def test_regression_6_scripted_policy_zero_ghost_failures(env):
+    """
+    Regression 6: ScriptedPolicyBackend terminates cleanly with finish on action exhaustion,
+    producing 0 runaway tool failures.
+    """
+    # Policy only writes config and finishes
+    script = [
+        {"action": "write_config", "params": {"config_path": "/home/agentuser/service_conf/app_reg6.json", "port": 18080}},
+    ]
+    runner = MultiStepAgentRunner(ScriptedPolicyBackend(script))
+    res = runner.run_episode(
+        group="B0",
+        env=env,
+        instance_id="inst1_port_conflict_persistent",
+        run_id="run_reg6",
+        max_steps=10,
+    )
+
+    assert res["termination_reason"] == "agent_finished"
+    assert res["executed_error_actions"] == 0
+    # Exactly 1 tool call executed (write_config)
+    assert len(res["tool_records"]) == 1
+
+
+def test_regression_7_b2g_receives_and_evaluates_structured_rule_manager(env):
+    """
+    Regression 7: B2-G arm instantiated via FrozenMemorySnapshot receives lifecycle_manager
+    with structured rules, and executes generic predicate gating without facts-only fallback.
+    """
+    pred = PreconditionPredicate("port:18080:occupied", True, ttl=30.0)
+    rule = ConstraintRule(
+        rule_id="r_reg7",
+        action_signature="start_service:port=18080",
+        predicates=[pred],
+        failure_evidence={"error_code": 98, "evidence_id": "ev_reg7"},
+        validity_state=ValidityState.SUPPORTED,
+        support_threshold=2,
+        support_count=2,
+        evidence_ids=["ev_reg7", "ev_reg7_b"],
+    )
+    snapshot = FrozenMemorySnapshot.create(
+        rules=[rule],
+    )
+
+    mgr_b2g = snapshot.instantiate_manager()
+    assert mgr_b2g is not None
+    assert "r_reg7" in mgr_b2g.rules
+
+    script = [
+        {"action": "start_service", "params": {"config_path": "/home/agentuser/service_conf/app_reg7.json", "port": 18080}},
+    ]
+    runner = MultiStepAgentRunner(ScriptedPolicyBackend(script))
+    res = runner.run_episode(
+        group="B2-G",
+        env=env,
+        instance_id="inst1_port_conflict_persistent",
+        run_id="run_reg7",
+        lifecycle_manager=mgr_b2g,
+        max_steps=5,
+    )
+
+    # Gate must have blocked matching action
+    assert res["tp_blocks"] == 1
+    block_events = [e for e in res["gate_events"] if e.get("decision") == "BLOCK"]
+    assert len(block_events) == 1
+    assert "Generic predicate gate blocked" in block_events[0]["reason"]
+

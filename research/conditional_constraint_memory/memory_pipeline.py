@@ -70,12 +70,26 @@ class StructuredFact:
     def is_fresh(self, current_time: float) -> bool:
         return (current_time - self.timestamp) <= self.ttl
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "fact_id": self.fact_id,
+            "resource": self.resource,
+            "state_description": self.state_description,
+            "error_signature": self.error_signature,
+            "evidence_id": self.evidence_id,
+            "run_id": self.run_id,
+            "step": self.step,
+            "timestamp": self.timestamp,
+            "ttl": self.ttl,
+        }
+
     def to_prompt_text(self, current_time: float) -> str:
         status = "ACTIVE" if self.is_fresh(current_time) else "UNCONFIRMED_EXPIRED"
         return (
             f"- [{status}] Resource '{self.resource}': {self.state_description} "
             f"(Source: run '{self.run_id}' step {self.step}, Evidence: {self.evidence_id})"
         )
+
 
 
 class DeterministicHeuristicRuleParser:
