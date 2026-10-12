@@ -106,6 +106,12 @@ class MultiStepDeploymentEnv:
             os.chown(SYS_CONF_DIR, 0, 0)
         except Exception:
             pass
+        if SYS_CONF_DIR.exists():
+            for f in SYS_CONF_DIR.glob("*.json"):
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
         # Clear existing configs in user dir
         if USER_CONF_DIR.exists():
             for f in USER_CONF_DIR.glob("*.json"):
@@ -828,6 +834,12 @@ while True:
                 except Exception:
                     pass
         self.occupier_processes.clear()
+        if SYS_CONF_DIR.exists():
+            try:
+                os.chown(SYS_CONF_DIR, 0, 0)
+                os.chmod(SYS_CONF_DIR, 0o755)
+            except Exception:
+                pass
         time.sleep(0.1)
 
 

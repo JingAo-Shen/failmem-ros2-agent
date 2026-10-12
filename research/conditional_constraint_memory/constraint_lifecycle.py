@@ -100,6 +100,39 @@ class ConstraintRule:
         if self.evidence_ids:
             self.support_count = len(set(self.evidence_ids))
 
+    def matches_action(self, action_signature: str, tool_name: str = "", params: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Checks whether the rule matches an action signature or action tool/parameters.
+        Supports both normalized signatures and natural candidate parameter bindings.
+        """
+        if self.action_signature == action_signature:
+            return True
+        if not tool_name and ":" in action_signature:
+            tool_name = action_signature.split(":", 1)[0]
+        rule_tool = self.action_signature.split(":", 1)[0] if ":" in self.action_signature else self.action_signature
+        if rule_tool and tool_name and rule_tool != tool_name:
+            return False
+        has_param_constraint = any(p in self.action_signature for p in ("config_path=", "filepath=", "port="))
+        if not has_param_constraint:
+            return True
+
+        if params:
+            r_path = None
+            if "config_path=" in self.action_signature:
+                r_path = self.action_signature.split("config_path=", 1)[1].split(",")[0]
+            elif "filepath=" in self.action_signature:
+                r_path = self.action_signature.split("filepath=", 1)[1].split(",")[0]
+            if r_path:
+                p_path = params.get("config_path", params.get("filepath", ""))
+                if p_path and p_path == r_path:
+                    return True
+            if "port=" in self.action_signature:
+                r_port = self.action_signature.split("port=", 1)[1].split(",")[0]
+                p_port = params.get("port")
+                if p_port and str(p_port) == str(r_port):
+                    return True
+        return False
+
 
 @dataclass(frozen=True)
 class FrozenMemorySnapshot:
@@ -302,6 +335,8 @@ class ConstraintLifecycleManager:
         self,
         action_signature: str,
         observations_snapshot: Optional[Dict[str, PredicateObservation]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        tool_name: str = "",
     ) -> Dict[str, Any]:
         """
         Computes the gating decision for a proposed action signature with multi-rule order-invariant aggregation.
@@ -313,7 +348,7 @@ class ConstraintLifecycleManager:
             "reason": str
         }
         """
-        matching_rules = [r for r in self.rules.values() if r.action_signature == action_signature]
+        matching_rules = [r for r in self.rules.values() if r.matches_action(action_signature, tool_name=tool_name, params=params)]
         
         if not matching_rules:
             return {
@@ -403,13 +438,15 @@ class ConstraintLifecycleManager:
         pre_action_applicability: Optional[Dict[str, ApplicabilityState]] = None,
         pre_action_snapshot: Optional[Dict[str, PredicateObservation]] = None,
         evidence_id: Optional[str] = None,
+        params: Optional[Dict[str, Any]] = None,
+        tool_name: str = "",
     ) -> List[Dict[str, Any]]:
         """
         Updates rule validity based on actual action execution outcome.
         Uses pre-action applicability or pre-action snapshot to prevent post-action observation skew.
         """
         updates = []
-        matching_rules = [r for r in self.rules.values() if r.action_signature == action_signature]
+        matching_rules = [r for r in self.rules.values() if r.matches_action(action_signature, tool_name=tool_name, params=params)]
 
         for rule in matching_rules:
             if pre_action_applicability and rule.rule_id in pre_action_applicability:

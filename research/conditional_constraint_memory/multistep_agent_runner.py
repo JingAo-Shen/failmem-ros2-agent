@@ -18,7 +18,7 @@ import json
 import re
 import hashlib
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Callable
 
 from research.agent_task_repair.agent.llm_backend import LLMBackend
 from research.conditional_constraint_memory.constraint_lifecycle import (
@@ -136,10 +136,14 @@ Output strictly a single JSON block adhering to this schema:
         lifecycle_manager: Optional[ConstraintLifecycleManager] = None,
         s2_cache: Optional[Dict[str, bool]] = None,
         max_steps: int = 20,
+        setup_hook: Optional[Callable[[MultiStepDeploymentEnv], None]] = None,
     ) -> Dict[str, Any]:
         """Runs a complete multi-step deployment episode."""
         start_time = time.time()
-        env.setup(instance_id)
+        if instance_id:
+            env.setup(instance_id)
+        if setup_hook:
+            setup_hook(env)
 
         # Integrity tracking
         if lifecycle_manager:
@@ -233,9 +237,9 @@ Output strictly a single JSON block adhering to this schema:
 
             if group in ("B2-G", "S1") and lifecycle_manager:
                 if group == "S1":
-                    gate_eval = self._evaluate_s1_advisory_gate(action_sig, lifecycle_manager=lifecycle_manager)
+                    gate_eval = self._evaluate_s1_advisory_gate(action_sig, lifecycle_manager=lifecycle_manager, params=params, tool_name=tool_name)
                 else:
-                    gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager)
+                    gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager, params=params, tool_name=tool_name)
                 # Auto-probe loop for UNKNOWN premises (up to 2 retries)
                 probe_retries = 0
                 max_probe_retries = 2
@@ -276,9 +280,9 @@ Output strictly a single JSON block adhering to this schema:
                     })
                     # Re-evaluate the same pending action without calling model
                     if group == "S1":
-                        gate_eval = self._evaluate_s1_advisory_gate(action_sig, lifecycle_manager=lifecycle_manager)
+                        gate_eval = self._evaluate_s1_advisory_gate(action_sig, lifecycle_manager=lifecycle_manager, params=params, tool_name=tool_name)
                     else:
-                        gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager)
+                        gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager, params=params, tool_name=tool_name)
 
                 decision = gate_eval["decision"]
                 if decision == GateDecision.BLOCK:
@@ -320,6 +324,7 @@ Output strictly a single JSON block adhering to this schema:
                     lifecycle_manager=lifecycle_manager,
                     env=env,
                     s2_cache=s2_cache,
+                    facts=facts,
                 )
                 s2_verifications += v_cnt
                 tool_calls += v_cnt
@@ -349,9 +354,9 @@ Output strictly a single JSON block adhering to this schema:
             elif group == "M" and lifecycle_manager:
                 pre_app = {}
                 for r_id, r in lifecycle_manager.rules.items():
-                    if r.action_signature == action_sig:
+                    if r.matches_action(action_sig, tool_name=tool_name, params=params):
                         pre_app[r_id] = lifecycle_manager.evaluate_applicability(r)
-                gate_eval = lifecycle_manager.make_gate_decision(action_sig)
+                gate_eval = lifecycle_manager.make_gate_decision(action_sig, params=params, tool_name=tool_name)
                 pre_action_applicability = pre_app
 
                 # Auto-probe loop for UNKNOWN premises (up to 2 retries)
@@ -459,6 +464,8 @@ Output strictly a single JSON block adhering to this schema:
             # Execute Tool (Pending Action allowed)
             tool_calls += 1
             tool_res = self._execute_tool(env, tool_name, params)
+            if group == "S2" and s2_cache is not None:
+                self._invalidate_s2_cache(s2_cache, tool_name, params, tool_res)
             if tool_name in ("probe_port", "probe_directory", "probe_file"):
                 self._update_observations_from_probe_result(
                     tool_name, params, tool_res,
@@ -487,6 +494,8 @@ Output strictly a single JSON block adhering to this schema:
                     },
                     pre_action_applicability=pre_action_applicability,
                     evidence_id=real_evidence_id,
+                    params=params,
+                    tool_name=tool_name,
                 )
                 if trans:
                     lifecycle_transitions.extend(trans)
@@ -627,6 +636,8 @@ Output strictly a single JSON block adhering to this schema:
         self,
         action_sig: str,
         lifecycle_manager: ConstraintLifecycleManager,
+        params: Optional[Dict[str, Any]] = None,
+        tool_name: str = "",
     ) -> Dict[str, Any]:
         """
         Generic predicate gate for B2-G using structured predicate evaluation over lifecycle_manager.rules.
@@ -638,7 +649,10 @@ Output strictly a single JSON block adhering to this schema:
         if not lifecycle_manager or not lifecycle_manager.rules:
             return {"decision": GateDecision.ALLOW, "reason": "No rules available."}
 
-        matching_rules = [r for r in lifecycle_manager.rules.values() if r.action_signature == action_sig]
+        matching_rules = [
+            r for r in lifecycle_manager.rules.values()
+            if r.matches_action(action_sig, tool_name=tool_name, params=params)
+        ]
         for r in matching_rules:
             if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
                 continue
@@ -651,7 +665,7 @@ Output strictly a single JSON block adhering to this schema:
                 }
             elif app == ApplicabilityState.UNKNOWN:
                 unknown_pred = self._find_unknown_predicate_for_rule(lifecycle_manager, r)
-                probe_info = self._resolve_probe_for_predicate(unknown_pred, {})
+                probe_info = self._resolve_probe_for_predicate(unknown_pred, params or {})
                 return {
                     "decision": GateDecision.PROBE,
                     "matching_rule_id": r.rule_id,
@@ -666,6 +680,8 @@ Output strictly a single JSON block adhering to this schema:
         self,
         action_sig: str,
         lifecycle_manager: ConstraintLifecycleManager,
+        params: Optional[Dict[str, Any]] = None,
+        tool_name: str = "",
     ) -> Dict[str, Any]:
         """
         S1 Baseline: Candidate rules only serve as advisory warnings in prompt and do NOT block.
@@ -674,7 +690,10 @@ Output strictly a single JSON block adhering to this schema:
         if not lifecycle_manager or not lifecycle_manager.rules:
             return {"decision": GateDecision.ALLOW, "reason": "No rules available."}
 
-        matching_rules = [r for r in lifecycle_manager.rules.values() if r.action_signature == action_sig]
+        matching_rules = [
+            r for r in lifecycle_manager.rules.values()
+            if r.matches_action(action_sig, tool_name=tool_name, params=params)
+        ]
         for r in matching_rules:
             if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
                 continue
@@ -691,7 +710,7 @@ Output strictly a single JSON block adhering to this schema:
                 }
             elif app == ApplicabilityState.UNKNOWN:
                 unknown_pred = self._find_unknown_predicate_for_rule(lifecycle_manager, r)
-                probe_info = self._resolve_probe_for_predicate(unknown_pred, {})
+                probe_info = self._resolve_probe_for_predicate(unknown_pred, params or {})
                 return {
                     "decision": GateDecision.PROBE,
                     "matching_rule_id": r.rule_id,
@@ -702,6 +721,47 @@ Output strictly a single JSON block adhering to this schema:
                 }
         return {"decision": GateDecision.ALLOW, "reason": "S1 allowed (no verified blocking rule)."}
 
+    def _invalidate_s2_cache(
+        self,
+        s2_cache: Dict[str, Any],
+        tool_name: str,
+        params: Dict[str, Any],
+        tool_res: Dict[str, Any],
+    ):
+        """
+        Invalidates S2 cache entries when resources are mutated.
+        - write_config: invalidates entries matching config_path, parent dir, or port
+        - start_service: invalidates entries matching config_path or port
+        - service crash / state changes: invalidates port/health entries
+        """
+        if not s2_cache:
+            return
+        keys_to_del = []
+        if tool_name == "write_config":
+            cfg_path = params.get("config_path", "")
+            port = params.get("port")
+            for k in list(s2_cache.keys()):
+                if cfg_path and cfg_path in k:
+                    keys_to_del.append(k)
+                elif port and f"port:{port}" in k:
+                    keys_to_del.append(k)
+                elif "dir:" in k or "path:" in k:
+                    keys_to_del.append(k)
+        elif tool_name == "start_service":
+            cfg_path = params.get("config_path", "")
+            for k in list(s2_cache.keys()):
+                if cfg_path and cfg_path in k:
+                    keys_to_del.append(k)
+                elif "port:" in k:
+                    keys_to_del.append(k)
+        elif tool_name == "check_health":
+            port = params.get("port")
+            for k in list(s2_cache.keys()):
+                if port and f"port:{port}" in k:
+                    keys_to_del.append(k)
+        for k in keys_to_del:
+            s2_cache.pop(k, None)
+
     def _evaluate_s2_cached_gate(
         self,
         action_sig: str,
@@ -709,74 +769,156 @@ Output strictly a single JSON block adhering to this schema:
         lifecycle_manager: ConstraintLifecycleManager,
         env: MultiStepDeploymentEnv,
         s2_cache: Dict[str, Any],
+        facts: Optional[List[StructuredFact]] = None,
         ttl_seconds: float = 30.0,
     ) -> Tuple[Dict[str, Any], int]:
         """
         S2 Baseline: Single Controlled Verification with Cache.
         First encounter of a candidate rule triggers a single controlled verification;
-        result is cached with resource binding, action context, and TTL validity period.
-        (True=active constraint, False=spurious/inactive).
+        result is cached with resource binding, action context, execution identity,
+        and monotonic TTL validity period.
         Returns (gate_eval, verifications_count).
         """
         if not lifecycle_manager or not lifecycle_manager.rules:
             return {"decision": GateDecision.ALLOW, "reason": "No rules available."}, 0
 
         verifications = 0
-        now = time.time()
-        matching_rules = [r for r in lifecycle_manager.rules.values() if r.action_signature == action_sig]
+        now_mono = time.monotonic()
+        norm_action = action_sig.split(":", 1)[0] if ":" in action_sig else action_sig
+        exec_uid = getattr(env, "user_uid", os.getuid())
+        env_id = getattr(env, "instance_id", id(env))
+
+        matching_rules = [
+            r for r in lifecycle_manager.rules.values()
+            if r.matches_action(action_sig, tool_name=norm_action, params=params)
+        ]
         for r in matching_rules:
             if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
                 continue
 
             # Determine resource binding for cache key
-            resource_key = f"{r.rule_id}:{action_sig}"
-            cache_entry = s2_cache.get(resource_key)
-            is_cache_valid = cache_entry is not None and (now - cache_entry.get("timestamp", 0)) < cache_entry.get("ttl", ttl_seconds)
+            res_binding = "generic"
+            target_port: Optional[int] = None
+            target_path: Optional[str] = None
 
-            # Check if verification needed (missing or expired)
+            if "port:" in r.action_signature or (r.predicates and any("port:" in p.key for p in r.predicates)):
+                target_port = 18080
+                for p in r.predicates:
+                    if "port:" in p.key:
+                        parts = p.key.split(":")
+                        if len(parts) >= 2 and parts[1].isdigit():
+                            target_port = int(parts[1])
+                            break
+                res_binding = f"port:{target_port}"
+            elif norm_action in ("write_config", "start_service") or (r.predicates and any("dir:" in p.key or "file:" in p.key or "config_file:" in p.key for p in r.predicates)):
+                target_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
+                res_binding = f"path:{target_path}"
+
+            r_ver = getattr(r, "version", 1)
+            cache_key = f"{env_id}|{exec_uid}|{norm_action}|{res_binding}|{r.rule_id}|v{r_ver}"
+            cache_entry = s2_cache.get(cache_key)
+            is_cache_valid = (cache_entry is not None and (now_mono - cache_entry.get("timestamp_mono", 0)) < cache_entry.get("ttl", ttl_seconds))
+
             if not is_cache_valid:
-                verifications += 1
-                # Run single controlled verification probe
-                if "port:" in r.action_signature or (r.predicates and any("port:" in p.key for p in r.predicates)):
-                    port = 18080
+                # Probe required
+                probe_called = False
+                is_blocked = False
+                verified = False
+
+                if target_port is not None:
+                    probe_called = True
+                    verifications += 1
+                    p_res = env.probe_port(target_port)
+                    self._update_observations_from_probe_result(
+                        "probe_port",
+                        {"port": target_port},
+                        p_res,
+                        lifecycle_manager=lifecycle_manager,
+                        facts=facts,
+                    )
+                    if p_res.get("success", False) and p_res.get("exit_code", 0) == 0 and "is_occupied" in p_res:
+                        is_blocked = bool(p_res["is_occupied"])
+                        verified = True
+                    else:
+                        is_blocked = False
+                        verified = False
+
+                elif norm_action == "write_config" and target_path:
+                    probe_called = True
+                    verifications += 1
+                    f_res = env.probe_file(target_path)
+                    self._update_observations_from_probe_result(
+                        "probe_file",
+                        {"filepath": target_path},
+                        f_res,
+                        lifecycle_manager=lifecycle_manager,
+                        facts=facts,
+                    )
+                    if f_res.get("success", False) and f_res.get("exit_code", 0) == 0 and "writable_by_user" in f_res:
+                        is_blocked = not f_res["writable_by_user"]
+                        verified = True
+                    else:
+                        is_blocked = False
+                        verified = False
+
+                elif norm_action == "start_service" and target_path:
+                    probe_called = True
+                    verifications += 1
+                    f_res = env.probe_file(target_path)
+                    self._update_observations_from_probe_result(
+                        "probe_file",
+                        {"filepath": target_path},
+                        f_res,
+                        lifecycle_manager=lifecycle_manager,
+                        facts=facts,
+                    )
+                    cfg_port = None
                     for p in r.predicates:
                         if "port:" in p.key:
                             parts = p.key.split(":")
                             if len(parts) >= 2 and parts[1].isdigit():
-                                port = int(parts[1])
-                    p_res = env.probe_port(port)
-                    is_blocked = p_res.get("is_occupied", False)
-                    s2_cache[resource_key] = {
+                                cfg_port = int(parts[1])
+                    if cfg_port is not None:
+                        verifications += 1
+                        p_res = env.probe_port(cfg_port)
+                        self._update_observations_from_probe_result(
+                            "probe_port",
+                            {"port": cfg_port},
+                            p_res,
+                            lifecycle_manager=lifecycle_manager,
+                            facts=facts,
+                        )
+                        if p_res.get("is_occupied", False):
+                            is_blocked = True
+                            verified = True
+                        else:
+                            is_blocked = False
+                            verified = True
+                    else:
+                        # Missing/existent config file does not mean start_service fails if file is valid
+                        is_blocked = False
+                        verified = bool(f_res.get("success", False))
+
+                if probe_called:
+                    s2_cache[cache_key] = {
                         "is_blocked": is_blocked,
-                        "timestamp": now,
-                        "resource": f"port:{port}",
-                        "action_context": action_sig,
-                        "ttl": ttl_seconds,
-                    }
-                elif "write_config" in r.action_signature or (r.predicates and any("dir:" in p.key or "file:" in p.key for p in r.predicates)):
-                    cfg_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
-                    f_res = env.probe_file(cfg_path)
-                    target_writable = f_res.get("writable_by_user", False)
-                    is_blocked = not target_writable
-                    s2_cache[resource_key] = {
-                        "is_blocked": is_blocked,
-                        "timestamp": now,
-                        "resource": f"file:{cfg_path}",
-                        "action_context": action_sig,
+                        "verified": verified,
+                        "timestamp_mono": now_mono,
+                        "resource": res_binding,
                         "ttl": ttl_seconds,
                     }
                 else:
-                    s2_cache[resource_key] = {
-                        "is_blocked": True,
-                        "timestamp": now,
-                        "resource": "generic",
-                        "action_context": action_sig,
+                    s2_cache[cache_key] = {
+                        "is_blocked": False,
+                        "verified": False,
+                        "timestamp_mono": now_mono,
+                        "resource": res_binding,
                         "ttl": ttl_seconds,
                     }
 
-            # Use cache
-            entry = s2_cache.get(resource_key, {})
-            if entry.get("is_blocked", False) is True:
+            # Evaluate gate from cache
+            entry = s2_cache.get(cache_key, {})
+            if entry.get("is_blocked", False) is True and entry.get("verified", False) is True:
                 app = lifecycle_manager.evaluate_applicability(r)
                 if app == ApplicabilityState.APPLICABLE:
                     return {
