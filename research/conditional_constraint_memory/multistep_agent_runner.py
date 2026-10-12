@@ -322,6 +322,7 @@ Output strictly a single JSON block adhering to this schema:
                     s2_cache=s2_cache,
                 )
                 s2_verifications += v_cnt
+                tool_calls += v_cnt
                 decision = gate_eval["decision"]
                 if decision == GateDecision.BLOCK:
                     gate_blocked = True
@@ -707,25 +708,33 @@ Output strictly a single JSON block adhering to this schema:
         params: Dict[str, Any],
         lifecycle_manager: ConstraintLifecycleManager,
         env: MultiStepDeploymentEnv,
-        s2_cache: Dict[str, bool],
+        s2_cache: Dict[str, Any],
+        ttl_seconds: float = 30.0,
     ) -> Tuple[Dict[str, Any], int]:
         """
         S2 Baseline: Single Controlled Verification with Cache.
         First encounter of a candidate rule triggers a single controlled verification;
-        result is cached (True=active constraint, False=spurious/inactive).
+        result is cached with resource binding, action context, and TTL validity period.
+        (True=active constraint, False=spurious/inactive).
         Returns (gate_eval, verifications_count).
         """
         if not lifecycle_manager or not lifecycle_manager.rules:
             return {"decision": GateDecision.ALLOW, "reason": "No rules available."}, 0
 
         verifications = 0
+        now = time.time()
         matching_rules = [r for r in lifecycle_manager.rules.values() if r.action_signature == action_sig]
         for r in matching_rules:
             if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
                 continue
 
-            # Check if verification cached
-            if r.rule_id not in s2_cache:
+            # Determine resource binding for cache key
+            resource_key = f"{r.rule_id}:{action_sig}"
+            cache_entry = s2_cache.get(resource_key)
+            is_cache_valid = cache_entry is not None and (now - cache_entry.get("timestamp", 0)) < cache_entry.get("ttl", ttl_seconds)
+
+            # Check if verification needed (missing or expired)
+            if not is_cache_valid:
                 verifications += 1
                 # Run single controlled verification probe
                 if "port:" in r.action_signature or (r.predicates and any("port:" in p.key for p in r.predicates)):
@@ -737,24 +746,43 @@ Output strictly a single JSON block adhering to this schema:
                                 port = int(parts[1])
                     p_res = env.probe_port(port)
                     is_blocked = p_res.get("is_occupied", False)
-                    s2_cache[r.rule_id] = is_blocked
+                    s2_cache[resource_key] = {
+                        "is_blocked": is_blocked,
+                        "timestamp": now,
+                        "resource": f"port:{port}",
+                        "action_context": action_sig,
+                        "ttl": ttl_seconds,
+                    }
                 elif "write_config" in r.action_signature or (r.predicates and any("dir:" in p.key or "file:" in p.key for p in r.predicates)):
                     cfg_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
                     f_res = env.probe_file(cfg_path)
                     target_writable = f_res.get("writable_by_user", False)
                     is_blocked = not target_writable
-                    s2_cache[r.rule_id] = is_blocked
+                    s2_cache[resource_key] = {
+                        "is_blocked": is_blocked,
+                        "timestamp": now,
+                        "resource": f"file:{cfg_path}",
+                        "action_context": action_sig,
+                        "ttl": ttl_seconds,
+                    }
                 else:
-                    s2_cache[r.rule_id] = True
+                    s2_cache[resource_key] = {
+                        "is_blocked": True,
+                        "timestamp": now,
+                        "resource": "generic",
+                        "action_context": action_sig,
+                        "ttl": ttl_seconds,
+                    }
 
             # Use cache
-            if s2_cache.get(r.rule_id, False) is True:
+            entry = s2_cache.get(resource_key, {})
+            if entry.get("is_blocked", False) is True:
                 app = lifecycle_manager.evaluate_applicability(r)
                 if app == ApplicabilityState.APPLICABLE:
                     return {
                         "decision": GateDecision.BLOCK,
                         "matching_rule_id": r.rule_id,
-                        "reason": f"S2 verified constraint blocked: rule {r.rule_id} verified and premise APPLICABLE.",
+                        "reason": f"S2 verified constraint blocked: rule {r.rule_id} verified on {entry.get('resource')} and premise APPLICABLE.",
                     }, verifications
             else:
                 continue

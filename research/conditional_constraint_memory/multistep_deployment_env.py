@@ -102,6 +102,10 @@ class MultiStepDeploymentEnv:
         # Reset directories
         SYS_CONF_DIR.mkdir(parents=True, exist_ok=True)
         os.chmod(SYS_CONF_DIR, 0o755)
+        try:
+            os.chown(SYS_CONF_DIR, 0, 0)
+        except Exception:
+            pass
         # Clear existing configs in user dir
         if USER_CONF_DIR.exists():
             for f in USER_CONF_DIR.glob("*.json"):

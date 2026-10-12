@@ -1,0 +1,1076 @@
+[
+  {
+    "call_index": 2,
+    "trace_id": "trace_01_port_18080_conflict",
+    "action_signature": "start_service:config_path=/home/agentuser/service_conf/app_t1.json",
+    "premise_predicates": [
+      {
+        "key": "port:18080:occupied",
+        "op": "==",
+        "expected_value": "True"
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t1.json)",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_cd925fe6",
+        "success": false,
+        "exit_code": 98,
+        "error_code": 98,
+        "error_type": "AddressAlreadyInUse",
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+        "stdout": "",
+        "config_snapshot": {
+          "port": 18080,
+          "config_path": "/home/agentuser/service_conf/app_t1.json"
+        },
+        "resource_id": "port:18080",
+        "timestamp": 1791796630.9680843
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": true,
+      "premise_value": "FALSE (Premise cleared; port is free)",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t1.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise does not hold; execution succeeded normally. Does not count as support or counterexample."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t1.json) with irrelevant_metadata added",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_e75ca667",
+        "success": false,
+        "exit_code": 98,
+        "error_code": 98,
+        "error_type": "AddressAlreadyInUse",
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+        "stdout": "",
+        "config_snapshot": {
+          "port": 18080,
+          "config_path": "/home/agentuser/service_conf/app_t1.json"
+        },
+        "resource_id": "port:18080",
+        "timestamp": 1791796631.5992827
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT",
+      "notes": "Failure behavior invariant to non-causal metadata fields."
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Parameter_Brittleness_Test",
+      "action_matches_scope": false,
+      "premise_value": "TRUE (Port 18080 is occupied)",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t1_alternate_name.json)",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "adjudication": "ACTION_SIGNATURE_OVERLY_SPECIFIC",
+      "notes": "Failure reproduces on OS, but candidate rule's action signature hardcoded a specific filename, causing action_matches_scope=False on identical conflict with different filename."
+    }
+  },
+  {
+    "call_index": 4,
+    "trace_id": "trace_02_etc_permission_denied",
+    "action_signature": "write_config:config_path=/etc/service_demo/app_sys.json",
+    "premise_predicates": [
+      {
+        "key": "dir:/etc/service_demo:permissions",
+        "op": "==",
+        "expected_value": "0755"
+      }
+    ],
+    "overall_verdict": "SCOPE_DEFICIENT (True Counterexample under Owner Context)",
+    "has_counterexample": true,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/etc/service_demo/app_sys.json)",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /etc/service_demo/app_sys.json: Permission denied"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_427f61b0",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 13,
+        "error_type": "PermissionDenied",
+        "stderr": "bash: line 1: /etc/service_demo/app_sys.json: Permission denied",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "telemetry_agent",
+          "port": 18080
+        },
+        "resource_id": "file:/etc/service_demo/app_sys.json",
+        "timestamp": 1791796632.1718075
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": false,
+      "premise_value": "FALSE",
+      "actual_action": "write_config(/home/agentuser/service_conf/app_sys.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise not applicable in alternate path."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/etc/service_demo/app_sys.json, service_name='irrelevant_custom_agent_name')",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /etc/service_demo/app_sys.json: Permission denied"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_f9a6b008",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 13,
+        "error_type": "PermissionDenied",
+        "stderr": "bash: line 1: /etc/service_demo/app_sys.json: Permission denied",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "irrelevant_custom_agent_name",
+          "port": 18080
+        },
+        "resource_id": "file:/etc/service_demo/app_sys.json",
+        "timestamp": 1791796632.6705968
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_User_Context_And_Ownership_Test",
+      "action_matches_scope": true,
+      "premise_value": "TRUE (Directory mode is strictly 0755)",
+      "actual_action": "write_config(/etc/service_demo/app_sys.json) under directory mode 0755 with executing user = owner",
+      "actual_outcome": {
+        "owner_user_write_exit": 0,
+        "chown_target_write_exit": 1,
+        "success": false
+      },
+      "expected_error_matches": false,
+      "adjudication": "COUNTEREXAMPLE",
+      "notes": "SCOPE_DEFICIENT / COUNTEREXAMPLE: Directory mode 0755 alone is INSUFFICIENT to deduce write failure. When executing user is directory owner, writing to 0755 directory succeeds with exit code 0! Candidate omitted executing user identity and ownership conditions."
+    }
+  },
+  {
+    "call_index": 6,
+    "trace_id": "trace_03_port_18081_reserved",
+    "action_signature": "start_service:config_path=/home/agentuser/service_conf/app_t3.json",
+    "premise_predicates": [
+      {
+        "key": "port:18081:occupied",
+        "op": "==",
+        "expected_value": "True"
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t3.json)",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18081)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_9dc98e60",
+        "success": false,
+        "exit_code": 98,
+        "error_code": 98,
+        "error_type": "AddressAlreadyInUse",
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18081)",
+        "stdout": "",
+        "config_snapshot": {
+          "port": 18081,
+          "config_path": "/home/agentuser/service_conf/app_t3.json"
+        },
+        "resource_id": "port:18081",
+        "timestamp": 1791796633.256711
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": true,
+      "premise_value": "FALSE (Premise cleared; port is free)",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t3.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise does not hold; execution succeeded normally. Does not count as support or counterexample."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t3.json) with irrelevant_metadata added",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18081)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_59b5a65d",
+        "success": false,
+        "exit_code": 98,
+        "error_code": 98,
+        "error_type": "AddressAlreadyInUse",
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18081)",
+        "stdout": "",
+        "config_snapshot": {
+          "port": 18081,
+          "config_path": "/home/agentuser/service_conf/app_t3.json"
+        },
+        "resource_id": "port:18081",
+        "timestamp": 1791796633.8956647
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT",
+      "notes": "Failure behavior invariant to non-causal metadata fields."
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Parameter_Brittleness_Test",
+      "action_matches_scope": false,
+      "premise_value": "TRUE (Port 18080 is occupied)",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t1_alternate_name.json)",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "adjudication": "ACTION_SIGNATURE_OVERLY_SPECIFIC",
+      "notes": "Failure reproduces on OS, but candidate rule's action signature hardcoded a specific filename, causing action_matches_scope=False on identical conflict with different filename."
+    }
+  },
+  {
+    "call_index": 8,
+    "trace_id": "trace_04_root_dir_permission_denied",
+    "action_signature": "write_config:config_path=/root/service_demo.json",
+    "premise_predicates": [
+      {
+        "key": "dir:/root:writable",
+        "op": "==",
+        "expected_value": "False"
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/root/service_demo.json)",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /root/service_demo.json: Permission denied"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_b08537e7",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 13,
+        "error_type": "PermissionDenied",
+        "stderr": "bash: line 1: /root/service_demo.json: Permission denied",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "telemetry_agent",
+          "port": 18080
+        },
+        "resource_id": "file:/root/service_demo.json",
+        "timestamp": 1791796634.5359473
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": false,
+      "premise_value": "FALSE",
+      "actual_action": "write_config(/home/agentuser/service_conf/service_demo.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise not applicable in alternate path."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/root/service_demo.json, service_name='irrelevant_custom_agent_name')",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /root/service_demo.json: Permission denied"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_7d0af0d5",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 13,
+        "error_type": "PermissionDenied",
+        "stderr": "bash: line 1: /root/service_demo.json: Permission denied",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "irrelevant_custom_agent_name",
+          "port": 18080
+        },
+        "resource_id": "file:/root/service_demo.json",
+        "timestamp": 1791796635.0969925
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Scope_Check",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "nominal_scope_check",
+      "actual_outcome": {
+        "checked": true
+      },
+      "expected_error_matches": true,
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    }
+  },
+  {
+    "call_index": 10,
+    "trace_id": "trace_05_nonexistent_config_path",
+    "action_signature": "start_service:config_path=/home/agentuser/service_conf/nonexistent_cfg_999.json",
+    "premise_predicates": [
+      {
+        "key": "config_file:exists",
+        "op": "==",
+        "expected_value": "True"
+      }
+    ],
+    "overall_verdict": "COUNTEREXAMPLE (Inverted Predicate Proven Infeasible)",
+    "has_counterexample": true,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "FALSE (In source trace, config file did not exist)",
+      "actual_action": "start_service(/home/agentuser/service_conf/nonexistent_cfg_999.json)",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "FileNotFoundError: Config file not found"
+      },
+      "expected_error_matches": true,
+      "adjudication": "SOURCE_PREMISE_MISMATCH",
+      "notes": "Candidate claimed failure occurs WHEN file exists (True), but in source experience the file did not exist (False)."
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Probe_Exact_Path",
+      "action_matches_scope": true,
+      "premise_value": "TRUE (Valid configuration created at exact declared path)",
+      "actual_action": "start_service(/home/agentuser/service_conf/nonexistent_cfg_999.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "expected_error_matches": false,
+      "raw_tool_evidence": {
+        "call_id": "call_0dd7a45d",
+        "success": true,
+        "exit_code": 0,
+        "error_code": 0,
+        "error_type": null,
+        "port": 18082,
+        "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+        "config_snapshot": {
+          "port": 18082,
+          "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+        },
+        "resource_id": "port:18082",
+        "pid": 2618437,
+        "stderr": "",
+        "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18082",
+        "timestamp": 1791796635.4391673
+      },
+      "adjudication": "COUNTEREXAMPLE",
+      "notes": "CONFIRMED COUNTEREXAMPLE: Premise config_file:exists == True holds, but start_service succeeds with exit code 0! Declared failure 'Config file not found' is completely refuted."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/nonexistent_cfg_999.json) with irrelevant_metadata added",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_30a10163",
+        "success": false,
+        "exit_code": 98,
+        "error_code": 98,
+        "error_type": "AddressAlreadyInUse",
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+        "stdout": "",
+        "config_snapshot": {
+          "port": 18080,
+          "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+        },
+        "resource_id": "port:18080",
+        "timestamp": 1791796635.77619
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT",
+      "notes": "Failure behavior invariant to non-causal metadata fields."
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Parameter_Brittleness_Test",
+      "action_matches_scope": false,
+      "premise_value": "TRUE (Port 18080 is occupied)",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t1_alternate_name.json)",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "adjudication": "ACTION_SIGNATURE_OVERLY_SPECIFIC",
+      "notes": "Failure reproduces on OS, but candidate rule's action signature hardcoded a specific filename, causing action_matches_scope=False on identical conflict with different filename."
+    }
+  },
+  {
+    "call_index": 12,
+    "trace_id": "trace_06_malformed_json_config",
+    "action_signature": "start_service:config_path=/home/agentuser/service_conf/malformed.json",
+    "premise_predicates": [
+      {
+        "key": "config_path:/home/agentuser/service_conf/malformed.json:valid_json",
+        "op": "==",
+        "expected_value": "False"
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/malformed.json)",
+      "actual_outcome": {
+        "exit_code": 2,
+        "stderr": "ValueError: Failed to parse config JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_a4291bbc",
+        "success": false,
+        "exit_code": 2,
+        "error_code": 2,
+        "error_type": "ValueError",
+        "stderr": "ValueError: Failed to parse config JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+        "stdout": "",
+        "timestamp": 1791796636.4136386
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": true,
+      "premise_value": "FALSE (Premise cleared; port is free)",
+      "actual_action": "start_service(/home/agentuser/service_conf/malformed.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise does not hold; execution succeeded normally. Does not count as support or counterexample."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/malformed.json) with irrelevant_metadata added",
+      "actual_outcome": {
+        "exit_code": 2,
+        "stderr": "ValueError: Failed to parse config JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_a552f68b",
+        "success": false,
+        "exit_code": 2,
+        "error_code": 2,
+        "error_type": "ValueError",
+        "stderr": "ValueError: Failed to parse config JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+        "stdout": "",
+        "timestamp": 1791796636.9976573
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT",
+      "notes": "Failure behavior invariant to non-causal metadata fields."
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Parameter_Brittleness_Test",
+      "action_matches_scope": false,
+      "premise_value": "TRUE (Port 18080 is occupied)",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t1_alternate_name.json)",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "adjudication": "ACTION_SIGNATURE_OVERLY_SPECIFIC",
+      "notes": "Failure reproduces on OS, but candidate rule's action signature hardcoded a specific filename, causing action_matches_scope=False on identical conflict with different filename."
+    }
+  },
+  {
+    "call_index": 14,
+    "trace_id": "trace_07_health_check_closed_port",
+    "action_signature": "check_health:port=18085",
+    "premise_predicates": [
+      {
+        "key": "port:18085:listening",
+        "op": "==",
+        "expected_value": "False"
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "check_health(18085)",
+      "actual_outcome": {
+        "status": "DOWN",
+        "error": "Connection refused: port 18085 is not listening"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_7a68064b",
+        "port": 18085,
+        "status": "DOWN",
+        "healthy": false,
+        "error": "Connection refused: port 18085 is not listening",
+        "timestamp": 1791796637.628719
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": false,
+      "premise_value": "FALSE (Target port is live and listening)",
+      "actual_action": "check_health(18082)",
+      "actual_outcome": {
+        "status": "UP",
+        "healthy": true
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE"
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "check_health(18085)",
+      "actual_outcome": {
+        "status": "DOWN"
+      },
+      "expected_error_matches": true,
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Scope_Check",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "nominal_scope_check",
+      "actual_outcome": {
+        "checked": true
+      },
+      "expected_error_matches": true,
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    }
+  },
+  {
+    "call_index": 16,
+    "trace_id": "trace_08_midflight_port_preemption",
+    "action_signature": "start_service:config_path=/home/agentuser/service_conf/app_stale.json",
+    "premise_predicates": [
+      {
+        "key": "port:18080:occupied",
+        "op": "==",
+        "expected_value": "True"
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_stale.json)",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_f8db80c7",
+        "success": false,
+        "exit_code": 98,
+        "error_code": 98,
+        "error_type": "AddressAlreadyInUse",
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+        "stdout": "",
+        "config_snapshot": {
+          "port": 18080,
+          "config_path": "/home/agentuser/service_conf/app_stale.json"
+        },
+        "resource_id": "port:18080",
+        "timestamp": 1791796638.6221967
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": true,
+      "premise_value": "FALSE (Premise cleared; port is free)",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_stale.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise does not hold; execution succeeded normally. Does not count as support or counterexample."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_stale.json) with irrelevant_metadata added",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_0d83f77e",
+        "success": false,
+        "exit_code": 98,
+        "error_code": 98,
+        "error_type": "AddressAlreadyInUse",
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+        "stdout": "",
+        "config_snapshot": {
+          "port": 18080,
+          "config_path": "/home/agentuser/service_conf/app_stale.json"
+        },
+        "resource_id": "port:18080",
+        "timestamp": 1791796639.2576034
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT",
+      "notes": "Failure behavior invariant to non-causal metadata fields."
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Parameter_Brittleness_Test",
+      "action_matches_scope": false,
+      "premise_value": "TRUE (Port 18080 is occupied)",
+      "actual_action": "start_service(/home/agentuser/service_conf/app_t1_alternate_name.json)",
+      "actual_outcome": {
+        "exit_code": 98,
+        "stderr": "OSError: [Errno 98] Address already in use (Port 18080)"
+      },
+      "expected_error_matches": true,
+      "adjudication": "ACTION_SIGNATURE_OVERLY_SPECIFIC",
+      "notes": "Failure reproduces on OS, but candidate rule's action signature hardcoded a specific filename, causing action_matches_scope=False on identical conflict with different filename."
+    }
+  },
+  {
+    "call_index": 18,
+    "trace_id": "trace_09_nonexistent_parent_directory",
+    "action_signature": "write_config:config_path=/tmp/nonexistent_subfolder_xyz/app.json",
+    "premise_predicates": [
+      {
+        "key": "dir:/tmp/nonexistent_subfolder_xyz:exists",
+        "op": "==",
+        "expected_value": "False"
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/tmp/nonexistent_subfolder_xyz/app.json)",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /tmp/nonexistent_subfolder_xyz/app.json: No such file or directory"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_50cd30f4",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 2,
+        "error_type": "FileNotFound",
+        "stderr": "bash: line 1: /tmp/nonexistent_subfolder_xyz/app.json: No such file or directory",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "telemetry_agent",
+          "port": 18080
+        },
+        "resource_id": "file:/tmp/nonexistent_subfolder_xyz/app.json",
+        "timestamp": 1791796639.896006
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": false,
+      "premise_value": "FALSE",
+      "actual_action": "write_config(/home/agentuser/service_conf/app.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise not applicable in alternate path."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/tmp/nonexistent_subfolder_xyz/app.json, service_name='irrelevant_custom_agent_name')",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /tmp/nonexistent_subfolder_xyz/app.json: No such file or directory"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_ff28cd0f",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 2,
+        "error_type": "FileNotFound",
+        "stderr": "bash: line 1: /tmp/nonexistent_subfolder_xyz/app.json: No such file or directory",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "irrelevant_custom_agent_name",
+          "port": 18080
+        },
+        "resource_id": "file:/tmp/nonexistent_subfolder_xyz/app.json",
+        "timestamp": 1791796640.4679282
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Scope_Check",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "nominal_scope_check",
+      "actual_outcome": {
+        "checked": true
+      },
+      "expected_error_matches": true,
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    }
+  },
+  {
+    "call_index": 20,
+    "trace_id": "trace_10_overwrite_readonly_file",
+    "action_signature": "write_config:config_path=/home/agentuser/service_conf/readonly_app.json",
+    "premise_predicates": [
+      {
+        "key": "file:/home/agentuser/service_conf/readonly_app.json:mode",
+        "op": "==",
+        "expected_value": "\"0444\""
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/home/agentuser/service_conf/readonly_app.json)",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /home/agentuser/service_conf/readonly_app.json: Permission denied"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_492c6a50",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 13,
+        "error_type": "PermissionDenied",
+        "stderr": "bash: line 1: /home/agentuser/service_conf/readonly_app.json: Permission denied",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "telemetry_agent",
+          "port": 18080
+        },
+        "resource_id": "file:/home/agentuser/service_conf/readonly_app.json",
+        "timestamp": 1791796640.7319708
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": false,
+      "premise_value": "FALSE",
+      "actual_action": "write_config(/home/agentuser/service_conf/readonly_app.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise not applicable in alternate path."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/home/agentuser/service_conf/readonly_app.json, service_name='irrelevant_custom_agent_name')",
+      "actual_outcome": {
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "expected_error_matches": false,
+      "raw_tool_evidence": {
+        "call_id": "call_1fb82305",
+        "success": true,
+        "exit_code": 0,
+        "error_code": 0,
+        "error_type": null,
+        "config_path": "/home/agentuser/service_conf/readonly_app.json",
+        "port": 18080,
+        "config_snapshot": {
+          "service_name": "irrelevant_custom_agent_name",
+          "port": 18080
+        },
+        "resource_id": "file:/home/agentuser/service_conf/readonly_app.json",
+        "stderr": "",
+        "stdout": "Configuration successfully written to /home/agentuser/service_conf/readonly_app.json",
+        "timestamp": 1791796641.264629
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Scope_Check",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "nominal_scope_check",
+      "actual_outcome": {
+        "checked": true
+      },
+      "expected_error_matches": true,
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    }
+  },
+  {
+    "call_index": 22,
+    "trace_id": "trace_11_service_crashed_unhealthy",
+    "action_signature": "check_health:port=18081",
+    "premise_predicates": [
+      {
+        "key": "port:18081:listening",
+        "op": "==",
+        "expected_value": "False"
+      }
+    ],
+    "overall_verdict": "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)",
+    "has_counterexample": false,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "check_health(18081)",
+      "actual_outcome": {
+        "status": "DOWN",
+        "error": "Connection refused: port 18081 is not listening"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_0867c554",
+        "port": 18081,
+        "status": "DOWN",
+        "healthy": false,
+        "error": "Connection refused: port 18081 is not listening",
+        "timestamp": 1791796641.6289048
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": false,
+      "premise_value": "FALSE (Target port is live and listening)",
+      "actual_action": "check_health(18082)",
+      "actual_outcome": {
+        "status": "UP",
+        "healthy": true
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE"
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "check_health(18081)",
+      "actual_outcome": {
+        "status": "DOWN"
+      },
+      "expected_error_matches": true,
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_Scope_Check",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "nominal_scope_check",
+      "actual_outcome": {
+        "checked": true
+      },
+      "expected_error_matches": true,
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    }
+  },
+  {
+    "call_index": 24,
+    "trace_id": "trace_12_permission_port_composition",
+    "action_signature": "write_config:config_path=/etc/service_demo/app_comp.json",
+    "premise_predicates": [
+      {
+        "key": "dir:/etc/service_demo:permissions",
+        "op": "==",
+        "expected_value": "0755"
+      }
+    ],
+    "overall_verdict": "SCOPE_DEFICIENT (True Counterexample under Owner Context)",
+    "has_counterexample": true,
+    "variant_1_reproduction": {
+      "variant": "V1_Original_Context_Reproduction",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/etc/service_demo/app_comp.json)",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /etc/service_demo/app_comp.json: Permission denied"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_d3e52b24",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 13,
+        "error_type": "PermissionDenied",
+        "stderr": "bash: line 1: /etc/service_demo/app_comp.json: Permission denied",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "telemetry_agent",
+          "port": 18080
+        },
+        "resource_id": "file:/etc/service_demo/app_comp.json",
+        "timestamp": 1791796642.481095
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_2_premise_cleared_probe": {
+      "variant": "V2_Premise_Cleared",
+      "action_matches_scope": false,
+      "premise_value": "FALSE",
+      "actual_action": "write_config(/home/agentuser/service_conf/app_comp.json)",
+      "actual_outcome": {
+        "success": true,
+        "exit_code": 0
+      },
+      "expected_error_matches": false,
+      "adjudication": "NOT_APPLICABLE",
+      "notes": "Premise not applicable in alternate path."
+    },
+    "variant_3_irrelevant_attribute": {
+      "variant": "V3_Irrelevant_Attribute_Changed",
+      "action_matches_scope": true,
+      "premise_value": "TRUE",
+      "actual_action": "write_config(/etc/service_demo/app_comp.json, service_name='irrelevant_custom_agent_name')",
+      "actual_outcome": {
+        "exit_code": 1,
+        "stderr": "bash: line 1: /etc/service_demo/app_comp.json: Permission denied"
+      },
+      "expected_error_matches": true,
+      "raw_tool_evidence": {
+        "call_id": "call_e0f4514d",
+        "success": false,
+        "exit_code": 1,
+        "error_code": 13,
+        "error_type": "PermissionDenied",
+        "stderr": "bash: line 1: /etc/service_demo/app_comp.json: Permission denied",
+        "stdout": "",
+        "config_snapshot": {
+          "service_name": "irrelevant_custom_agent_name",
+          "port": 18080
+        },
+        "resource_id": "file:/etc/service_demo/app_comp.json",
+        "timestamp": 1791796642.9721088
+      },
+      "adjudication": "SUPPORTED_IN_TESTED_CONTEXT"
+    },
+    "variant_4_context_and_scope": {
+      "variant": "V4_User_Context_And_Ownership_Test",
+      "action_matches_scope": true,
+      "premise_value": "TRUE (Directory mode is strictly 0755)",
+      "actual_action": "write_config(/etc/service_demo/app_comp.json) under directory mode 0755 with executing user = owner",
+      "actual_outcome": {
+        "owner_user_write_exit": 0,
+        "chown_target_write_exit": 0,
+        "success": true
+      },
+      "expected_error_matches": false,
+      "adjudication": "COUNTEREXAMPLE",
+      "notes": "SCOPE_DEFICIENT / COUNTEREXAMPLE: Directory mode 0755 alone is INSUFFICIENT to deduce write failure. When executing user is directory owner, writing to 0755 directory succeeds with exit code 0! Candidate omitted executing user identity and ownership conditions."
+    }
+  }
+]
