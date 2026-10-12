@@ -134,6 +134,7 @@ Output strictly a single JSON block adhering to this schema:
         run_id: str,
         facts: Optional[List[StructuredFact]] = None,
         lifecycle_manager: Optional[ConstraintLifecycleManager] = None,
+        s2_cache: Optional[Dict[str, bool]] = None,
         max_steps: int = 20,
     ) -> Dict[str, Any]:
         """Runs a complete multi-step deployment episode."""
@@ -156,6 +157,7 @@ Output strictly a single JSON block adhering to this schema:
         fp_blocks = 0
         unknown_probes = 0
         candidate_trials = 0
+        s2_verifications = 0
         total_prompt_tokens = 0
         total_generated_tokens = 0
         total_inference_latency = 0.0
@@ -229,8 +231,11 @@ Output strictly a single JSON block adhering to this schema:
             pre_action_applicability = None
             deferred_unknown = False
 
-            if group == "B2-G" and lifecycle_manager:
-                gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager)
+            if group in ("B2-G", "S1") and lifecycle_manager:
+                if group == "S1":
+                    gate_eval = self._evaluate_s1_advisory_gate(action_sig, lifecycle_manager=lifecycle_manager)
+                else:
+                    gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager)
                 # Auto-probe loop for UNKNOWN premises (up to 2 retries)
                 probe_retries = 0
                 max_probe_retries = 2
@@ -270,7 +275,10 @@ Output strictly a single JSON block adhering to this schema:
                         "probe_res": probe_res,
                     })
                     # Re-evaluate the same pending action without calling model
-                    gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager)
+                    if group == "S1":
+                        gate_eval = self._evaluate_s1_advisory_gate(action_sig, lifecycle_manager=lifecycle_manager)
+                    else:
+                        gate_eval = self._evaluate_generic_predicate_gate(action_sig, lifecycle_manager=lifecycle_manager)
 
                 decision = gate_eval["decision"]
                 if decision == GateDecision.BLOCK:
@@ -300,7 +308,41 @@ Output strictly a single JSON block adhering to this schema:
                         "step": step,
                         "action": action_sig,
                         "decision": "ALLOW",
-                        "reason": gate_eval.get("reason", "Generic gate allowed."),
+                        "reason": gate_eval.get("reason", f"{group} gate allowed."),
+                    })
+
+            elif group == "S2" and lifecycle_manager:
+                if s2_cache is None:
+                    s2_cache = {}
+                gate_eval, v_cnt = self._evaluate_s2_cached_gate(
+                    action_sig=action_sig,
+                    params=params,
+                    lifecycle_manager=lifecycle_manager,
+                    env=env,
+                    s2_cache=s2_cache,
+                )
+                s2_verifications += v_cnt
+                decision = gate_eval["decision"]
+                if decision == GateDecision.BLOCK:
+                    gate_blocked = True
+                    gate_reason = gate_eval["reason"]
+                    if is_failing_action:
+                        tp_blocks += 1
+                    else:
+                        fp_blocks += 1
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "BLOCK",
+                        "reason": gate_reason,
+                        "is_tp": is_failing_action,
+                    })
+                elif decision == GateDecision.ALLOW:
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "ALLOW",
+                        "reason": gate_eval.get("reason", "S2 gate allowed."),
                     })
 
             elif group == "M" and lifecycle_manager:
@@ -431,8 +473,8 @@ Output strictly a single JSON block adhering to this schema:
             if not tool_success or tool_exit_code != 0:
                 executed_error_actions += 1
 
-            # Update lifecycle outcomes if M
-            if group == "M" and lifecycle_manager:
+            # Update lifecycle outcomes if M or S1
+            if group in ("M", "S1") and lifecycle_manager:
                 real_evidence_id = tool_res.get("call_id") or f"ev_tool_{step}_{int(time.time()*1000)}"
                 trans = lifecycle_manager.record_action_outcome(
                     action_signature=action_sig,
@@ -488,6 +530,7 @@ Output strictly a single JSON block adhering to this schema:
             "fp_blocks": fp_blocks,
             "unknown_probes": unknown_probes,
             "candidate_trials": candidate_trials,
+            "s2_verifications": s2_verifications,
             "llm_calls": llm_calls,
             "tool_calls": tool_calls,
             "prompt_tokens": total_prompt_tokens,
@@ -617,6 +660,106 @@ Output strictly a single JSON block adhering to this schema:
                     "reason": f"Generic predicate gate deferred: rule {r.rule_id} premise is UNKNOWN; probe required.",
                 }
         return {"decision": GateDecision.ALLOW, "reason": "No blocking predicate matches."}
+
+    def _evaluate_s1_advisory_gate(
+        self,
+        action_sig: str,
+        lifecycle_manager: ConstraintLifecycleManager,
+    ) -> Dict[str, Any]:
+        """
+        S1 Baseline: Candidate rules only serve as advisory warnings in prompt and do NOT block.
+        Only rules in SUPPORTED state are allowed to block execution.
+        """
+        if not lifecycle_manager or not lifecycle_manager.rules:
+            return {"decision": GateDecision.ALLOW, "reason": "No rules available."}
+
+        matching_rules = [r for r in lifecycle_manager.rules.values() if r.action_signature == action_sig]
+        for r in matching_rules:
+            if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
+                continue
+            if r.validity_state == ValidityState.CANDIDATE:
+                # S1: Advisory warning only; do not block in gate
+                continue
+            # For SUPPORTED rules: evaluate applicability
+            app = lifecycle_manager.evaluate_applicability(r)
+            if app == ApplicabilityState.APPLICABLE:
+                return {
+                    "decision": GateDecision.BLOCK,
+                    "matching_rule_id": r.rule_id,
+                    "reason": f"S1 verified gate blocked: rule {r.rule_id} is SUPPORTED and premise is APPLICABLE.",
+                }
+            elif app == ApplicabilityState.UNKNOWN:
+                unknown_pred = self._find_unknown_predicate_for_rule(lifecycle_manager, r)
+                probe_info = self._resolve_probe_for_predicate(unknown_pred, {})
+                return {
+                    "decision": GateDecision.PROBE,
+                    "matching_rule_id": r.rule_id,
+                    "probe_info": probe_info,
+                    "probe_tool": probe_info["tool"] if probe_info else "probe_port",
+                    "probe_params": probe_info["params"] if probe_info else {},
+                    "reason": f"S1 gate deferred: rule {r.rule_id} premise is UNKNOWN; probe required.",
+                }
+        return {"decision": GateDecision.ALLOW, "reason": "S1 allowed (no verified blocking rule)."}
+
+    def _evaluate_s2_cached_gate(
+        self,
+        action_sig: str,
+        params: Dict[str, Any],
+        lifecycle_manager: ConstraintLifecycleManager,
+        env: MultiStepDeploymentEnv,
+        s2_cache: Dict[str, bool],
+    ) -> Tuple[Dict[str, Any], int]:
+        """
+        S2 Baseline: Single Controlled Verification with Cache.
+        First encounter of a candidate rule triggers a single controlled verification;
+        result is cached (True=active constraint, False=spurious/inactive).
+        Returns (gate_eval, verifications_count).
+        """
+        if not lifecycle_manager or not lifecycle_manager.rules:
+            return {"decision": GateDecision.ALLOW, "reason": "No rules available."}, 0
+
+        verifications = 0
+        matching_rules = [r for r in lifecycle_manager.rules.values() if r.action_signature == action_sig]
+        for r in matching_rules:
+            if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
+                continue
+
+            # Check if verification cached
+            if r.rule_id not in s2_cache:
+                verifications += 1
+                # Run single controlled verification probe
+                if "port:" in r.action_signature or (r.predicates and any("port:" in p.key for p in r.predicates)):
+                    port = 18080
+                    for p in r.predicates:
+                        if "port:" in p.key:
+                            parts = p.key.split(":")
+                            if len(parts) >= 2 and parts[1].isdigit():
+                                port = int(parts[1])
+                    p_res = env.probe_port(port)
+                    is_blocked = p_res.get("is_occupied", False)
+                    s2_cache[r.rule_id] = is_blocked
+                elif "write_config" in r.action_signature or (r.predicates and any("dir:" in p.key or "file:" in p.key for p in r.predicates)):
+                    cfg_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
+                    f_res = env.probe_file(cfg_path)
+                    target_writable = f_res.get("writable_by_user", False)
+                    is_blocked = not target_writable
+                    s2_cache[r.rule_id] = is_blocked
+                else:
+                    s2_cache[r.rule_id] = True
+
+            # Use cache
+            if s2_cache.get(r.rule_id, False) is True:
+                app = lifecycle_manager.evaluate_applicability(r)
+                if app == ApplicabilityState.APPLICABLE:
+                    return {
+                        "decision": GateDecision.BLOCK,
+                        "matching_rule_id": r.rule_id,
+                        "reason": f"S2 verified constraint blocked: rule {r.rule_id} verified and premise APPLICABLE.",
+                    }, verifications
+            else:
+                continue
+
+        return {"decision": GateDecision.ALLOW, "reason": "S2 allowed."}, verifications
 
     def _find_unknown_predicate_for_rule(self, lifecycle_manager: ConstraintLifecycleManager, rule: Optional[ConstraintRule]):
         if not rule:

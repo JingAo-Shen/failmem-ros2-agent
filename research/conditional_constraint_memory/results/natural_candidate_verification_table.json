@@ -1,0 +1,410 @@
+[
+  {
+    "call_index": 2,
+    "trace_id": "trace_01_port_18080_conflict",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "start_service:config_path=/home/agentuser/service_conf/app_t1.json",
+      "precondition": "port:18080:occupied == True",
+      "failure_code": "98",
+      "evidence": "\"Address already in use: 18080\"",
+      "scope": "port:18080"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 98,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "start_service:config_path=/home/agentuser/service_conf/app_t1.json"
+      },
+      "v4_context_changed": {
+        "port_18082_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATE_OR_CONSERVATIVE"
+  },
+  {
+    "call_index": 4,
+    "trace_id": "trace_02_etc_permission_denied",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "write_config:config_path=/etc/service_demo/app_sys.json",
+      "precondition": "dir:/etc/service_demo:permissions == 0755",
+      "failure_code": "1",
+      "evidence": "\"Permission denied\"",
+      "scope": "write_config on /etc/service_demo/app_sys.json when target_dir_mode is 0755"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 1,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "write_config:config_path=/etc/service_demo/app_sys.json"
+      },
+      "v4_context_changed": {
+        "user_dir_write_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATELY_SCOPED_OR_SPECIFIC"
+  },
+  {
+    "call_index": 6,
+    "trace_id": "trace_03_port_18081_reserved",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "start_service:config_path=/home/agentuser/service_conf/app_t3.json",
+      "precondition": "port:18081:occupied == True",
+      "failure_code": "98",
+      "evidence": "\"Address already in use: 18081\"",
+      "scope": "port:18081"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 98,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "start_service:config_path=/home/agentuser/service_conf/app_t3.json"
+      },
+      "v4_context_changed": {
+        "port_18082_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATE_OR_CONSERVATIVE"
+  },
+  {
+    "call_index": 8,
+    "trace_id": "trace_04_root_dir_permission_denied",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "write_config:config_path=/root/service_demo.json",
+      "precondition": "dir:/root:writable == False",
+      "failure_code": "1",
+      "evidence": "\"Permission denied\"",
+      "scope": "directory permissions for /root"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 1,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "write_config:config_path=/root/service_demo.json"
+      },
+      "v4_context_changed": {
+        "user_dir_write_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATELY_SCOPED_OR_SPECIFIC"
+  },
+  {
+    "call_index": 10,
+    "trace_id": "trace_05_nonexistent_config_path",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "start_service:config_path=/home/agentuser/service_conf/nonexistent_cfg_999.json",
+      "precondition": "config_file:exists == True",
+      "failure_code": "1",
+      "evidence": "\"Config file not found\"",
+      "scope": "config_file:exists"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 1,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "start_service:config_path=/home/agentuser/service_conf/nonexistent_cfg_999.json"
+      },
+      "v4_context_changed": {
+        "port_18082_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATE_OR_CONSERVATIVE"
+  },
+  {
+    "call_index": 12,
+    "trace_id": "trace_06_malformed_json_config",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "start_service:config_path=/home/agentuser/service_conf/malformed.json",
+      "precondition": "config_path:/home/agentuser/service_conf/malformed.json:valid_json == False",
+      "failure_code": "2",
+      "evidence": "\"Failed to parse json config\"",
+      "scope": "config_path=/home/agentuser/service_conf/malformed.json"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 2,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "start_service:config_path=/home/agentuser/service_conf/malformed.json"
+      },
+      "v4_context_changed": {
+        "port_18082_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATE_OR_CONSERVATIVE"
+  },
+  {
+    "call_index": 14,
+    "trace_id": "trace_07_health_check_closed_port",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "check_health:port=18085",
+      "precondition": "port:18085:listening == False",
+      "failure_code": "1",
+      "evidence": "\"Connection refused: port 18085 is not listening\"",
+      "scope": "port 18085 must be listening for check_health to succeed"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": null,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "check_health:port=18085"
+      },
+      "v4_context_changed": {
+        "port_18082_health_success": false,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATE_OR_CONSERVATIVE"
+  },
+  {
+    "call_index": 16,
+    "trace_id": "trace_08_midflight_port_preemption",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "start_service:config_path=/home/agentuser/service_conf/app_stale.json",
+      "precondition": "port:18080:occupied == True",
+      "failure_code": "98",
+      "evidence": "\"Address already in use: 18080\"",
+      "scope": "port:18080"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 98,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "start_service:config_path=/home/agentuser/service_conf/app_stale.json"
+      },
+      "v4_context_changed": {
+        "port_18082_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATE_OR_CONSERVATIVE"
+  },
+  {
+    "call_index": 18,
+    "trace_id": "trace_09_nonexistent_parent_directory",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "write_config:config_path=/tmp/nonexistent_subfolder_xyz/app.json",
+      "precondition": "dir:/tmp/nonexistent_subfolder_xyz:exists == False",
+      "failure_code": "1",
+      "evidence": "\"No such file or directory\"",
+      "scope": "config_path directory existence check"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 1,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "write_config:config_path=/tmp/nonexistent_subfolder_xyz/app.json"
+      },
+      "v4_context_changed": {
+        "user_dir_write_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATELY_SCOPED_OR_SPECIFIC"
+  },
+  {
+    "call_index": 20,
+    "trace_id": "trace_10_overwrite_readonly_file",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "write_config:config_path=/home/agentuser/service_conf/readonly_app.json",
+      "precondition": "file:/home/agentuser/service_conf/readonly_app.json:mode == \"0444\"",
+      "failure_code": "1",
+      "evidence": "\"Permission denied\"",
+      "scope": "file write operations on /home/agentuser/service_conf/readonly_app.json"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 1,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "write_config:config_path=/home/agentuser/service_conf/readonly_app.json"
+      },
+      "v4_context_changed": {
+        "user_dir_write_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATELY_SCOPED_OR_SPECIFIC"
+  },
+  {
+    "call_index": 22,
+    "trace_id": "trace_11_service_crashed_unhealthy",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "check_health:port=18081",
+      "precondition": "port:18081:listening == False",
+      "failure_code": "1",
+      "evidence": "\"Connection refused: port 18081 is not listening\"",
+      "scope": "port 18081 must be in a listening state for check_health to succeed."
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": null,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "check_health:port=18081"
+      },
+      "v4_context_changed": {
+        "port_18082_health_success": false,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATE_OR_CONSERVATIVE"
+  },
+  {
+    "call_index": 24,
+    "trace_id": "trace_12_permission_port_composition",
+    "candidate_status": "EXTRACTED_RULE",
+    "rule": {
+      "action_signature": "write_config:config_path=/etc/service_demo/app_comp.json",
+      "precondition": "dir:/etc/service_demo:permissions == 0755",
+      "failure_code": "1",
+      "evidence": "\"Permission denied\"",
+      "scope": "write_config on /etc/service_demo/app_comp.json when target_dir_mode is 0755"
+    },
+    "variants_tested": {
+      "v1_reproduction": {
+        "success": false,
+        "exit_code": 1,
+        "reproduced": true
+      },
+      "v2_premise_cleared": {
+        "success": true,
+        "exit_code": 0
+      },
+      "v3_irrelevant_attribute": {
+        "normalized_signature": "write_config:config_path=/etc/service_demo/app_comp.json"
+      },
+      "v4_context_changed": {
+        "user_dir_write_success": true,
+        "overgeneralized": false
+      }
+    },
+    "classification": "ACCURATE_VALID_RULE",
+    "has_counter_example": false,
+    "counter_example_detail": null,
+    "generalization_diagnosis": "ACCURATELY_SCOPED_OR_SPECIFIC"
+  }
+]

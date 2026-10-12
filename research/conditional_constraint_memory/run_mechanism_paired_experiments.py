@@ -426,11 +426,14 @@ def generate_paired_report(results: List[Dict[str, Any]], out_path: Path):
         b2g_err = b2g["executed_error_actions"]
         m_trial = m["candidate_trials"]
         m_err = m["executed_error_actions"]
-        m_trans = len(m["lifecycle_transitions"])
+        m_validity_transitions = sum(
+            1 for t in m["lifecycle_transitions"]
+            if t.get("prior_validity") != t.get("new_validity")
+        )
         succ = f"{'Pass' if b2g['success'] else 'Fail'} / {'Pass' if m['success'] else 'Fail'}"
 
         lines.append(
-            f"| **{cid}**: {cname} | {is_syn} | {b2g_block} | {b2g_err} | {m_trial} | {m_err} | {m_trans} 次 | {succ} |"
+            f"| **{cid}**: {cname} | {is_syn} | {b2g_block} | {b2g_err} | {m_trial} | {m_err} | {m_validity_transitions} 次 | {succ} |"
         )
 
     lines.extend([
@@ -447,12 +450,16 @@ def generate_paired_report(results: List[Dict[str, Any]], out_path: Path):
         cdesc = c["case_description"]
         b2g = c["arms"]["B2-G"]
         m = c["arms"]["M"]
+        m_validity_transitions = sum(
+            1 for t in m["lifecycle_transitions"]
+            if t.get("prior_validity") != t.get("new_validity")
+        )
 
         lines.extend([
             f"### {cid.upper()}: {cname}",
             f"- **测试目标与场景**: {cdesc}",
             f"- **B2-G 表现**: TP阻断={b2g['tp_blocks']}, FP阻断={b2g['fp_blocks']}, 探针={b2g['unknown_probes']}, 实际执行错误={b2g['executed_error_actions']}",
-            f"- **Method M 表现**: 候选试探={m['candidate_trials']}, TP阻断={m['tp_blocks']}, 实际执行错误={m['executed_error_actions']}, 状态迁移={len(m['lifecycle_transitions'])}",
+            f"- **Method M 表现**: 候选试探={m['candidate_trials']}, TP阻断={m['tp_blocks']}, 实际执行错误={m['executed_error_actions']}, 真实有效性跃迁={m_validity_transitions}",
             f"- **规则最终状态 (M)**: {json.dumps(m['post_rule_states'])}",
             "",
         ])
@@ -462,13 +469,17 @@ def generate_paired_report(results: List[Dict[str, Any]], out_path: Path):
         "",
         "## 3. 核心机制发现与对冲分析",
         "",
-        "1. **Case 1 暴露的 M 固有缺陷**：",
+        "1. **方法论边界说明**：",
+        "   - 本实验中的人工错误规则属于受控合成压力测试，**只能说明候选放行机制在特定构造案例中能避免错误阻断，不能证明自然 Agent 在开放任务中的独立收益、唯一性或不可替代性**；",
+        "   - 本实验全部基于 CPU 脚本策略测试桩运行，所有 token 字段均为模拟占位值 (`simulated`)；真实大模型调用与真实 token 开销均为 0；",
+        "2. **Case 1 暴露的 M 固有缺陷**：",
         "   - 当候选规则是**正确且阻碍持续存在**的物理 OS 约束时，B2-G 凭借通用谓词直接精准拦截（0 次执行错误）；",
-        "   - 现有 M 的候选试探机制盲目允许真实执行，**必然付出 1 次实际 OS 失败（Errno 98）的代价**；",
-        "2. **Case 5 展现的 M 理论优势（仅在过度泛化候选规则下成立）**：",
+        "   - 现有 M 的候选试探机制允许真实执行，**付出 1 次实际 OS 失败（Errno 98）的代价**；",
+        "3. **Case 5 表现与任务状态澄清（必须区分局部动作可行性与最终任务完成）**：",
         "   - 当规则为人工构造的**过度泛化假规则**时（声明前提成立，但当前动作实际可行），B2-G 发生误阻断（FP Block = 1）；",
-        "   - M 凭借候选放行试探成功执行动作，并在 real OS 成功后**因果判定为反例，将规则降级为 CONTRADICTED**；",
-        "3. **反例判定的严谨性**：",
+        "   - M 凭借候选放行试探成功执行了写配置动作，并在 real OS 成功后**因果判定为反例，将假规则证伪降级为 CONTRADICTED**；",
+        "   - **必须明确区分局部动作可行性与任务完成**：Case 5 脚本仅包含目录探测与写配置动作，未包含启动服务与健康检查，因此 B2-G 与 M 最终的任务完成状态均为 Fail。M 实现了局部动作的可行性恢复与反例证伪，但并未在此脚本中完成端到端部署任务；",
+        "4. **反例判定的严谨性**：",
         "   - Case 5 是真正的反例（前提确立为 True，动作真实在 OS 成功）；而 Case 2（前提解除后的成功）被正确识别为 NOT_APPLICABLE 正常放行，未被误判为反例。",
         "",
     ])
