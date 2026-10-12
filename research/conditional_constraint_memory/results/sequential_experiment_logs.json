@@ -1,0 +1,639 @@
+{
+  "B2": {
+    "tasks": [
+      {
+        "task_index": 0,
+        "task_id": "task_0_harvest",
+        "task_name": "Task 0: Source Extraction & Harvest",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 1,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.39,
+        "lifecycle_transitions": [],
+        "gate_events": [],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 1,
+        "task_id": "task_1_first_encounter",
+        "task_name": "Task 1: First Encounter with Candidate Rule",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 1,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.345,
+        "lifecycle_transitions": [],
+        "gate_events": [],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 2,
+        "task_id": "task_2_subsequent_encounter",
+        "task_name": "Task 2: Subsequent Encounter with Same Constraint",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 1,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.392,
+        "lifecycle_transitions": [],
+        "gate_events": [],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 3,
+        "task_id": "task_3_overgeneralized_rule",
+        "task_name": "Task 3: Overgeneralized Candidate Rule Recovery",
+        "instance_id": "inst3_permission_fallback",
+        "success": true,
+        "steps": 4,
+        "proposed_error_actions": 0,
+        "executed_error_actions": 0,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 480,
+        "generated_tokens": 140,
+        "latency_s": 0.228,
+        "lifecycle_transitions": [],
+        "gate_events": [],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          },
+          "r_seq_overgen_write": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      }
+    ],
+    "cumulative": {
+      "completed_tasks": 4,
+      "total_tasks": 4,
+      "success_rate": "4/4 (100.0%)",
+      "cumulative_executed_errors": 3,
+      "cumulative_tp_blocks": 0,
+      "cumulative_fp_blocks": 0,
+      "cumulative_unknown_probes": 0,
+      "cumulative_candidate_trials": 0,
+      "cumulative_validity_transitions": 0,
+      "cumulative_prompt_tokens": 2280,
+      "cumulative_generated_tokens": 665,
+      "cumulative_latency_s": 1.355
+    }
+  },
+  "B2-G": {
+    "tasks": [
+      {
+        "task_index": 0,
+        "task_id": "task_0_harvest",
+        "task_name": "Task 0: Source Extraction & Harvest",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 1,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.368,
+        "lifecycle_transitions": [],
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t0.json",
+            "decision": "ALLOW",
+            "reason": "No rules available."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "ALLOW",
+            "reason": "No rules available."
+          },
+          {
+            "step": 3,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t0.json",
+            "decision": "ALLOW",
+            "reason": "No rules available."
+          },
+          {
+            "step": 4,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No rules available."
+          },
+          {
+            "step": 5,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No rules available."
+          }
+        ],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 1,
+        "task_id": "task_1_first_encounter",
+        "task_name": "Task 1: First Encounter with Candidate Rule",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 0,
+        "tp_blocks": 1,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.319,
+        "lifecycle_transitions": [],
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t1.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "BLOCK",
+            "reason": "Generic predicate gate blocked: rule r_seq_port_18080 premise confirmed APPLICABLE.",
+            "is_tp": true
+          },
+          {
+            "step": 3,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t1.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 4,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 5,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          }
+        ],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 2,
+        "task_id": "task_2_subsequent_encounter",
+        "task_name": "Task 2: Subsequent Encounter with Same Constraint",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 0,
+        "tp_blocks": 1,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.317,
+        "lifecycle_transitions": [],
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t2.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "BLOCK",
+            "reason": "Generic predicate gate blocked: rule r_seq_port_18080 premise confirmed APPLICABLE.",
+            "is_tp": true
+          },
+          {
+            "step": 3,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t2.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 4,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 5,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          }
+        ],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 3,
+        "task_id": "task_3_overgeneralized_rule",
+        "task_name": "Task 3: Overgeneralized Candidate Rule Recovery",
+        "instance_id": "inst3_permission_fallback",
+        "success": false,
+        "steps": 5,
+        "proposed_error_actions": 2,
+        "executed_error_actions": 2,
+        "tp_blocks": 0,
+        "fp_blocks": 1,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.129,
+        "lifecycle_transitions": [],
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "probe_directory:/etc/service_demo",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t3.json",
+            "decision": "BLOCK",
+            "reason": "Generic predicate gate blocked: rule r_seq_overgen_write premise confirmed APPLICABLE.",
+            "is_tp": false
+          },
+          {
+            "step": 3,
+            "action": "start_service:/home/agentuser/service_conf/app_seq_t3.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 4,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          }
+        ],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          },
+          "r_seq_overgen_write": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      }
+    ],
+    "cumulative": {
+      "completed_tasks": 3,
+      "total_tasks": 4,
+      "success_rate": "3/4 (75.0%)",
+      "cumulative_executed_errors": 3,
+      "cumulative_tp_blocks": 2,
+      "cumulative_fp_blocks": 1,
+      "cumulative_unknown_probes": 0,
+      "cumulative_candidate_trials": 0,
+      "cumulative_validity_transitions": 0,
+      "cumulative_prompt_tokens": 2400,
+      "cumulative_generated_tokens": 700,
+      "cumulative_latency_s": 1.133
+    }
+  },
+  "M": {
+    "tasks": [
+      {
+        "task_index": 0,
+        "task_id": "task_0_harvest",
+        "task_name": "Task 0: Source Extraction & Harvest",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 1,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.348,
+        "lifecycle_transitions": [],
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t0.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 3,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t0.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 4,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 5,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          }
+        ],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 1,
+        "task_id": "task_1_first_encounter",
+        "task_name": "Task 1: First Encounter with Candidate Rule",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 1,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 1,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.395,
+        "lifecycle_transitions": [
+          {
+            "rule_id": "r_seq_port_18080",
+            "prior_applicability": "APPLICABLE",
+            "prior_validity": "CANDIDATE",
+            "new_validity": "SUPPORTED",
+            "transition": "CANDIDATE -> SUPPORTED (PROBATION_PASSED, count=2)"
+          }
+        ],
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t1.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "CANDIDATE_TRIAL",
+            "reason": "Rule r_seq_port_18080 is in CANDIDATE state; allowed under probationary trial."
+          },
+          {
+            "step": 3,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t1.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 4,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 5,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          }
+        ],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "SUPPORTED",
+            "support_count": 2,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 2,
+        "task_id": "task_2_subsequent_encounter",
+        "task_name": "Task 2: Subsequent Encounter with Same Constraint",
+        "instance_id": "inst1_port_conflict_persistent",
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 0,
+        "tp_blocks": 1,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "prompt_tokens": 600,
+        "generated_tokens": 175,
+        "latency_s": 0.298,
+        "lifecycle_transitions": [],
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t2.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "BLOCK",
+            "reason": "Action blocked: Rule r_seq_port_18080 is SUPPORTED and APPLICABLE.",
+            "is_tp": true
+          },
+          {
+            "step": 3,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t2.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 4,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 5,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          }
+        ],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "SUPPORTED",
+            "support_count": 2,
+            "contradict_count": 0
+          }
+        }
+      },
+      {
+        "task_index": 3,
+        "task_id": "task_3_overgeneralized_rule",
+        "task_name": "Task 3: Overgeneralized Candidate Rule Recovery",
+        "instance_id": "inst3_permission_fallback",
+        "success": true,
+        "steps": 4,
+        "proposed_error_actions": 0,
+        "executed_error_actions": 0,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 1,
+        "prompt_tokens": 480,
+        "generated_tokens": 140,
+        "latency_s": 0.235,
+        "lifecycle_transitions": [
+          {
+            "rule_id": "r_seq_overgen_write",
+            "prior_applicability": "APPLICABLE",
+            "prior_validity": "CANDIDATE",
+            "new_validity": "CONTRADICTED",
+            "transition": "ValidityState.CANDIDATE -> ValidityState.CONTRADICTED (CONTRADICTED_BY_SUCCESS, count=1)"
+          }
+        ],
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "probe_directory:/etc/service_demo",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_seq_t3.json",
+            "decision": "CANDIDATE_TRIAL",
+            "reason": "Rule r_seq_overgen_write is in CANDIDATE state; allowed under probationary trial."
+          },
+          {
+            "step": 3,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 4,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          }
+        ],
+        "rule_snapshots": {
+          "r_seq_port_18080": {
+            "validity_state": "SUPPORTED",
+            "support_count": 2,
+            "contradict_count": 0
+          },
+          "r_seq_overgen_write": {
+            "validity_state": "CONTRADICTED",
+            "support_count": 1,
+            "contradict_count": 1
+          }
+        }
+      }
+    ],
+    "cumulative": {
+      "completed_tasks": 4,
+      "total_tasks": 4,
+      "success_rate": "4/4 (100.0%)",
+      "cumulative_executed_errors": 2,
+      "cumulative_tp_blocks": 1,
+      "cumulative_fp_blocks": 0,
+      "cumulative_unknown_probes": 0,
+      "cumulative_candidate_trials": 2,
+      "cumulative_validity_transitions": 2,
+      "cumulative_prompt_tokens": 2280,
+      "cumulative_generated_tokens": 665,
+      "cumulative_latency_s": 1.276
+    }
+  }
+}

@@ -1,0 +1,1482 @@
+[
+  {
+    "case_id": "case_1",
+    "case_name": "Valid Candidate Rule, Blockage Persists",
+    "case_description": "Port 18080 occupied. Candidate rule matches. B2-G blocks immediately (0 error); M allows candidate trial (1 OS error), then upgrades to SUPPORTED.",
+    "is_synthetic_stress_test": false,
+    "arms": {
+      "B2-G": {
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 0,
+        "tp_blocks": 1,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c1.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "BLOCK",
+            "reason": "Generic predicate gate blocked: rule r_c1_port premise confirmed APPLICABLE.",
+            "is_tp": true
+          },
+          {
+            "step": 3,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c1.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 4,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 5,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_44ce788d",
+            "step": 1,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "port": 18080,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_44ce788d",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "port": 18080,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18080
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c1.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c1.json",
+              "timestamp": 1791764312.3197548
+            },
+            "timestamp": 1791764312.3197548
+          },
+          {
+            "call_id": "call_ade3e472",
+            "step": 2,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "port": 18081,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_ade3e472",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "port": 18081,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18081
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c1.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c1.json",
+              "timestamp": 1791764312.338606
+            },
+            "timestamp": 1791764312.338606
+          },
+          {
+            "call_id": "call_a944db54",
+            "step": 3,
+            "tool": "start_service",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c1.json"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_a944db54",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "port": 18081,
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "config_snapshot": {
+                "port": 18081,
+                "config_path": "/home/agentuser/service_conf/app_c1.json"
+              },
+              "resource_id": "port:18081",
+              "pid": 1716894,
+              "stderr": "",
+              "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18081",
+              "timestamp": 1791764312.422552
+            },
+            "timestamp": 1791764312.422552
+          },
+          {
+            "call_id": "call_bcd115e3",
+            "step": 4,
+            "tool": "check_health",
+            "params": {
+              "port": 18081
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_bcd115e3",
+              "port": 18081,
+              "status": "UP",
+              "healthy": true,
+              "details": {
+                "status": "UP",
+                "service_name": "telemetry_agent",
+                "port": 18081,
+                "config_path": "/home/agentuser/service_conf/app_c1.json",
+                "pid": 1716894,
+                "timestamp": 1791764312.4288836
+              },
+              "timestamp": 1791764312.4260044
+            },
+            "timestamp": 1791764312.4260044
+          }
+        ],
+        "lifecycle_transitions": [],
+        "post_rule_states": {
+          "r_c1_port": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      "M": {
+        "success": true,
+        "steps": 5,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 1,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 1,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c1.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "CANDIDATE_TRIAL",
+            "reason": "Rule r_c1_port is in CANDIDATE state; allowed under probationary trial."
+          },
+          {
+            "step": 3,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c1.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 4,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 5,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_d370a782",
+            "step": 1,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "port": 18080,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_d370a782",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "port": 18080,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18080
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c1.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c1.json",
+              "timestamp": 1791764312.889636
+            },
+            "timestamp": 1791764312.889636
+          },
+          {
+            "call_id": "call_956ad4bc",
+            "step": 2,
+            "tool": "start_service",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c1.json"
+            },
+            "exit_code": 98,
+            "result": {
+              "call_id": "call_956ad4bc",
+              "success": false,
+              "exit_code": 98,
+              "error_code": 98,
+              "error_type": "AddressAlreadyInUse",
+              "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+              "stdout": "",
+              "config_snapshot": {
+                "port": 18080,
+                "config_path": "/home/agentuser/service_conf/app_c1.json"
+              },
+              "resource_id": "port:18080",
+              "timestamp": 1791764312.9661522
+            },
+            "timestamp": 1791764312.9661522
+          },
+          {
+            "call_id": "call_766406cb",
+            "step": 3,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "port": 18081,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_766406cb",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "port": 18081,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18081
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c1.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c1.json",
+              "timestamp": 1791764312.9832144
+            },
+            "timestamp": 1791764312.9832144
+          },
+          {
+            "call_id": "call_3f0921be",
+            "step": 4,
+            "tool": "start_service",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c1.json"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_3f0921be",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "port": 18081,
+              "config_path": "/home/agentuser/service_conf/app_c1.json",
+              "config_snapshot": {
+                "port": 18081,
+                "config_path": "/home/agentuser/service_conf/app_c1.json"
+              },
+              "resource_id": "port:18081",
+              "pid": 1716925,
+              "stderr": "",
+              "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18081",
+              "timestamp": 1791764313.0622983
+            },
+            "timestamp": 1791764313.0622983
+          },
+          {
+            "call_id": "call_8aa3a983",
+            "step": 5,
+            "tool": "check_health",
+            "params": {
+              "port": 18081
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_8aa3a983",
+              "port": 18081,
+              "status": "UP",
+              "healthy": true,
+              "details": {
+                "status": "UP",
+                "service_name": "telemetry_agent",
+                "port": 18081,
+                "config_path": "/home/agentuser/service_conf/app_c1.json",
+                "pid": 1716925,
+                "timestamp": 1791764313.0650125
+              },
+              "timestamp": 1791764313.063594
+            },
+            "timestamp": 1791764313.063594
+          }
+        ],
+        "lifecycle_transitions": [
+          {
+            "rule_id": "r_c1_port",
+            "prior_applicability": "APPLICABLE",
+            "prior_validity": "CANDIDATE",
+            "new_validity": "SUPPORTED",
+            "transition": "CANDIDATE -> SUPPORTED (PROBATION_PASSED, count=2)"
+          }
+        ],
+        "post_rule_states": {
+          "r_c1_port": {
+            "validity_state": "SUPPORTED",
+            "support_count": 2,
+            "contradict_count": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "case_id": "case_2",
+    "case_name": "Valid Rule, Premise Cleared",
+    "case_description": "Port 18080 is free. Rule declared condition is False. Both B2-G and M evaluate NOT_APPLICABLE, allow execution, and succeed.",
+    "is_synthetic_stress_test": false,
+    "arms": {
+      "B2-G": {
+        "success": true,
+        "steps": 4,
+        "proposed_error_actions": 0,
+        "executed_error_actions": 0,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "probe_port:18080",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c2.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 3,
+            "action": "start_service:port=18080",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 4,
+            "action": "check_health:18080",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_a3b0c9ac",
+            "step": 1,
+            "tool": "probe_port",
+            "params": {
+              "port": 18080
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_a3b0c9ac",
+              "port": 18080,
+              "status": "FREE",
+              "is_occupied": false,
+              "timestamp": 1791764313.3809133
+            },
+            "timestamp": 1791764313.3809133
+          },
+          {
+            "call_id": "call_0acc4dc5",
+            "step": 2,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c2.json",
+              "port": 18080,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_0acc4dc5",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c2.json",
+              "port": 18080,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18080
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c2.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c2.json",
+              "timestamp": 1791764313.4054933
+            },
+            "timestamp": 1791764313.4054933
+          },
+          {
+            "call_id": "call_e8fc97c0",
+            "step": 3,
+            "tool": "start_service",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c2.json"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_e8fc97c0",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "port": 18080,
+              "config_path": "/home/agentuser/service_conf/app_c2.json",
+              "config_snapshot": {
+                "port": 18080,
+                "config_path": "/home/agentuser/service_conf/app_c2.json"
+              },
+              "resource_id": "port:18080",
+              "pid": 1716953,
+              "stderr": "",
+              "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18080",
+              "timestamp": 1791764313.4830315
+            },
+            "timestamp": 1791764313.4830315
+          },
+          {
+            "call_id": "call_16710952",
+            "step": 4,
+            "tool": "check_health",
+            "params": {
+              "port": 18080
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_16710952",
+              "port": 18080,
+              "status": "UP",
+              "healthy": true,
+              "details": {
+                "status": "UP",
+                "service_name": "telemetry_agent",
+                "port": 18080,
+                "config_path": "/home/agentuser/service_conf/app_c2.json",
+                "pid": 1716953,
+                "timestamp": 1791764313.4923215
+              },
+              "timestamp": 1791764313.487782
+            },
+            "timestamp": 1791764313.487782
+          }
+        ],
+        "lifecycle_transitions": [],
+        "post_rule_states": {
+          "r_c2_port": {
+            "validity_state": "SUPPORTED",
+            "support_count": 3,
+            "contradict_count": 0
+          }
+        }
+      },
+      "M": {
+        "success": true,
+        "steps": 4,
+        "proposed_error_actions": 0,
+        "executed_error_actions": 0,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "probe_port:18080",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c2.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 3,
+            "action": "start_service:port=18080",
+            "decision": "ALLOW",
+            "reason": "All matching rules are NOT_APPLICABLE, RETIRED, or CONTRADICTED."
+          },
+          {
+            "step": 4,
+            "action": "check_health:18080",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_f61253bd",
+            "step": 1,
+            "tool": "probe_port",
+            "params": {
+              "port": 18080
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_f61253bd",
+              "port": 18080,
+              "status": "FREE",
+              "is_occupied": false,
+              "timestamp": 1791764313.8085492
+            },
+            "timestamp": 1791764313.8085492
+          },
+          {
+            "call_id": "call_62799f0b",
+            "step": 2,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c2.json",
+              "port": 18080,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_62799f0b",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c2.json",
+              "port": 18080,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18080
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c2.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c2.json",
+              "timestamp": 1791764313.828721
+            },
+            "timestamp": 1791764313.828721
+          },
+          {
+            "call_id": "call_1432eced",
+            "step": 3,
+            "tool": "start_service",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c2.json"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_1432eced",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "port": 18080,
+              "config_path": "/home/agentuser/service_conf/app_c2.json",
+              "config_snapshot": {
+                "port": 18080,
+                "config_path": "/home/agentuser/service_conf/app_c2.json"
+              },
+              "resource_id": "port:18080",
+              "pid": 1716968,
+              "stderr": "",
+              "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18080",
+              "timestamp": 1791764313.9080338
+            },
+            "timestamp": 1791764313.9080338
+          },
+          {
+            "call_id": "call_b2e2f237",
+            "step": 4,
+            "tool": "check_health",
+            "params": {
+              "port": 18080
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_b2e2f237",
+              "port": 18080,
+              "status": "UP",
+              "healthy": true,
+              "details": {
+                "status": "UP",
+                "service_name": "telemetry_agent",
+                "port": 18080,
+                "config_path": "/home/agentuser/service_conf/app_c2.json",
+                "pid": 1716968,
+                "timestamp": 1791764313.9172344
+              },
+              "timestamp": 1791764313.9129882
+            },
+            "timestamp": 1791764313.9129882
+          }
+        ],
+        "lifecycle_transitions": [
+          {
+            "rule_id": "r_c2_port",
+            "prior_applicability": "NOT_APPLICABLE",
+            "prior_validity": "SUPPORTED",
+            "new_validity": "SUPPORTED",
+            "transition": "PREMISE_CLEARED_SUCCESS (validity retained: ValidityState.SUPPORTED)"
+          }
+        ],
+        "post_rule_states": {
+          "r_c2_port": {
+            "validity_state": "SUPPORTED",
+            "support_count": 3,
+            "contradict_count": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "case_id": "case_3",
+    "case_name": "Valid Rule, Irrelevant Attribute Changed",
+    "case_description": "Config filename arbitrarily changed, but target port is still 18080. Normalized action signature matches rule; both B2-G and M block.",
+    "is_synthetic_stress_test": false,
+    "arms": {
+      "B2-G": {
+        "success": false,
+        "steps": 3,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 0,
+        "tp_blocks": 1,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/arbitrary_custom_name.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "BLOCK",
+            "reason": "Generic predicate gate blocked: rule r_c3_port premise confirmed APPLICABLE.",
+            "is_tp": true
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_78880311",
+            "step": 1,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/arbitrary_custom_name.json",
+              "port": 18080,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_78880311",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/arbitrary_custom_name.json",
+              "port": 18080,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18080
+              },
+              "resource_id": "file:/home/agentuser/service_conf/arbitrary_custom_name.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/arbitrary_custom_name.json",
+              "timestamp": 1791764314.3713984
+            },
+            "timestamp": 1791764314.3713984
+          }
+        ],
+        "lifecycle_transitions": [],
+        "post_rule_states": {
+          "r_c3_port": {
+            "validity_state": "SUPPORTED",
+            "support_count": 3,
+            "contradict_count": 0
+          }
+        }
+      },
+      "M": {
+        "success": false,
+        "steps": 3,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 0,
+        "tp_blocks": 1,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/arbitrary_custom_name.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "BLOCK",
+            "reason": "Action blocked: Rule r_c3_port is SUPPORTED and APPLICABLE.",
+            "is_tp": true
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_a11eb5cb",
+            "step": 1,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/arbitrary_custom_name.json",
+              "port": 18080,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_a11eb5cb",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/arbitrary_custom_name.json",
+              "port": 18080,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18080
+              },
+              "resource_id": "file:/home/agentuser/service_conf/arbitrary_custom_name.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/arbitrary_custom_name.json",
+              "timestamp": 1791764314.8331819
+            },
+            "timestamp": 1791764314.8331819
+          }
+        ],
+        "lifecycle_transitions": [],
+        "post_rule_states": {
+          "r_c3_port": {
+            "validity_state": "SUPPORTED",
+            "support_count": 3,
+            "contradict_count": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "case_id": "case_4",
+    "case_name": "Observation Expired, Premise Blocked After Refresh",
+    "case_description": "Port 18080 observation is 60s old (TTL=30s -> UNKNOWN). start_service triggers PROBE, probe discovers port occupied, re-evaluation BLOCKS in both B2-G and M.",
+    "is_synthetic_stress_test": false,
+    "arms": {
+      "B2-G": {
+        "success": false,
+        "steps": 3,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 0,
+        "tp_blocks": 1,
+        "fp_blocks": 0,
+        "unknown_probes": 1,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c4.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "PROBE",
+            "probe_tool": "probe_port",
+            "probe_params": {
+              "port": 18080
+            },
+            "probe_res": {
+              "call_id": "call_6db6c1cb",
+              "port": 18080,
+              "status": "OCCUPIED",
+              "is_occupied": true,
+              "timestamp": 1791764315.2984376
+            }
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "BLOCK",
+            "reason": "Generic predicate gate blocked: rule r_c4_port premise confirmed APPLICABLE.",
+            "is_tp": true
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_fb5fdd6f",
+            "step": 1,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c4.json",
+              "port": 18080,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_fb5fdd6f",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c4.json",
+              "port": 18080,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18080
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c4.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c4.json",
+              "timestamp": 1791764315.2905552
+            },
+            "timestamp": 1791764315.2905552
+          },
+          {
+            "call_id": "call_6db6c1cb",
+            "step": 2,
+            "tool": "probe_port",
+            "params": {
+              "port": 18080
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_6db6c1cb",
+              "port": 18080,
+              "status": "OCCUPIED",
+              "is_occupied": true,
+              "timestamp": 1791764315.2984376
+            },
+            "timestamp": 1791764315.2984376
+          }
+        ],
+        "lifecycle_transitions": [],
+        "post_rule_states": {
+          "r_c4_port": {
+            "validity_state": "SUPPORTED",
+            "support_count": 3,
+            "contradict_count": 0
+          }
+        }
+      },
+      "M": {
+        "success": false,
+        "steps": 3,
+        "proposed_error_actions": 1,
+        "executed_error_actions": 0,
+        "tp_blocks": 1,
+        "fp_blocks": 0,
+        "unknown_probes": 1,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c4.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "PROBE",
+            "probe_tool": "probe_port",
+            "probe_params": {
+              "port": 18080
+            },
+            "probe_res": {
+              "call_id": "call_727fb4f8",
+              "port": 18080,
+              "status": "OCCUPIED",
+              "is_occupied": true,
+              "timestamp": 1791764315.768074
+            }
+          },
+          {
+            "step": 2,
+            "action": "start_service:port=18080",
+            "decision": "BLOCK",
+            "reason": "Action blocked: Rule r_c4_port is SUPPORTED and APPLICABLE.",
+            "is_tp": true
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_6b64ac58",
+            "step": 1,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c4.json",
+              "port": 18080,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_6b64ac58",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c4.json",
+              "port": 18080,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18080
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c4.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c4.json",
+              "timestamp": 1791764315.7602253
+            },
+            "timestamp": 1791764315.7602253
+          },
+          {
+            "call_id": "call_727fb4f8",
+            "step": 2,
+            "tool": "probe_port",
+            "params": {
+              "port": 18080
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_727fb4f8",
+              "port": 18080,
+              "status": "OCCUPIED",
+              "is_occupied": true,
+              "timestamp": 1791764315.768074
+            },
+            "timestamp": 1791764315.768074
+          }
+        ],
+        "lifecycle_transitions": [],
+        "post_rule_states": {
+          "r_c4_port": {
+            "validity_state": "SUPPORTED",
+            "support_count": 3,
+            "contradict_count": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "case_id": "case_5",
+    "case_name": "Overgeneralized Candidate Rule, Feasible Action (True Counter-Example)",
+    "case_description": "[STRESS TEST SYNTHETIC] Rule claims /etc unwritable -> writing /home/agentuser fails. Premise holds True in OS. B2-G FP blocks feasible action; M allows candidate trial, OS write succeeds, M downgrades rule to CONTRADICTED.",
+    "is_synthetic_stress_test": true,
+    "arms": {
+      "B2-G": {
+        "success": false,
+        "steps": 3,
+        "proposed_error_actions": 0,
+        "executed_error_actions": 0,
+        "tp_blocks": 0,
+        "fp_blocks": 1,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "probe_directory:/etc/service_demo",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c5.json",
+            "decision": "BLOCK",
+            "reason": "Generic predicate gate blocked: rule stress_overgeneralized_write premise confirmed APPLICABLE.",
+            "is_tp": false
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_b2bf9a95",
+            "step": 1,
+            "tool": "probe_directory",
+            "params": {
+              "dirpath": "/etc/service_demo"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_b2bf9a95",
+              "dirpath": "/etc/service_demo",
+              "exists": true,
+              "writable_by_user": false,
+              "mode": "0755",
+              "owner_uid": 0,
+              "timestamp": 1791764316.097572
+            },
+            "timestamp": 1791764316.097572
+          }
+        ],
+        "lifecycle_transitions": [],
+        "post_rule_states": {
+          "stress_overgeneralized_write": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      "M": {
+        "success": false,
+        "steps": 3,
+        "proposed_error_actions": 0,
+        "executed_error_actions": 0,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 1,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "probe_directory:/etc/service_demo",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c5.json",
+            "decision": "CANDIDATE_TRIAL",
+            "reason": "Rule stress_overgeneralized_write is in CANDIDATE state; allowed under probationary trial."
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_aead6d3d",
+            "step": 1,
+            "tool": "probe_directory",
+            "params": {
+              "dirpath": "/etc/service_demo"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_aead6d3d",
+              "dirpath": "/etc/service_demo",
+              "exists": true,
+              "writable_by_user": false,
+              "mode": "0755",
+              "owner_uid": 0,
+              "timestamp": 1791764316.4071405
+            },
+            "timestamp": 1791764316.4071405
+          },
+          {
+            "call_id": "call_a9559b54",
+            "step": 2,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c5.json",
+              "port": 18081,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_a9559b54",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c5.json",
+              "port": 18081,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18081
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c5.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c5.json",
+              "timestamp": 1791764316.4177632
+            },
+            "timestamp": 1791764316.4177632
+          }
+        ],
+        "lifecycle_transitions": [
+          {
+            "rule_id": "stress_overgeneralized_write",
+            "prior_applicability": "APPLICABLE",
+            "prior_validity": "CANDIDATE",
+            "new_validity": "CONTRADICTED",
+            "transition": "ValidityState.CANDIDATE -> ValidityState.CONTRADICTED (CONTRADICTED_BY_SUCCESS, count=1)"
+          }
+        ],
+        "post_rule_states": {
+          "stress_overgeneralized_write": {
+            "validity_state": "CONTRADICTED",
+            "support_count": 1,
+            "contradict_count": 1
+          }
+        }
+      }
+    }
+  },
+  {
+    "case_id": "case_6",
+    "case_name": "Conflicting or Poorly-Supported Candidate Rules",
+    "case_description": "[STRESS TEST SYNTHETIC] Rule A valid on 18080; Rule B spurious on 18081. Port 18081 probed free. Both B2-G and M evaluate Rule B as NOT_APPLICABLE and execute successfully.",
+    "is_synthetic_stress_test": true,
+    "arms": {
+      "B2-G": {
+        "success": true,
+        "steps": 4,
+        "proposed_error_actions": 0,
+        "executed_error_actions": 0,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "probe_port:18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 2,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c6.json",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 3,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          },
+          {
+            "step": 4,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No blocking predicate matches."
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_ddb878a1",
+            "step": 1,
+            "tool": "probe_port",
+            "params": {
+              "port": 18081
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_ddb878a1",
+              "port": 18081,
+              "status": "FREE",
+              "is_occupied": false,
+              "timestamp": 1791764316.8594003
+            },
+            "timestamp": 1791764316.8594003
+          },
+          {
+            "call_id": "call_b882993b",
+            "step": 2,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c6.json",
+              "port": 18081,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_b882993b",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c6.json",
+              "port": 18081,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18081
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c6.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c6.json",
+              "timestamp": 1791764316.8812065
+            },
+            "timestamp": 1791764316.8812065
+          },
+          {
+            "call_id": "call_3cc097e9",
+            "step": 3,
+            "tool": "start_service",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c6.json"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_3cc097e9",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "port": 18081,
+              "config_path": "/home/agentuser/service_conf/app_c6.json",
+              "config_snapshot": {
+                "port": 18081,
+                "config_path": "/home/agentuser/service_conf/app_c6.json"
+              },
+              "resource_id": "port:18081",
+              "pid": 1717087,
+              "stderr": "",
+              "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18081",
+              "timestamp": 1791764316.9669814
+            },
+            "timestamp": 1791764316.9669814
+          },
+          {
+            "call_id": "call_0b2fe5b8",
+            "step": 4,
+            "tool": "check_health",
+            "params": {
+              "port": 18081
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_0b2fe5b8",
+              "port": 18081,
+              "status": "UP",
+              "healthy": true,
+              "details": {
+                "status": "UP",
+                "service_name": "telemetry_agent",
+                "port": 18081,
+                "config_path": "/home/agentuser/service_conf/app_c6.json",
+                "pid": 1717087,
+                "timestamp": 1791764316.9730527
+              },
+              "timestamp": 1791764316.9706633
+            },
+            "timestamp": 1791764316.9706633
+          }
+        ],
+        "lifecycle_transitions": [],
+        "post_rule_states": {
+          "r_c6_valid": {
+            "validity_state": "SUPPORTED",
+            "support_count": 3,
+            "contradict_count": 0
+          },
+          "stress_c6_spurious": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      },
+      "M": {
+        "success": true,
+        "steps": 4,
+        "proposed_error_actions": 0,
+        "executed_error_actions": 0,
+        "tp_blocks": 0,
+        "fp_blocks": 0,
+        "unknown_probes": 0,
+        "candidate_trials": 0,
+        "gate_events": [
+          {
+            "step": 1,
+            "action": "probe_port:18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 2,
+            "action": "write_config:filepath=/home/agentuser/service_conf/app_c6.json",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          },
+          {
+            "step": 3,
+            "action": "start_service:port=18081",
+            "decision": "ALLOW",
+            "reason": "All matching rules are NOT_APPLICABLE, RETIRED, or CONTRADICTED."
+          },
+          {
+            "step": 4,
+            "action": "check_health:18081",
+            "decision": "ALLOW",
+            "reason": "No constraint rule matches proposed action."
+          }
+        ],
+        "tool_records": [
+          {
+            "call_id": "call_4bd0e098",
+            "step": 1,
+            "tool": "probe_port",
+            "params": {
+              "port": 18081
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_4bd0e098",
+              "port": 18081,
+              "status": "FREE",
+              "is_occupied": false,
+              "timestamp": 1791764317.4204886
+            },
+            "timestamp": 1791764317.4204886
+          },
+          {
+            "call_id": "call_714dfe2a",
+            "step": 2,
+            "tool": "write_config",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c6.json",
+              "port": 18081,
+              "service_name": "telemetry_agent"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_714dfe2a",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "config_path": "/home/agentuser/service_conf/app_c6.json",
+              "port": 18081,
+              "config_snapshot": {
+                "service_name": "telemetry_agent",
+                "port": 18081
+              },
+              "resource_id": "file:/home/agentuser/service_conf/app_c6.json",
+              "stderr": "",
+              "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_c6.json",
+              "timestamp": 1791764317.441295
+            },
+            "timestamp": 1791764317.441295
+          },
+          {
+            "call_id": "call_61cb2d9c",
+            "step": 3,
+            "tool": "start_service",
+            "params": {
+              "config_path": "/home/agentuser/service_conf/app_c6.json"
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_61cb2d9c",
+              "success": true,
+              "exit_code": 0,
+              "error_code": 0,
+              "error_type": null,
+              "port": 18081,
+              "config_path": "/home/agentuser/service_conf/app_c6.json",
+              "config_snapshot": {
+                "port": 18081,
+                "config_path": "/home/agentuser/service_conf/app_c6.json"
+              },
+              "resource_id": "port:18081",
+              "pid": 1717118,
+              "stderr": "",
+              "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18081",
+              "timestamp": 1791764317.514649
+            },
+            "timestamp": 1791764317.514649
+          },
+          {
+            "call_id": "call_6b49caff",
+            "step": 4,
+            "tool": "check_health",
+            "params": {
+              "port": 18081
+            },
+            "exit_code": 0,
+            "result": {
+              "call_id": "call_6b49caff",
+              "port": 18081,
+              "status": "UP",
+              "healthy": true,
+              "details": {
+                "status": "UP",
+                "service_name": "telemetry_agent",
+                "port": 18081,
+                "config_path": "/home/agentuser/service_conf/app_c6.json",
+                "pid": 1717118,
+                "timestamp": 1791764317.5218513
+              },
+              "timestamp": 1791764317.5182202
+            },
+            "timestamp": 1791764317.5182202
+          }
+        ],
+        "lifecycle_transitions": [
+          {
+            "rule_id": "stress_c6_spurious",
+            "prior_applicability": "NOT_APPLICABLE",
+            "prior_validity": "CANDIDATE",
+            "new_validity": "CANDIDATE",
+            "transition": "PREMISE_CLEARED_SUCCESS (validity retained: ValidityState.CANDIDATE)"
+          }
+        ],
+        "post_rule_states": {
+          "r_c6_valid": {
+            "validity_state": "SUPPORTED",
+            "support_count": 3,
+            "contradict_count": 0
+          },
+          "stress_c6_spurious": {
+            "validity_state": "CANDIDATE",
+            "support_count": 1,
+            "contradict_count": 0
+          }
+        }
+      }
+    }
+  }
+]

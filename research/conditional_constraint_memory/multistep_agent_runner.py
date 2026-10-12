@@ -114,41 +114,17 @@ Output strictly a single JSON block adhering to this schema:
         facts: Optional[List[StructuredFact]] = None,
         lifecycle_manager: Optional[ConstraintLifecycleManager] = None,
     ) -> str:
-        """Renders up-to-date memory text for system prompt synchronization."""
-        now = time.time()
-        if group in ("B2", "B2-G"):
-            texts = []
-            if facts:
-                texts.append("### Known Environment Facts:\n" + "\n".join([f.to_prompt_text(now) for f in facts]))
-            if lifecycle_manager and lifecycle_manager.rules:
-                rule_lines = []
-                for r in lifecycle_manager.rules.values():
-                    app = lifecycle_manager.evaluate_applicability(r)
-                    pred_desc = " AND ".join([f"{p.key} == {p.expected_value}" for p in r.predicates]) if r.predicates else "None"
-                    err_type = r.failure_evidence.get("error_type", "ExecutionError")
-                    err_code = r.failure_evidence.get("error_code", r.failure_evidence.get("exit_code", 1))
-                    rule_lines.append(
-                        f"- Rule {r.rule_id}: IF [{pred_desc}] THEN action '{r.action_signature}' fails with {err_type} (code {err_code}).\n"
-                        f"  Status: Applicability={app.value}"
-                    )
-                if rule_lines:
-                    texts.append("### Active Constraint Rules:\n" + "\n".join(rule_lines))
-            return "\n".join(texts)
-        elif group == "M" and lifecycle_manager:
-            memory_text = "### Active Constraint Rules:\n"
-            for r in lifecycle_manager.rules.values():
-                app = lifecycle_manager.evaluate_applicability(r)
-                pred_desc = " AND ".join(
-                    [f"{p.key} == {p.expected_value}" for p in r.predicates]
-                ) if r.predicates else "None"
-                err_type = r.failure_evidence.get("error_type", "ExecutionError")
-                err_code = r.failure_evidence.get("error_code", r.failure_evidence.get("exit_code", 1))
-                memory_text += (
-                    f"- Rule {r.rule_id}: IF [{pred_desc}] THEN action '{r.action_signature}' fails with {err_type} (code {err_code}).\n"
-                    f"  Status: Validity={r.validity_state.value}, Applicability={app.value}, SupportCount={r.support_count}, Contradictions={r.contradict_count}\n"
-                )
-            return memory_text
-        return ""
+        """Renders up-to-date memory text using UnifiedKnowledgeView for strict prompt parity."""
+        if group == "B0":
+            return ""
+        from .knowledge_view import UnifiedKnowledgeView
+        view = UnifiedKnowledgeView.from_manager_and_facts(
+            lifecycle_manager=lifecycle_manager,
+            facts=facts,
+            freshness_ttl_s=30.0,
+        )
+        return view.render_knowledge_text(lifecycle_manager=lifecycle_manager)
+
 
     def run_episode(
         self,
