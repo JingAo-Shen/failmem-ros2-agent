@@ -93,18 +93,27 @@ def validate_trajectory_timestamps(samples: List[Dict[str, Any]]) -> Dict[str, A
     }
 
 
-def validate_action_intervals(actions: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Validates action start/end timestamps and checks for action overlaps."""
+def validate_action_intervals(
+    actions: List[Dict[str, Any]],
+    phase_start: Optional[float] = None,
+    phase_end: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Validates action start/end timestamps, checks for action overlaps, and phase bounds."""
     overlaps = []
     invalid_intervals = []
 
     for k, a in enumerate(actions):
         ts = a.get("timestamp_sim_start")
         te = a.get("timestamp_sim")
-        if ts is None or te is None or not (math.isfinite(ts) and math.isfinite(te)):
+        if ts is None or te is None or not (isinstance(ts, (int, float)) and isinstance(te, (int, float)) and math.isfinite(ts) and math.isfinite(te)):
             invalid_intervals.append(f"ACTION_{k}_NON_FINITE_TIMESTAMPS")
         elif te < ts:
             invalid_intervals.append(f"ACTION_{k}_END_BEFORE_START")
+        else:
+            if phase_start is not None and te < phase_start - 1e-4:
+                invalid_intervals.append(f"ACTION_{k}_ENTIRELY_BEFORE_PHASE_START")
+            if phase_end is not None and ts > phase_end + 1e-4:
+                invalid_intervals.append(f"ACTION_{k}_ENTIRELY_AFTER_PHASE_END")
 
     for k in range(len(actions) - 1):
         te_curr = actions[k].get("timestamp_sim")
@@ -121,8 +130,11 @@ def validate_action_intervals(actions: List[Dict[str, Any]]) -> Dict[str, Any]:
                     "overlap_sec": overlap_dur,
                 })
 
+    # Critical requirement: overlaps must make validation FAIL
+    is_valid = (len(invalid_intervals) == 0 and len(overlaps) == 0)
+
     return {
-        "valid": len(invalid_intervals) == 0,
+        "valid": is_valid,
         "overlaps": overlaps,
         "overlap_count": len(overlaps),
         "total_overlap_sec": round(sum(o["overlap_sec"] for o in overlaps), 4),
@@ -158,6 +170,8 @@ def decompose_phase(
     actions: List[Dict[str, Any]],
     traj_samples: List[Dict[str, Any]],
     total_phase_time: float,
+    phase_start: Optional[float] = None,
+    phase_end: Optional[float] = None,
     v_lin_thresh: float = DEFAULT_V_LIN_THRESH,
     v_ang_thresh: float = DEFAULT_V_ANG_THRESH,
     gap_thresh: float = DEFAULT_GAP_THRESH,
@@ -174,20 +188,27 @@ def decompose_phase(
 
     t_active_actions = 0.0
     t_observed_active = 0.0
-    t_verified_settling = 0.0
+    t_event_settling_window = 0.0
 
     for a in actions:
-        ts = a.get("timestamp_sim_start")
-        te = a.get("timestamp_sim")
-        if ts is None or te is None or not (math.isfinite(ts) and math.isfinite(te)):
+        ts_raw = a.get("timestamp_sim_start")
+        te_raw = a.get("timestamp_sim")
+        if ts_raw is None or te_raw is None or not (isinstance(ts_raw, (int, float)) and isinstance(te_raw, (int, float)) and math.isfinite(ts_raw) and math.isfinite(te_raw)):
             continue
-        dur = max(0.0, te - ts)
+
+        # Clip action execution interval to phase boundaries if specified
+        ts = max(ts_raw, phase_start) if phase_start is not None else ts_raw
+        te = min(te_raw, phase_end) if phase_end is not None else te_raw
+        if te <= ts:
+            continue
+
+        dur = te - ts
         t_active_actions += dur
 
-        # Event-backed verified settling window
+        # Independent event-level metric for verified settling window duration (sim_duration_covered)
         ev = a.get("evaluation", {})
         if ev.get("halt_evaluation", {}).get("halt_verified"):
-            t_verified_settling += ev.get("window_evaluation", {}).get("sim_duration_covered", 0.0)
+            t_event_settling_window += ev.get("window_evaluation", {}).get("sim_duration_covered", 0.0)
 
         sub = [s for s in traj_samples if ts <= s.get("recv_sim_time_sec", -1) <= te]
         if not sub:
@@ -232,7 +253,6 @@ def decompose_phase(
     accounted_sum = t_moving + t_turning + t_stopped + t_unobserved_active + t_outside_actions
     algebraic_residual = total_phase_time - accounted_sum
 
-    unverified_stationary = max(0.0, t_stopped - t_verified_settling)
     obs_coverage_ratio = (t_observed_active / t_active_actions) if t_active_actions > 0 else 0.0
     unknown_time_ratio = (t_unobserved_active / total_phase_time) if total_phase_time > 0 else 0.0
 
@@ -241,8 +261,7 @@ def decompose_phase(
         "moving_time": round(t_moving, 3),
         "turning_time": round(t_turning, 3),
         "stopped_time": round(t_stopped, 3),
-        "verified_settling_time": round(t_verified_settling, 3),
-        "unverified_stationary_time": round(unverified_stationary, 3),
+        "event_settling_window_sec": round(t_event_settling_window, 3),
         "unobserved_active_time": round(t_unobserved_active, 3),
         "unobserved_details": {
             "head_unobserved_time": round(t_head_unobserved, 3),
@@ -297,20 +316,33 @@ def analyze_episode(ep_dir: Path) -> Dict[str, Any]:
     phase_sum_diff = round(tot_sim_time - (hist_sim_time + dec_sim_time), 4)
     phase_sum_valid = abs(phase_sum_diff) < 1e-4
 
+    # Phase boundaries based on action sequences
+    hist_phase_start = hist_actions[0].get("timestamp_sim_start") if hist_actions else None
+    hist_phase_end = hist_actions[-1].get("timestamp_sim") if hist_actions else None
+    dec_phase_start = dec_actions[0].get("timestamp_sim_start") if dec_actions else None
+    dec_phase_end = dec_actions[-1].get("timestamp_sim") if dec_actions else None
+
+    cross_phase_overlap = False
+    if hist_phase_end is not None and dec_phase_start is not None:
+        if dec_phase_start < hist_phase_end - 1e-4:
+            cross_phase_overlap = True
+
     # Timestamp and interval validation
     gt_val = validate_trajectory_timestamps(gt_samples)
     odom_val = validate_trajectory_timestamps(odom_samples)
     act_val = validate_action_intervals(all_actions)
+    hist_act_val = validate_action_intervals(hist_actions, phase_start=hist_phase_start, phase_end=hist_phase_end)
+    dec_act_val = validate_action_intervals(dec_actions, phase_start=dec_phase_start, phase_end=dec_phase_end)
 
-    # Decompositions on GT trajectory (Full, History, Decision)
+    # Decompositions on GT trajectory (Full, History, Decision) with phase clipping
     full_gt = decompose_phase(all_actions, gt_samples, tot_sim_time)
-    hist_gt = decompose_phase(hist_actions, gt_samples, hist_sim_time)
-    dec_gt = decompose_phase(dec_actions, gt_samples, dec_sim_time)
+    hist_gt = decompose_phase(hist_actions, gt_samples, hist_sim_time, phase_start=hist_phase_start, phase_end=hist_phase_end)
+    dec_gt = decompose_phase(dec_actions, gt_samples, dec_sim_time, phase_start=dec_phase_start, phase_end=dec_phase_end)
 
     # Decompositions on Odom trajectory
     full_odom = decompose_phase(all_actions, odom_samples, tot_sim_time)
-    hist_odom = decompose_phase(hist_actions, odom_samples, hist_sim_time)
-    dec_odom = decompose_phase(dec_actions, odom_samples, dec_sim_time)
+    hist_odom = decompose_phase(hist_actions, odom_samples, hist_sim_time, phase_start=hist_phase_start, phase_end=hist_phase_end)
+    dec_odom = decompose_phase(dec_actions, odom_samples, dec_sim_time, phase_start=dec_phase_start, phase_end=dec_phase_end)
 
     # Component sum cross-check (history + decision == full)
     comp_diffs = {
@@ -321,6 +353,20 @@ def analyze_episode(ep_dir: Path) -> Dict[str, Any]:
         "outside_diff": round(full_gt["outside_actions_time"] - (hist_gt["outside_actions_time"] + dec_gt["outside_actions_time"]), 4),
     }
     comp_sum_valid = all(abs(d) < 1e-4 for d in comp_diffs.values())
+
+    episode_valid = (
+        phase_sum_valid
+        and gt_val["valid"]
+        and odom_val["valid"]
+        and act_val["valid"]
+        and hist_act_val["valid"]
+        and dec_act_val["valid"]
+        and not cross_phase_overlap
+        and comp_sum_valid
+        and full_gt["algebraic_closure_valid"]
+        and hist_gt["algebraic_closure_valid"]
+        and dec_gt["algebraic_closure_valid"]
+    )
 
     return {
         "episode_id": ep_id,
@@ -341,9 +387,14 @@ def analyze_episode(ep_dir: Path) -> Dict[str, Any]:
             "decision_distance_m": act.get("decision_distance_m"),
         },
         "validation": {
+            "is_valid": episode_valid,
+            "phase_sum_valid": phase_sum_valid,
             "gt_validation": gt_val,
             "odom_validation": odom_val,
             "action_interval_validation": act_val,
+            "hist_action_validation": hist_act_val,
+            "dec_action_validation": dec_act_val,
+            "cross_phase_overlap": cross_phase_overlap,
             "component_sum_valid": comp_sum_valid,
             "component_diffs": comp_diffs,
         },
@@ -389,7 +440,7 @@ def compute_condition_summaries(episodes_data: List[Dict[str, Any]]) -> Dict[str
     )
     metric_keys = (
         "total_sim_time", "moving_time", "turning_time", "stopped_time",
-        "verified_settling_time", "unverified_stationary_time",
+        "event_settling_window_sec",
         "unobserved_active_time", "outside_actions_time",
         "observation_coverage_ratio", "unknown_time_ratio"
     )
@@ -492,13 +543,13 @@ def generate_markdown_report(
     md.append("> 4. **规范命名与机理断言**：  \n")
     md.append(">    - `T_moving` 包含同时平移与旋转，称“移动时间（含平移与平移中转向）”，非“纯直线时间”；  \n")
     md.append(">    - `T_turning` 称“低线速度旋转时间”（$|v| < 0.05, |\\omega| \\ge 0.08$）；  \n")
-    md.append(">    - `T_stopped` 细分为“可证实的稳定核验窗口”与“未关联事件的静止/微动时间”；  \n")
-    md.append(">    - `gap` 改称“动作区间外时间”（$T_{\\text{outside_actions}}$），除非有直接事件证据，不解释为调度等待。\n\n")
+    md.append(">    - `T_stopped` 为低线速度低角速度静止微动时间；事件核验窗口（`sim_duration_covered`）作为独立事件指标单列呈现，不做无区间交集支撑的代数相减，取消“未核验静止时间”及相应归因；  \n")
+    md.append(">    - `gap` 改称“动作区间外时间”（$T_{\\text{outside_actions}}$），动作区间已按实际阶段边界裁剪。\n\n")
     md.append("---\n")
 
     md.append("## 二、三个阶段独立账本与一致性核对 (Full, History, Decision)\n\n")
     md.append("### 1. 决策阶段时间账本 (Decision Phase, $t \\ge T_{\\text{history}}$)\n\n")
-    md.append("| 条件 | 样本数 $n$ | 决策距离 (m) | 决策耗时 $T_{\\text{dec}}$ (s) | 移动时间 $T_{\\text{mov}}$ (s) | 旋转时间 $T_{\\text{turn}}$ (s) | 静止微动 $T_{\\text{stop}}$ (s) | [可证实核验] (s) | 未观测 $T_{\\text{unobs}}$ (s) | 动作外时间 (s) |\n")
+    md.append("| 条件 | 样本数 $n$ | 决策距离 (m) | 决策耗时 $T_{\\text{dec}}$ (s) | 移动时间 $T_{\\text{mov}}$ (s) | 旋转时间 $T_{\\text{turn}}$ (s) | 静止微动 $T_{\\text{stop}}$ (s) | [事件核验窗口] (s) | 未观测 $T_{\\text{unobs}}$ (s) | 动作外时间 (s) |\n")
     md.append("| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n")
     for cond in D2_CONDITIONS:
         s = condition_summaries[cond]["decision_phase_gt"]
@@ -510,14 +561,14 @@ def generate_markdown_report(
             f"{s['moving_time']['mean']:.2f} ± {s['moving_time']['std']:.2f} | "
             f"{s['turning_time']['mean']:.2f} ± {s['turning_time']['std']:.2f} | "
             f"{s['stopped_time']['mean']:.2f} ± {s['stopped_time']['std']:.2f} | "
-            f"[{s['verified_settling_time']['mean']:.2f}] | "
+            f"[{s['event_settling_window_sec']['mean']:.2f}] | "
             f"{s['unobserved_active_time']['mean']:.2f} ± {s['unobserved_active_time']['std']:.2f} | "
             f"{s['outside_actions_time']['mean']:.2f} ± {s['outside_actions_time']['std']:.2f} |"
         )
     md.append("\n")
 
     md.append("### 2. 历史阶段时间账本 (History Phase, $t < T_{\\text{history}}$)\n\n")
-    md.append("| 条件 | 样本数 $n$ | 历史距离 (m) | 历史耗时 $T_{\\text{hist}}$ (s) | 移动时间 $T_{\\text{mov}}$ (s) | 旋转时间 $T_{\\text{turn}}$ (s) | 静止微动 $T_{\\text{stop}}$ (s) | [可证实核验] (s) | 未观测 $T_{\\text{unobs}}$ (s) | 动作外时间 (s) |\n")
+    md.append("| 条件 | 样本数 $n$ | 历史距离 (m) | 历史耗时 $T_{\\text{hist}}$ (s) | 移动时间 $T_{\\text{mov}}$ (s) | 旋转时间 $T_{\\text{turn}}$ (s) | 静止微动 $T_{\\text{stop}}$ (s) | [事件核验窗口] (s) | 未观测 $T_{\\text{unobs}}$ (s) | 动作外时间 (s) |\n")
     md.append("| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n")
     for cond in D2_CONDITIONS:
         s = condition_summaries[cond]["history_phase_gt"]
@@ -529,14 +580,14 @@ def generate_markdown_report(
             f"{s['moving_time']['mean']:.2f} ± {s['moving_time']['std']:.2f} | "
             f"{s['turning_time']['mean']:.2f} ± {s['turning_time']['std']:.2f} | "
             f"{s['stopped_time']['mean']:.2f} ± {s['stopped_time']['std']:.2f} | "
-            f"[{s['verified_settling_time']['mean']:.2f}] | "
+            f"[{s['event_settling_window_sec']['mean']:.2f}] | "
             f"{s['unobserved_active_time']['mean']:.2f} ± {s['unobserved_active_time']['std']:.2f} | "
             f"{s['outside_actions_time']['mean']:.2f} ± {s['outside_actions_time']['std']:.2f} |"
         )
     md.append("\n")
 
     md.append("### 3. 全生命周期时间账本 (Full Episode)\n\n")
-    md.append("| 条件 | 样本数 $n$ | 总距离 (m) | 总耗时 $T_{\\text{total}}$ (s) | 移动时间 $T_{\\text{mov}}$ (s) | 旋转时间 $T_{\\text{turn}}$ (s) | 静止微动 $T_{\\text{stop}}$ (s) | [可证实核验] (s) | 未观测 $T_{\\text{unobs}}$ (s) | 动作外时间 (s) |\n")
+    md.append("| 条件 | 样本数 $n$ | 总距离 (m) | 总耗时 $T_{\\text{total}}$ (s) | 移动时间 $T_{\\text{mov}}$ (s) | 旋转时间 $T_{\\text{turn}}$ (s) | 静止微动 $T_{\\text{stop}}$ (s) | [事件核验窗口] (s) | 未观测 $T_{\\text{unobs}}$ (s) | 动作外时间 (s) |\n")
     md.append("| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n")
     for cond in D2_CONDITIONS:
         s = condition_summaries[cond]["full_episode_gt"]
@@ -548,7 +599,7 @@ def generate_markdown_report(
             f"{s['moving_time']['mean']:.2f} ± {s['moving_time']['std']:.2f} | "
             f"{s['turning_time']['mean']:.2f} ± {s['turning_time']['std']:.2f} | "
             f"{s['stopped_time']['mean']:.2f} ± {s['stopped_time']['std']:.2f} | "
-            f"[{s['verified_settling_time']['mean']:.2f}] | "
+            f"[{s['event_settling_window_sec']['mean']:.2f}] | "
             f"{s['unobserved_active_time']['mean']:.2f} ± {s['unobserved_active_time']['std']:.2f} | "
             f"{s['outside_actions_time']['mean']:.2f} ± {s['outside_actions_time']['std']:.2f} |"
         )
@@ -607,7 +658,8 @@ def generate_markdown_report(
         )
     md.append("\n---\n")
 
-    md.append("## 六、不可篡改 SHA256 校验清单\n\n")
+    md.append("## 六、文件变动检测 SHA256 校验清单 (File Change Detection Manifest)\n\n")
+    md.append("> 注：本哈希清单用于检测相对于实验记录清单的文件变动，不构成对底层原始物理数据真实性或防篡改的保证。\n\n")
     md.append("| Episode ID | `trajectory.json` SHA256 | `action_result.json` SHA256 | `stability_window.json` SHA256 |\n")
     md.append("| :--- | :---: | :---: | :---: |\n")
     for ep in episodes_data:
@@ -665,6 +717,33 @@ def main() -> int:
             f"Dec residual={data['decision_phase_gt']['algebraic_residual']}, "
             f"PhaseSumValid={data['phase_times']['phase_sum_valid']}"
         )
+
+    # Mandatory validation check across all episodes
+    invalid_episodes = [ep for ep in episodes_data if not ep["validation"]["is_valid"]]
+    if invalid_episodes:
+        print(f"\n[FATAL ERROR] {len(invalid_episodes)} D2 episode(s) failed mandatory validity checks:", file=sys.stderr)
+        for ep in invalid_episodes:
+            v = ep["validation"]
+            issues = []
+            if not v["phase_sum_valid"]:
+                issues.append(f"Phase sum invalid (diff={ep['phase_times']['phase_sum_diff']})")
+            if not v["gt_validation"]["valid"]:
+                issues.append(f"GT timestamp issues: {v['gt_validation']['issues']}")
+            if not v["odom_validation"]["valid"]:
+                issues.append(f"Odom timestamp issues: {v['odom_validation']['issues']}")
+            if not v["action_interval_validation"]["valid"]:
+                issues.append(f"Action issues: {v['action_interval_validation']['issues']}, overlaps: {v['action_interval_validation']['overlaps']}")
+            if not v["hist_action_validation"]["valid"]:
+                issues.append(f"Hist action issues: {v['hist_action_validation']['issues']}")
+            if not v["dec_action_validation"]["valid"]:
+                issues.append(f"Dec action issues: {v['dec_action_validation']['issues']}")
+            if v["cross_phase_overlap"]:
+                issues.append("Cross-phase action overlap detected")
+            if not v["component_sum_valid"]:
+                issues.append(f"Component sum diffs: {v['component_diffs']}")
+            print(f"  --> {ep['episode_id']}: {'; '.join(issues)}", file=sys.stderr)
+        print("Stopping execution without generating reports or artifacts.", file=sys.stderr)
+        return 1
 
     # Aggregate summaries across Full, History, Decision
     cond_summaries = compute_condition_summaries(episodes_data)

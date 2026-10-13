@@ -31,9 +31,9 @@
 
 >    - `T_turning` 称“低线速度旋转时间”（$|v| < 0.05, |\omega| \ge 0.08$）；  
 
->    - `T_stopped` 细分为“可证实的稳定核验窗口”与“未关联事件的静止/微动时间”；  
+>    - `T_stopped` 为低线速度低角速度静止微动时间；事件核验窗口（`sim_duration_covered`）作为独立事件指标单列呈现，不做无区间交集支撑的代数相减，取消“未核验静止时间”及相应归因；  
 
->    - `gap` 改称“动作区间外时间”（$T_{\text{outside_actions}}$），除非有直接事件证据，不解释为调度等待。
+>    - `gap` 改称“动作区间外时间”（$T_{\text{outside_actions}}$），动作区间已按实际阶段边界裁剪。
 
 
 ---
@@ -44,7 +44,7 @@
 ### 1. 决策阶段时间账本 (Decision Phase, $t \ge T_{\text{history}}$)
 
 
-| 条件 | 样本数 $n$ | 决策距离 (m) | 决策耗时 $T_{\text{dec}}$ (s) | 移动时间 $T_{\text{mov}}$ (s) | 旋转时间 $T_{\text{turn}}$ (s) | 静止微动 $T_{\text{stop}}$ (s) | [可证实核验] (s) | 未观测 $T_{\text{unobs}}$ (s) | 动作外时间 (s) |
+| 条件 | 样本数 $n$ | 决策距离 (m) | 决策耗时 $T_{\text{dec}}$ (s) | 移动时间 $T_{\text{mov}}$ (s) | 旋转时间 $T_{\text{turn}}$ (s) | 静止微动 $T_{\text{stop}}$ (s) | [事件核验窗口] (s) | 未观测 $T_{\text{unobs}}$ (s) | 动作外时间 (s) |
 
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 
@@ -57,7 +57,7 @@
 ### 2. 历史阶段时间账本 (History Phase, $t < T_{\text{history}}$)
 
 
-| 条件 | 样本数 $n$ | 历史距离 (m) | 历史耗时 $T_{\text{hist}}$ (s) | 移动时间 $T_{\text{mov}}$ (s) | 旋转时间 $T_{\text{turn}}$ (s) | 静止微动 $T_{\text{stop}}$ (s) | [可证实核验] (s) | 未观测 $T_{\text{unobs}}$ (s) | 动作外时间 (s) |
+| 条件 | 样本数 $n$ | 历史距离 (m) | 历史耗时 $T_{\text{hist}}$ (s) | 移动时间 $T_{\text{mov}}$ (s) | 旋转时间 $T_{\text{turn}}$ (s) | 静止微动 $T_{\text{stop}}$ (s) | [事件核验窗口] (s) | 未观测 $T_{\text{unobs}}$ (s) | 动作外时间 (s) |
 
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 
@@ -70,7 +70,7 @@
 ### 3. 全生命周期时间账本 (Full Episode)
 
 
-| 条件 | 样本数 $n$ | 总距离 (m) | 总耗时 $T_{\text{total}}$ (s) | 移动时间 $T_{\text{mov}}$ (s) | 旋转时间 $T_{\text{turn}}$ (s) | 静止微动 $T_{\text{stop}}$ (s) | [可证实核验] (s) | 未观测 $T_{\text{unobs}}$ (s) | 动作外时间 (s) |
+| 条件 | 样本数 $n$ | 总距离 (m) | 总耗时 $T_{\text{total}}$ (s) | 移动时间 $T_{\text{mov}}$ (s) | 旋转时间 $T_{\text{turn}}$ (s) | 静止微动 $T_{\text{stop}}$ (s) | [事件核验窗口] (s) | 未观测 $T_{\text{unobs}}$ (s) | 动作外时间 (s) |
 
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 
@@ -170,7 +170,10 @@
 
 ---
 
-## 六、不可篡改 SHA256 校验清单
+## 六、文件变动检测 SHA256 校验清单 (File Change Detection Manifest)
+
+
+> 注：本哈希清单用于检测相对于实验记录清单的文件变动，不构成对底层原始物理数据真实性或防篡改的保证。
 
 
 | Episode ID | `trajectory.json` SHA256 | `action_result.json` SHA256 | `stability_window.json` SHA256 |

@@ -1,6 +1,6 @@
 # 核心主张证据分级与边界状态清单 (Evidence Status Matrix)
 
-**基准提交**: `0fe4c7337c8099c87611009fedefacc3780026fa`  
+**基准提交**: `ade2e1d2bce4b38fbbec8b9d3103838545fdcabc`  
 **算力预算状态**: **新增 GPU 调用 = 0，新增模型 Token = 0，纯 Linux OS CPU 隔离核验**  
 **证据冻结清单**: [`research/conditional_constraint_memory/results/frozen_evidence_manifest.json`](results/frozen_evidence_manifest.json)
 
@@ -38,7 +38,7 @@
 
 ### 主张 1.2：感知驱动的动态失效机制在障碍清除时能恢复近路通行能力
 - **主张内容**：在障碍清除场景（Scenario D2）下，通过传感器核验 `FREE` 状态触发动态失效，机器人重新选用短路，相比永久禁用近路的记忆基线（$M1$）节省 $\approx 11.0\%$ 行驶距离（$16.25\,\text{m}$ vs. $18.25\,\text{m}$）。
-- **适用范围与失效边界**：在当前仿真样本下，平均总运行时间未见改善（$151.1\,\text{s}$ vs. $148.8\,\text{s}$，微增 $+1.5\%$）。轨迹时间账本实测表明：决策阶段耗时几乎完全相等（$51.10\,\text{s}$ vs. $51.30\,\text{s}$，仅差 $-0.20\,\text{s}$），总时间差主要来自历史探索阶段（$+2.47\,\text{s}$）；粗粒度分解显示 Path A 移动时间较少，但被门区子目标协商与停顿核验抵消；具体分量受离散化阈值影响。失效机理依赖静态门区 ROI 的传感器重获，尚未在动态移动障碍物上验证。
+- **适用范围与失效边界**：在当前仿真样本下，平均总运行时间未见改善（$151.1\,\text{s}$ vs. $148.8\,\text{s}$，样本均值差 $+2.27\,\text{s}$，$+1.5\%$）。轨迹时间账本实测表明：决策阶段耗时几乎完全相等（$51.10\,\text{s}$ vs. $51.30\,\text{s}$，样本均值差仅 $-0.20\,\text{s}$），总时间差主要来自历史探索阶段（样本均值差 $+2.47\,\text{s}$）；粗粒度分解显示 Path A 移动时间较少，但门区经历航点切换与等待核验，静止时间较长；具体分量受离散化阈值影响，零残差声明为代数恒等。失效机理依赖静态门区 ROI 的传感器重获，尚未在动态移动障碍物上验证。
 - **证据文件与哈希**：[`paper/draft.md`](../../paper/draft.md#L140-L141)，[`reports/evidence/d2_time_ledger/`](../../reports/evidence/d2_time_ledger/)
 
 ### 主张 1.3：大模型自然提取的候选规则表现为参数脆弱性与未泛化，而非跨资源过度泛化
@@ -93,7 +93,7 @@
 
 ### 主张 3.2：动作条件导航假设 ($H_1$) 会在开阔门区产生可执行性分化
 - **状态**：**暂不支持 (Unsupported - Stopped per Protocol)**。
-- **实测证据**：在 4 次可行性检查中，不同朝向目标动作在 Nav2 下均执行成功（4/4 成功，3/4 严格物理到达），`DWBLocalPlanner` 未出现规划失败，未建立动作可执行性差异。按照研究规程终止该假设探索。
+- **实测证据**：在 4 次可行性检查中，不同朝向目标动作在 Nav2 下均执行成功（4/4 Nav2 成功，3/4 严格停定核验通过），`DWBLocalPlanner` 未出现规划失败，未建立动作可执行性差异。按照研究规程终止该假设探索。
 
 ### 主张 3.3：规则生命周期状态机 ($M$) 相对简单策略具备累积超额收益
 - **状态**：**未证实 (Unproven)**。
@@ -139,6 +139,6 @@
 | **CPU 机制实测对比** | `research/conditional_constraint_memory/results/natural_candidate_cpu_comparison.json` | 4 案例 5 分支确定性对比 |
 | **回归测试套件** | `research/conditional_constraint_memory/test_candidate_verification_regression.py` | 16/16 项核心科学不变量回归测试全部通过 |
 | **全量单测套件** | `research/conditional_constraint_memory/` | 70/70 项单元与集成测试全部通过 |
-| **主仓库测试套件** | `tests/` | 191 通过，8 项预期 xfailed，0 失败 |
+| **主仓库测试套件** | `tests/` | 196 通过，8 项预期 xfailed，0 失败 |
 | **D2 轨迹时间账本** | `reports/evidence/d2_time_ledger/` | 12 轮三阶段闭合核算、27 点参数敏感性网格完整生成 |
 | **ROS 2 论文手稿** | `paper/draft.md` | 完整 30 次仿真 + 4 次可行性检查报告 (PDF 10 页) |

@@ -49,4 +49,4 @@ pytest tests/
 - **Simulator / Robot**: Gazebo 11 + TurtleBot3 Waffle
 - **Nav2 Planners**: `DWBLocalPlanner` (Controller) + `NavFnPlanner` (Global Planner)
 - **Immutable Observation Bundle**: `src/doorway_evaluator.py` 捕获未截断的原始激光点云、TF 坐标变换与 Costmap ROI 子网格
-- **Independent Cryptographic Replay Auditor**: `scripts/replay_and_score_p2c.py` 严格校验事件时序因果与不可篡改记录
+- **Independent Replay Auditor**: `scripts/replay_and_score_p2c.py` 严格校验事件时序因果并依据哈希清单检测文件变动
