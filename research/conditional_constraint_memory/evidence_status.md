@@ -38,8 +38,8 @@
 
 ### 主张 1.2：感知驱动的动态失效机制在障碍清除时能恢复近路通行能力
 - **主张内容**：在障碍清除场景（Scenario D2）下，通过传感器核验 `FREE` 状态触发动态失效，机器人重新选用短路，相比永久禁用近路的记忆基线（$M1$）节省 $\approx 11.0\%$ 行驶距离（$16.25\,\text{m}$ vs. $18.25\,\text{m}$）。
-- **适用范围与失效边界**：在当前仿真样本下，平均总运行时间增加了 $\approx 1.5\%$（$151.1\,\text{s}$ vs. $148.8\,\text{s}$），未观察到时间收益；失效机理依赖静态门区 ROI 的传感器重获，尚未在动态移动障碍物上验证。
-- **证据文件与哈希**：[`paper/draft.md`](../../paper/draft.md#L140-L141)
+- **适用范围与失效边界**：在当前仿真样本下，平均总运行时间未见改善（$151.1\,\text{s}$ vs. $148.8\,\text{s}$，微增 $+1.5\%$）。轨迹时间账本实测表明：决策阶段耗时几乎完全相等（$51.10\,\text{s}$ vs. $51.30\,\text{s}$，仅差 $-0.20\,\text{s}$），总时间差主要来自历史探索阶段（$+2.47\,\text{s}$）；粗粒度分解显示 Path A 移动时间较少，但被门区子目标协商与停顿核验抵消；具体分量受离散化阈值影响。失效机理依赖静态门区 ROI 的传感器重获，尚未在动态移动障碍物上验证。
+- **证据文件与哈希**：[`paper/draft.md`](../../paper/draft.md#L140-L141)，[`reports/evidence/d2_time_ledger/`](../../reports/evidence/d2_time_ledger/)
 
 ### 主张 1.3：大模型自然提取的候选规则表现为参数脆弱性与未泛化，而非跨资源过度泛化
 - **主张内容**：大模型结构化提取倾向于将特定文件路径（如 `config_path=/home/agentuser/service_conf/app_t1.json`）硬编码至动作签名中。当相同冲突发生在其他文件名时，规则无法匹配（`action_matches_scope == False`）。候选规则未展现出跨端口或跨目录的过度泛化。
@@ -137,7 +137,8 @@
 | **24条候选总账** | `research/conditional_constraint_memory/results/candidate_ledger_24.json` | 24 条分解明细 (12 Method A, 12 Method B) |
 | **修订版执行核验** | `research/conditional_constraint_memory/results/natural_candidate_revised_verification.json` | 12 条 Method B 严格 OS 执行结果 |
 | **CPU 机制实测对比** | `research/conditional_constraint_memory/results/natural_candidate_cpu_comparison.json` | 4 案例 5 分支确定性对比 |
-| **修订版分析报告** | `research/conditional_constraint_memory/results/natural_candidate_revised_report.md` | 完整独立审计报告 |
-| **回归测试套件** | `research/conditional_constraint_memory/test_candidate_verification_regression.py` | 9/9 项核心科学不变量全部通过 |
-| **全量单测套件** | `research/conditional_constraint_memory/` | 63/63 项单元与集成测试全部通过 |
-| **ROS 2 论文手稿** | `paper/draft.md` | 完整 30 次仿真 + 4 次可行性检查报告 |
+| **回归测试套件** | `research/conditional_constraint_memory/test_candidate_verification_regression.py` | 16/16 项核心科学不变量回归测试全部通过 |
+| **全量单测套件** | `research/conditional_constraint_memory/` | 70/70 项单元与集成测试全部通过 |
+| **主仓库测试套件** | `tests/` | 191 通过，8 项预期 xfailed，0 失败 |
+| **D2 轨迹时间账本** | `reports/evidence/d2_time_ledger/` | 12 轮三阶段闭合核算、27 点参数敏感性网格完整生成 |
+| **ROS 2 论文手稿** | `paper/draft.md` | 完整 30 次仿真 + 4 次可行性检查报告 (PDF 10 页) |
