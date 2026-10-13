@@ -8,47 +8,132 @@
       "group_results": {
         "B2": {
           "group": "B2",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": true,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 1,
+          "probe_calls": 0,
           "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.248,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
-          "gate_events": []
+          "gate_events": [],
+          "probe_events": [],
+          "target_action_raw_return": {
+            "call_id": "call_08792917",
+            "success": true,
+            "exit_code": 0,
+            "error_code": 0,
+            "error_type": null,
+            "port": 18082,
+            "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+            "config_snapshot": {
+              "port": 18082,
+              "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+            },
+            "resource_id": "port:18082",
+            "pid": 80390,
+            "stderr": "",
+            "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18082",
+            "timestamp": 1791853463.5148203
+          }
         },
         "B2-G": {
           "group": "B2-G",
-          "action_executed": true,
-          "gate_blocked": false,
+          "action_proposed": true,
+          "action_executed": false,
+          "action_succeeded": false,
+          "gate_blocked": true,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
-          "is_fp_block": false,
-          "tool_calls": 0,
+          "is_fp_block": true,
+          "tool_calls": 1,
+          "target_action_calls": 0,
+          "probe_calls": 1,
           "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.178,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
               "step": 1,
               "action": "start_service:port=18082",
-              "decision": "DEFERRED_UNKNOWN",
-              "reason": "Generic predicate gate deferred: rule rule_call_10 premise is UNKNOWN; probe required."
+              "decision": "PROBE",
+              "probe_tool": "probe_file",
+              "probe_params": {
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+              },
+              "probe_res": {
+                "call_id": "call_11086ff4",
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+                "exists": true,
+                "is_new": false,
+                "parent_dir": "/home/agentuser/service_conf",
+                "writable_by_user": true,
+                "mode": "0644",
+                "owner_uid": 1001,
+                "timestamp": 1791853463.7878885
+              }
+            },
+            {
+              "step": 1,
+              "action": "start_service:port=18082",
+              "decision": "BLOCK",
+              "reason": "Generic predicate gate blocked: rule rule_call_10 premise confirmed APPLICABLE.",
+              "is_tp": false
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_11086ff4",
+              "step": 1,
+              "tool": "probe_file",
+              "params": {
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_11086ff4",
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+                "exists": true,
+                "is_new": false,
+                "parent_dir": "/home/agentuser/service_conf",
+                "writable_by_user": true,
+                "mode": "0644",
+                "owner_uid": 1001,
+                "timestamp": 1791853463.7878885
+              },
+              "timestamp": 1791853463.7878885
+            }
+          ],
+          "target_action_raw_return": null
         },
         "S1": {
           "group": "S1",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": true,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 1,
+          "probe_calls": 0,
           "executed_error_actions": 0,
           "lifecycle_transitions": 1,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.247,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
@@ -57,18 +142,44 @@
               "decision": "ALLOW",
               "reason": "S1 allowed (no verified blocking rule)."
             }
-          ]
+          ],
+          "probe_events": [],
+          "target_action_raw_return": {
+            "call_id": "call_c25028bc",
+            "success": true,
+            "exit_code": 0,
+            "error_code": 0,
+            "error_type": null,
+            "port": 18082,
+            "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+            "config_snapshot": {
+              "port": 18082,
+              "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+            },
+            "resource_id": "port:18082",
+            "pid": 80426,
+            "stderr": "",
+            "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18082",
+            "timestamp": 1791853464.1441042
+          }
         },
         "S2": {
           "group": "S2",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": true,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
-          "tool_calls": 2,
+          "tool_calls": 3,
+          "target_action_calls": 1,
+          "probe_calls": 2,
           "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.26,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
@@ -77,27 +188,153 @@
               "decision": "ALLOW",
               "reason": "S2 allowed."
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_3a0c8efa",
+              "step": 1,
+              "tool": "probe_file",
+              "params": {
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_3a0c8efa",
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+                "exists": true,
+                "is_new": false,
+                "parent_dir": "/home/agentuser/service_conf",
+                "writable_by_user": true,
+                "mode": "0644",
+                "owner_uid": 1001,
+                "timestamp": 1791853464.424417
+              },
+              "timestamp": 1791853464.424417
+            },
+            {
+              "call_id": "call_b5f754ac",
+              "step": 2,
+              "tool": "probe_port",
+              "params": {
+                "port": 18082
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_b5f754ac",
+                "port": 18082,
+                "status": "FREE",
+                "is_occupied": false,
+                "timestamp": 1791853464.4445348
+              },
+              "timestamp": 1791853464.4445348
+            }
+          ],
+          "target_action_raw_return": {
+            "call_id": "call_adae6023",
+            "success": true,
+            "exit_code": 0,
+            "error_code": 0,
+            "error_type": null,
+            "port": 18082,
+            "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+            "config_snapshot": {
+              "port": 18082,
+              "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+            },
+            "resource_id": "port:18082",
+            "pid": 80438,
+            "stderr": "",
+            "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18082",
+            "timestamp": 1791853464.508534
+          }
         },
         "M": {
           "group": "M",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": true,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
-          "tool_calls": 0,
+          "tool_calls": 2,
+          "target_action_calls": 1,
+          "probe_calls": 1,
           "executed_error_actions": 0,
-          "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "lifecycle_transitions": 1,
+          "time_taken_s": 0.224,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
               "step": 1,
               "action": "start_service:port=18082",
-              "decision": "DEFERRED_UNKNOWN",
-              "reason": "Action deferred: Rule rule_call_10 premise is UNKNOWN; probe required."
+              "decision": "PROBE",
+              "probe_tool": "probe_file",
+              "probe_params": {
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+              },
+              "probe_res": {
+                "call_id": "call_f152f286",
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+                "exists": true,
+                "is_new": false,
+                "parent_dir": "/home/agentuser/service_conf",
+                "writable_by_user": true,
+                "mode": "0644",
+                "owner_uid": 1001,
+                "timestamp": 1791853464.7689464
+              }
+            },
+            {
+              "step": 1,
+              "action": "start_service:port=18082",
+              "decision": "CANDIDATE_TRIAL",
+              "reason": "Rule rule_call_10 is in CANDIDATE state; allowed under probationary trial."
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_f152f286",
+              "step": 1,
+              "tool": "probe_file",
+              "params": {
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_f152f286",
+                "filepath": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+                "exists": true,
+                "is_new": false,
+                "parent_dir": "/home/agentuser/service_conf",
+                "writable_by_user": true,
+                "mode": "0644",
+                "owner_uid": 1001,
+                "timestamp": 1791853464.7689464
+              },
+              "timestamp": 1791853464.7689464
+            }
+          ],
+          "target_action_raw_return": {
+            "call_id": "call_0bafd83d",
+            "success": true,
+            "exit_code": 0,
+            "error_code": 0,
+            "error_type": null,
+            "port": 18082,
+            "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json",
+            "config_snapshot": {
+              "port": 18082,
+              "config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json"
+            },
+            "resource_id": "port:18082",
+            "pid": 80449,
+            "stderr": "",
+            "stdout": "Service telemetry_agent successfully started and listening on 127.0.0.1:18082",
+            "timestamp": 1791853464.835465
+          }
         }
       }
     },
@@ -107,27 +344,59 @@
       "group_results": {
         "B2": {
           "group": "B2",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": true,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 1,
+          "probe_calls": 0,
           "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.196,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
-          "gate_events": []
+          "gate_events": [],
+          "probe_events": [],
+          "target_action_raw_return": {
+            "call_id": "call_00db67ac",
+            "success": true,
+            "exit_code": 0,
+            "error_code": 0,
+            "error_type": null,
+            "config_path": "/home/agentuser/service_conf/app_sys_0755.json",
+            "port": 18080,
+            "config_snapshot": {
+              "service_name": "telemetry_agent",
+              "port": 18080
+            },
+            "resource_id": "file:/home/agentuser/service_conf/app_sys_0755.json",
+            "stderr": "",
+            "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_sys_0755.json",
+            "timestamp": 1791853465.1343284
+          }
         },
         "B2-G": {
           "group": "B2-G",
-          "action_executed": true,
-          "gate_blocked": false,
+          "action_proposed": true,
+          "action_executed": false,
+          "action_succeeded": false,
+          "gate_blocked": true,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
-          "is_fp_block": false,
-          "tool_calls": 2,
+          "is_fp_block": true,
+          "tool_calls": 1,
+          "target_action_calls": 0,
+          "probe_calls": 1,
           "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.187,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
@@ -139,51 +408,63 @@
                 "dirpath": "/home/agentuser/service_conf"
               },
               "probe_res": {
-                "call_id": "call_20a7accc",
+                "call_id": "call_e7788d00",
                 "dirpath": "/home/agentuser/service_conf",
                 "exists": true,
                 "writable_by_user": true,
                 "mode": "0755",
                 "owner_uid": 1001,
-                "timestamp": 1791816491.1591017
+                "timestamp": 1791853465.4228604
               }
             },
             {
               "step": 1,
               "action": "write_config:filepath=/home/agentuser/service_conf/app_sys_0755.json",
-              "decision": "PROBE",
-              "probe_tool": "probe_directory",
-              "probe_params": {
+              "decision": "BLOCK",
+              "reason": "Generic predicate gate blocked: rule rule_call_4 premise confirmed APPLICABLE.",
+              "is_tp": false
+            }
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_e7788d00",
+              "step": 1,
+              "tool": "probe_directory",
+              "params": {
                 "dirpath": "/home/agentuser/service_conf"
               },
-              "probe_res": {
-                "call_id": "call_632ba989",
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_e7788d00",
                 "dirpath": "/home/agentuser/service_conf",
                 "exists": true,
                 "writable_by_user": true,
                 "mode": "0755",
                 "owner_uid": 1001,
-                "timestamp": 1791816491.1740139
-              }
-            },
-            {
-              "step": 1,
-              "action": "write_config:filepath=/home/agentuser/service_conf/app_sys_0755.json",
-              "decision": "DEFERRED_UNKNOWN",
-              "reason": "Generic predicate gate deferred: rule rule_call_4 premise is UNKNOWN; probe required."
+                "timestamp": 1791853465.4228604
+              },
+              "timestamp": 1791853465.4228604
             }
-          ]
+          ],
+          "target_action_raw_return": null
         },
         "S1": {
           "group": "S1",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": true,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 1,
+          "probe_calls": 0,
           "executed_error_actions": 0,
           "lifecycle_transitions": 1,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.183,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
@@ -192,38 +473,72 @@
               "decision": "ALLOW",
               "reason": "S1 allowed (no verified blocking rule)."
             }
-          ]
+          ],
+          "probe_events": [],
+          "target_action_raw_return": {
+            "call_id": "call_82d4c089",
+            "success": true,
+            "exit_code": 0,
+            "error_code": 0,
+            "error_type": null,
+            "config_path": "/home/agentuser/service_conf/app_sys_0755.json",
+            "port": 18080,
+            "config_snapshot": {
+              "service_name": "telemetry_agent",
+              "port": 18080
+            },
+            "resource_id": "file:/home/agentuser/service_conf/app_sys_0755.json",
+            "stderr": "",
+            "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_sys_0755.json",
+            "timestamp": 1791853465.7071319
+          }
         },
         "S2": {
           "group": "S2",
-          "action_executed": true,
+          "action_proposed": true,
+          "action_executed": false,
+          "action_succeeded": false,
           "gate_blocked": false,
+          "action_deferred": true,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
-          "tool_calls": 2,
+          "tool_calls": 0,
+          "target_action_calls": 0,
+          "probe_calls": 0,
           "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.164,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
               "step": 1,
               "action": "write_config:filepath=/home/agentuser/service_conf/app_sys_0755.json",
-              "decision": "ALLOW",
-              "reason": "S2 allowed."
+              "decision": "DEFERRED_UNKNOWN",
+              "reason": "S2 unverified or unknown condition on port:18080."
             }
-          ]
+          ],
+          "probe_events": [],
+          "target_action_raw_return": null
         },
         "M": {
           "group": "M",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": true,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 2,
+          "target_action_calls": 1,
+          "probe_calls": 1,
           "executed_error_actions": 0,
           "lifecycle_transitions": 1,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.204,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
@@ -235,22 +550,60 @@
                 "dirpath": "/home/agentuser/service_conf"
               },
               "probe_res": {
-                "call_id": "call_c55ccfd7",
+                "call_id": "call_f407c179",
                 "dirpath": "/home/agentuser/service_conf",
                 "exists": true,
                 "writable_by_user": true,
                 "mode": "0755",
                 "owner_uid": 1001,
-                "timestamp": 1791816492.0408497
+                "timestamp": 1791853466.2549183
               }
             },
             {
               "step": 1,
               "action": "write_config:filepath=/home/agentuser/service_conf/app_sys_0755.json",
-              "decision": "ALLOW",
-              "reason": "No constraint rule matches proposed action."
+              "decision": "CANDIDATE_TRIAL",
+              "reason": "Rule rule_call_4 is in CANDIDATE state; allowed under probationary trial."
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_f407c179",
+              "step": 1,
+              "tool": "probe_directory",
+              "params": {
+                "dirpath": "/home/agentuser/service_conf"
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_f407c179",
+                "dirpath": "/home/agentuser/service_conf",
+                "exists": true,
+                "writable_by_user": true,
+                "mode": "0755",
+                "owner_uid": 1001,
+                "timestamp": 1791853466.2549183
+              },
+              "timestamp": 1791853466.2549183
+            }
+          ],
+          "target_action_raw_return": {
+            "call_id": "call_803d819f",
+            "success": true,
+            "exit_code": 0,
+            "error_code": 0,
+            "error_type": null,
+            "config_path": "/home/agentuser/service_conf/app_sys_0755.json",
+            "port": 18080,
+            "config_snapshot": {
+              "service_name": "telemetry_agent",
+              "port": 18080
+            },
+            "resource_id": "file:/home/agentuser/service_conf/app_sys_0755.json",
+            "stderr": "",
+            "stdout": "Configuration successfully written to /home/agentuser/service_conf/app_sys_0755.json",
+            "timestamp": 1791853466.2779198
+          }
         }
       }
     },
@@ -260,27 +613,57 @@
       "group_results": {
         "B2": {
           "group": "B2",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": false,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 1,
+          "probe_calls": 0,
           "executed_error_actions": 1,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.278,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
-          "gate_events": []
+          "gate_events": [],
+          "probe_events": [],
+          "target_action_raw_return": {
+            "call_id": "call_b88a7393",
+            "success": false,
+            "exit_code": 98,
+            "error_code": 98,
+            "error_type": "AddressAlreadyInUse",
+            "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+            "stdout": "",
+            "config_snapshot": {
+              "port": 18080,
+              "config_path": "/home/agentuser/service_conf/app_t1.json"
+            },
+            "resource_id": "port:18080",
+            "timestamp": 1791853466.6582515
+          }
         },
         "B2-G": {
           "group": "B2-G",
+          "action_proposed": true,
           "action_executed": false,
+          "action_succeeded": false,
           "gate_blocked": true,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": true,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 0,
+          "probe_calls": 1,
           "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.196,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
@@ -292,11 +675,11 @@
                 "port": 18080
               },
               "probe_res": {
-                "call_id": "call_14877e95",
+                "call_id": "call_a66aaff1",
                 "port": 18080,
                 "status": "OCCUPIED",
                 "is_occupied": true,
-                "timestamp": 1791816492.698875
+                "timestamp": 1791853466.9554143
               }
             },
             {
@@ -306,18 +689,45 @@
               "reason": "Generic predicate gate blocked: rule rule_call_2 premise confirmed APPLICABLE.",
               "is_tp": true
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_a66aaff1",
+              "step": 2,
+              "tool": "probe_port",
+              "params": {
+                "port": 18080
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_a66aaff1",
+                "port": 18080,
+                "status": "OCCUPIED",
+                "is_occupied": true,
+                "timestamp": 1791853466.9554143
+              },
+              "timestamp": 1791853466.9554143
+            }
+          ],
+          "target_action_raw_return": null
         },
         "S1": {
           "group": "S1",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": false,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 1,
+          "probe_calls": 0,
           "executed_error_actions": 1,
           "lifecycle_transitions": 1,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.232,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
@@ -326,38 +736,89 @@
               "decision": "ALLOW",
               "reason": "S1 allowed (no verified blocking rule)."
             }
-          ]
+          ],
+          "probe_events": [],
+          "target_action_raw_return": {
+            "call_id": "call_08f83e28",
+            "success": false,
+            "exit_code": 98,
+            "error_code": 98,
+            "error_type": "AddressAlreadyInUse",
+            "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+            "stdout": "",
+            "config_snapshot": {
+              "port": 18080,
+              "config_path": "/home/agentuser/service_conf/app_t1.json"
+            },
+            "resource_id": "port:18080",
+            "timestamp": 1791853467.2892108
+          }
         },
         "S2": {
           "group": "S2",
-          "action_executed": true,
-          "gate_blocked": false,
-          "is_tp_block": false,
+          "action_proposed": true,
+          "action_executed": false,
+          "action_succeeded": false,
+          "gate_blocked": true,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
+          "is_tp_block": true,
           "is_fp_block": false,
-          "tool_calls": 2,
-          "executed_error_actions": 1,
+          "tool_calls": 1,
+          "target_action_calls": 0,
+          "probe_calls": 1,
+          "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.198,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
               "step": 1,
               "action": "start_service:port=18080",
-              "decision": "ALLOW",
-              "reason": "S2 allowed."
+              "decision": "BLOCK",
+              "reason": "S2 verified constraint blocked: rule rule_call_2 verified infeasible on port:18080 and premise APPLICABLE.",
+              "is_tp": true
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_1fd166fa",
+              "step": 2,
+              "tool": "probe_port",
+              "params": {
+                "port": 18080
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_1fd166fa",
+                "port": 18080,
+                "status": "OCCUPIED",
+                "is_occupied": true,
+                "timestamp": 1791853467.5892
+              },
+              "timestamp": 1791853467.5892
+            }
+          ],
+          "target_action_raw_return": null
         },
         "M": {
           "group": "M",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": false,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 2,
+          "target_action_calls": 1,
+          "probe_calls": 1,
           "executed_error_actions": 1,
           "lifecycle_transitions": 1,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.264,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
@@ -369,20 +830,54 @@
                 "port": 18080
               },
               "probe_res": {
-                "call_id": "call_7d1bd740",
+                "call_id": "call_d494fec9",
                 "port": 18080,
                 "status": "OCCUPIED",
                 "is_occupied": true,
-                "timestamp": 1791816493.643809
+                "timestamp": 1791853467.88405
               }
             },
             {
               "step": 1,
               "action": "start_service:port=18080",
-              "decision": "ALLOW",
-              "reason": "No constraint rule matches proposed action."
+              "decision": "CANDIDATE_TRIAL",
+              "reason": "Rule rule_call_2 is in CANDIDATE state; allowed under probationary trial."
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_d494fec9",
+              "step": 2,
+              "tool": "probe_port",
+              "params": {
+                "port": 18080
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_d494fec9",
+                "port": 18080,
+                "status": "OCCUPIED",
+                "is_occupied": true,
+                "timestamp": 1791853467.88405
+              },
+              "timestamp": 1791853467.88405
+            }
+          ],
+          "target_action_raw_return": {
+            "call_id": "call_d57460be",
+            "success": false,
+            "exit_code": 98,
+            "error_code": 98,
+            "error_type": "AddressAlreadyInUse",
+            "stderr": "OSError: [Errno 98] Address already in use (Port 18080)",
+            "stdout": "",
+            "config_snapshot": {
+              "port": 18080,
+              "config_path": "/home/agentuser/service_conf/app_t1.json"
+            },
+            "resource_id": "port:18080",
+            "timestamp": 1791853467.9553137
+          }
         }
       }
     },
@@ -392,144 +887,250 @@
       "group_results": {
         "B2": {
           "group": "B2",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": false,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 1,
+          "probe_calls": 0,
           "executed_error_actions": 1,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.176,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
-          "gate_events": []
+          "gate_events": [],
+          "probe_events": [],
+          "target_action_raw_return": {
+            "call_id": "call_afe07fc0",
+            "port": 18085,
+            "status": "DOWN",
+            "healthy": false,
+            "error": "Connection refused: port 18085 is not listening",
+            "timestamp": 1791853468.2299266
+          }
         },
         "B2-G": {
           "group": "B2-G",
-          "action_executed": true,
-          "gate_blocked": false,
-          "is_tp_block": false,
+          "action_proposed": true,
+          "action_executed": false,
+          "action_succeeded": false,
+          "gate_blocked": true,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
+          "is_tp_block": true,
           "is_fp_block": false,
-          "tool_calls": 2,
+          "tool_calls": 1,
+          "target_action_calls": 0,
+          "probe_calls": 1,
           "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.17,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
               "step": 1,
-              "action": "check_health:18085",
+              "action": "check_health:port=18085",
               "decision": "PROBE",
               "probe_tool": "probe_port",
               "probe_params": {
                 "port": 18085
               },
               "probe_res": {
-                "call_id": "call_3489b9b7",
+                "call_id": "call_dbc4971d",
                 "port": 18085,
                 "status": "FREE",
                 "is_occupied": false,
-                "timestamp": 1791816494.2495527
+                "timestamp": 1791853468.5040817
               }
             },
             {
               "step": 1,
-              "action": "check_health:18085",
-              "decision": "PROBE",
-              "probe_tool": "probe_port",
-              "probe_params": {
-                "port": 18085
-              },
-              "probe_res": {
-                "call_id": "call_2c85c22a",
-                "port": 18085,
-                "status": "FREE",
-                "is_occupied": false,
-                "timestamp": 1791816494.2516704
-              }
-            },
-            {
-              "step": 1,
-              "action": "check_health:18085",
-              "decision": "DEFERRED_UNKNOWN",
-              "reason": "Generic predicate gate deferred: rule rule_call_14 premise is UNKNOWN; probe required."
+              "action": "check_health:port=18085",
+              "decision": "BLOCK",
+              "reason": "Generic predicate gate blocked: rule rule_call_14 premise confirmed APPLICABLE.",
+              "is_tp": true
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_dbc4971d",
+              "step": 1,
+              "tool": "probe_port",
+              "params": {
+                "port": 18085
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_dbc4971d",
+                "port": 18085,
+                "status": "FREE",
+                "is_occupied": false,
+                "timestamp": 1791853468.5040817
+              },
+              "timestamp": 1791853468.5040817
+            }
+          ],
+          "target_action_raw_return": null
         },
         "S1": {
           "group": "S1",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": false,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 1,
+          "target_action_calls": 1,
+          "probe_calls": 0,
           "executed_error_actions": 1,
           "lifecycle_transitions": 1,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.172,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
               "step": 1,
-              "action": "check_health:18085",
+              "action": "check_health:port=18085",
               "decision": "ALLOW",
               "reason": "S1 allowed (no verified blocking rule)."
             }
-          ]
+          ],
+          "probe_events": [],
+          "target_action_raw_return": {
+            "call_id": "call_42ae0359",
+            "port": 18085,
+            "status": "DOWN",
+            "healthy": false,
+            "error": "Connection refused: port 18085 is not listening",
+            "timestamp": 1791853468.7745056
+          }
         },
         "S2": {
           "group": "S2",
-          "action_executed": true,
-          "gate_blocked": false,
-          "is_tp_block": false,
+          "action_proposed": true,
+          "action_executed": false,
+          "action_succeeded": false,
+          "gate_blocked": true,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
+          "is_tp_block": true,
           "is_fp_block": false,
-          "tool_calls": 2,
-          "executed_error_actions": 1,
+          "tool_calls": 1,
+          "target_action_calls": 0,
+          "probe_calls": 1,
+          "executed_error_actions": 0,
           "lifecycle_transitions": 0,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.172,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
               "step": 1,
-              "action": "check_health:18085",
-              "decision": "ALLOW",
-              "reason": "S2 allowed."
+              "action": "check_health:port=18085",
+              "decision": "BLOCK",
+              "reason": "S2 verified constraint blocked: rule rule_call_14 verified infeasible on port:18085 and premise APPLICABLE.",
+              "is_tp": true
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_cbab3945",
+              "step": 1,
+              "tool": "probe_port",
+              "params": {
+                "port": 18085
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_cbab3945",
+                "port": 18085,
+                "status": "FREE",
+                "is_occupied": false,
+                "timestamp": 1791853469.0515301
+              },
+              "timestamp": 1791853469.0515301
+            }
+          ],
+          "target_action_raw_return": null
         },
         "M": {
           "group": "M",
+          "action_proposed": true,
           "action_executed": true,
+          "action_succeeded": false,
           "gate_blocked": false,
+          "action_deferred": false,
+          "termination_reason": "agent_finished",
           "is_tp_block": false,
           "is_fp_block": false,
           "tool_calls": 2,
+          "target_action_calls": 1,
+          "probe_calls": 1,
           "executed_error_actions": 1,
           "lifecycle_transitions": 1,
-          "time_taken_s": 0.0,
+          "time_taken_s": 0.17,
+          "inference_latency_s": 0.002,
           "simulated_tokens": 0,
           "gate_events": [
             {
               "step": 1,
-              "action": "check_health:18085",
+              "action": "check_health:port=18085",
               "decision": "PROBE",
               "probe_tool": "probe_port",
               "probe_params": {
                 "port": 18085
               },
               "probe_res": {
-                "call_id": "call_9f9cd9e0",
+                "call_id": "call_87d4339b",
                 "port": 18085,
                 "status": "FREE",
                 "is_occupied": false,
-                "timestamp": 1791816495.087236
+                "timestamp": 1791853469.3208697
               }
             },
             {
               "step": 1,
-              "action": "check_health:18085",
-              "decision": "ALLOW",
-              "reason": "No constraint rule matches proposed action."
+              "action": "check_health:port=18085",
+              "decision": "CANDIDATE_TRIAL",
+              "reason": "Rule rule_call_14 is in CANDIDATE state; allowed under probationary trial."
             }
-          ]
+          ],
+          "probe_events": [
+            {
+              "call_id": "call_87d4339b",
+              "step": 1,
+              "tool": "probe_port",
+              "params": {
+                "port": 18085
+              },
+              "exit_code": 0,
+              "result": {
+                "call_id": "call_87d4339b",
+                "port": 18085,
+                "status": "FREE",
+                "is_occupied": false,
+                "timestamp": 1791853469.3208697
+              },
+              "timestamp": 1791853469.3208697
+            }
+          ],
+          "target_action_raw_return": {
+            "call_id": "call_ef743d13",
+            "port": 18085,
+            "status": "DOWN",
+            "healthy": false,
+            "error": "Connection refused: port 18085 is not listening",
+            "timestamp": 1791853469.3209188
+          }
         }
       }
     }

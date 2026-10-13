@@ -325,6 +325,10 @@ Output strictly a single JSON block adhering to this schema:
                     env=env,
                     s2_cache=s2_cache,
                     facts=facts,
+                    tool_calls=tool_calls,
+                    max_tool_calls=self.max_tool_calls,
+                    start_time=start_time,
+                    max_time_s=self.max_time_s,
                 )
                 s2_verifications += v_cnt
                 tool_calls += v_cnt
@@ -342,6 +346,14 @@ Output strictly a single JSON block adhering to this schema:
                         "decision": "BLOCK",
                         "reason": gate_reason,
                         "is_tp": is_failing_action,
+                    })
+                elif decision in (GateDecision.PROBE, "DEFERRED_UNKNOWN") or gate_eval.get("deferred"):
+                    deferred_unknown = True
+                    gate_events.append({
+                        "step": step,
+                        "action": action_sig,
+                        "decision": "DEFERRED_UNKNOWN",
+                        "reason": gate_eval.get("reason", "S2 gate deferred."),
                     })
                 elif decision == GateDecision.ALLOW:
                     gate_events.append({
@@ -398,10 +410,10 @@ Output strictly a single JSON block adhering to this schema:
                     # Re-evaluate pre_action_applicability and gate decision
                     pre_app = {}
                     for r_id, r in lifecycle_manager.rules.items():
-                        if r.action_signature == action_sig:
+                        if r.matches_action(action_sig, tool_name=tool_name, params=params):
                             pre_app[r_id] = lifecycle_manager.evaluate_applicability(r)
                     pre_action_applicability = pre_app
-                    gate_eval = lifecycle_manager.make_gate_decision(action_sig)
+                    gate_eval = lifecycle_manager.make_gate_decision(action_sig, params=params, tool_name=tool_name)
 
                 decision = gate_eval["decision"]
                 if decision == GateDecision.BLOCK:
@@ -561,8 +573,8 @@ Output strictly a single JSON block adhering to this schema:
     def _derive_action_signature(self, tool_name: str, params: Dict[str, Any]) -> str:
         if tool_name == "start_service":
             port = params.get("port")
-            if port is None and "config_path" in params:
-                cfg_path = params["config_path"]
+            cfg_path = params.get("config_path", params.get("filepath", ""))
+            if port is None and cfg_path:
                 if os.path.exists(cfg_path):
                     try:
                         with open(cfg_path, "r", encoding="utf-8") as f:
@@ -572,7 +584,7 @@ Output strictly a single JSON block adhering to this schema:
                         pass
             if port is not None:
                 return f"start_service:port={port}"
-            return f"start_service:{params.get('config_path', '')}"
+            return f"start_service:config_path={cfg_path}" if cfg_path else "start_service"
         elif tool_name == "write_config":
             fp = params.get("config_path", params.get("filepath", ""))
             return f"write_config:filepath={fp}"
@@ -583,7 +595,8 @@ Output strictly a single JSON block adhering to this schema:
         elif tool_name == "probe_file":
             return f"probe_file:{params.get('filepath')}"
         elif tool_name == "check_health":
-            return f"check_health:{params.get('port')}"
+            p = params.get("port", 18080)
+            return f"check_health:port={p}"
         return f"{tool_name}"
 
     def _check_if_action_failing(self, env: MultiStepDeploymentEnv, tool_name: str, params: Dict[str, Any]) -> bool:
@@ -762,6 +775,91 @@ Output strictly a single JSON block adhering to this schema:
         for k in keys_to_del:
             s2_cache.pop(k, None)
 
+    def _parse_probe_result(
+        self,
+        tool_name: str,
+        params: Dict[str, Any],
+        probe_res: Dict[str, Any],
+        predicate: Optional[PreconditionPredicate] = None,
+        target_action: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Unified probe adapter for probe_port, probe_file, and probe_directory.
+        Extracts:
+        - probe_success: bool
+        - observation_value: Any
+        - predicate_satisfied: Optional[bool]
+        - action_feasibility_verified: Optional[bool]
+        """
+        if not isinstance(probe_res, dict) or probe_res.get("error"):
+            return {
+                "probe_success": False,
+                "observation_value": None,
+                "predicate_satisfied": None,
+                "action_feasibility_verified": None,
+            }
+
+        probe_success = False
+        obs_val = None
+        predicate_satisfied = None
+        action_feasibility = None
+
+        if tool_name == "probe_port":
+            if "is_occupied" in probe_res:
+                probe_success = True
+                is_occ = bool(probe_res["is_occupied"])
+                obs_val = is_occ
+                # Action feasibility
+                if target_action == "start_service":
+                    action_feasibility = not is_occ  # Feasible only if port is free
+                elif target_action == "check_health":
+                    action_feasibility = is_occ      # Feasible only if port is listening
+                else:
+                    action_feasibility = not is_occ
+
+                # Predicate evaluation
+                if predicate:
+                    exp = predicate.expected_value
+                    exp_bool = (exp is True or str(exp).lower() == "true")
+                    if "occupied" in predicate.key:
+                        predicate_satisfied = (is_occ == exp_bool)
+                    elif "listening" in predicate.key:
+                        predicate_satisfied = (is_occ == exp_bool)
+
+        elif tool_name in ("probe_file", "probe_directory"):
+            if "writable_by_user" in probe_res:
+                probe_success = True
+                writable = bool(probe_res["writable_by_user"])
+                exists = bool(probe_res.get("exists", False))
+                mode = str(probe_res.get("mode", ""))
+                obs_val = {"writable": writable, "exists": exists, "mode": mode}
+
+                if target_action == "write_config":
+                    action_feasibility = writable
+                elif target_action == "start_service":
+                    action_feasibility = exists
+                else:
+                    action_feasibility = writable
+
+                if predicate:
+                    if "writable" in predicate.key:
+                        exp_bool = (predicate.expected_value is True or str(predicate.expected_value).lower() == "true")
+                        predicate_satisfied = (writable == exp_bool)
+                    elif "exists" in predicate.key:
+                        exp_bool = (predicate.expected_value is True or str(predicate.expected_value).lower() == "true")
+                        predicate_satisfied = (exists == exp_bool)
+                    elif "permissions" in predicate.key or "mode" in predicate.key:
+                        clean_exp = str(predicate.expected_value).strip("\"'").lstrip("0")
+                        clean_act = mode.strip("\"'").lstrip("0")
+                        predicate_satisfied = (clean_act == clean_exp)
+
+        return {
+            "probe_success": probe_success,
+            "observation_value": obs_val,
+            "predicate_satisfied": predicate_satisfied,
+            "action_feasibility_verified": action_feasibility,
+        }
+
     def _evaluate_s2_cached_gate(
         self,
         action_sig: str,
@@ -771,6 +869,10 @@ Output strictly a single JSON block adhering to this schema:
         s2_cache: Dict[str, Any],
         facts: Optional[List[StructuredFact]] = None,
         ttl_seconds: float = 30.0,
+        tool_calls: int = 0,
+        max_tool_calls: Optional[int] = None,
+        start_time: Optional[float] = None,
+        max_time_s: Optional[float] = None,
     ) -> Tuple[Dict[str, Any], int]:
         """
         S2 Baseline: Single Controlled Verification with Cache.
@@ -796,19 +898,44 @@ Output strictly a single JSON block adhering to this schema:
             if r.validity_state in (ValidityState.RETIRED, ValidityState.CONTRADICTED):
                 continue
 
+            # Check if rule has predicates that cannot be verified by probes
+            unsupported_preds = [
+                p.key for p in r.predicates
+                if not (p.key.startswith("port:") or p.key.startswith("file:") or p.key.startswith("dir:") or p.key == "config_file:exists")
+            ]
+            if unsupported_preds:
+                return {
+                    "decision": GateDecision.PROBE,
+                    "deferred": True,
+                    "matching_rule_id": r.rule_id,
+                    "reason": f"S2 Gate: Gated predicates {unsupported_preds} cannot be verified by probe. Deferring as UNKNOWN.",
+                }, verifications
+
             # Determine resource binding for cache key
             res_binding = "generic"
             target_port: Optional[int] = None
             target_path: Optional[str] = None
 
-            if "port:" in r.action_signature or (r.predicates and any("port:" in p.key for p in r.predicates)):
-                target_port = 18080
-                for p in r.predicates:
-                    if "port:" in p.key:
-                        parts = p.key.split(":")
-                        if len(parts) >= 2 and parts[1].isdigit():
-                            target_port = int(parts[1])
-                            break
+            if "port:" in r.action_signature or (r.predicates and any("port:" in p.key for p in r.predicates)) or "port" in params:
+                target_port = params.get("port")
+                if target_port is None:
+                    for p in r.predicates:
+                        if "port:" in p.key:
+                            parts = p.key.split(":")
+                            for pt in parts:
+                                if pt.isdigit():
+                                    target_port = int(pt)
+                                    break
+                if target_port is None and "config_path" in params:
+                    cfg_p = params["config_path"]
+                    if os.path.exists(cfg_p):
+                        try:
+                            with open(cfg_p, "r", encoding="utf-8") as f:
+                                target_port = json.load(f).get("port")
+                        except Exception:
+                            pass
+                if target_port is None:
+                    target_port = 18080
                 res_binding = f"port:{target_port}"
             elif norm_action in ("write_config", "start_service") or (r.predicates and any("dir:" in p.key or "file:" in p.key or "config_file:" in p.key for p in r.predicates)):
                 target_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
@@ -820,12 +947,25 @@ Output strictly a single JSON block adhering to this schema:
             is_cache_valid = (cache_entry is not None and (now_mono - cache_entry.get("timestamp_mono", 0)) < cache_entry.get("ttl", ttl_seconds))
 
             if not is_cache_valid:
-                # Probe required
+                # Check budget and timeout before probe
+                if max_tool_calls is not None and (tool_calls + verifications) >= max_tool_calls:
+                    return {
+                        "decision": GateDecision.PROBE,
+                        "deferred": True,
+                        "reason": "S2 verification deferred: tool call budget exhausted before probe.",
+                    }, verifications
+                if max_time_s is not None and start_time is not None and (time.time() - start_time) >= max_time_s:
+                    return {
+                        "decision": GateDecision.PROBE,
+                        "deferred": True,
+                        "reason": "S2 verification deferred: timeout exhausted before probe.",
+                    }, verifications
+
                 probe_called = False
                 is_blocked = False
                 verified = False
 
-                if target_port is not None:
+                if target_port is not None and (norm_action in ("check_health", "start_service") or "port:" in r.action_signature):
                     probe_called = True
                     verifications += 1
                     p_res = env.probe_port(target_port)
@@ -836,12 +976,13 @@ Output strictly a single JSON block adhering to this schema:
                         lifecycle_manager=lifecycle_manager,
                         facts=facts,
                     )
-                    if p_res.get("success", False) and p_res.get("exit_code", 0) == 0 and "is_occupied" in p_res:
-                        is_blocked = bool(p_res["is_occupied"])
+                    parsed = self._parse_probe_result("probe_port", {"port": target_port}, p_res, target_action=norm_action)
+                    if parsed["probe_success"]:
                         verified = True
+                        is_blocked = not parsed["action_feasibility_verified"]
                     else:
-                        is_blocked = False
                         verified = False
+                        is_blocked = False
 
                 elif norm_action == "write_config" and target_path:
                     probe_called = True
@@ -854,12 +995,13 @@ Output strictly a single JSON block adhering to this schema:
                         lifecycle_manager=lifecycle_manager,
                         facts=facts,
                     )
-                    if f_res.get("success", False) and f_res.get("exit_code", 0) == 0 and "writable_by_user" in f_res:
-                        is_blocked = not f_res["writable_by_user"]
+                    parsed = self._parse_probe_result("probe_file", {"filepath": target_path}, f_res, target_action=norm_action)
+                    if parsed["probe_success"]:
                         verified = True
+                        is_blocked = not parsed["action_feasibility_verified"]
                     else:
-                        is_blocked = False
                         verified = False
+                        is_blocked = False
 
                 elif norm_action == "start_service" and target_path:
                     probe_called = True
@@ -873,12 +1015,27 @@ Output strictly a single JSON block adhering to this schema:
                         facts=facts,
                     )
                     cfg_port = None
-                    for p in r.predicates:
-                        if "port:" in p.key:
-                            parts = p.key.split(":")
-                            if len(parts) >= 2 and parts[1].isdigit():
-                                cfg_port = int(parts[1])
+                    if os.path.exists(target_path):
+                        try:
+                            with open(target_path, "r", encoding="utf-8") as f:
+                                cfg_port = json.load(f).get("port")
+                        except Exception:
+                            pass
+                    if cfg_port is None:
+                        for p in r.predicates:
+                            if "port:" in p.key:
+                                parts = p.key.split(":")
+                                for pt in parts:
+                                    if pt.isdigit():
+                                        cfg_port = int(pt)
+                                        break
                     if cfg_port is not None:
+                        if max_tool_calls is not None and (tool_calls + verifications) >= max_tool_calls:
+                            return {
+                                "decision": GateDecision.PROBE,
+                                "deferred": True,
+                                "reason": "S2 verification deferred: tool call budget exhausted before port probe.",
+                            }, verifications
                         verifications += 1
                         p_res = env.probe_port(cfg_port)
                         self._update_observations_from_probe_result(
@@ -888,16 +1045,17 @@ Output strictly a single JSON block adhering to this schema:
                             lifecycle_manager=lifecycle_manager,
                             facts=facts,
                         )
-                        if p_res.get("is_occupied", False):
-                            is_blocked = True
+                        parsed = self._parse_probe_result("probe_port", {"port": cfg_port}, p_res, target_action=norm_action)
+                        if parsed["probe_success"]:
                             verified = True
+                            is_blocked = not parsed["action_feasibility_verified"]
                         else:
+                            verified = False
                             is_blocked = False
-                            verified = True
                     else:
-                        # Missing/existent config file does not mean start_service fails if file is valid
-                        is_blocked = False
-                        verified = bool(f_res.get("success", False))
+                        parsed = self._parse_probe_result("probe_file", {"filepath": target_path}, f_res, target_action=norm_action)
+                        verified = parsed["probe_success"]
+                        is_blocked = not parsed["action_feasibility_verified"]
 
                 if probe_called:
                     s2_cache[cache_key] = {
@@ -918,13 +1076,20 @@ Output strictly a single JSON block adhering to this schema:
 
             # Evaluate gate from cache
             entry = s2_cache.get(cache_key, {})
-            if entry.get("is_blocked", False) is True and entry.get("verified", False) is True:
+            if not entry.get("verified", False):
+                return {
+                    "decision": GateDecision.PROBE,
+                    "deferred": True,
+                    "reason": f"S2 unverified or unknown condition on {entry.get('resource')}.",
+                }, verifications
+
+            if entry.get("is_blocked", False) is True:
                 app = lifecycle_manager.evaluate_applicability(r)
                 if app == ApplicabilityState.APPLICABLE:
                     return {
                         "decision": GateDecision.BLOCK,
                         "matching_rule_id": r.rule_id,
-                        "reason": f"S2 verified constraint blocked: rule {r.rule_id} verified on {entry.get('resource')} and premise APPLICABLE.",
+                        "reason": f"S2 verified constraint blocked: rule {r.rule_id} verified infeasible on {entry.get('resource')} and premise APPLICABLE.",
                     }, verifications
             else:
                 continue
@@ -959,15 +1124,23 @@ Output strictly a single JSON block adhering to this schema:
             target_path = res_path or (var_name.split(":", 1)[1] if ":" in var_name else "/etc/service_demo")
             if target_path.endswith(":writable"):
                 target_path = target_path.replace(":writable", "")
+            if target_path.endswith(":permissions"):
+                target_path = target_path.replace(":permissions", "")
+            if target_path.endswith(":mode"):
+                target_path = target_path.replace(":mode", "")
             return {"tool": "probe_directory", "params": {"dirpath": target_path}, "key": var_name}
-        elif res_type == "file" or var_name.startswith("file:"):
-            target_path = res_path or (var_name.split(":", 1)[1] if ":" in var_name else "/etc/service_demo/app.conf")
+        elif res_type == "file" or var_name.startswith("file:") or var_name.startswith("config_file:"):
+            target_path = res_path or (var_name.split(":", 1)[1] if ":" in var_name and not var_name.startswith("config_file:") else "")
             if target_path.endswith(":writable"):
                 target_path = target_path.replace(":writable", "")
+            if target_path.endswith(":exists"):
+                target_path = target_path.replace(":exists", "")
             if not target_path and "filepath" in params:
                 target_path = params["filepath"]
             elif not target_path and "config_path" in params:
                 target_path = params["config_path"]
+            if not target_path:
+                target_path = "/home/agentuser/service_conf/app.json"
             return {"tool": "probe_file", "params": {"filepath": target_path}, "key": var_name}
         return None
 
@@ -991,11 +1164,12 @@ Output strictly a single JSON block adhering to this schema:
         if tool_name == "probe_port":
             port = params.get("port")
             if port is not None:
-                key = f"port:{port}:occupied"
+                key_occ = f"port:{port}:occupied"
+                key_list = f"port:{port}:listening"
                 if not success or exit_code != 0 or "is_occupied" not in tool_res:
-                    # Invalidate old observation: probe failed or missing field -> UNKNOWN
-                    if lifecycle_manager and key in lifecycle_manager.observations:
-                        del lifecycle_manager.observations[key]
+                    if lifecycle_manager:
+                        lifecycle_manager.observations.pop(key_occ, None)
+                        lifecycle_manager.observations.pop(key_list, None)
                     if facts is not None:
                         res_str = f"port:{port}"
                         for f in facts:
@@ -1003,14 +1177,10 @@ Output strictly a single JSON block adhering to this schema:
                                 f.state_description = "UNKNOWN"
                                 f.timestamp = ts
                 else:
-                    is_occupied = tool_res["is_occupied"]
+                    is_occupied = bool(tool_res["is_occupied"])
                     if lifecycle_manager:
-                        lifecycle_manager.register_observation(
-                            key,
-                            is_occupied,
-                            timestamp=ts,
-                            call_id=cid,
-                        )
+                        lifecycle_manager.register_observation(key_occ, is_occupied, timestamp=ts, call_id=cid)
+                        lifecycle_manager.register_observation(key_list, is_occupied, timestamp=ts, call_id=cid)
                     if facts is not None:
                         res_str = f"port:{port}"
                         state_desc = "occupied" if is_occupied else "free"
@@ -1039,27 +1209,28 @@ Output strictly a single JSON block adhering to this schema:
         elif tool_name == "probe_directory":
             dirpath = params.get("dirpath")
             if dirpath:
-                key = f"dir:{dirpath}:writable"
+                key_w = f"dir:{dirpath}:writable"
+                key_p = f"dir:{dirpath}:permissions"
+                key_m = f"dir:{dirpath}:mode"
+                key_e = f"dir:{dirpath}:exists"
                 if not success or exit_code != 0 or "writable_by_user" not in tool_res:
-                    # Invalidate old observation: probe failed or missing field -> UNKNOWN
-                    if lifecycle_manager and key in lifecycle_manager.observations:
-                        del lifecycle_manager.observations[key]
+                    if lifecycle_manager:
+                        for k in (key_w, key_p, key_m, key_e):
+                            lifecycle_manager.observations.pop(k, None)
                     if facts is not None:
                         for f in facts:
                             if f.resource == dirpath or f.resource == f"dir:{dirpath}":
                                 f.state_description = "UNKNOWN"
                                 f.timestamp = ts
                 else:
-                    is_writable = tool_res["writable_by_user"]
+                    is_writable = bool(tool_res["writable_by_user"])
+                    mode = str(tool_res.get("mode", ""))
+                    exists = bool(tool_res.get("exists", False))
                     if lifecycle_manager:
-                        lifecycle_manager.register_observation(
-                            key,
-                            is_writable,
-                            timestamp=ts,
-                            call_id=cid,
-                        )
-                        # NOTE: Directory probe ONLY registers dir:<dirpath>:writable.
-                        # Do NOT bulk-assign to file:* rules or path prefix matches!
+                        lifecycle_manager.register_observation(key_w, is_writable, timestamp=ts, call_id=cid)
+                        lifecycle_manager.register_observation(key_p, mode, timestamp=ts, call_id=cid)
+                        lifecycle_manager.register_observation(key_m, mode, timestamp=ts, call_id=cid)
+                        lifecycle_manager.register_observation(key_e, exists, timestamp=ts, call_id=cid)
                     if facts is not None:
                         res_str = dirpath
                         state_desc = "writable directory" if is_writable else "non-writable directory"
@@ -1088,25 +1259,34 @@ Output strictly a single JSON block adhering to this schema:
         elif tool_name == "probe_file":
             filepath = params.get("filepath")
             if filepath:
-                key = f"file:{filepath}:writable"
+                key_w = f"file:{filepath}:writable"
+                key_e = f"file:{filepath}:exists"
+                key_cfg_e = "config_file:exists"
+                key_p = f"file:{filepath}:permissions"
+                key_m = f"file:{filepath}:mode"
+                parent_dir = tool_res.get("parent_dir", "")
                 if not success or exit_code != 0 or "writable_by_user" not in tool_res:
-                    # Invalidate old observation: probe failed or missing field -> UNKNOWN
-                    if lifecycle_manager and key in lifecycle_manager.observations:
-                        del lifecycle_manager.observations[key]
+                    if lifecycle_manager:
+                        for k in (key_w, key_e, key_cfg_e, key_p, key_m):
+                            lifecycle_manager.observations.pop(k, None)
                     if facts is not None:
                         for f in facts:
                             if f.resource == filepath or f.resource == f"file:{filepath}":
                                 f.state_description = "UNKNOWN"
                                 f.timestamp = ts
                 else:
-                    is_writable = tool_res["writable_by_user"]
+                    is_writable = bool(tool_res["writable_by_user"])
+                    file_exists = bool(tool_res.get("exists", False))
+                    mode = str(tool_res.get("mode", ""))
                     if lifecycle_manager:
-                        lifecycle_manager.register_observation(
-                            key,
-                            is_writable,
-                            timestamp=ts,
-                            call_id=cid,
-                        )
+                        lifecycle_manager.register_observation(key_w, is_writable, timestamp=ts, call_id=cid)
+                        lifecycle_manager.register_observation(key_e, file_exists, timestamp=ts, call_id=cid)
+                        lifecycle_manager.register_observation(key_cfg_e, file_exists, timestamp=ts, call_id=cid)
+                        lifecycle_manager.register_observation(key_p, mode, timestamp=ts, call_id=cid)
+                        lifecycle_manager.register_observation(key_m, mode, timestamp=ts, call_id=cid)
+                        if parent_dir:
+                            lifecycle_manager.register_observation(f"dir:{parent_dir}:permissions", mode, timestamp=ts, call_id=cid)
+                            lifecycle_manager.register_observation(f"dir:{parent_dir}:writable", is_writable, timestamp=ts, call_id=cid)
                     if facts is not None:
                         res_str = filepath
                         state_desc = "writable file" if is_writable else "non-writable file"

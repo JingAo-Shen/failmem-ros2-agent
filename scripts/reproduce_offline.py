@@ -101,6 +101,7 @@ def validate_reproduction_paths(
     output_dir: Path,
     baseline_dir: Optional[Path],
     h1_dir: Optional[Path],
+    overwrite: bool = False,
 ) -> None:
     """Validate directory paths to prevent corruption, collisions, and dangerous deletions."""
     src_res = source_dir.resolve()
@@ -160,12 +161,15 @@ def validate_reproduction_paths(
         if str(out_res).startswith(str(src_res) + "/"):
             raise ValueError(f"Output directory '{out_res}' cannot be nested inside source directory.")
 
-    # Existing non-empty output directory check (no blind recursive rmtree)
+    # Existing non-empty output directory check
     if out_res.exists() and any(out_res.iterdir()):
-        raise FileExistsError(
-            f"Output directory '{out_res}' already exists and is not empty. "
-            f"Please specify a new or empty directory path."
-        )
+        if overwrite:
+            shutil.rmtree(out_res)
+        else:
+            raise FileExistsError(
+                f"Output directory '{out_res}' already exists and is not empty. "
+                f"Please specify a new or empty directory path, or use --overwrite."
+            )
 
 
 def verify_checksums(source_dir: Path) -> Tuple[bool, Dict[str, Any]]:
@@ -382,6 +386,7 @@ def run_reproduction_pipeline(
     baseline_dir: Optional[Path] = None,
     h1_dir: Optional[Path] = None,
     tolerance: float = 1e-4,
+    overwrite: bool = False,
 ) -> Dict[str, Any]:
     """Execute complete end-to-end reproduction workflow."""
     start_time = time.time()
@@ -410,7 +415,7 @@ def run_reproduction_pipeline(
         # Step 0: Path Validation
         current_stage = "PATH_VALIDATION"
         log("\n--- Step 0: Path & Safety Validation ---")
-        validate_reproduction_paths(source_dir, output_dir, baseline_dir, h1_dir)
+        validate_reproduction_paths(source_dir, output_dir, baseline_dir, h1_dir, overwrite=overwrite)
         log("Path safety check PASSED.")
 
         # Step 1: Checksum verification
@@ -455,6 +460,9 @@ def run_reproduction_pipeline(
         if not integrity_passed:
             raise RuntimeError(f"Integrity check failed: {integrity_rep.get('integrity_violations', [])}")
         log("Statistical analysis completed and CSVs generated in output_dir/analysis/.")
+        for p in analysis_dir.iterdir():
+            if p.is_file():
+                shutil.copy2(p, output_dir / p.name)
 
         # Step 5: Baseline Comparisons
         current_stage = "BASELINE_COMPARISON"
@@ -640,6 +648,11 @@ def main() -> None:
         default=1e-4,
         help="Numeric comparison tolerance for float metrics (default: 1e-4)",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite existing output directory if it exists and is non-empty",
+    )
 
     args = parser.parse_args()
 
@@ -650,6 +663,7 @@ def main() -> None:
             baseline_dir=args.baseline_dir,
             h1_dir=args.h1_dir,
             tolerance=args.tolerance,
+            overwrite=args.overwrite,
         )
         if not report["overall_success"]:
             print(f"\n[REPRODUCTION FAILED] Overall success was False. See {args.output_dir}/reproduction_report.json", file=sys.stderr)

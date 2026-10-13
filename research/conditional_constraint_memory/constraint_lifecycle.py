@@ -22,6 +22,7 @@ import time
 import hashlib
 import copy
 import json
+import os
 
 
 class ValidityState(str, Enum):
@@ -129,8 +130,41 @@ class ConstraintRule:
             if "port=" in self.action_signature:
                 r_port = self.action_signature.split("port=", 1)[1].split(",")[0]
                 p_port = params.get("port")
-                if p_port and str(p_port) == str(r_port):
+                if p_port is None and "config_path" in params:
+                    cfg_file = params["config_path"]
+                    if os.path.exists(cfg_file):
+                        try:
+                            with open(cfg_file, "r", encoding="utf-8") as f:
+                                c_data = json.load(f)
+                            p_port = c_data.get("port")
+                        except Exception:
+                            pass
+                if p_port is not None and str(p_port) == str(r_port):
                     return True
+
+        if ":" in action_signature and "port=" in self.action_signature:
+            sig_val = action_signature.split(":", 1)[1]
+            sig_port = sig_val.split("port=", 1)[1].split(",")[0] if sig_val.startswith("port=") else (sig_val if sig_val.isdigit() else None)
+            r_port = self.action_signature.split("port=", 1)[1].split(",")[0]
+            if sig_port and str(sig_port) == str(r_port):
+                return True
+
+        if ":" in action_signature and ("config_path=" in self.action_signature or "filepath=" in self.action_signature):
+            sig_val = action_signature.split(":", 1)[1]
+            sig_path = None
+            if "config_path=" in sig_val:
+                sig_path = sig_val.split("config_path=", 1)[1].split(",")[0]
+            elif "filepath=" in sig_val:
+                sig_path = sig_val.split("filepath=", 1)[1].split(",")[0]
+            if sig_path:
+                r_path = None
+                if "config_path=" in self.action_signature:
+                    r_path = self.action_signature.split("config_path=", 1)[1].split(",")[0]
+                elif "filepath=" in self.action_signature:
+                    r_path = self.action_signature.split("filepath=", 1)[1].split(",")[0]
+                if r_path and r_path == sig_path:
+                    return True
+
         return False
 
 

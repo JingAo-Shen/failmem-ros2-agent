@@ -7,4 +7,4 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}"
 
-python3 "${SCRIPT_DIR}/reproduce_offline.py" "$@"
+python3 "${SCRIPT_DIR}/reproduce_offline.py" --overwrite "$@"

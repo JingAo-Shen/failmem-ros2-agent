@@ -368,3 +368,104 @@ def test_summary_figures_recomputable_from_records():
     # Valid percentage: 9 / 12 = 75.0%
     valid_ratio = round(len(supported) / len(verif) * 100, 1)
     assert valid_ratio == 75.0
+
+
+# ==============================================================================
+# INVARIANT 10: Case #10 in deferred state has tool_calls == 0 and action_deferred == True
+# ==============================================================================
+def test_case_10_deferred_state_accounting():
+    """Verify that when an action is deferred due to unverified predicates,
+    tool_calls == 0, action_executed == False, and action_deferred == True."""
+    rule = ConstraintRule(
+        rule_id="rule_call_10_unverifiable",
+        action_signature="start_service:config_path=/home/agentuser/service_conf/nonexistent_cfg_999.json",
+        predicates=[
+            PreconditionPredicate(key="custom_hardware:ready", expected_value=True),
+        ],
+        failure_evidence={"error": "expected_failure"},
+        validity_state=ValidityState.CANDIDATE,
+    )
+    mgr = ConstraintLifecycleManager()
+    mgr.add_rule(rule)
+    env = MultiStepDeploymentEnv()
+    backend = ScriptedPolicyBackend([
+        {"action": "start_service", "params": {"config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json"}},
+    ])
+    runner = MultiStepAgentRunner(llm_backend=backend, max_tool_calls_per_episode=5)
+    ep_res = runner.run_episode("S2", env, "inst1_port_conflict_persistent", "run_test_deferred", lifecycle_manager=mgr)
+    env.teardown()
+
+    tool_records = ep_res.get("tool_records", [])
+    target_tool_records = [tr for tr in tool_records if tr.get("tool") == "start_service"]
+    gate_events = ep_res.get("gate_events", [])
+    deferred = any(g.get("decision") == "DEFERRED_UNKNOWN" for g in gate_events)
+
+    assert ep_res["tool_calls"] == 0
+    assert len(target_tool_records) == 0
+    assert deferred is True
+    assert ep_res.get("executed_error_actions", 0) == 0
+
+
+# ==============================================================================
+# INVARIANT 11: S2 under port conflict probes port, blocks, and records probe events
+# ==============================================================================
+def test_s2_port_conflict_probes_and_blocks():
+    """Verify S2 under port conflict probes port, sees port occupied, blocks start_service, and records probe event."""
+    mgr = ConstraintLifecycleManager()
+    rule = ConstraintRule(
+        rule_id="rule_port_18080",
+        action_signature="start_service:port=18080",
+        predicates=[PreconditionPredicate(key="port:18080:occupied", expected_value=True)],
+        failure_evidence={"error_code": 98},
+        validity_state=ValidityState.SUPPORTED,
+    )
+    mgr.add_rule(rule)
+    env = MultiStepDeploymentEnv()
+    backend = ScriptedPolicyBackend([
+        {"action": "start_service", "params": {"config_path": "/home/agentuser/service_conf/app_t1.json"}},
+    ])
+    runner = MultiStepAgentRunner(llm_backend=backend, max_tool_calls_per_episode=5)
+
+    def prepare(e):
+        e.write_config("/home/agentuser/service_conf/app_t1.json", port=18080)
+
+    ep_res = runner.run_episode(
+        "S2", env, "inst1_port_conflict_persistent", "run_test_s2_port",
+        lifecycle_manager=mgr, setup_hook=prepare
+    )
+    env.teardown()
+
+    tool_records = ep_res.get("tool_records", [])
+    target_tool_records = [tr for tr in tool_records if tr.get("tool") == "start_service"]
+    probe_records = [tr for tr in tool_records if tr.get("tool") == "probe_port"]
+    gate_events = ep_res.get("gate_events", [])
+    blocked = any(g.get("decision") == "BLOCK" for g in gate_events)
+
+    assert len(probe_records) == 1
+    assert probe_records[0]["params"].get("port") == 18080
+    assert probe_records[0]["result"].get("is_occupied") is True
+    assert len(target_tool_records) == 0
+    assert blocked is True
+    assert ep_res.get("tp_blocks", 0) == 1
+
+
+# ==============================================================================
+# INVARIANT 12: Directory permissions 0755 under owner context produces counterexample
+# ==============================================================================
+def test_v4_directory_owner_context_produces_counterexample():
+    """Verify directory permissions 0755 under owner context succeeds and correctly produces counterexample."""
+    env = MultiStepDeploymentEnv()
+    params = {"config_path": "/etc/service_demo/app_sys_0755.json", "port": 18080}
+    pred_items = [{"key": "dir:/etc/service_demo:permissions", "op": "==", "expected_value": "0755"}]
+    scope = "directory_level"
+    expected_fail = "1"
+
+    v4_res = exec_v4_context(env, "write_config", params, pred_items, scope, expected_fail)
+    id_test = v4_res.get("v4_identity_or_ownership", {})
+
+    assert id_test.get("test_type") == "v4_identity_or_ownership"
+    assert id_test.get("action_success") is True
+    assert id_test.get("adjudication") == "COUNTEREXAMPLE"
+    assert v4_res.get("adjudication") == "COUNTEREXAMPLE"
+    assert "SCOPE_DEFICIENT" in id_test.get("finding", "")
+

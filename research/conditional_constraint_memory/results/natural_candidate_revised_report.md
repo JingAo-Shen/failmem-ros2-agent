@@ -1,6 +1,6 @@
 # 自然候选记忆修订版独立核验总账与研究去留报告
 
-**核验时间**: 2026-10-12 14:48:15 UTC  
+**核验时间**: 2026-10-13 01:04:29 UTC  
 **算力消耗**: **新增 GPU 调用 = 0，新增模型 Token = 0，纯 Linux OS CPU 隔离核验**  
 **总样本量**: 冻结的历史 24 次调用 (Method A: 12 条, Method B: 12 条)  
 
@@ -75,8 +75,8 @@
 | #14 | `check_health` | `check_health:port=18085...` | `port:18085:listening False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
 | #16 | `start_service` | `start_service:config_path=/h...` | `port:18080:occupied True` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
 | #18 | `write_config` | `write_config:config_path=/tm...` | `dir:/tmp/nonexistent_subfolder_xyz:exists False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #20 | `write_config` | `write_config:config_path=/ho...` | `file:/home/agentuser/service_conf/readonly_app.json:mode "0444"` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | NOT_APPLICABLE | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #22 | `check_health` | `check_health:port=18081...` | `port:18081:listening False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | NOT_APPLICABLE | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #20 | `write_config` | `write_config:config_path=/ho...` | `file:/home/agentuser/service_conf/readonly_app.json:mode "0444"` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SOURCE_PREMISE_MISMATCH | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #22 | `check_health` | `check_health:port=18081...` | `port:18081:listening False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SOURCE_PREMISE_MISMATCH | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
 | #24 | `write_config` | `write_config:config_path=/et...` | `dir:/etc/service_demo:permissions 0755` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | COUNTEREXAMPLE | **SCOPE_DEFICIENT (Counterexample under Owner Context)** |
 
 ---
@@ -87,28 +87,28 @@
 
 ### 实测对比结果汇总（基于 MultiStepAgentRunner 真实事件）
 
-| 评测案例 | 策略分支 | 门禁决策 | 假阳性阻断 (FP) | 计费工具调用数 | 失败动作数 | 规则有效性跃迁数 | 机制应对评价 |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| Call #10 Inverted Rule: star... | **B2** | ALLOW | 0 | 1 | 0 | 0 | 无门禁拦截，依据环境执行结果自愈 |
-| Call #10 Inverted Rule: star... | **B2-G** | ALLOW | 0 | 0 | 0 | 0 | 通用谓词门禁求值；在倒置规则上未预先甄别 |
-| Call #10 Inverted Rule: star... | **S1** | ALLOW | 0 | 1 | 0 | 1 | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
-| Call #10 Inverted Rule: star... | **S2** | ALLOW | 0 | 2 | 0 | 0 | 受控探针核验资源可行性并缓存，0 误阻断 |
-| Call #10 Inverted Rule: star... | **M** | ALLOW | 0 | 0 | 0 | 0 | 试探执行后捕获反例，产生 0 次状态跃迁 |
-| Call #4 Scope Deficient Rule... | **B2** | ALLOW | 0 | 1 | 0 | 0 | 无门禁拦截，依据环境执行结果自愈 |
-| Call #4 Scope Deficient Rule... | **B2-G** | ALLOW | 0 | 2 | 0 | 0 | 门禁拦截 |
-| Call #4 Scope Deficient Rule... | **S1** | ALLOW | 0 | 1 | 0 | 1 | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
-| Call #4 Scope Deficient Rule... | **S2** | ALLOW | 0 | 2 | 0 | 0 | 受控探针核验资源可行性并缓存，0 误阻断 |
-| Call #4 Scope Deficient Rule... | **M** | ALLOW | 0 | 2 | 0 | 1 | 试探执行后捕获反例，产生 1 次状态跃迁 |
-| Call #2 Valid Rule: start_se... | **B2** | ALLOW | 0 | 1 | 1 | 0 | 无门禁拦截，依据环境执行结果自愈 |
-| Call #2 Valid Rule: start_se... | **B2-G** | BLOCK | 0 | 1 | 0 | 0 | 门禁拦截 |
-| Call #2 Valid Rule: start_se... | **S1** | ALLOW | 0 | 1 | 1 | 1 | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
-| Call #2 Valid Rule: start_se... | **S2** | ALLOW | 0 | 2 | 1 | 0 | 受控探针核验资源可行性并缓存，0 误阻断 |
-| Call #2 Valid Rule: start_se... | **M** | ALLOW | 0 | 2 | 1 | 1 | 试探执行后捕获反例，产生 1 次状态跃迁 |
-| Call #14 Valid Rule: check_h... | **B2** | ALLOW | 0 | 1 | 1 | 0 | 无门禁拦截，依据环境执行结果自愈 |
-| Call #14 Valid Rule: check_h... | **B2-G** | ALLOW | 0 | 2 | 0 | 0 | 门禁拦截 |
-| Call #14 Valid Rule: check_h... | **S1** | ALLOW | 0 | 1 | 1 | 1 | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
-| Call #14 Valid Rule: check_h... | **S2** | ALLOW | 0 | 2 | 1 | 0 | 受控探针核验资源可行性并缓存，0 误阻断 |
-| Call #14 Valid Rule: check_h... | **M** | ALLOW | 0 | 2 | 1 | 1 | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| 评测案例 | 策略分支 | 门禁决策 | 动作执行 | 动作成功 | 假阳性阻断 (FP) | 计费调用数 | 跃迁数 | 耗时(s) | 机制应对评价 |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| Call #10 Inverted Rule: st... | **B2** | ALLOW | 已执行 | 成功 | 0 | 1 | 0 | 0.248s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #10 Inverted Rule: st... | **B2-G** | BLOCK | 未执行 | 未成功 | 1 (FP) | 1 | 0 | 0.178s | 通用谓词门禁求值；在倒置规则上未预先甄别 |
+| Call #10 Inverted Rule: st... | **S1** | ALLOW | 已执行 | 成功 | 0 | 1 | 1 | 0.247s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #10 Inverted Rule: st... | **S2** | ALLOW | 已执行 | 成功 | 0 | 3 | 0 | 0.260s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #10 Inverted Rule: st... | **M** | ALLOW | 已执行 | 成功 | 0 | 2 | 1 | 0.224s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| Call #4 Scope Deficient Ru... | **B2** | ALLOW | 已执行 | 成功 | 0 | 1 | 0 | 0.196s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #4 Scope Deficient Ru... | **B2-G** | BLOCK | 未执行 | 未成功 | 1 (FP) | 1 | 0 | 0.187s | 门禁拦截 |
+| Call #4 Scope Deficient Ru... | **S1** | ALLOW | 已执行 | 成功 | 0 | 1 | 1 | 0.183s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #4 Scope Deficient Ru... | **S2** | DEFER | 已递延 | 未成功 | 0 | 0 | 0 | 0.164s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #4 Scope Deficient Ru... | **M** | ALLOW | 已执行 | 成功 | 0 | 2 | 1 | 0.204s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| Call #2 Valid Rule: start_... | **B2** | ALLOW | 已执行 | 未成功 | 0 | 1 | 0 | 0.278s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #2 Valid Rule: start_... | **B2-G** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.196s | 门禁拦截 |
+| Call #2 Valid Rule: start_... | **S1** | ALLOW | 已执行 | 未成功 | 0 | 1 | 1 | 0.232s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #2 Valid Rule: start_... | **S2** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.198s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #2 Valid Rule: start_... | **M** | ALLOW | 已执行 | 未成功 | 0 | 2 | 1 | 0.264s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| Call #14 Valid Rule: check... | **B2** | ALLOW | 已执行 | 未成功 | 0 | 1 | 0 | 0.176s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #14 Valid Rule: check... | **B2-G** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.170s | 门禁拦截 |
+| Call #14 Valid Rule: check... | **S1** | ALLOW | 已执行 | 未成功 | 0 | 1 | 1 | 0.172s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #14 Valid Rule: check... | **S2** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.172s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #14 Valid Rule: check... | **M** | ALLOW | 已执行 | 未成功 | 0 | 2 | 1 | 0.170s | 试探执行后捕获反例，产生 1 次状态跃迁 |
 
 ---
 

@@ -412,9 +412,10 @@ def run_candidate_execution_verification(ledger: List[Dict[str, Any]]) -> List[D
 
         ce_in_v1 = (v1_data.get("adjudication") == "COUNTEREXAMPLE")
         ce_in_v2 = (v2_data.get("adjudication") == "COUNTEREXAMPLE")
+        ce_in_v3 = (v3_data.get("adjudication") == "COUNTEREXAMPLE")
         ce_in_v4 = (v4_data.get("adjudication") == "COUNTEREXAMPLE")
 
-        has_ce = ce_in_v1 or ce_in_v2 or ce_in_v4
+        has_ce = ce_in_v1 or ce_in_v2 or ce_in_v3 or ce_in_v4
 
         if ce_in_v2 and v1_data.get("adjudication") == "SOURCE_PREMISE_MISMATCH":
             overall_verdict = "COUNTEREXAMPLE (Inverted Predicate Proven Infeasible)"
@@ -450,6 +451,54 @@ def run_candidate_execution_verification(ledger: List[Dict[str, Any]]) -> List[D
         json.dump(verif_results, f, indent=2)
 
     return verif_results
+
+
+# -----------------------------------------------------------------------------
+# Unified Candidate Adjudication Function
+# -----------------------------------------------------------------------------
+def adjudicate_candidate_variant(
+    action_matches: bool,
+    scope_matches: bool,
+    premise_state: str,
+    execution_state: str,
+    actual_outcome: Dict[str, Any],
+    expected_failure_type: str = "",
+    tool_name: str = "",
+) -> Tuple[str, str]:
+    """
+    Unified candidate verification adjudication function.
+    Inputs:
+    - action_matches: whether the executed action matches the rule's action signature
+    - scope_matches: whether the executed action matches the rule's declared scope
+    - premise_state: "TRUE" | "FALSE" | "UNKNOWN"
+    - execution_state: "EXECUTED" | "BLOCKED" | "NOT_TESTED"
+    - actual_outcome: tool execution result dictionary
+    - expected_failure_type: expected error code or exception type
+    - tool_name: tool being evaluated
+
+    Returns (adjudication_verdict, notes).
+    """
+    if execution_state == "NOT_TESTED":
+        return "NOT_APPLICABLE", "Action not tested in this variant."
+
+    if not action_matches or not scope_matches:
+        return "ACTION_SIGNATURE_OVERLY_SPECIFIC", "Action does not match declared rule scope or signature."
+
+    if tool_name == "check_health":
+        action_success = bool(actual_outcome.get("healthy", False) or (actual_outcome.get("exit_code") == 0 and actual_outcome.get("status") == "UP"))
+    else:
+        action_success = (actual_outcome.get("exit_code") == 0 and actual_outcome.get("success", False) is True)
+
+    if premise_state == "FALSE":
+        return "SOURCE_PREMISE_MISMATCH", "Declared premise evaluated to FALSE in reproduction environment; action failed but premise did not hold."
+
+    if premise_state == "TRUE":
+        if action_success:
+            return "COUNTEREXAMPLE", "CONFIRMED COUNTEREXAMPLE: Declared premise is TRUE, but action succeeded! Declared failure refuted."
+        else:
+            return "SUPPORTED_IN_TESTED_CONTEXT", "Premise evaluated to TRUE and expected failure reproduced."
+
+    return "UNKNOWN", "Premise state could not be evaluated independently."
 
 
 # --- Variant 1: Original Context Reproduction ---
@@ -519,21 +568,9 @@ def test_variant_1_reproduction(
 
     env.teardown()
 
-    action_success = (res.get("exit_code") == 0 and res.get("success", False) is True)
-
-    if premise_state == "FALSE":
-        adjudication = "SOURCE_PREMISE_MISMATCH"
-        notes = "Declared premise evaluated to FALSE in reproduction environment; action failed but premise did not hold."
-    elif premise_state == "TRUE":
-        if action_success:
-            adjudication = "COUNTEREXAMPLE"
-            notes = "Premise evaluated to TRUE, but action succeeded! Declared failure refuted."
-        else:
-            adjudication = "SUPPORTED_IN_TESTED_CONTEXT"
-            notes = "Premise evaluated to TRUE and expected failure reproduced."
-    else:
-        adjudication = "UNKNOWN"
-        notes = "Premise state could not be evaluated independently."
+    adjudication, notes = adjudicate_candidate_variant(
+        True, True, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
+    )
 
     return {
         "variant": "V1_Original_Context_Reproduction",
@@ -569,30 +606,39 @@ def test_variant_2_premise_cleared_or_counterexample(
     if v1_premise == "FALSE":
         cfg_path = params.get("config_path", "/home/agentuser/service_conf/nonexistent_cfg_999.json")
         env.setup("inst1_port_conflict_persistent")
-        p = Path(cfg_path)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"service_name": "test_agent", "port": 18082, "worker_threads": 2}), encoding="utf-8")
-        os.chown(p, 1001, 1001)
-
-        premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
-        res = env.start_service(cfg_path)
+        if tool_name == "start_service":
+            p = Path(cfg_path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps({"service_name": "test_agent", "port": 18082, "worker_threads": 2}), encoding="utf-8")
+            os.chown(p, 1001, 1001)
+            premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
+            res = env.start_service(cfg_path)
+        elif tool_name == "write_config":
+            user_path = f"/home/agentuser/service_conf/{Path(cfg_path).name}"
+            premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
+            res = env.write_config(user_path, port=18082)
+        elif tool_name == "check_health":
+            target_port = int(params.get("port", 18082))
+            env.write_config("/home/agentuser/service_conf/app_live_v2.json", port=target_port)
+            env.start_service("/home/agentuser/service_conf/app_live_v2.json")
+            premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
+            res = env.check_health(target_port)
+        else:
+            premise_state = "UNKNOWN"
+            pred_details = []
+            res = {"success": False, "exit_code": 1}
         env.teardown()
 
-        action_success = (res.get("exit_code") == 0 and res.get("success", False) is True)
-
-        if premise_state == "TRUE" and action_success:
-            adjudication = "COUNTEREXAMPLE"
-            notes = "CONFIRMED COUNTEREXAMPLE: Declared premise is now TRUE, but action succeeds! Declared failure refuted."
-        else:
-            adjudication = "SUPPORTED_IN_TESTED_CONTEXT" if not action_success else "UNKNOWN"
-            notes = "Tested under satisfied premise."
+        adjudication, notes = adjudicate_candidate_variant(
+            True, True, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
+        )
 
         return {
             "variant": "V2_Premise_Probe_Exact_Path",
             "action_matches_scope": True,
             "premise_evaluation": premise_state,
             "premise_details": pred_details,
-            "actual_action": f"{tool_name}({cfg_path})",
+            "actual_action": f"{tool_name}({params})",
             "actual_outcome": res,
             "adjudication": adjudication,
             "notes": notes,
@@ -719,8 +765,11 @@ def test_variant_3_irrelevant_attribute(
         res = {"exit_code": 1}
         premise_state = "UNKNOWN"
 
-    action_failed = (res.get("exit_code") != 0 or res.get("status") == "DOWN")
-    adjudication = "SUPPORTED_IN_TESTED_CONTEXT" if (premise_state == "TRUE" and action_failed) else "NOT_APPLICABLE"
+    adjudication, notes = adjudicate_candidate_variant(
+        True, True, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
+    )
+    if adjudication == "SUPPORTED_IN_TESTED_CONTEXT":
+        notes = "Failure behavior invariant to non-causal metadata fields on disk."
 
     return {
         "variant": "V3_Irrelevant_Attribute_Changed",
@@ -730,7 +779,7 @@ def test_variant_3_irrelevant_attribute(
         "actual_action": f"{tool_name}({cfg_path}) with {changed_attr}",
         "actual_outcome": res,
         "adjudication": adjudication,
-        "notes": "Failure behavior invariant to non-causal metadata fields on disk.",
+        "notes": notes,
     }
 
 
@@ -766,15 +815,18 @@ def test_variant_4_context_and_scope(
         subprocess.run(["chown", "-R", "root:root", "/etc/service_demo"], check=False)
         env.teardown()
 
-        owner_success = (res_owner.get("exit_code") == 0)
+        owner_success = (res_owner.get("exit_code") == 0 and res_owner.get("success", False) is True)
+        adj_owner, notes_owner = adjudicate_candidate_variant(
+            True, True, premise_state, "EXECUTED", res_owner, expected_fail, tool_name="write_config"
+        )
         id_test = {
             "test_type": "v4_identity_or_ownership",
             "condition": "dir_mode_0755_executed_as_directory_owner",
             "premise_evaluated": premise_state,
             "action_success": owner_success,
             "exit_code": res_owner.get("exit_code"),
-            "adjudication": "COUNTEREXAMPLE" if (premise_state == "TRUE" and owner_success) else "SUPPORTED",
-            "finding": "SCOPE_DEFICIENT: Directory mode 0755 alone is INSUFFICIENT to deduce write failure; owner write succeeds.",
+            "adjudication": "COUNTEREXAMPLE" if (adj_owner == "COUNTEREXAMPLE") else "SUPPORTED",
+            "finding": "SCOPE_DEFICIENT: Directory mode 0755 alone is INSUFFICIENT to deduce write failure; owner write succeeds." if (adj_owner == "COUNTEREXAMPLE") else "Supported.",
         }
     else:
         id_test = {
@@ -964,26 +1016,60 @@ def run_natural_candidate_cpu_comparison(verif_results: List[Dict[str, Any]]) ->
             )
             env.teardown()
 
+            target_tool = tc["action_sequence"][0]["action"]
+            target_params = tc["action_sequence"][0].get("params", {})
+            action_proposed = True
+
+            tool_records = ep_res.get("tool_records", [])
+            target_tool_records = [tr for tr in tool_records if tr.get("tool") == target_tool]
+            probe_records = [tr for tr in tool_records if tr.get("tool") in ("probe_port", "probe_file", "probe_directory")]
+
+            action_executed = len(target_tool_records) > 0
+            if action_executed:
+                tgt_res = target_tool_records[0].get("result", {})
+                if target_tool == "check_health":
+                    action_succeeded = bool(tgt_res.get("healthy", False) or (target_tool_records[0].get("exit_code") == 0 and tgt_res.get("status") == "UP"))
+                else:
+                    action_succeeded = bool(tgt_res.get("success", False) and target_tool_records[0].get("exit_code") == 0)
+                target_raw_return = tgt_res
+            else:
+                action_succeeded = False
+                target_raw_return = None
+
             gate_events = ep_res.get("gate_events", [])
             blocked = any(g.get("decision") == "BLOCK" for g in gate_events)
+            deferred = any(g.get("decision") == "DEFERRED_UNKNOWN" for g in gate_events)
             is_tp = ep_res.get("tp_blocks", 0) > 0
             is_fp = ep_res.get("fp_blocks", 0) > 0
             tool_calls = ep_res.get("tool_calls", 0)
             executed_errors = ep_res.get("executed_error_actions", 0)
             transitions = len(ep_res.get("lifecycle_transitions", []))
 
+            time_taken = ep_res.get("end_to_end_latency_s")
+            if time_taken is None:
+                raise ValueError(f"Missing measured 'end_to_end_latency_s' in ep_res for {cid} / {grp}")
+
             case_group_results[grp] = {
                 "group": grp,
-                "action_executed": not blocked,
+                "action_proposed": action_proposed,
+                "action_executed": action_executed,
+                "action_succeeded": action_succeeded,
                 "gate_blocked": blocked,
+                "action_deferred": deferred,
+                "termination_reason": ep_res.get("termination_reason", ""),
                 "is_tp_block": is_tp,
                 "is_fp_block": is_fp,
                 "tool_calls": tool_calls,
+                "target_action_calls": len(target_tool_records),
+                "probe_calls": len(probe_records),
                 "executed_error_actions": executed_errors,
                 "lifecycle_transitions": transitions,
-                "time_taken_s": ep_res.get("time_taken_s", 0.0),
-                "simulated_tokens": 0,
+                "time_taken_s": time_taken,
+                "inference_latency_s": ep_res.get("inference_latency_s", 0.0),
+                "simulated_tokens": ep_res.get("total_tokens", 0),
                 "gate_events": gate_events,
+                "probe_events": probe_records,
+                "target_action_raw_return": target_raw_return,
             }
 
         all_case_results[cid] = {
@@ -1119,18 +1205,21 @@ def generate_reports(ledger: List[Dict[str, Any]], verif_results: List[Dict[str,
         "",
         "### 实测对比结果汇总（基于 MultiStepAgentRunner 真实事件）",
         "",
-        "| 评测案例 | 策略分支 | 门禁决策 | 假阳性阻断 (FP) | 计费工具调用数 | 失败动作数 | 规则有效性跃迁数 | 机制应对评价 |",
-        "| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |",
+        "| 评测案例 | 策略分支 | 门禁决策 | 动作执行 | 动作成功 | 假阳性阻断 (FP) | 计费调用数 | 跃迁数 | 耗时(s) | 机制应对评价 |",
+        "| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |",
     ])
 
     for cid, c_data in cpu_comp.get("cases", {}).items():
         desc = c_data["description"]
         for grp, g_res in c_data["group_results"].items():
-            blocked_str = "BLOCK" if g_res["gate_blocked"] else "ALLOW"
+            blocked_str = "BLOCK" if g_res["gate_blocked"] else ("DEFER" if g_res.get("action_deferred") else "ALLOW")
             fp_str = "1 (FP)" if g_res["is_fp_block"] else "0"
             tool_cnt = g_res["tool_calls"]
             err_cnt = g_res["executed_error_actions"]
             trans_cnt = g_res["lifecycle_transitions"]
+            act_exec_str = "已执行" if g_res.get("action_executed") else ("已递延" if g_res.get("action_deferred") else "未执行")
+            act_succ_str = "成功" if g_res.get("action_succeeded") else "未成功"
+            time_str = f"{g_res.get('time_taken_s', 0.0):.3f}s"
 
             eval_note = ""
             if grp == "B2":
@@ -1145,7 +1234,7 @@ def generate_reports(ledger: List[Dict[str, Any]], verif_results: List[Dict[str,
                 eval_note = f"试探执行后捕获反例，产生 {trans_cnt} 次状态跃迁"
 
             lines.append(
-                f"| {desc[:28]}... | **{grp}** | {blocked_str} | {fp_str} | {tool_cnt} | {err_cnt} | {trans_cnt} | {eval_note} |"
+                f"| {desc[:26]}... | **{grp}** | {blocked_str} | {act_exec_str} | {act_succ_str} | {fp_str} | {tool_cnt} | {trans_cnt} | {time_str} | {eval_note} |"
             )
 
     lines.extend([
