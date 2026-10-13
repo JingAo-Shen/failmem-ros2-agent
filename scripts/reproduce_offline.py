@@ -96,6 +96,20 @@ def get_environment_metadata() -> Dict[str, Any]:
     return meta
 
 
+def check_git_tracked_paths(repo_root: Path, target_path: Path) -> List[str]:
+    """Checks if any files in target_path are tracked by git."""
+    try:
+        res = subprocess.run(
+            ["git", "-C", str(repo_root), "ls-files", "--", str(target_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
+    except Exception:
+        return []
+
+
 def validate_reproduction_paths(
     source_dir: Path,
     output_dir: Path,
@@ -161,6 +175,14 @@ def validate_reproduction_paths(
         if str(out_res).startswith(str(src_res) + "/"):
             raise ValueError(f"Output directory '{out_res}' cannot be nested inside source directory.")
 
+    # Strictly block deleting or overwriting git-tracked files or baseline data
+    tracked_files = check_git_tracked_paths(repo_res, out_res)
+    if tracked_files:
+        raise ValueError(
+            f"Output directory '{out_res}' contains {len(tracked_files)} git-tracked files "
+            f"(e.g., '{tracked_files[0]}'). Strictly blocking deletion or overwrite of git-tracked repository content!"
+        )
+
     # Existing non-empty output directory check
     if out_res.exists() and any(out_res.iterdir()):
         if overwrite:
@@ -168,7 +190,7 @@ def validate_reproduction_paths(
         else:
             raise FileExistsError(
                 f"Output directory '{out_res}' already exists and is not empty. "
-                f"Please specify a new or empty directory path, or use --overwrite."
+                f"Please specify a new or empty directory path, or use auto-timestamping."
             )
 
 
@@ -415,6 +437,12 @@ def run_reproduction_pipeline(
         # Step 0: Path Validation
         current_stage = "PATH_VALIDATION"
         log("\n--- Step 0: Path & Safety Validation ---")
+        if output_dir.exists() and any(output_dir.iterdir()) and not overwrite:
+            timestamp_suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+            original_out = output_dir
+            output_dir = output_dir.parent / f"{output_dir.name}_{timestamp_suffix}"
+            log(f"[Auto-Timestamp] Output directory '{original_out}' is non-empty and overwrite=False; redirecting to '{output_dir}'")
+
         validate_reproduction_paths(source_dir, output_dir, baseline_dir, h1_dir, overwrite=overwrite)
         log("Path safety check PASSED.")
 

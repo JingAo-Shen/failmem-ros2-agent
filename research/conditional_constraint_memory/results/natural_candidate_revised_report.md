@@ -1,6 +1,6 @@
 # 自然候选记忆修订版独立核验总账与研究去留报告
 
-**核验时间**: 2026-10-13 01:04:29 UTC  
+**核验时间**: 2026-10-13 02:32:04 UTC  
 **算力消耗**: **新增 GPU 调用 = 0，新增模型 Token = 0，纯 Linux OS CPU 隔离核验**  
 **总样本量**: 冻结的历史 24 次调用 (Method A: 12 条, Method B: 12 条)  
 
@@ -66,49 +66,67 @@
 
 | 调用编号 | 目标工具 | 提取动作签名 | 声明前置条件 | 预期失败 | V1 原场景复现 | V2 前提探针/反例测试 | V3 无关属性变更 | V4 上下文与范围测试 | 最终修订判定 |
 | :--- | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| #2 | `start_service` | `start_service:config_path=/h...` | `port:18080:occupied True` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #4 | `write_config` | `write_config:config_path=/et...` | `dir:/etc/service_demo:permissions 0755` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | COUNTEREXAMPLE | **SCOPE_DEFICIENT (Counterexample under Owner Context)** |
-| #6 | `start_service` | `start_service:config_path=/h...` | `port:18081:occupied True` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #8 | `write_config` | `write_config:config_path=/ro...` | `dir:/root:writable False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #2 | `start_service` | `start_service:config_path=/h...` | `port:18080:occupied True` | Code | SUPPORTED_IN_TESTED_CONTEXT | **SOURCE_PREMISE_MISMATCH** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #4 | `write_config` | `write_config:config_path=/et...` | `dir:/etc/service_demo:permissions 0755` | Code | SUPPORTED_IN_TESTED_CONTEXT | **ACTION_SIGNATURE_OVERLY_SPECIFIC** | SUPPORTED_IN_TESTED_CONTEXT | COUNTEREXAMPLE | **SCOPE_DEFICIENT (Counterexample under Owner Context)** |
+| #6 | `start_service` | `start_service:config_path=/h...` | `port:18081:occupied True` | Code | SUPPORTED_IN_TESTED_CONTEXT | **SOURCE_PREMISE_MISMATCH** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #8 | `write_config` | `write_config:config_path=/ro...` | `dir:/root:writable False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **ACTION_SIGNATURE_OVERLY_SPECIFIC** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
 | #10 | `start_service` | `start_service:config_path=/h...` | `config_file:exists True` | Code | SOURCE_PREMISE_MISMATCH | **COUNTEREXAMPLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **COUNTEREXAMPLE (Inverted Predicate Proven Infeasible)** |
-| #12 | `start_service` | `start_service:config_path=/h...` | `config_path:/home/agentuser/service_conf/malformed.json:valid_json False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #14 | `check_health` | `check_health:port=18085...` | `port:18085:listening False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #16 | `start_service` | `start_service:config_path=/h...` | `port:18080:occupied True` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #18 | `write_config` | `write_config:config_path=/tm...` | `dir:/tmp/nonexistent_subfolder_xyz:exists False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #20 | `write_config` | `write_config:config_path=/ho...` | `file:/home/agentuser/service_conf/readonly_app.json:mode "0444"` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SOURCE_PREMISE_MISMATCH | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #22 | `check_health` | `check_health:port=18081...` | `port:18081:listening False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SOURCE_PREMISE_MISMATCH | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
-| #24 | `write_config` | `write_config:config_path=/et...` | `dir:/etc/service_demo:permissions 0755` | Code | SUPPORTED_IN_TESTED_CONTEXT | **NOT_APPLICABLE** | SUPPORTED_IN_TESTED_CONTEXT | COUNTEREXAMPLE | **SCOPE_DEFICIENT (Counterexample under Owner Context)** |
+| #12 | `start_service` | `start_service:config_path=/h...` | `config_path:/home/agentuser/service_conf/malformed.json:valid_json False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **SOURCE_PREMISE_MISMATCH** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #14 | `check_health` | `check_health:port=18085...` | `port:18085:listening False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **ACTION_SIGNATURE_OVERLY_SPECIFIC** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #16 | `start_service` | `start_service:config_path=/h...` | `port:18080:occupied True` | Code | SUPPORTED_IN_TESTED_CONTEXT | **SOURCE_PREMISE_MISMATCH** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #18 | `write_config` | `write_config:config_path=/tm...` | `dir:/tmp/nonexistent_subfolder_xyz:exists False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **ACTION_SIGNATURE_OVERLY_SPECIFIC** | SUPPORTED_IN_TESTED_CONTEXT | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #20 | `write_config` | `write_config:config_path=/ho...` | `file:/home/agentuser/service_conf/readonly_app.json:mode "0444"` | Code | SUPPORTED_IN_TESTED_CONTEXT | **SOURCE_PREMISE_MISMATCH** | SOURCE_PREMISE_MISMATCH | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #22 | `check_health` | `check_health:port=18081...` | `port:18081:listening False` | Code | SUPPORTED_IN_TESTED_CONTEXT | **ACTION_SIGNATURE_OVERLY_SPECIFIC** | SOURCE_PREMISE_MISMATCH | SUPPORTED_IN_TESTED_CONTEXT | **SUPPORTED_IN_TESTED_CONTEXT** |
+| #24 | `write_config` | `write_config:config_path=/et...` | `dir:/etc/service_demo:permissions 0755` | Code | SUPPORTED_IN_TESTED_CONTEXT | **ACTION_SIGNATURE_OVERLY_SPECIFIC** | SUPPORTED_IN_TESTED_CONTEXT | COUNTEREXAMPLE | **SCOPE_DEFICIENT (Counterexample under Owner Context)** |
 
 ---
 
 ## 四、自然候选规则上的真实策略 CPU 对照实测
 
-> **方法论说明**：本实验属于纯 CPU 确定性机制测试，用以核验门禁策略对自然提取规则的反应边界，不代表自主 LLM 在全开放任务中的端到端收益实验。
+> **输入账本来源与 SHA256**: `/code/failmem-ros2-agent/research/conditional_constraint_memory/results/candidate_ledger_24.json` (SHA256: `317c2766e919739e87918846583cf05438e996b3a74a45fef28edd1844c9e998`)  
+> **方法论说明**: 本实验属于纯 CPU 确定性机制测试，用以核验门禁策略对自然提取规则的反应边界，不代表自主 LLM 在全开放任务中的端到端收益实验。
 
-### 实测对比结果汇总（基于 MultiStepAgentRunner 真实事件）
+### 1. 历史原始候选实测对比结果 (Raw Historical Candidates)
 
-| 评测案例 | 策略分支 | 门禁决策 | 动作执行 | 动作成功 | 假阳性阻断 (FP) | 计费调用数 | 跃迁数 | 耗时(s) | 机制应对评价 |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| Call #10 Inverted Rule: st... | **B2** | ALLOW | 已执行 | 成功 | 0 | 1 | 0 | 0.248s | 无门禁拦截，依据环境执行结果自愈 |
-| Call #10 Inverted Rule: st... | **B2-G** | BLOCK | 未执行 | 未成功 | 1 (FP) | 1 | 0 | 0.178s | 通用谓词门禁求值；在倒置规则上未预先甄别 |
-| Call #10 Inverted Rule: st... | **S1** | ALLOW | 已执行 | 成功 | 0 | 1 | 1 | 0.247s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
-| Call #10 Inverted Rule: st... | **S2** | ALLOW | 已执行 | 成功 | 0 | 3 | 0 | 0.260s | 受控探针核验资源可行性并缓存，0 误阻断 |
-| Call #10 Inverted Rule: st... | **M** | ALLOW | 已执行 | 成功 | 0 | 2 | 1 | 0.224s | 试探执行后捕获反例，产生 1 次状态跃迁 |
-| Call #4 Scope Deficient Ru... | **B2** | ALLOW | 已执行 | 成功 | 0 | 1 | 0 | 0.196s | 无门禁拦截，依据环境执行结果自愈 |
-| Call #4 Scope Deficient Ru... | **B2-G** | BLOCK | 未执行 | 未成功 | 1 (FP) | 1 | 0 | 0.187s | 门禁拦截 |
-| Call #4 Scope Deficient Ru... | **S1** | ALLOW | 已执行 | 成功 | 0 | 1 | 1 | 0.183s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
-| Call #4 Scope Deficient Ru... | **S2** | DEFER | 已递延 | 未成功 | 0 | 0 | 0 | 0.164s | 受控探针核验资源可行性并缓存，0 误阻断 |
-| Call #4 Scope Deficient Ru... | **M** | ALLOW | 已执行 | 成功 | 0 | 2 | 1 | 0.204s | 试探执行后捕获反例，产生 1 次状态跃迁 |
-| Call #2 Valid Rule: start_... | **B2** | ALLOW | 已执行 | 未成功 | 0 | 1 | 0 | 0.278s | 无门禁拦截，依据环境执行结果自愈 |
-| Call #2 Valid Rule: start_... | **B2-G** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.196s | 门禁拦截 |
-| Call #2 Valid Rule: start_... | **S1** | ALLOW | 已执行 | 未成功 | 0 | 1 | 1 | 0.232s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
-| Call #2 Valid Rule: start_... | **S2** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.198s | 受控探针核验资源可行性并缓存，0 误阻断 |
-| Call #2 Valid Rule: start_... | **M** | ALLOW | 已执行 | 未成功 | 0 | 2 | 1 | 0.264s | 试探执行后捕获反例，产生 1 次状态跃迁 |
-| Call #14 Valid Rule: check... | **B2** | ALLOW | 已执行 | 未成功 | 0 | 1 | 0 | 0.176s | 无门禁拦截，依据环境执行结果自愈 |
-| Call #14 Valid Rule: check... | **B2-G** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.170s | 门禁拦截 |
-| Call #14 Valid Rule: check... | **S1** | ALLOW | 已执行 | 未成功 | 0 | 1 | 1 | 0.172s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
-| Call #14 Valid Rule: check... | **S2** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.172s | 受控探针核验资源可行性并缓存，0 误阻断 |
-| Call #14 Valid Rule: check... | **M** | ALLOW | 已执行 | 未成功 | 0 | 2 | 1 | 0.170s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| 评测案例 | 类别 | 策略分支 | 门禁决策 | 动作执行 | 动作成功 | 假阳性阻断 (FP) | 计费调用数 | 跃迁数 | 耗时(s) | 机制应对评价 |
+| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| Call #10 Raw Candidate: star... | `RAW_CANDIDATE` | **B2** | ALLOW | 已执行 | 成功 | 0 | 1 | 0 | 0.237s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #10 Raw Candidate: star... | `RAW_CANDIDATE` | **B2-G** | BLOCK | 未执行 | 未成功 | 1 (FP) | 1 | 0 | 0.188s | 通用谓词门禁求值；在倒置规则上未预先甄别 |
+| Call #10 Raw Candidate: star... | `RAW_CANDIDATE` | **S1** | ALLOW | 已执行 | 成功 | 0 | 1 | 1 | 0.244s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #10 Raw Candidate: star... | `RAW_CANDIDATE` | **S2** | ALLOW | 已执行 | 成功 | 0 | 3 | 0 | 0.257s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #10 Raw Candidate: star... | `RAW_CANDIDATE` | **M** | ALLOW | 已执行 | 成功 | 0 | 2 | 1 | 0.235s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **B2** | ALLOW | 已执行 | 未成功 | 0 | 1 | 0 | 0.123s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **B2-G** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.120s | 门禁拦截 |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **S1** | ALLOW | 已执行 | 未成功 | 0 | 1 | 1 | 0.126s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **S2** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.134s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **M** | ALLOW | 已执行 | 未成功 | 0 | 2 | 1 | 0.121s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **B2** | ALLOW | 已执行 | 成功 | 0 | 1 | 0 | 0.134s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **B2-G** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.119s | 门禁拦截 |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **S1** | ALLOW | 已执行 | 成功 | 0 | 1 | 1 | 0.130s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **S2** | ALLOW | 已执行 | 成功 | 0 | 2 | 0 | 0.128s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #4 Raw Candidate: write... | `RAW_CANDIDATE` | **M** | ALLOW | 已执行 | 成功 | 0 | 2 | 1 | 0.135s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| Call #2 Raw Candidate: start... | `RAW_CANDIDATE` | **B2** | ALLOW | 已执行 | 未成功 | 0 | 1 | 0 | 0.263s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #2 Raw Candidate: start... | `RAW_CANDIDATE` | **B2-G** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.187s | 门禁拦截 |
+| Call #2 Raw Candidate: start... | `RAW_CANDIDATE` | **S1** | ALLOW | 已执行 | 未成功 | 0 | 1 | 1 | 0.245s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #2 Raw Candidate: start... | `RAW_CANDIDATE` | **S2** | BLOCK | 未执行 | 未成功 | 0 | 2 | 0 | 0.187s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #2 Raw Candidate: start... | `RAW_CANDIDATE` | **M** | ALLOW | 已执行 | 未成功 | 0 | 2 | 1 | 0.261s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+| Call #14 Raw Candidate: chec... | `RAW_CANDIDATE` | **B2** | ALLOW | 已执行 | 未成功 | 0 | 1 | 0 | 0.171s | 无门禁拦截，依据环境执行结果自愈 |
+| Call #14 Raw Candidate: chec... | `RAW_CANDIDATE` | **B2-G** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.175s | 门禁拦截 |
+| Call #14 Raw Candidate: chec... | `RAW_CANDIDATE` | **S1** | ALLOW | 已执行 | 未成功 | 0 | 1 | 1 | 0.175s | 提示策略不实施硬阻断，0 误阻断（注：不代表 LLM 端到端规划能力） |
+| Call #14 Raw Candidate: chec... | `RAW_CANDIDATE` | **S2** | BLOCK | 未执行 | 未成功 | 0 | 1 | 0 | 0.183s | 受控探针核验资源可行性并缓存，0 误阻断 |
+| Call #14 Raw Candidate: chec... | `RAW_CANDIDATE` | **M** | ALLOW | 已执行 | 未成功 | 0 | 2 | 1 | 0.177s | 试探执行后捕获反例，产生 1 次状态跃迁 |
+
+### 2. 衍生规则压力测试 (Derived Rule Stress Tests)
+
+> **说明**: 本小节评估将历史原始候选（如 `/etc/service_demo/...` 系统目录规则）改写为用户目录（`/home/agentuser/...`）等变体后的衍生规则，用于压力测试谓词是否在用户属主目录下因缺失执行身份约束而发生失效。不可与原始历史候选混淆。
+
+| 衍生测试案例 | 类别 | 策略分支 | 门禁决策 | 动作执行 | 动作成功 | 假阳性阻断 (FP) | 计费调用数 | 跃迁数 | 耗时(s) | 机制应对评价 |
+| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| Call #4 Derived Rule Stress ... | `DERIVED_RULE_STRESS` | **B2** | ALLOW | 已执行 | 成功 | 0 | 1 | 0 | 0.182s | 无门禁拦截，动作在属主目录下成功执行 |
+| Call #4 Derived Rule Stress ... | `DERIVED_RULE_STRESS` | **B2-G** | BLOCK | 未执行 | 未成功 | 1 (FP) | 1 | 0 | 0.183s | 通用谓词门禁求值；mode 0755 成立导致硬拦截 (FP) |
+| Call #4 Derived Rule Stress ... | `DERIVED_RULE_STRESS` | **S1** | ALLOW | 已执行 | 成功 | 0 | 1 | 1 | 0.196s | 提示告警放行，0 误阻断 |
+| Call #4 Derived Rule Stress ... | `DERIVED_RULE_STRESS` | **S2** | ALLOW | 已执行 | 成功 | 0 | 2 | 0 | 0.203s | 探针探测用户目录属主可写，放行执行，0 误阻断 |
+| Call #4 Derived Rule Stress ... | `DERIVED_RULE_STRESS` | **M** | ALLOW | 已执行 | 成功 | 0 | 2 | 1 | 0.199s | 试探执行成功，发现属主反例产生 1 次状态跃迁 |
 
 ---
 

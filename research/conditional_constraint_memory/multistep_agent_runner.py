@@ -641,7 +641,7 @@ Output strictly a single JSON block adhering to this schema:
         elif tool_name == "start_service":
             return env.start_service(params.get("config_path", "/home/agentuser/service_conf/app.json"))
         elif tool_name == "check_health":
-            return env.check_health(params.get("port", 18080))
+            return env.check_health(params.get("port", 18080), timeout=params.get("timeout", 1.5))
         else:
             return {"success": False, "exit_code": 1, "error": f"Unknown tool: {tool_name}"}
 
@@ -743,34 +743,45 @@ Output strictly a single JSON block adhering to this schema:
     ):
         """
         Invalidates S2 cache entries when resources are mutated.
-        - write_config: invalidates entries matching config_path, parent dir, or port
+        Multi-resource dependent entries are invalidated if ANY of their dependent resources are mutated.
+        - write_config: invalidates entries matching config_path or parent dir
         - start_service: invalidates entries matching config_path or port
-        - service crash / state changes: invalidates port/health entries
+        - check_health: invalidates entries matching port
         """
         if not s2_cache:
             return
         keys_to_del = []
         if tool_name == "write_config":
-            cfg_path = params.get("config_path", "")
-            port = params.get("port")
-            for k in list(s2_cache.keys()):
-                if cfg_path and cfg_path in k:
+            cfg_path = params.get("config_path", params.get("filepath", ""))
+            parent_dir = str(Path(cfg_path).parent) if cfg_path else ""
+            for k, entry in list(s2_cache.items()):
+                res = entry.get("resource", "")
+                if cfg_path and (cfg_path in res or cfg_path in k):
                     keys_to_del.append(k)
-                elif port and f"port:{port}" in k:
-                    keys_to_del.append(k)
-                elif "dir:" in k or "path:" in k:
+                elif parent_dir and (parent_dir in res or parent_dir in k):
                     keys_to_del.append(k)
         elif tool_name == "start_service":
-            cfg_path = params.get("config_path", "")
-            for k in list(s2_cache.keys()):
-                if cfg_path and cfg_path in k:
+            cfg_path = params.get("config_path", params.get("filepath", ""))
+            port = None
+            if isinstance(tool_res, dict) and "port" in tool_res:
+                port = tool_res["port"]
+            elif cfg_path and os.path.exists(cfg_path):
+                try:
+                    with open(cfg_path, "r", encoding="utf-8") as f:
+                        port = json.load(f).get("port")
+                except Exception:
+                    pass
+            for k, entry in list(s2_cache.items()):
+                res = entry.get("resource", "")
+                if cfg_path and (cfg_path in res or cfg_path in k):
                     keys_to_del.append(k)
-                elif "port:" in k:
+                if port and (f"port:{port}" in res or f"port:{port}" in k):
                     keys_to_del.append(k)
         elif tool_name == "check_health":
             port = params.get("port")
-            for k in list(s2_cache.keys()):
-                if port and f"port:{port}" in k:
+            for k, entry in list(s2_cache.items()):
+                res = entry.get("resource", "")
+                if port and (f"port:{port}" in res or f"port:{port}" in k):
                     keys_to_del.append(k)
         for k in keys_to_del:
             s2_cache.pop(k, None)
@@ -911,21 +922,44 @@ Output strictly a single JSON block adhering to this schema:
                     "reason": f"S2 Gate: Gated predicates {unsupported_preds} cannot be verified by probe. Deferring as UNKNOWN.",
                 }, verifications
 
-            # Determine resource binding for cache key
+            # Determine resource binding for cache key based on action semantics
             res_binding = "generic"
             target_port: Optional[int] = None
             target_path: Optional[str] = None
 
-            if "port:" in r.action_signature or (r.predicates and any("port:" in p.key for p in r.predicates)) or "port" in params:
-                target_port = params.get("port")
-                if target_port is None:
+            if norm_action == "write_config":
+                # write_config: port is config payload content, not network port to probe.
+                # Bound strictly to target file and its directory under execution identity.
+                target_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
+                res_binding = f"path:{target_path}"
+
+            elif norm_action == "start_service":
+                # start_service: checks actual config path, config validity, and configured port.
+                target_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
+                cfg_port = params.get("port")
+                if cfg_port is None and target_path and os.path.exists(target_path):
+                    try:
+                        with open(target_path, "r", encoding="utf-8") as f:
+                            cfg_port = json.load(f).get("port")
+                    except Exception:
+                        pass
+                if cfg_port is None:
                     for p in r.predicates:
                         if "port:" in p.key:
                             parts = p.key.split(":")
                             for pt in parts:
                                 if pt.isdigit():
-                                    target_port = int(pt)
+                                    cfg_port = int(pt)
                                     break
+                target_port = cfg_port
+                if target_port is not None:
+                    res_binding = f"path:{target_path}&port:{target_port}"
+                else:
+                    res_binding = f"path:{target_path}"
+
+            elif norm_action == "check_health":
+                # check_health: checks target listening port.
+                target_port = params.get("port")
                 if target_port is None and "config_path" in params:
                     cfg_p = params["config_path"]
                     if os.path.exists(cfg_p):
@@ -935,11 +969,31 @@ Output strictly a single JSON block adhering to this schema:
                         except Exception:
                             pass
                 if target_port is None:
+                    for p in r.predicates:
+                        if "port:" in p.key:
+                            parts = p.key.split(":")
+                            for pt in parts:
+                                if pt.isdigit():
+                                    target_port = int(pt)
+                                    break
+                if target_port is None:
                     target_port = 18080
                 res_binding = f"port:{target_port}"
-            elif norm_action in ("write_config", "start_service") or (r.predicates and any("dir:" in p.key or "file:" in p.key or "config_file:" in p.key for p in r.predicates)):
-                target_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
-                res_binding = f"path:{target_path}"
+
+            else:
+                if r.predicates and any("port:" in p.key for p in r.predicates):
+                    for p in r.predicates:
+                        if "port:" in p.key:
+                            parts = p.key.split(":")
+                            for pt in parts:
+                                if pt.isdigit():
+                                    target_port = int(pt)
+                                    break
+                    if target_port is not None:
+                        res_binding = f"port:{target_port}"
+                elif r.predicates and any("dir:" in p.key or "file:" in p.key for p in r.predicates):
+                    target_path = params.get("config_path", params.get("filepath", "/home/agentuser/service_conf/app.json"))
+                    res_binding = f"path:{target_path}"
 
             r_ver = getattr(r, "version", 1)
             cache_key = f"{env_id}|{exec_uid}|{norm_action}|{res_binding}|{r.rule_id}|v{r_ver}"
@@ -965,97 +1019,135 @@ Output strictly a single JSON block adhering to this schema:
                 is_blocked = False
                 verified = False
 
-                if target_port is not None and (norm_action in ("check_health", "start_service") or "port:" in r.action_signature):
-                    probe_called = True
-                    verifications += 1
-                    p_res = env.probe_port(target_port)
-                    self._update_observations_from_probe_result(
-                        "probe_port",
-                        {"port": target_port},
-                        p_res,
-                        lifecycle_manager=lifecycle_manager,
-                        facts=facts,
-                    )
-                    parsed = self._parse_probe_result("probe_port", {"port": target_port}, p_res, target_action=norm_action)
-                    if parsed["probe_success"]:
-                        verified = True
-                        is_blocked = not parsed["action_feasibility_verified"]
-                    else:
-                        verified = False
-                        is_blocked = False
-
-                elif norm_action == "write_config" and target_path:
-                    probe_called = True
-                    verifications += 1
-                    f_res = env.probe_file(target_path)
-                    self._update_observations_from_probe_result(
-                        "probe_file",
-                        {"filepath": target_path},
-                        f_res,
-                        lifecycle_manager=lifecycle_manager,
-                        facts=facts,
-                    )
-                    parsed = self._parse_probe_result("probe_file", {"filepath": target_path}, f_res, target_action=norm_action)
-                    if parsed["probe_success"]:
-                        verified = True
-                        is_blocked = not parsed["action_feasibility_verified"]
-                    else:
-                        verified = False
-                        is_blocked = False
-
-                elif norm_action == "start_service" and target_path:
-                    probe_called = True
-                    verifications += 1
-                    f_res = env.probe_file(target_path)
-                    self._update_observations_from_probe_result(
-                        "probe_file",
-                        {"filepath": target_path},
-                        f_res,
-                        lifecycle_manager=lifecycle_manager,
-                        facts=facts,
-                    )
-                    cfg_port = None
-                    if os.path.exists(target_path):
-                        try:
-                            with open(target_path, "r", encoding="utf-8") as f:
-                                cfg_port = json.load(f).get("port")
-                        except Exception:
-                            pass
-                    if cfg_port is None:
-                        for p in r.predicates:
-                            if "port:" in p.key:
-                                parts = p.key.split(":")
-                                for pt in parts:
-                                    if pt.isdigit():
-                                        cfg_port = int(pt)
-                                        break
-                    if cfg_port is not None:
-                        if max_tool_calls is not None and (tool_calls + verifications) >= max_tool_calls:
-                            return {
-                                "decision": GateDecision.PROBE,
-                                "deferred": True,
-                                "reason": "S2 verification deferred: tool call budget exhausted before port probe.",
-                            }, verifications
+                if norm_action == "write_config":
+                    if target_path:
+                        probe_called = True
                         verifications += 1
-                        p_res = env.probe_port(cfg_port)
+                        f_res = env.probe_file(target_path)
                         self._update_observations_from_probe_result(
-                            "probe_port",
-                            {"port": cfg_port},
-                            p_res,
+                            "probe_file",
+                            {"filepath": target_path},
+                            f_res,
                             lifecycle_manager=lifecycle_manager,
                             facts=facts,
                         )
-                        parsed = self._parse_probe_result("probe_port", {"port": cfg_port}, p_res, target_action=norm_action)
+                        parsed = self._parse_probe_result("probe_file", {"filepath": target_path}, f_res, target_action=norm_action)
                         if parsed["probe_success"]:
                             verified = True
                             is_blocked = not parsed["action_feasibility_verified"]
                         else:
                             verified = False
                             is_blocked = False
-                    else:
+
+                elif norm_action == "start_service":
+                    if target_path:
+                        probe_called = True
+                        verifications += 1
+                        f_res = env.probe_file(target_path)
+                        self._update_observations_from_probe_result(
+                            "probe_file",
+                            {"filepath": target_path},
+                            f_res,
+                            lifecycle_manager=lifecycle_manager,
+                            facts=facts,
+                        )
+                        parsed_f = self._parse_probe_result("probe_file", {"filepath": target_path}, f_res, target_action=norm_action)
+                        if not f_res.get("exists", False) or not parsed_f.get("action_feasibility_verified", True):
+                            verified = True
+                            is_blocked = True
+                        else:
+                            cfg_valid = True
+                            actual_cfg_port = None
+                            try:
+                                with open(target_path, "r", encoding="utf-8") as f:
+                                    c_data = json.load(f)
+                                    actual_cfg_port = c_data.get("port")
+                            except Exception:
+                                cfg_valid = False
+
+                            if not cfg_valid:
+                                verified = True
+                                is_blocked = True
+                            else:
+                                check_p = actual_cfg_port if actual_cfg_port is not None else target_port
+                                if check_p is not None:
+                                    if max_tool_calls is not None and (tool_calls + verifications) >= max_tool_calls:
+                                        return {
+                                            "decision": GateDecision.PROBE,
+                                            "deferred": True,
+                                            "reason": "S2 verification deferred: tool call budget exhausted before port probe.",
+                                        }, verifications
+                                    verifications += 1
+                                    p_res = env.probe_port(check_p)
+                                    self._update_observations_from_probe_result(
+                                        "probe_port",
+                                        {"port": check_p},
+                                        p_res,
+                                        lifecycle_manager=lifecycle_manager,
+                                        facts=facts,
+                                    )
+                                    parsed_p = self._parse_probe_result("probe_port", {"port": check_p}, p_res, target_action=norm_action)
+                                    if parsed_p["probe_success"]:
+                                        verified = True
+                                        is_blocked = not parsed_p["action_feasibility_verified"]
+                                    else:
+                                        verified = False
+                                        is_blocked = False
+                                else:
+                                    verified = True
+                                    is_blocked = False
+
+                elif norm_action == "check_health":
+                    if target_port is not None:
+                        probe_called = True
+                        verifications += 1
+                        p_res = env.probe_port(target_port)
+                        self._update_observations_from_probe_result(
+                            "probe_port",
+                            {"port": target_port},
+                            p_res,
+                            lifecycle_manager=lifecycle_manager,
+                            facts=facts,
+                        )
+                        parsed = self._parse_probe_result("probe_port", {"port": target_port}, p_res, target_action=norm_action)
+                        if parsed["probe_success"]:
+                            verified = True
+                            is_blocked = not parsed["action_feasibility_verified"]
+                        else:
+                            verified = False
+                            is_blocked = False
+
+                else:
+                    if target_port is not None:
+                        probe_called = True
+                        verifications += 1
+                        p_res = env.probe_port(target_port)
+                        self._update_observations_from_probe_result(
+                            "probe_port",
+                            {"port": target_port},
+                            p_res,
+                            lifecycle_manager=lifecycle_manager,
+                            facts=facts,
+                        )
+                        parsed = self._parse_probe_result("probe_port", {"port": target_port}, p_res, target_action=norm_action)
+                        if parsed["probe_success"]:
+                            verified = True
+                            is_blocked = not parsed["action_feasibility_verified"]
+                    elif target_path:
+                        probe_called = True
+                        verifications += 1
+                        f_res = env.probe_file(target_path)
+                        self._update_observations_from_probe_result(
+                            "probe_file",
+                            {"filepath": target_path},
+                            f_res,
+                            lifecycle_manager=lifecycle_manager,
+                            facts=facts,
+                        )
                         parsed = self._parse_probe_result("probe_file", {"filepath": target_path}, f_res, target_action=norm_action)
-                        verified = parsed["probe_success"]
-                        is_blocked = not parsed["action_feasibility_verified"]
+                        if parsed["probe_success"]:
+                            verified = True
+                            is_blocked = not parsed["action_feasibility_verified"]
 
                 if probe_called:
                     s2_cache[cache_key] = {

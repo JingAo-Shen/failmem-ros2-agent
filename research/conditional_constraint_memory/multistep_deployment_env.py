@@ -50,9 +50,13 @@ os.chmod(RUNTIME_DIR, 0o777)
 DAEMON_SCRIPT = Path(__file__).resolve().parent / "service_daemon.py"
 
 
-def is_port_listening(port: int) -> bool:
+def is_port_listening(port: Any) -> bool:
     """Passively checks if a TCP port is in LISTEN state via /proc/net/tcp and /proc/net/tcp6."""
-    port_hex = f":{port:04X}"
+    try:
+        p_int = int(port)
+    except Exception:
+        return False
+    port_hex = f":{p_int:04X}"
     for tcp_path in ("/proc/net/tcp", "/proc/net/tcp6"):
         if os.path.exists(tcp_path):
             try:
@@ -703,7 +707,7 @@ while True:
         })
         return res
 
-    def check_health(self, port: int) -> Dict[str, Any]:
+    def check_health(self, port: int, timeout: float = 1.5) -> Dict[str, Any]:
         """Performs active TCP HEALTH_CHECK on the service port."""
         self._trigger_dynamic_events()
         call_id = f"call_{uuid.uuid4().hex[:8]}"
@@ -716,11 +720,12 @@ while True:
                 "status": "DOWN",
                 "healthy": False,
                 "error": f"Connection refused: port {port} is not listening",
+                "error_type": "CONNECTION_REFUSED",
                 "timestamp": now,
             }
         else:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(1.5)
+            s.settimeout(timeout)
             try:
                 s.connect(("127.0.0.1", port))
                 s.sendall(b"HEALTH_CHECK\n")
@@ -735,6 +740,17 @@ while True:
                     "details": parsed,
                     "timestamp": now,
                 }
+            except (socket.timeout, TimeoutError) as e:
+                s.close()
+                res = {
+                    "call_id": call_id,
+                    "port": port,
+                    "status": "TIMEOUT",
+                    "healthy": False,
+                    "error": f"Connection timed out after {timeout}s: {e}",
+                    "error_type": "TIMEOUT",
+                    "timestamp": now,
+                }
             except Exception as e:
                 s.close()
                 res = {
@@ -743,6 +759,7 @@ while True:
                     "status": "ERROR",
                     "healthy": False,
                     "error": str(e),
+                    "error_type": "ERROR",
                     "timestamp": now,
                 }
 
@@ -750,7 +767,7 @@ while True:
             "call_id": call_id,
             "step": self.step_count,
             "tool": "check_health",
-            "params": {"port": port},
+            "params": {"port": port, "timeout": timeout},
             "exit_code": 0 if res["healthy"] else 1,
             "result": res,
             "timestamp": now,

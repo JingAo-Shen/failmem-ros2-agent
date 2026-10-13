@@ -41,6 +41,8 @@ from research.conditional_constraint_memory.run_candidate_execution_verification
     test_variant_1_reproduction as exec_v1_reproduction,
     test_variant_2_premise_cleared_or_counterexample as exec_v2_premise,
     test_variant_4_context_and_scope as exec_v4_context,
+    adjudicate_candidate_variant,
+    matches_failure_type,
 )
 
 
@@ -468,4 +470,158 @@ def test_v4_directory_owner_context_produces_counterexample():
     assert id_test.get("adjudication") == "COUNTEREXAMPLE"
     assert v4_res.get("adjudication") == "COUNTEREXAMPLE"
     assert "SCOPE_DEFICIENT" in id_test.get("finding", "")
+
+
+# ==============================================================================
+# INVARIANT 13: write_config in writable dir with occupied port executes and succeeds under S2
+# ==============================================================================
+def test_13_write_config_writable_dir_with_occupied_port_succeeds_under_s2():
+    """write_config specifies port as configuration content, not bind port.
+    Even if the specified port is occupied, writing in a user-writable directory must be ALLOWED and SUCCEED.
+    """
+    mgr = ConstraintLifecycleManager()
+    rule = ConstraintRule(
+        rule_id="rule_port_18080",
+        action_signature="start_service:port=18080",
+        predicates=[PreconditionPredicate(key="port:18080:occupied", expected_value=True)],
+        failure_evidence={"error_code": 98},
+        validity_state=ValidityState.SUPPORTED,
+    )
+    mgr.add_rule(rule)
+    env = MultiStepDeploymentEnv()
+    cfg_target = "/home/agentuser/service_conf/app_port_param.json"
+    backend = ScriptedPolicyBackend([
+        {"action": "write_config", "params": {"config_path": cfg_target, "port": 18080, "service_name": "telemetry_agent"}},
+    ])
+    runner = MultiStepAgentRunner(llm_backend=backend, max_tool_calls_per_episode=5)
+
+    ep_res = runner.run_episode(
+        "S2", env, "inst1_port_conflict_persistent", "run_test_s2_write_cfg_occupied_port",
+        lifecycle_manager=mgr
+    )
+    env.teardown()
+
+    tool_records = ep_res.get("tool_records", [])
+    write_records = [tr for tr in tool_records if tr.get("tool") == "write_config"]
+    port_probe_records = [tr for tr in tool_records if tr.get("tool") == "probe_port"]
+    gate_events = ep_res.get("gate_events", [])
+
+    assert len(port_probe_records) == 0
+    assert len(write_records) == 1
+    assert write_records[0]["result"]["success"] is True
+    assert any(g.get("decision") == "ALLOW" and "write_config" in g.get("action", "") for g in gate_events)
+
+
+# ==============================================================================
+# INVARIANT 14: write_config in unwritable dir with idle port is blocked by S2
+# ==============================================================================
+def test_14_write_config_unwritable_dir_with_idle_port_blocked_by_s2():
+    """write_config targeting an unwritable system directory (/etc/service_demo)
+    must be checked by S2 for directory writability and BLOCKED, regardless of idle port.
+    """
+    mgr = ConstraintLifecycleManager()
+    rule = ConstraintRule(
+        rule_id="rule_unwritable_sys_dir",
+        action_signature="write_config:config_path=/etc/service_demo/app_unwritable.json",
+        predicates=[PreconditionPredicate(key="dir:/etc/service_demo:permissions", expected_value="0755")],
+        failure_evidence={"error_code": 1},
+        validity_state=ValidityState.SUPPORTED,
+    )
+    mgr.add_rule(rule)
+    env = MultiStepDeploymentEnv()
+    cfg_target = "/etc/service_demo/app_unwritable.json"
+    backend = ScriptedPolicyBackend([
+        {"action": "write_config", "params": {"config_path": cfg_target, "port": 18099}},
+    ])
+    runner = MultiStepAgentRunner(llm_backend=backend, max_tool_calls_per_episode=5)
+
+    ep_res = runner.run_episode(
+        "S2", env, "inst2_permission_denied", "run_test_s2_write_unwritable",
+        lifecycle_manager=mgr
+    )
+    env.teardown()
+
+    tool_records = ep_res.get("tool_records", [])
+    write_records = [tr for tr in tool_records if tr.get("tool") == "write_config"]
+    gate_events = ep_res.get("gate_events", [])
+
+    assert len(write_records) == 0
+    assert any(g.get("decision") == "BLOCK" and "write_config" in g.get("action", "") for g in gate_events)
+    assert ep_res.get("tp_blocks", 0) >= 1
+
+
+# ==============================================================================
+# INVARIANT 15: S2 cache does not collide across different paths sharing same port
+# ==============================================================================
+def test_15_s2_cache_no_collision_across_different_paths_sharing_port():
+    """S2 cache keys must be bound to specific path resources, so an unwritable path
+    cache cannot falsely block a subsequent writable path even if both carry the same port parameter.
+    """
+    mgr = ConstraintLifecycleManager()
+    rule_unwritable = ConstraintRule(
+        rule_id="rule_unwritable_etc",
+        action_signature="write_config:config_path=/etc/service_demo/app_block.json",
+        predicates=[PreconditionPredicate(key="dir:/etc/service_demo:permissions", expected_value="0755")],
+        failure_evidence={"error_code": 1},
+        validity_state=ValidityState.SUPPORTED,
+    )
+    mgr.add_rule(rule_unwritable)
+    env = MultiStepDeploymentEnv()
+
+    backend = ScriptedPolicyBackend([
+        {"action": "write_config", "params": {"config_path": "/etc/service_demo/app_block.json", "port": 18080}},
+        {"action": "write_config", "params": {"config_path": "/home/agentuser/service_conf/app_allow.json", "port": 18080}},
+    ])
+    runner = MultiStepAgentRunner(llm_backend=backend, max_tool_calls_per_episode=5)
+
+    ep_res = runner.run_episode(
+        "S2", env, "inst2_permission_denied", "run_test_s2_cache_isolation",
+        lifecycle_manager=mgr
+    )
+    env.teardown()
+
+    tool_records = ep_res.get("tool_records", [])
+    executed_writes = [tr for tr in tool_records if tr.get("tool") == "write_config"]
+    gate_events = ep_res.get("gate_events", [])
+
+    first_gate = [g for g in gate_events if "/etc/service_demo" in g.get("action", "")]
+    assert len(first_gate) >= 1
+    assert first_gate[0]["decision"] == "BLOCK"
+
+    second_gate = [g for g in gate_events if "/home/agentuser" in g.get("action", "")]
+    assert len(second_gate) >= 1
+    assert second_gate[0]["decision"] == "ALLOW"
+    assert len(executed_writes) == 1
+    assert executed_writes[0]["params"]["config_path"] == "/home/agentuser/service_conf/app_allow.json"
+
+
+# ==============================================================================
+# INVARIANT 16: Failure type mismatch returns FAILURE_TYPE_MISMATCH and is not supported
+# ==============================================================================
+def test_16_failure_type_mismatch_returns_failure_type_mismatch():
+    """When premise is TRUE and action fails, but failure code does not match expected failure type,
+    adjudication MUST return FAILURE_TYPE_MISMATCH and not be judged SUPPORTED.
+    """
+    actual_outcome = {
+        "exit_code": 2,
+        "error_code": 2,
+        "stderr": "Config file not found",
+        "error_type": "ConfigNotFound",
+        "success": False,
+    }
+    verdict, notes, failure_matched = adjudicate_candidate_variant(
+        action_matches=True,
+        scope_matches=True,
+        premise_state="TRUE",
+        execution_state="EXECUTED",
+        actual_outcome=actual_outcome,
+        expected_failure_type="98",
+        tool_name="start_service",
+    )
+
+    assert verdict == "FAILURE_TYPE_MISMATCH"
+    assert failure_matched is False
+    assert verdict != "SUPPORTED_IN_TESTED_CONTEXT"
+    assert "does not match expected failure type" in notes
+
 

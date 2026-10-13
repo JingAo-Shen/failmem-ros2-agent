@@ -405,9 +405,9 @@ def run_candidate_execution_verification(ledger: List[Dict[str, Any]]) -> List[D
         print(f"  --> Verifying Candidate #{c_idx} (Tool: {tool_name}, Sig: {act_sig})...")
 
         # Execute 4 Variants
-        v1_data = test_variant_1_reproduction(env, tool_name, params, pred_items, expected_fail, t_id)
-        v2_data = test_variant_2_premise_cleared_or_counterexample(env, tool_name, params, pred_items, expected_fail, v1_data)
-        v3_data = test_variant_3_irrelevant_attribute(env, tool_name, params, pred_items, expected_fail)
+        v1_data = test_variant_1_reproduction(env, tool_name, params, pred_items, expected_fail, t_id, scope=scope)
+        v2_data = test_variant_2_premise_cleared_or_counterexample(env, tool_name, params, pred_items, expected_fail, v1_data, scope=scope)
+        v3_data = test_variant_3_irrelevant_attribute(env, tool_name, params, pred_items, expected_fail, scope=scope)
         v4_data = test_variant_4_context_and_scope(env, tool_name, params, pred_items, scope, expected_fail)
 
         ce_in_v1 = (v1_data.get("adjudication") == "COUNTEREXAMPLE")
@@ -428,8 +428,10 @@ def run_candidate_execution_verification(ledger: List[Dict[str, Any]]) -> List[D
                 overall_verdict = "SUPPORTED_IN_TESTED_CONTEXT (Narrow Path Constraint)"
             else:
                 overall_verdict = "SUPPORTED_IN_TESTED_CONTEXT"
+        elif v1_data.get("adjudication") == "FAILURE_TYPE_MISMATCH":
+            overall_verdict = "FAILURE_TYPE_MISMATCH"
         else:
-            overall_verdict = "UNKNOWN"
+            overall_verdict = v1_data.get("adjudication", "UNKNOWN")
 
         record = {
             "call_index": c_idx,
@@ -454,8 +456,96 @@ def run_candidate_execution_verification(ledger: List[Dict[str, Any]]) -> List[D
 
 
 # -----------------------------------------------------------------------------
-# Unified Candidate Adjudication Function
+# Unified Candidate Adjudication & Failure Type Matching
 # -----------------------------------------------------------------------------
+def check_action_matches(candidate_tool: str, candidate_params: Dict[str, Any], executed_tool: str, executed_params: Dict[str, Any]) -> bool:
+    """Checks whether the executed action matches the candidate rule's target tool and parameters."""
+    if candidate_tool != executed_tool:
+        return False
+    if "config_path" in candidate_params and "config_path" in executed_params:
+        if candidate_params["config_path"] != executed_params["config_path"]:
+            return False
+    if "filepath" in candidate_params and "filepath" in executed_params:
+        if candidate_params["filepath"] != executed_params["filepath"]:
+            return False
+    if "port" in candidate_params and "port" in executed_params:
+        if str(candidate_params["port"]) != str(executed_params["port"]):
+            return False
+    return True
+
+
+def check_scope_matches(declared_scope: str, executed_tool: str, executed_params: Dict[str, Any]) -> bool:
+    """Checks whether the executed action matches the candidate rule's declared scope."""
+    if not declared_scope:
+        return True
+    scope_str = str(declared_scope)
+    if "port:" in scope_str:
+        for pt in [18080, 18081, 18082, 18085]:
+            if f"port:{pt}" in scope_str or str(pt) in scope_str:
+                exec_p = executed_params.get("port")
+                if exec_p is not None and int(exec_p) != pt:
+                    return False
+    if "/etc/service_demo" in scope_str:
+        exec_cfg = executed_params.get("config_path", executed_params.get("filepath", ""))
+        if exec_cfg and "/etc/service_demo" not in exec_cfg:
+            return False
+    elif "/home/agentuser" in scope_str:
+        exec_cfg = executed_params.get("config_path", executed_params.get("filepath", ""))
+        if exec_cfg and "/home/agentuser" not in exec_cfg:
+            return False
+    return True
+
+
+def matches_failure_type(actual_outcome: Dict[str, Any], expected_failure_type: str, tool_name: str) -> bool:
+    """
+    Compares actual outcome against expected failure type.
+    Maps error codes (e.g. 98, 1, 2) and error types (AddressAlreadyInUse, PermissionDenied, ConfigNotFound, TIMEOUT).
+    """
+    if not expected_failure_type:
+        return True
+    exp = str(expected_failure_type).strip()
+
+    act_exit = str(actual_outcome.get("exit_code", ""))
+    act_err_code = str(actual_outcome.get("error_code", ""))
+    act_err_type = str(actual_outcome.get("error_type", "") or "")
+    act_stderr = str(actual_outcome.get("stderr", "") or "")
+    act_error = str(actual_outcome.get("error", "") or "")
+    act_status = str(actual_outcome.get("status", "") or "")
+
+    # 1. Exact exit_code or error_code match
+    if exp in (act_exit, act_err_code):
+        return True
+
+    # 2. Known mapping
+    # 98 / AddressAlreadyInUse
+    if exp == "98" and ("AddressAlreadyInUse" in act_err_type or "already in use" in act_stderr.lower()):
+        return True
+    if "already in use" in exp.lower() and (act_exit == "98" or "AddressAlreadyInUse" in act_err_type):
+        return True
+
+    # 1 / 13 / PermissionDenied
+    if exp in ("1", "13") and ("PermissionDenied" in act_err_type or "permission denied" in act_stderr.lower() or "permission denied" in act_error.lower()):
+        return True
+    if "permission" in exp.lower() and ("PermissionDenied" in act_err_type or "permission denied" in act_stderr.lower() or "permission denied" in act_error.lower()):
+        return True
+
+    # 2 / ConfigNotFound / FileNotFoundError
+    if exp == "2" and ("ConfigNotFound" in act_err_type or "no such file" in act_stderr.lower() or "does not exist" in act_stderr.lower()):
+        return True
+
+    # TIMEOUT
+    if exp.upper() == "TIMEOUT" and (act_err_type == "TIMEOUT" or act_status == "TIMEOUT" or "timed out" in act_error.lower() or "timeout" in act_error.lower()):
+        return True
+
+    # Substring in error_type, stderr, or error
+    if act_err_type and (exp.lower() in act_err_type.lower() or act_err_type.lower() in exp.lower()):
+        return True
+    if exp in act_stderr or exp in act_error:
+        return True
+
+    return False
+
+
 def adjudicate_candidate_variant(
     action_matches: bool,
     scope_matches: bool,
@@ -464,41 +554,61 @@ def adjudicate_candidate_variant(
     actual_outcome: Dict[str, Any],
     expected_failure_type: str = "",
     tool_name: str = "",
-) -> Tuple[str, str]:
+) -> Tuple[str, str, bool]:
     """
     Unified candidate verification adjudication function.
     Inputs:
     - action_matches: whether the executed action matches the rule's action signature
     - scope_matches: whether the executed action matches the rule's declared scope
     - premise_state: "TRUE" | "FALSE" | "UNKNOWN"
-    - execution_state: "EXECUTED" | "BLOCKED" | "NOT_TESTED"
+    - execution_state: "EXECUTED" | "BLOCKED" | "NOT_TESTED" | "TIMEOUT" | "TOOL_ERROR"
     - actual_outcome: tool execution result dictionary
     - expected_failure_type: expected error code or exception type
     - tool_name: tool being evaluated
 
-    Returns (adjudication_verdict, notes).
+    Returns (adjudication_verdict, notes, failure_type_matched).
     """
     if execution_state == "NOT_TESTED":
-        return "NOT_APPLICABLE", "Action not tested in this variant."
+        return "NOT_TESTED", "Action not tested in this variant.", False
+
+    if execution_state == "BLOCKED":
+        return "BLOCKED", f"Action was blocked by gate: {actual_outcome.get('reason', 'Gate blocked')}.", False
+
+    if execution_state == "TIMEOUT" or actual_outcome.get("status") == "TIMEOUT" or actual_outcome.get("error_type") == "TIMEOUT":
+        matched = matches_failure_type(actual_outcome, expected_failure_type, tool_name)
+        if matched and premise_state == "TRUE" and action_matches and scope_matches:
+            return "SUPPORTED_IN_TESTED_CONTEXT", f"Premise evaluated to TRUE and expected TIMEOUT reproduced.", True
+        return "TIMEOUT", f"Action execution timed out: {actual_outcome.get('error', 'Execution timeout')}.", matched
+
+    if execution_state == "TOOL_ERROR":
+        return "TOOL_ERROR", f"Execution tool encountered an unexpected infrastructure error: {actual_outcome.get('error')}.", False
 
     if not action_matches or not scope_matches:
-        return "ACTION_SIGNATURE_OVERLY_SPECIFIC", "Action does not match declared rule scope or signature."
+        return "ACTION_SIGNATURE_OVERLY_SPECIFIC", "Action does not match declared rule scope or signature.", False
 
     if tool_name == "check_health":
         action_success = bool(actual_outcome.get("healthy", False) or (actual_outcome.get("exit_code") == 0 and actual_outcome.get("status") == "UP"))
     else:
-        action_success = (actual_outcome.get("exit_code") == 0 and actual_outcome.get("success", False) is True)
+        action_success = bool(actual_outcome.get("exit_code") == 0 and actual_outcome.get("success", False) is True)
 
     if premise_state == "FALSE":
-        return "SOURCE_PREMISE_MISMATCH", "Declared premise evaluated to FALSE in reproduction environment; action failed but premise did not hold."
+        return "SOURCE_PREMISE_MISMATCH", "Declared premise evaluated to FALSE in reproduction environment; action failed but premise did not hold.", False
+
+    if premise_state == "UNKNOWN":
+        return "UNKNOWN", "Premise state could not be evaluated independently.", False
 
     if premise_state == "TRUE":
         if action_success:
-            return "COUNTEREXAMPLE", "CONFIRMED COUNTEREXAMPLE: Declared premise is TRUE, but action succeeded! Declared failure refuted."
+            return "COUNTEREXAMPLE", "CONFIRMED COUNTEREXAMPLE: Declared premise is TRUE, but action succeeded! Declared failure refuted.", False
         else:
-            return "SUPPORTED_IN_TESTED_CONTEXT", "Premise evaluated to TRUE and expected failure reproduced."
+            failure_type_matched = matches_failure_type(actual_outcome, expected_failure_type, tool_name)
+            if failure_type_matched:
+                return "SUPPORTED_IN_TESTED_CONTEXT", f"Premise evaluated to TRUE and expected failure ({expected_failure_type}) reproduced.", True
+            else:
+                act_err = actual_outcome.get("error_type") or actual_outcome.get("exit_code") or actual_outcome.get("stderr")
+                return "FAILURE_TYPE_MISMATCH", f"Action failed, but actual failure ({act_err}) does not match expected failure type ({expected_failure_type}).", False
 
-    return "UNKNOWN", "Premise state could not be evaluated independently."
+    return "UNKNOWN", "Premise state could not be evaluated independently.", False
 
 
 # --- Variant 1: Original Context Reproduction ---
@@ -509,6 +619,7 @@ def test_variant_1_reproduction(
     pred_items: List[Dict[str, Any]],
     expected_fail: str,
     trace_id: str,
+    scope: str = "",
 ) -> Dict[str, Any]:
     """
     Variant 1: Sets up the source context on real OS, independently evaluates
@@ -556,30 +667,39 @@ def test_variant_1_reproduction(
     premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
 
     # Execute Action
+    executed_params = dict(params)
     if tool_name == "start_service":
         res = env.start_service(cfg_path)
+        executed_params["config_path"] = cfg_path
     elif tool_name == "write_config":
         res = env.write_config(cfg_path, port=port)
+        executed_params["config_path"] = cfg_path
+        executed_params["port"] = port
     elif tool_name == "check_health":
         target_port = int(params.get("port", port))
         res = env.check_health(target_port)
+        executed_params["port"] = target_port
     else:
         res = {"success": False, "exit_code": 1, "error": "Unknown tool"}
 
     env.teardown()
 
-    adjudication, notes = adjudicate_candidate_variant(
-        True, True, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
+    action_matches = check_action_matches(tool_name, params, tool_name, executed_params)
+    scope_matches = check_scope_matches(scope, tool_name, executed_params)
+
+    adjudication, notes, failure_type_matched = adjudicate_candidate_variant(
+        action_matches, scope_matches, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
     )
 
     return {
         "variant": "V1_Original_Context_Reproduction",
-        "action_matches_scope": True,
+        "action_matches_scope": (action_matches and scope_matches),
         "premise_evaluation": premise_state,
         "premise_details": pred_details,
-        "actual_action": f"{tool_name}({params})",
-        "actual_outcome": {"exit_code": res.get("exit_code"), "stderr": res.get("stderr"), "success": res.get("success")},
+        "actual_action": f"{tool_name}({executed_params})",
+        "actual_outcome": {"exit_code": res.get("exit_code"), "stderr": res.get("stderr"), "success": res.get("success"), "error_type": res.get("error_type")},
         "adjudication": adjudication,
+        "failure_type_matched": failure_type_matched,
         "notes": notes,
         "raw_tool_evidence": res,
     }
@@ -593,6 +713,7 @@ def test_variant_2_premise_cleared_or_counterexample(
     pred_items: List[Dict[str, Any]],
     expected_fail: str,
     v1_data: Dict[str, Any],
+    scope: str = "",
 ) -> Dict[str, Any]:
     """
     Variant 2:
@@ -600,12 +721,14 @@ def test_variant_2_premise_cleared_or_counterexample(
       We construct the OS state so that the declared premise IS TRUE, and test whether failure occurs!
     - If V1 had premise == TRUE:
       We clear the premise on OS, and verify whether failure is eliminated.
+    All branches unify under adjudicate_candidate_variant.
     """
     v1_premise = v1_data.get("premise_evaluation")
 
     if v1_premise == "FALSE":
         cfg_path = params.get("config_path", "/home/agentuser/service_conf/nonexistent_cfg_999.json")
         env.setup("inst1_port_conflict_persistent")
+        executed_params = dict(params)
         if tool_name == "start_service":
             p = Path(cfg_path)
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -613,38 +736,47 @@ def test_variant_2_premise_cleared_or_counterexample(
             os.chown(p, 1001, 1001)
             premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
             res = env.start_service(cfg_path)
+            executed_params["config_path"] = cfg_path
         elif tool_name == "write_config":
             user_path = f"/home/agentuser/service_conf/{Path(cfg_path).name}"
             premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
             res = env.write_config(user_path, port=18082)
+            executed_params["config_path"] = user_path
+            executed_params["port"] = 18082
         elif tool_name == "check_health":
             target_port = int(params.get("port", 18082))
             env.write_config("/home/agentuser/service_conf/app_live_v2.json", port=target_port)
             env.start_service("/home/agentuser/service_conf/app_live_v2.json")
             premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
             res = env.check_health(target_port)
+            executed_params["port"] = target_port
         else:
             premise_state = "UNKNOWN"
             pred_details = []
             res = {"success": False, "exit_code": 1}
         env.teardown()
 
-        adjudication, notes = adjudicate_candidate_variant(
-            True, True, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
+        action_matches = check_action_matches(tool_name, params, tool_name, executed_params)
+        scope_matches = check_scope_matches(scope, tool_name, executed_params)
+
+        adjudication, notes, failure_type_matched = adjudicate_candidate_variant(
+            action_matches, scope_matches, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
         )
 
         return {
             "variant": "V2_Premise_Probe_Exact_Path",
-            "action_matches_scope": True,
+            "action_matches_scope": (action_matches and scope_matches),
             "premise_evaluation": premise_state,
             "premise_details": pred_details,
-            "actual_action": f"{tool_name}({params})",
+            "actual_action": f"{tool_name}({executed_params})",
             "actual_outcome": res,
             "adjudication": adjudication,
+            "failure_type_matched": failure_type_matched,
             "notes": notes,
         }
 
     else:
+        executed_params = dict(params)
         if tool_name == "start_service":
             cfg_path = params.get("config_path", "/home/agentuser/service_conf/app_t1.json")
             env.setup("inst6_counterexample_feasibility")
@@ -652,51 +784,47 @@ def test_variant_2_premise_cleared_or_counterexample(
             premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
             res = env.start_service(cfg_path)
             env.teardown()
-
-            return {
-                "variant": "V2_Premise_Cleared",
-                "action_matches_scope": True,
-                "premise_evaluation": premise_state,
-                "actual_action": f"start_service({cfg_path})",
-                "actual_outcome": res,
-                "adjudication": "NOT_APPLICABLE",
-                "notes": "Premise cleared (evaluated FALSE); action succeeds normally. Does not count as disproof of original rule.",
-            }
+            executed_params["config_path"] = cfg_path
 
         elif tool_name == "write_config":
             cfg_path = params.get("config_path", "/etc/service_demo/app_sys.json")
             env.setup("inst1_port_conflict_persistent")
             user_path = f"/home/agentuser/service_conf/{Path(cfg_path).name}"
+            premise_state, pred_details = "FALSE", []
             res = env.write_config(user_path, port=18082)
             env.teardown()
-
-            return {
-                "variant": "V2_Premise_Cleared",
-                "action_matches_scope": False,
-                "premise_evaluation": "FALSE",
-                "actual_action": f"write_config({user_path})",
-                "actual_outcome": res,
-                "adjudication": "NOT_APPLICABLE",
-                "notes": "Premise cleared via alternate path.",
-            }
+            executed_params["config_path"] = user_path
+            executed_params["port"] = 18082
 
         elif tool_name == "check_health":
             env.setup("inst1_port_conflict_persistent")
             env.write_config("/home/agentuser/service_conf/app_live.json", port=18082)
             env.start_service("/home/agentuser/service_conf/app_live.json")
+            premise_state, pred_details = "FALSE", []
             res = env.check_health(18082)
             env.teardown()
+            executed_params["port"] = 18082
+        else:
+            premise_state, pred_details = "UNKNOWN", []
+            res = {"success": False, "exit_code": 1}
 
-            return {
-                "variant": "V2_Premise_Cleared",
-                "action_matches_scope": False,
-                "premise_evaluation": "FALSE",
-                "actual_action": "check_health(18082)",
-                "actual_outcome": res,
-                "adjudication": "NOT_APPLICABLE",
-            }
+        action_matches = check_action_matches(tool_name, params, tool_name, executed_params)
+        scope_matches = check_scope_matches(scope, tool_name, executed_params)
 
-    return {"variant": "V2", "adjudication": "NOT_TESTED"}
+        adjudication, notes, failure_type_matched = adjudicate_candidate_variant(
+            action_matches, scope_matches, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
+        )
+
+        return {
+            "variant": "V2_Premise_Cleared",
+            "action_matches_scope": (action_matches and scope_matches),
+            "premise_evaluation": premise_state,
+            "actual_action": f"{tool_name}({executed_params})",
+            "actual_outcome": res,
+            "adjudication": adjudication,
+            "failure_type_matched": failure_type_matched,
+            "notes": notes,
+        }
 
 
 # --- Variant 3: Irrelevant Attribute Changed ---
@@ -706,10 +834,12 @@ def test_variant_3_irrelevant_attribute(
     params: Dict[str, Any],
     pred_items: List[Dict[str, Any]],
     expected_fail: str,
+    scope: str = "",
 ) -> Dict[str, Any]:
     """
     Variant 3: Actually modifies an irrelevant attribute on disk, records the change,
     and re-executes to test causal invariance.
+    Includes real timeout parameter intervention for check_health.
     """
     changed_attr = ""
     cfg_path = params.get("config_path", "/home/agentuser/service_conf/app_t1.json")
@@ -729,6 +859,8 @@ def test_variant_3_irrelevant_attribute(
         env.setup("inst1_port_conflict_persistent")
 
     p = Path(cfg_path)
+    executed_params = dict(params)
+
     if tool_name == "start_service":
         p.parent.mkdir(parents=True, exist_ok=True)
         if "valid_json" in str(pred_items):
@@ -747,26 +879,36 @@ def test_variant_3_irrelevant_attribute(
         premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
         res = env.start_service(cfg_path)
         env.teardown()
+        executed_params["config_path"] = cfg_path
 
     elif tool_name == "write_config":
         changed_attr = "Altered service_name parameter to 'irrelevant_custom_agent_name'"
         premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
         res = env.write_config(cfg_path, port=port, service_name="irrelevant_custom_agent_name")
         env.teardown()
+        executed_params["config_path"] = cfg_path
+        executed_params["port"] = port
+        executed_params["service_name"] = "irrelevant_custom_agent_name"
 
     elif tool_name == "check_health":
         target_port = int(params.get("port", 18085))
-        changed_attr = "Injected benign client timeout parameter"
+        changed_attr = "Injected modified client timeout parameter (timeout=2.5s)"
         premise_state, pred_details = evaluate_predicates_on_os(env, pred_items, params)
-        res = env.check_health(target_port)
+        # Real intervention: modify client timeout to 2.5s
+        res = env.check_health(target_port, timeout=2.5)
         env.teardown()
+        executed_params["port"] = target_port
+        executed_params["timeout"] = 2.5
 
     else:
         res = {"exit_code": 1}
         premise_state = "UNKNOWN"
 
-    adjudication, notes = adjudicate_candidate_variant(
-        True, True, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
+    action_matches = check_action_matches(tool_name, params, tool_name, executed_params)
+    scope_matches = check_scope_matches(scope, tool_name, executed_params)
+
+    adjudication, notes, failure_type_matched = adjudicate_candidate_variant(
+        action_matches, scope_matches, premise_state, "EXECUTED", res, expected_fail, tool_name=tool_name
     )
     if adjudication == "SUPPORTED_IN_TESTED_CONTEXT":
         notes = "Failure behavior invariant to non-causal metadata fields on disk."
@@ -774,11 +916,12 @@ def test_variant_3_irrelevant_attribute(
     return {
         "variant": "V3_Irrelevant_Attribute_Changed",
         "changed_attribute_description": changed_attr,
-        "action_matches_scope": True,
+        "action_matches_scope": (action_matches and scope_matches),
         "premise_evaluation": premise_state,
         "actual_action": f"{tool_name}({cfg_path}) with {changed_attr}",
         "actual_outcome": res,
         "adjudication": adjudication,
+        "failure_type_matched": failure_type_matched,
         "notes": notes,
     }
 
@@ -816,8 +959,12 @@ def test_variant_4_context_and_scope(
         env.teardown()
 
         owner_success = (res_owner.get("exit_code") == 0 and res_owner.get("success", False) is True)
-        adj_owner, notes_owner = adjudicate_candidate_variant(
-            True, True, premise_state, "EXECUTED", res_owner, expected_fail, tool_name="write_config"
+        executed_params = {"config_path": cfg_path, "port": 18080}
+        act_match = check_action_matches(tool_name, params, "write_config", executed_params)
+        sc_match = check_scope_matches(scope, "write_config", executed_params)
+
+        adj_owner, notes_owner, fail_match_owner = adjudicate_candidate_variant(
+            act_match, sc_match, premise_state, "EXECUTED", res_owner, expected_fail, tool_name="write_config"
         )
         id_test = {
             "test_type": "v4_identity_or_ownership",
@@ -909,35 +1056,177 @@ class ScriptedActionBackend:
         }
 
 
+def prepare_case_4_raw(env):
+    p = Path("/etc/service_demo")
+    p.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["chown", "-R", "root:root", "/etc/service_demo"], check=False)
+    subprocess.run(["chmod", "0755", "/etc/service_demo"], check=False)
+    cfg_file = Path("/etc/service_demo/app_sys.json")
+    if cfg_file.exists():
+        subprocess.run(["rm", "-f", str(cfg_file)], check=False)
+
+
+def prepare_case_4_owner(env):
+    p = Path("/etc/service_demo")
+    p.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["chown", "-R", "agentuser:agentuser", "/etc/service_demo"], check=False)
+    subprocess.run(["chmod", "0755", "/etc/service_demo"], check=False)
+    cfg_file = Path("/etc/service_demo/app_sys.json")
+    if cfg_file.exists():
+        subprocess.run(["rm", "-f", str(cfg_file)], check=False)
+
+
+def cleanup_case_4_raw():
+    cfg_file = Path("/etc/service_demo/app_sys.json")
+    if cfg_file.exists():
+        subprocess.run(["rm", "-f", str(cfg_file)], check=False)
+    subprocess.run(["chown", "-R", "root:root", "/etc/service_demo"], check=False)
+    subprocess.run(["chmod", "0755", "/etc/service_demo"], check=False)
+
+
+def prepare_case_4_derived(env):
+    p = Path("/home/agentuser/service_conf")
+    p.mkdir(parents=True, exist_ok=True)
+    os.chmod("/home/agentuser/service_conf", 0o755)
+    cfg_file = Path("/home/agentuser/service_conf/app_sys_0755.json")
+    if cfg_file.exists():
+        subprocess.run(["rm", "-f", str(cfg_file)], check=False)
+
+
 def run_natural_candidate_cpu_comparison(verif_results: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Evaluates verified natural candidate rules across B2, B2-G, S1, S2, and M
-    using real MultiStepAgentRunner entry points on regression test cases:
-    - Known defect cases: #10 (Inverted predicate), #4 (Scope deficiency)
-    - Valid rule cases: #2 (Port conflict), #14 (Health check)
-    Transitions are recorded from real ConstraintLifecycleManager events.
+    using real MultiStepAgentRunner entry points on regression test cases.
+    Loads raw candidates directly from candidate_ledger_24.json with input SHA256 recorded.
+    Demarcates raw candidate tests on /etc/service_demo/... from derived rule stress tests.
     """
     print("[CPU Comparison] Running real MultiStepAgentRunner comparison on natural candidate rules...")
 
-    test_cases = [
+    if not LEDGER_JSON_FILE.exists():
+        build_candidate_ledger_24()
+    ledger_bytes = LEDGER_JSON_FILE.read_bytes()
+    ledger_sha256 = hashlib.sha256(ledger_bytes).hexdigest()
+    with open(LEDGER_JSON_FILE, "r", encoding="utf-8") as f:
+        ledger_data = json.load(f)
+    ledger_by_call = {item["call_index"]: item for item in ledger_data if "call_index" in item}
+
+    # 1. Primary Test Cases (Historical Raw Candidates from candidate_ledger_24.json)
+    raw_test_cases = [
         {
-            "case_id": "Case_10_Inverted_Predicate",
+            "case_id": "Case_10_Inverted_Predicate_Raw",
             "rule_id": "rule_call_10",
-            "description": "Call #10 Inverted Rule: start_service fails when config_file:exists == True",
-            "action_sig": "start_service:config_path=/home/agentuser/service_conf/nonexistent_cfg_999.json",
+            "candidate_call_index": 10,
+            "category": "RAW_CANDIDATE",
+            "description": "Call #10 Raw Candidate: start_service fails when config_file:exists == True",
+            "action_sig": ledger_by_call[10]["action_signature"],
             "predicates": [
-                PreconditionPredicate(key="config_file:exists", expected_value=True),
+                PreconditionPredicate(
+                    key=p["key"],
+                    expected_value=(p["expected_value"] == "True" or p["expected_value"] is True),
+                )
+                for p in ledger_by_call[10]["premise_predicates"]
             ],
             "setup_env": "inst1_port_conflict_persistent",
             "action_sequence": [
-                {"action": "start_service", "params": {"config_path": "/home/agentuser/service_conf/nonexistent_cfg_999.json"}},
+                {"action": "start_service", "params": ledger_by_call[10]["action_params"]},
             ],
-            "prepare_state": lambda env: create_valid_config("/home/agentuser/service_conf/nonexistent_cfg_999.json", 18082),
+            "prepare_state": lambda env: create_valid_config(ledger_by_call[10]["action_params"]["config_path"], 18082),
+            "cleanup": None,
         },
         {
-            "case_id": "Case_4_Scope_Deficiency",
+            "case_id": "Case_4_Scope_Deficiency_Raw_Unprivileged",
             "rule_id": "rule_call_4",
-            "description": "Call #4 Scope Deficient Rule: write_config fails when dir permissions 0755",
+            "candidate_call_index": 4,
+            "category": "RAW_CANDIDATE",
+            "description": "Call #4 Raw Candidate: write_config on /etc/service_demo when mode 0755 (unprivileged agentuser)",
+            "action_sig": ledger_by_call[4]["action_signature"],
+            "predicates": [
+                PreconditionPredicate(
+                    key=p["key"],
+                    expected_value=p["expected_value"],
+                )
+                for p in ledger_by_call[4]["premise_predicates"]
+            ],
+            "setup_env": "inst3_permission_fallback",
+            "action_sequence": [
+                {"action": "write_config", "params": {"config_path": ledger_by_call[4]["action_params"]["config_path"], "port": 18080}},
+            ],
+            "prepare_state": lambda env: prepare_case_4_raw(env),
+            "cleanup": lambda: cleanup_case_4_raw(),
+        },
+        {
+            "case_id": "Case_4_Scope_Deficiency_Raw_OwnerContext",
+            "rule_id": "rule_call_4",
+            "candidate_call_index": 4,
+            "category": "RAW_CANDIDATE",
+            "description": "Call #4 Raw Candidate: write_config on /etc/service_demo when mode 0755 (directory owner context)",
+            "action_sig": ledger_by_call[4]["action_signature"],
+            "predicates": [
+                PreconditionPredicate(
+                    key=p["key"],
+                    expected_value=p["expected_value"],
+                )
+                for p in ledger_by_call[4]["premise_predicates"]
+            ],
+            "setup_env": "inst3_permission_fallback",
+            "action_sequence": [
+                {"action": "write_config", "params": {"config_path": ledger_by_call[4]["action_params"]["config_path"], "port": 18080}},
+            ],
+            "prepare_state": lambda env: prepare_case_4_owner(env),
+            "cleanup": lambda: cleanup_case_4_raw(),
+        },
+        {
+            "case_id": "Case_2_Valid_Port_Conflict_Raw",
+            "rule_id": "rule_call_2",
+            "candidate_call_index": 2,
+            "category": "RAW_CANDIDATE",
+            "description": "Call #2 Raw Candidate: start_service fails when port:18080:occupied == True",
+            "action_sig": ledger_by_call[2]["action_signature"],
+            "predicates": [
+                PreconditionPredicate(
+                    key=p["key"],
+                    expected_value=(p["expected_value"] == "True" or p["expected_value"] is True),
+                )
+                for p in ledger_by_call[2]["premise_predicates"]
+            ],
+            "setup_env": "inst1_port_conflict_persistent",
+            "action_sequence": [
+                {"action": "start_service", "params": ledger_by_call[2]["action_params"]},
+            ],
+            "prepare_state": lambda env: env.write_config(ledger_by_call[2]["action_params"]["config_path"], port=18080),
+            "cleanup": None,
+        },
+        {
+            "case_id": "Case_14_Valid_Closed_Port_Raw",
+            "rule_id": "rule_call_14",
+            "candidate_call_index": 14,
+            "category": "RAW_CANDIDATE",
+            "description": "Call #14 Raw Candidate: check_health fails when port:18085:listening == False",
+            "action_sig": ledger_by_call[14]["action_signature"],
+            "predicates": [
+                PreconditionPredicate(
+                    key=p["key"],
+                    expected_value=(p["expected_value"] == "True" or p["expected_value"] is True),
+                )
+                for p in ledger_by_call[14]["premise_predicates"]
+            ],
+            "setup_env": "inst1_port_conflict_persistent",
+            "action_sequence": [
+                {"action": "check_health", "params": ledger_by_call[14]["action_params"]},
+            ],
+            "prepare_state": lambda env: None,
+            "cleanup": None,
+        },
+    ]
+
+    # 2. Derived Rule Stress Tests
+    derived_test_cases = [
+        {
+            "case_id": "Case_4_Derived_User_Directory_Rewrite",
+            "rule_id": "rule_call_4_derived",
+            "candidate_call_index": 4,
+            "category": "DERIVED_RULE_STRESS",
+            "description": "Call #4 Derived Rule Stress Test: Rewritten to /home/agentuser/service_conf/app_sys_0755.json",
             "action_sig": "write_config:config_path=/home/agentuser/service_conf/app_sys_0755.json",
             "predicates": [
                 PreconditionPredicate(key="dir:/home/agentuser/service_conf:permissions", expected_value="0755"),
@@ -946,44 +1235,18 @@ def run_natural_candidate_cpu_comparison(verif_results: List[Dict[str, Any]]) ->
             "action_sequence": [
                 {"action": "write_config", "params": {"config_path": "/home/agentuser/service_conf/app_sys_0755.json", "port": 18080}},
             ],
-            "prepare_state": lambda env: os.chmod("/home/agentuser/service_conf", 0o755),
-        },
-        {
-            "case_id": "Case_2_Valid_Port_Conflict",
-            "rule_id": "rule_call_2",
-            "description": "Call #2 Valid Rule: start_service fails when port:18080:occupied == True",
-            "action_sig": "start_service:config_path=/home/agentuser/service_conf/app_t1.json",
-            "predicates": [
-                PreconditionPredicate(key="port:18080:occupied", expected_value=True),
-            ],
-            "setup_env": "inst1_port_conflict_persistent",
-            "action_sequence": [
-                {"action": "start_service", "params": {"config_path": "/home/agentuser/service_conf/app_t1.json"}},
-            ],
-            "prepare_state": lambda env: env.write_config("/home/agentuser/service_conf/app_t1.json", port=18080),
-        },
-        {
-            "case_id": "Case_14_Valid_Closed_Port",
-            "rule_id": "rule_call_14",
-            "description": "Call #14 Valid Rule: check_health fails when port:18085:listening == False",
-            "action_sig": "check_health:port=18085",
-            "predicates": [
-                PreconditionPredicate(key="port:18085:listening", expected_value=False),
-            ],
-            "setup_env": "inst1_port_conflict_persistent",
-            "action_sequence": [
-                {"action": "check_health", "params": {"port": 18085}},
-            ],
-            "prepare_state": lambda env: None,
+            "prepare_state": lambda env: prepare_case_4_derived(env),
+            "cleanup": None,
         },
     ]
 
+    all_test_cases = raw_test_cases + derived_test_cases
     all_case_results = {}
     groups = ["B2", "B2-G", "S1", "S2", "M"]
 
-    for tc in test_cases:
+    for tc in all_test_cases:
         cid = tc["case_id"]
-        print(f"  --> Running {cid}: {tc['description']}...")
+        print(f"  --> Running {cid} ({tc['category']}): {tc['description']}...")
         case_group_results = {}
 
         for grp in groups:
@@ -1015,9 +1278,10 @@ def run_natural_candidate_cpu_comparison(verif_results: List[Dict[str, Any]]) ->
                 setup_hook=tc.get("prepare_state"),
             )
             env.teardown()
+            if tc.get("cleanup"):
+                tc["cleanup"]()
 
             target_tool = tc["action_sequence"][0]["action"]
-            target_params = tc["action_sequence"][0].get("params", {})
             action_proposed = True
 
             tool_records = ep_res.get("tool_records", [])
@@ -1074,13 +1338,18 @@ def run_natural_candidate_cpu_comparison(verif_results: List[Dict[str, Any]]) ->
 
         all_case_results[cid] = {
             "case_id": cid,
+            "category": tc["category"],
             "description": tc["description"],
             "group_results": case_group_results,
         }
 
     comparison_summary = {
         "title": "Natural Candidate Rules Real Strategy CPU Comparison",
+        "input_ledger_hash": ledger_sha256,
+        "input_ledger_file": str(LEDGER_JSON_FILE),
         "methodology_disclaimer": "本实验属于纯 CPU 确定性机制测试，用以核验门禁策略对自然提取规则的反应边界，不代表自主 LLM 在全开放任务中的端到端收益实验。",
+        "raw_candidate_cases": {k: v for k, v in all_case_results.items() if v.get("category") == "RAW_CANDIDATE"},
+        "derived_rule_stress_cases": {k: v for k, v in all_case_results.items() if v.get("category") == "DERIVED_RULE_STRESS"},
         "cases": all_case_results,
     }
 
@@ -1201,21 +1470,24 @@ def generate_reports(ledger: List[Dict[str, Any]], verif_results: List[Dict[str,
         "",
         "## 四、自然候选规则上的真实策略 CPU 对照实测",
         "",
-        f"> **方法论说明**：{cpu_comp['methodology_disclaimer']}",
+        f"> **输入账本来源与 SHA256**: `{cpu_comp.get('input_ledger_file', '')}` (SHA256: `{cpu_comp.get('input_ledger_hash', '')}`)  ",
+        f"> **方法论说明**: {cpu_comp['methodology_disclaimer']}",
         "",
-        "### 实测对比结果汇总（基于 MultiStepAgentRunner 真实事件）",
+        "### 1. 历史原始候选实测对比结果 (Raw Historical Candidates)",
         "",
-        "| 评测案例 | 策略分支 | 门禁决策 | 动作执行 | 动作成功 | 假阳性阻断 (FP) | 计费调用数 | 跃迁数 | 耗时(s) | 机制应对评价 |",
-        "| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |",
+        "| 评测案例 | 类别 | 策略分支 | 门禁决策 | 动作执行 | 动作成功 | 假阳性阻断 (FP) | 计费调用数 | 跃迁数 | 耗时(s) | 机制应对评价 |",
+        "| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |",
     ])
 
-    for cid, c_data in cpu_comp.get("cases", {}).items():
+    # Raw candidate cases first
+    raw_cases = cpu_comp.get("raw_candidate_cases", {})
+    for cid, c_data in raw_cases.items():
         desc = c_data["description"]
+        cat = c_data.get("category", "RAW")
         for grp, g_res in c_data["group_results"].items():
             blocked_str = "BLOCK" if g_res["gate_blocked"] else ("DEFER" if g_res.get("action_deferred") else "ALLOW")
             fp_str = "1 (FP)" if g_res["is_fp_block"] else "0"
             tool_cnt = g_res["tool_calls"]
-            err_cnt = g_res["executed_error_actions"]
             trans_cnt = g_res["lifecycle_transitions"]
             act_exec_str = "已执行" if g_res.get("action_executed") else ("已递延" if g_res.get("action_deferred") else "未执行")
             act_succ_str = "成功" if g_res.get("action_succeeded") else "未成功"
@@ -1234,8 +1506,48 @@ def generate_reports(ledger: List[Dict[str, Any]], verif_results: List[Dict[str,
                 eval_note = f"试探执行后捕获反例，产生 {trans_cnt} 次状态跃迁"
 
             lines.append(
-                f"| {desc[:26]}... | **{grp}** | {blocked_str} | {act_exec_str} | {act_succ_str} | {fp_str} | {tool_cnt} | {trans_cnt} | {time_str} | {eval_note} |"
+                f"| {desc[:28]}... | `{cat}` | **{grp}** | {blocked_str} | {act_exec_str} | {act_succ_str} | {fp_str} | {tool_cnt} | {trans_cnt} | {time_str} | {eval_note} |"
             )
+
+    # Derived rule stress cases next
+    derived_cases = cpu_comp.get("derived_rule_stress_cases", {})
+    if derived_cases:
+        lines.extend([
+            "",
+            "### 2. 衍生规则压力测试 (Derived Rule Stress Tests)",
+            "",
+            "> **说明**: 本小节评估将历史原始候选（如 `/etc/service_demo/...` 系统目录规则）改写为用户目录（`/home/agentuser/...`）等变体后的衍生规则，用于压力测试谓词是否在用户属主目录下因缺失执行身份约束而发生失效。不可与原始历史候选混淆。",
+            "",
+            "| 衍生测试案例 | 类别 | 策略分支 | 门禁决策 | 动作执行 | 动作成功 | 假阳性阻断 (FP) | 计费调用数 | 跃迁数 | 耗时(s) | 机制应对评价 |",
+            "| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |",
+        ])
+        for cid, c_data in derived_cases.items():
+            desc = c_data["description"]
+            cat = c_data.get("category", "DERIVED")
+            for grp, g_res in c_data["group_results"].items():
+                blocked_str = "BLOCK" if g_res["gate_blocked"] else ("DEFER" if g_res.get("action_deferred") else "ALLOW")
+                fp_str = "1 (FP)" if g_res["is_fp_block"] else "0"
+                tool_cnt = g_res["tool_calls"]
+                trans_cnt = g_res["lifecycle_transitions"]
+                act_exec_str = "已执行" if g_res.get("action_executed") else ("已递延" if g_res.get("action_deferred") else "未执行")
+                act_succ_str = "成功" if g_res.get("action_succeeded") else "未成功"
+                time_str = f"{g_res.get('time_taken_s', 0.0):.3f}s"
+
+                eval_note = ""
+                if grp == "B2":
+                    eval_note = "无门禁拦截，动作在属主目录下成功执行"
+                elif grp == "B2-G":
+                    eval_note = "通用谓词门禁求值；mode 0755 成立导致硬拦截 (FP)"
+                elif grp == "S1":
+                    eval_note = "提示告警放行，0 误阻断"
+                elif grp == "S2":
+                    eval_note = "探针探测用户目录属主可写，放行执行，0 误阻断"
+                elif grp == "M":
+                    eval_note = f"试探执行成功，发现属主反例产生 {trans_cnt} 次状态跃迁"
+
+                lines.append(
+                    f"| {desc[:28]}... | `{cat}` | **{grp}** | {blocked_str} | {act_exec_str} | {act_succ_str} | {fp_str} | {tool_cnt} | {trans_cnt} | {time_str} | {eval_note} |"
+                )
 
     lines.extend([
         "",
