@@ -122,10 +122,23 @@ content = content.replace(/<span class="math display">\\\\\\[([\\s\\S]*?)\\\\\\]
 fs.writeFileSync(htmlPath, content, 'utf8');
 console.log('Successfully pre-rendered LaTeX math into vector SVGs.');
 """
-    # Execute node with REPO_ROOT as cwd so local node_modules is automatically resolved
+    env = os.environ.copy()
+    node_paths = []
+    if "NODE_PATH" in env and env["NODE_PATH"]:
+        node_paths.extend(env["NODE_PATH"].split(":"))
+    if (REPO_ROOT / "node_modules").exists():
+        node_paths.append(str(REPO_ROOT / "node_modules"))
+    for candidate in [Path("/code/failmem-ros2-agent/node_modules"), REPO_ROOT.parent / "node_modules"]:
+        if candidate.exists() and str(candidate) not in node_paths:
+            node_paths.append(str(candidate))
+    if node_paths:
+        env["NODE_PATH"] = ":".join(node_paths)
+
+    # Execute node with REPO_ROOT as cwd and augmented NODE_PATH
     res = subprocess.run(
         ["node", "-e", node_script, str(html_path)],
         cwd=REPO_ROOT,
+        env=env,
         capture_output=True,
         text=True,
     )
