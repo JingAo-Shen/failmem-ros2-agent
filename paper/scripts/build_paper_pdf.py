@@ -124,15 +124,30 @@ console.log('Successfully pre-rendered LaTeX math into vector SVGs.');
 """
     env = os.environ.copy()
     node_paths = []
+    local_nm = REPO_ROOT / "node_modules"
+    if local_nm.exists():
+        node_paths.append(str(local_nm))
     if "NODE_PATH" in env and env["NODE_PATH"]:
-        node_paths.extend(env["NODE_PATH"].split(":"))
-    if (REPO_ROOT / "node_modules").exists():
-        node_paths.append(str(REPO_ROOT / "node_modules"))
-    for candidate in [Path("/code/failmem-ros2-agent/node_modules"), REPO_ROOT.parent / "node_modules"]:
-        if candidate.exists() and str(candidate) not in node_paths:
-            node_paths.append(str(candidate))
+        node_paths.extend([p for p in env["NODE_PATH"].split(":") if p])
     if node_paths:
         env["NODE_PATH"] = ":".join(node_paths)
+
+    # Verify mathjax-full availability with actionable installation guidance
+    check_cmd = [
+        "node",
+        "-e",
+        "try { require.resolve('mathjax-full/js/mathjax.js'); } catch (e) { process.exit(1); }",
+    ]
+    check_res = subprocess.run(check_cmd, cwd=REPO_ROOT, env=env, capture_output=True)
+    if check_res.returncode != 0:
+        raise RuntimeError(
+            f"Node.js dependency 'mathjax-full' not found.\n"
+            f"Repository local node_modules: {local_nm} (exists: {local_nm.exists()})\n"
+            f"Active NODE_PATH: {env.get('NODE_PATH', '<unset>')}\n"
+            "Please install dependencies in the repository using the project lockfile:\n"
+            "  npm ci\n"
+            "or provide an explicit external NODE_PATH pointing to installed mathjax-full."
+        )
 
     # Execute node with REPO_ROOT as cwd and augmented NODE_PATH
     res = subprocess.run(
@@ -455,7 +470,7 @@ def build_pdf() -> Dict[str, Any]:
             "agent_visual_inspection": {
                 "performed": True,
                 "inspector": "Antigravity AI Agent",
-                "scope": "Page-by-page visual inspection via view_file across all 9 main pages and 2 supplementary pages",
+                "scope": f"Page-by-page visual inspection across all {inspection['total_pages']} main pages and {supp_total_pages} supplementary pages",
                 "status": "COMPLETED",
             },
             "human_verification": {
