@@ -1,131 +1,149 @@
-# FailMem 论文投稿去向调研与决策备忘录 (Candidate Submission Options)
+# FailMem 论文投稿去向调研与决策备忘录 (Submission Options & Venue Verification)
 
-**文档定位**: 依据手稿当前真实定位（单一几何环境、Gazebo 11 仿真、每条件 $n=3$ 小样本、与 Spatial Cache $O$ 中性对比、无实体真机实验、100% 离线复现流水线）筛选的最多 3 个精准匹配去向，涵盖顶级 Letters、专题研讨会与自主系统期刊。  
-**冻结源码与手稿基准**: 源码冻结 `de05246`，手稿终审 `5e6ed1f`  
-**整理时间**: 2026-10-14  
-
----
-
-## 核心去向横向对比总表
-
-| 评估维度 | 选项一：IEEE RA-L (Letters) | 选项二：IEEE ICRA/IROS Workshop (负面/中性结果专题) | 选项三：Elsevier RAS (Short Communication) |
-| :--- | :--- | :--- | :--- |
-| **全称** | IEEE Robotics and Automation Letters | IEEE ICRA/IROS Workshop on Benchmarking & Negative/Neutral Results | Robotics and Autonomous Systems (Elsevier) |
-| **出版类型** | 顶级混合期刊 (Rapid Letters) | 国际顶级会议专题研讨会短文 (Workshop Paper) | 知名机器人学术期刊 (Short Communication) |
-| **官方收录依据** | SCIE (JCR Q1/Q2), EI, Scopus, IEEE Xplore | IEEE Xplore / EI (若含正式论文集) 或 arXiv/DBLP | SCIE (JCR Q2), EI Compendex, Scopus, DBLP |
-| **征稿状态/周期** | 常年开放投稿 (Year-round rolling) | 周期性 (ICRA: 1-3月截稿; IROS: 6-8月截稿) | 常年开放投稿 (Year-round rolling) |
-| **基础篇幅限制** | 6 页 IEEE 双栏 (含正文、图表与文献) | 4–6 页 IEEE 双栏 (短文 / 扩展摘要) | ~6,000 词或 8–10 期刊页 |
-| **超页与补充规则** | 最多超 2 页 (上限 8 页, $175/页); **严禁文本附录** | 参考文献通常不计入或灵活; 附录可挂链接 | 允许在 ScienceDirect 官方挂载多页 Supplementary PDF |
-| **版面费 / APC** | 1–6页免费; 超页 $175/页; OA 可选 (~$2,495) | **$0 APC** (仅需注册会议/研讨会) | **$0 APC** (传统订阅免费); OA 可选 (~$3,200) |
-| **对中性/负面结论包容度** | 低 (审稿人强烈偏好增量显著优势与真机) | **极高** (专题研讨会核心宗旨即为负向/探索性边界) | 中等 (接受系统实践、边界剖析与基准对比) |
-| **真机实验硬性要求** | 极高 (审稿人常因无真机直接拒稿) | 无 (明确接受纯物理仿真与架构评测) | 中等 (仿真基准可被接受，但需详述环境机理) |
-| **录用风险评级** | **极高风险 (High Risk)** | **极低风险 (Low Risk)** | **中等风险 (Moderate Risk)** |
+**文档定位**: 依据手稿当前冻结状态（单一长廊布局、Gazebo 11 物理仿真、每条件 $n=3$ 小样本、与空间缓存基线呈中性对比、无实体真机实验、100% 离线复现流水线）开展的严格事实核查与投稿去向调研。  
+**源码冻结基准**: `de05246f251263fb60a98ca3995fb8d65f38905c` (`de05246`)  
+**手稿终审基准**: `5e6ed1ff3e36e19195b0fe637ce02047ee2d7fc7` (`5e6ed1f`)  
+**核查日期**: 2026-10-14  
 
 ---
 
-## 选项一：IEEE Robotics and Automation Letters (RA-L)
+## 一、官方来源核查总表 (Official Source Verification Table)
 
-### 1. 官方要求与指标
-- **征稿范围 (Scope)**: 快速发表机器人与自动化领域具有创新思想和应用价值的同行评审短文（Letters）。涵盖理论突破、系统设计与工程应用案例。
-- **当前状态**: 常年开放投稿（Year-round continuous submission），无固定截止日期；投稿至终审周期通常为 6 个月。
-- **篇幅限制 (Page Limit)**:
-  - 基础篇幅为 **6 页**（IEEE 双栏格式，包含正文、所有图表和参考文献）。
-  - 最多允许 **2 页超页**（总页数不得超过 **8 页**），超页部分需缴纳强制超页费（$175 美元/页）。
-- **补充材料规则 (Supplementary Material)**:
-  - **重要约束**: 官方明确规定 **“严禁将文本附录或补充图表伪装为多媒体文件上传以规避 8 页限制，违者将直接 Desk Reject”**。
-  - 仅允许上传多媒体附件（如演示视频，MP4 格式）或在正文中提供代码/数据仓库的只读链接。
-- **格式模板**: 标准 `IEEEtran.cls`（双栏，Letters/Journal 格式）或 PaperPlaza 格式。
-- **版面费 / APC**:
-  - 1–6 页完全免费；
-  - 7–8 页收取超页费 $175/页（若 8 页则需 $350 美元）；
-  - 混合期刊（Hybrid），若作者自愿选择开源（Gold Open Access），需支付约 $2,495 美元 APC。
-- **官方收录依据**: SCIE、EI Compendex、Scopus、IEEE Xplore、DBLP。
+为确保所有分析均有据可循，下表汇总了本轮对各候选去向官方指南与费用标准的逐项核验结果。找不到官方证据的条款一律标为**“未核实”**，严禁填入估计值。
 
-### 2. 匹配理由与学术价值
-- 国际机器人领域公认的高水平学术期刊，同行关注度高；
-- 紧密贴合 ROS 2 机器人软件生态与导航架构。
-
-### 3. 贡献点风险分析 (Critical Risks)
-- **真机实验缺失**: RA-L 审稿群体通常对纯仿真（Gazebo-only）持有审慎态度，常以“缺乏 Sim-to-Real 实体机器人部署”为由给出负面意见；
-- **样本量与泛化性局限**: 本文仅在单一长廊布局下完成每条件 $n=3$ 的探索性小样本测试，极易受到关于“统计显著性不足”或“场景过于简单”的质疑；
-- **中性结论的发表阻力**: 在静态几何下 FailMem 未能显著优于 Spatial Cache（$F$ vs. $O$ 路由差异 $<1\%$），尽管科学事实诚实，但在传统期刊追求“超越 SOTA”的评审文化中难以获得高分；
-- **版面强制压缩**: 当前手稿为 10 页正文 + 4 页附录，若投 RA-L 必须将 14 页内容强力压缩至 6–8 页，且无法保留独立出版的附录。
-
-### 4. 所需补充材料与应对准备
-- 需由人类作者团队决策是否补充实体轮式机器人长廊部署视频；
-- 若按当前仿真成果提交，需在 Cover Letter 中明确强调“探索性可复现基准研究（Exploratory Benchmarking Study）”；
-- 需精简正文排版，将补充材料（S1–S5）转移至 GitHub/Zenodo 外部链接。
+| 目标渠道 | 官方信息来源 (URL) | 核查日期 | 核查栏目 / 章节 | 已核实官方规则摘要 | 未核实 / 未知事项 |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| **IEEE RA-L** (Letters) | `https://www.ieee-ras.org/publications/ra-l/information-for-authors-ra-l` | 2026-10-14 | `Scope`, `Peer Review Model`, `Initial Submission`, `Final Submission`, `Types of Submission` | • 采用**双匿名评审 (Double-anonymous)**；<br>• 初投须使用 `ieeeconf.cls` 会议模板，录用后转 IEEE Journal 模板；<br>• 基础篇幅 6 页，上限 8 页；超页费 $175 USD/页；<br>• **严禁**将文本附录作为多媒体提交以规避 8 页上限；<br>• 官方未规定真机为硬性拒稿条款；<br>• 常年征稿，自接收至终审约 5–6 个月。 | • 会议联合投稿（RA-L with Conference Option）当前开放的具体关联会议截稿窗口（需在投稿系统实时查询）。 |
+| **IEEE OA 费率** (适用于 RA-L) | `https://open.ieee.org/for-authors/article-processing-charges/` | 2026-10-14 | `Article Processing Charges` 列表 | • 混合期刊 (Hybrid journals) 自选开源 APC 为 **$2,800 USD** (2026 年执行费率，不含当地税费/VAT)；<br>• 传统订阅模式出版版面费为 **$0 USD**（1–6 页内）。 | • 特殊发展中国家减免政策在具体机构下的折扣比例（视作者所属单位而定）。 |
+| **Elsevier RAS** (Journal) | `https://www.elsevier.com/journals/robotics-and-autonomous-systems/0921-8890/guide-for-authors` | 2026-10-14 | `Peer review`, `Writing and formatting`, `File format`, `LaTeX`, `Supplementary material`, `Open access` | • 采用**单匿名评审 (Single-anonymized)**；<br>• 模板要求可编辑 Word 或 LaTeX CAS 模板 (`els-cas-templates.zip`)；<br>• 允许挂载 Supplementary material（原样上线 ScienceDirect）；<br>• 混合出版：订阅模式 **$0 USD**；自选 Gold OA APC 为 **$2,940 USD** (官方页面标价，不含税)；<br>• SCIE 收录 (2025/2026 影响因子 6.0)。 | • **Short Communication 当前是否存在及字数限制未在指南中提及 (未核实)**；<br>• 常规论文的硬性页数上限未在指南中明确规定。 |
+| **ICRA/IROS Workshop** | 对应大会主页及各专题研讨会 CFP 页面 | 2026-10-14 | 各专题征稿通知栏 | • **当前未找到已核实的可投 Workshop**（IROS 2026 截稿已过，ICRA 2027 Workshop 专题名单尚未公布）；<br>• 研讨会论文集是否正式收录进 IEEE Xplore 需视具体 Workshop 申请资质而定，不得自动套用主会 EI 检索。 | • 2027 年各专题的具体设立名称、截稿日、页数限制与匿名规则（均待 2027 年初官方公布）。 |
+| **JOSS** (软件期刊) | `https://joss.theoj.org/about#submission_requirements` | 2026-10-14 | `Scope & submission requirements` | • 开源软件期刊，Diamond OA ($0 APC)；<br>• **硬性要求**：在投稿前必须有至少 6 个月的公开开源开发历史与发布记录。 | • 针对由私有仓库近期转公开项目的豁免审核流程（指南明确暂不支持）。 |
+| **IEEE Access** | `https://ieeeaccess.ieee.org/guide-for-authors/` | 2026-10-14 | 官网访问测试 | • 官网 `guide-for-authors` 链接请求超时 (EOF)，无法访问；<br>• APC 由 `open.ieee.org` 核实为 **$2,160 USD** (Gold OA, 不含税)。 | • 具体排版规范、审稿周期与最新模板要求标为**未核实**（因官网无法连接）。 |
 
 ---
 
-## 选项二：IEEE ICRA / IROS 专题研讨会 (Workshop on Benchmarking, Reproducibility & Negative Results)
+## 二、候选渠道详细核对与差距分析
 
-*(例如：ICRA/IROS Workshop on Benchmarking and Reproducibility in Robotics / Workshop on Negative Results in Embodied AI)*
+### 候选一：IEEE Robotics and Automation Letters (RA-L) [对照选项]
 
-### 1. 官方要求与指标
-- **征稿范围 (Scope)**: 专门征集机器人系统实践中的负向/中性结果（Negative & Neutral Results）、失败案例剖析、可复现基准测试工具链以及针对现有范式边界的挑战性实证。
-- **当前状态**: 周期性征稿（Annual cycles）。
-  - **ICRA Workshop**: 每年 1–3 月投稿截止，5 月随大会举办；
-  - **IROS Workshop**: 每年 6–8 月投稿截止，10 月随大会举办。
-- **篇幅限制 (Page Limit)**:
-  - 通常要求 **4 至 6 页**（IEEE 双栏 Conference 格式），部分研讨会允许参考文献不占页数。
-- **补充材料规则**: 鼓励提供完整的复现脚本、Docker 镜像与数据链接，附录可作为补充文件或在线材料一并提交。
-- **格式模板**: 标准 IEEE Conference LaTeX 模板 (`\documentclass[conference]{IEEEtran}`)。
-- **版面费 / APC**: **$0 美元**（研讨会本身不收取论文出版处理费，只需一位作者注册会议/研讨会门票）。
-- **官方收录依据**:
-  - 若为 IEEE 官方联合出版的 Workshop 论文集，收录于 IEEE Xplore、EI Compendex、Scopus；
-  - 若为交流性质的 Non-archival Workshop，论文存档于 arXiv / OpenReview / 研讨会官方网站，被 Google Scholar 和 DBLP 检索。
+> **定位说明**: 本选项作为传统顶级 Letters 渠道的**对照基准**进行保留，不预设为首选去向。
 
-### 2. 匹配理由与学术价值
-- **最高契合度 (Best Match)**: 研讨会的核心宗旨与 FailMem 当前的学术定位完全一致——诚实报告中性边界（在静态几何下事件记忆不优于空间缓存）、公开 100% 离线复现流水线、剖析 D2 轨迹时间账本；
-- **同行评审友好**: 研讨会审稿人高度重视研究的可审计性与实证透明度，不会因为“没有跑赢基线”或“缺乏真机”而拒稿，反而会赞赏细致的停定判定准则与代数闭合分析；
-- **交流与后续拓展契机**: 能在国际顶级会议现场与机器人自主导航和基准测试学者直接交流，为后续多房间布局与动作画像研究奠定学术声誉。
+#### 1. 官方要求与指标核查
+- **官方来源**: `https://www.ieee-ras.org/publications/ra-l/information-for-authors-ra-l` 与 `https://open.ieee.org/for-authors/article-processing-charges/`
+- **核查日期**: 2026-10-14
+- **出版类型与收录**: 快速发表期刊短文 (Rapid Letters)。官方收录依据：SCIE (JCR Q1/Q2)、EI Compendex、Scopus、IEEE Xplore、DBLP。
+- **同行评审机制**: **双匿名评审 (Double-anonymous)**。手稿正文、图表、引用与致谢中严禁泄露作者及机构信息。
+- **篇幅限制与附录规定**:
+  - 基础篇幅为 **6 页**（包含所有正文、图表、表格与参考文献）；
+  - 最多允许 **2 页超页**（总页数封顶 **8 页**），第 7、8 页每页收取超页费；
+  - **重要限制**: 官方明确声明 **“严禁将文本附录或补充图表伪装为多媒体文件上传以规避 8 页限制，违者将直接未经评审予以形式拒稿 (Desk Reject)”**。
+- **稿件格式与模板**:
+  - **初投稿模板**: 必须使用 IEEE Conference 格式模板 `ieeeconf.cls`（US Letter，双栏排版，严格遵守 PaperPlaza 边距检测）；
+  - **录用后终稿模板**: 录用后转换为 IEEE Journal 格式模板 (`IEEEtran.cls`) 排版。
+- **出版费用**:
+  - **传统订阅出版模式**: 1–6 页为 **$0 USD**；超页（第 7、8 页）每页收取 **$175 USD**（若 8 页则需缴纳 $350 USD 超页费，不含当地税费）；
+  - **开放获取 (Gold Open Access)**: 若作者自愿选择开源出版，2026 年 IEEE 混合期刊 APC 统一定价为 **$2,800 USD**（不含税费，超页费另计）。
+- **投稿周期**: 常年开放投稿（Year-round continuous submission），自初投至终审（Accept/Reject）通常在 5–6 个月内完成。
+- **真机实验官方规则事实**: RA-L 官方作者指南中**未将实体机器人硬件实验列为硬性退稿条款**。
 
-### 3. 贡献点风险分析
-- **学术成果认定风险**: 研讨会短文（Workshop Paper）在部分学术考核体系中的评价权重低于常规期刊长文；作者团队需根据考核需求进行权衡。
+#### 2. 本文匹配判断与差距分析
+- **格式与篇幅差距**: 本文目前终审排版为 10 页正文 + 4 页附录（共 14 页）。若投 RA-L，必须进行深度删减，将正文压减至 $\le 8$ 页以内，且现有的 4 页补充材料（S1–S5 时间账本与敏感性分析）无法作为官方出版物附录提交，只能移至第三方代码仓库。
+- **评审文化与贡献风险**:
+  - 尽管官方未硬性要求真机，但在审稿实务中，审稿人普遍对纯仿真（Gazebo-only）持有严格的有效性拷问，缺乏 Sim-to-Real 实物部署存在明显的同行评议阻力；
+  - 本文评估基于单一长廊布局与每条件 $n=3$ 小样本，且在静态几何下 FailMem 未能超越空间缓存基线（$F$ vs. $O$ 路由差异 $<1\%$），面对追求显著正向性能提升的期刊审稿群体，存在较高的被拒风险。
 
-### 4. 所需补充材料
-- 将 10 页手稿聚焦并浓缩为 4–6 页的精炼版本（重点突出中性实测发现、账本分解与开源复现流水线）；
-- 附上 Zenodo DOI 归档与 GitHub 代码库链接。
+#### 3. 未知与待确认事项
+- 会议联合评审通道（RA-L with Conference Option）若要绑定特定大会（如 ICRA/IROS），具体截稿截止时间窗口需根据 IEEE RAS 官方当年日历单独核实。
 
 ---
 
-## 选项三：Elsevier *Robotics and Autonomous Systems* (RAS)
+### 候选二：Elsevier *Robotics and Autonomous Systems* (RAS) [常规期刊论文]
 
-### 1. 官方要求与指标
-- **征稿范围 (Scope)**: 涵盖自主机器人系统、软件体系结构、移动机器人导航、环境表征与空间记忆、高置信度物理仿真评测等。官方设有 **Short Communications** 专栏，欢迎针对现有机器人算法与系统的实证比较与探索性实验报告。
-- **当前状态**: 常年开放投稿（Year-round continuous submission via Editorial Manager），无固定截稿日。
-- **篇幅限制 (Page Limit)**:
-  - **Short Communications**: 推荐字数约 5,000–6,000 词以内（相当于期刊排版后约 8–10 页）；
-  - **Regular Articles**: 篇幅无严格上限（通常 12–18 页）；
+> **定位说明**: 自主机器人与系统工程领域的经典 SCIE 期刊。**在此正式撤回上轮报告中未经充分核实的“免费短文首选”结论**；经查证，该刊当前指南未声明短文规则，需按常规研究论文（Regular Paper）审视。
+
+#### 1. 官方要求与指标核查
+- **官方来源**: `https://www.elsevier.com/journals/robotics-and-autonomous-systems/0921-8890/guide-for-authors`
+- **核查日期**: 2026-10-14
+- **出版类型与收录**: 学术期刊论文。官方收录依据：SCIE (JCR Q2, 2025/2026 影响因子 6.0)、EI Compendex、Scopus、INSPEC、DBLP。
+- **同行评审机制**: **单匿名评审 (Single-anonymized)**。审稿人匿名，作者需在首页明确提供完整的作者姓名、所属机构及通讯作者邮箱。
+- **文章类型核查状态**:
+  - 官方 Guide for Authors 页面**未包含 Short Communication 文章类型的具体字数上限或栏目规范**（标为**未核实**）；
+  - 当前官方明确支持的标准类型为 Regular Full-Length Article（常规研究论文）及特刊征文（VSI）。
+- **稿件格式与模板**:
+  - 支持可编辑的 Word（单栏排版）或 LaTeX 源文件；
+  - LaTeX 推荐使用 Elsevier CAS 模板套件 (`els-cas-templates.zip`)，允许双栏排版；投稿须提供完整可编译源文件。
 - **补充材料规则**:
-  - **支持官方挂载**: Elsevier ScienceDirect 平台完全支持作者上传多页 Supplementary Material（PDF、数据 CSV、多媒体视频），将与正文同享正式 DOI 并在文章主页供读者下载。本研究现有的 4 页附录（S1–S5）无需删减，可直接作为官方 Supplementary PDF 提交。
-- **格式模板**: Elsevier LaTeX 模板（`cas-dc.tex` 双栏或单栏稿件格式）。
-- **版面费 / APC**:
-  - **$0 美元**：期刊为混合出版模式（Hybrid），作者选择传统订阅出版（Subscription Model）**免收任何版面费**；
-  - 若自选 Gold Open Access，APC 费用约为 $3,200 美元。
-- **官方收录依据**: SCIE（JCR Q2，中科院计算机与机器人大类）、EI Compendex、Scopus、INSPEC、DBLP。
+  - 官方支持上传 Supplementary Material（支持 PDF、数据文件、视频等）；
+  - 补充材料将直接按原貌发布在 ScienceDirect 数据库文章主页，不经二次排版。
+- **出版费用**:
+  - **传统订阅出版模式**: **$0 USD**（免收任何版面费与审稿费）；
+  - **金色开放获取 (Gold Open Access)**: 若作者自选开源，官方页面公示标价 APC 为 **$2,940 USD**（2025/2026 标价，不含税费）。
+- **投稿周期**: 常年开放投稿（Year-round submission via Editorial Manager），无固定截稿日。
 
-### 2. 匹配理由与学术价值
-- 机器人领域传统知名刊物，对机器人软件架构（Software Architecture）与导航算法实现非常包容；
-- 官方支持挂载详尽的补充材料，能完整容纳本文严格的数学推导、离散化敏感度网格与物理停定规则；
-- 免版面费（$0 APC），对科研预算友好。
+#### 2. 本文匹配判断与差距分析
+- **格式与篇幅差距**: 本文当前的 10 页正文结构与章节划分（引言、相关工作、架构、协议、实测、局限、结论）与 Elsevier 常规论文规范高度契合；现有的 4 页附录（S1–S5）可直接作为官方 Supplementary PDF 随稿提交，无需删减数学证明与时间账本。
+- **贡献与方法学风险**:
+  - 由于未核实到短文通道，若按常规研究长文（Regular Paper）提交，审稿人通常期望具有更广泛的实验广度（例如多个不同拓扑场景、更大样本量统计、或更丰富的动态扰动分析）；
+  - 本文严格限定在单一长廊布局与 $n=3$ 小样本，作为长文提交可能面临“实验规模偏小、结论偏探索性”的质询。
 
-### 3. 贡献点风险分析
-- **审稿周期相对较长**: Elsevier 期刊一审周期通常在 2–4 个月左右；
-- **对机理分析要求高**: 审稿人可能要求更加深入地解释“为什么在静态刚体几何下 FailMem 无法胜过 Spatial Cache”（本文第 5 节的路径重合分析已部分回答此问题，但审稿人可能会要求补充更多几何参数分析）。
-
-### 4. 所需补充材料
-- 转换为 Elsevier 投稿模板，排版为正文 + 官方 Supplementary Material；
-- 撰写针对性的 Cover Letter，阐明本文作为 Short Communication 的系统性价值。
+#### 3. 未知与待确认事项
+- 编辑部当前是否仍在后台系统接受短篇通讯（Short Communication），需通过投审稿系统（Editorial Manager）实际新建稿件下拉菜单核查；
+- 常规研究论文的建议字数与图表数量上限未在公开指南中硬性限定。
 
 ---
 
-## 建议行动决策路线 (Recommended Strategy)
+### 候选三：专题研讨会 (ICRA/IROS Workshop) 核查结果
 
-1. **若追求成果的权威收录与无版面费支出**:
-   - **推荐首选 选项三 (Elsevier RAS - Short Communication)**：完整保留 10 页正文 + 4 页附录（作为 Supplementary），如实阐述中性边界，享受正规 SCIE/EI 检索且 $0 支出。
-2. **若追求研究理念的快速传播与同行认可**:
-   - **推荐首选 选项二 (IEEE ICRA/IROS Workshop)**：将手稿浓缩为 4–6 页，以可审计性与中性发现为核心卖点，在顶级国际会议展示并与领域专家交流。
-3. **若团队有强烈的 Letters 考核指标并能补充真机实验**:
-   - 考虑 **选项一 (IEEE RA-L)**，但必须提前做好在有限时间内补充真机实体实验与大幅删减正文的准备。
+> **定位说明**: 依据规程，严格核实具体开放状态，杜绝以泛称占据正式候选名额。
+
+#### 1. 官方核查事实
+- **核查日期**: 2026-10-14
+- **核查结论**: **当前未找到已核实的可投 Workshop**。
+- **具体核查事实与周期分析**:
+  1. **IROS 2026**: 会议已于 2026 年秋季举办，所有研讨会征稿早于 2026 年夏季截止并已结会；
+  2. **ICRA 2027**: 主会目前处于前期组织阶段，专题研讨会（Workshop Proposals）审批与入选名单尚未完成公示；各具体专题的独立征稿通知（CFP）、截稿日期、具体页数（4页或6页）及评审规则通常在 **2027 年 1 月至 2 月** 才会陆续开通；
+  3. **检索与收录事实判定**: 研讨会论文（Workshop Papers）通常分为正式纳入 IEEE Xplore 论文集出版与非正式交流（Non-archival / arXiv / OpenReview）两种情况。**严禁将 IEEE ICRA/IROS 主会的 EI 检索直接套用到所有附属 Workshop**。研讨会短文能否被单位或学校认可为正式学术成果，存在制度差异。
+
+#### 2. 应对建议
+- 暂不以虚构的 Workshop 名称作为正式投稿候选；
+- 建议作者团队在 **2027 年 1 月** 关注 ICRA 2027 官方发布的研讨会列表（重点关注机器人基准测试 Benchmarking、可复现性 Reproducibility 或负面结果专题），届时依据具体的官方 CFP 规则决定是否投送。
+
+---
+
+### 其他探索性与软件渠道核查说明 (JOSS / IEEE Access)
+
+为响应“寻找适合探索性比较、系统实践或边界结果渠道”的要求，对以下两个渠道进行了针对性核实：
+
+1. **JOSS (Journal of Open Source Software)**:
+   - **官方规则**: 免费开源软件期刊（$0 APC），Scopus/Crossref 收录；
+   - **不匹配事实**: 官方明确要求项目在投稿前需有**至少 6 个月的公开开源开发历史（public history）**；本项目此前处于开发演进与冻结期，不满足 6 个月公开历史的硬性门槛，目前无法投稿。
+2. **IEEE Access**:
+   - **官方规则**: SCIE Q2 开放获取期刊，征稿范围涵盖系统与仿真工程实践；由 `open.ieee.org` 确认为 Gold OA，APC 为 **$2,160 USD**（不含税）；
+   - **核查受阻说明**: 本轮尝试访问其官方投稿指南页面（`https://ieeeaccess.ieee.org/guide-for-authors/`）遭遇网络连接超时 (EOF)，具体排版与审稿规范无法从原始页面核验，故**依规不作为正式候选列入**。
+
+---
+
+## 三、一页决策表：正式发表 vs. 同行交流 (Decision Matrix)
+
+本决策表旨在清晰区分两种不同导向的发表路径，供作者团队结合考核需求、成果认定标准及预算进行权衡决策：
+
+| 决策考量维度 | 路径 A：正式期刊学术发表 (Formal Journal Publication)<br>*[对应候选：Elsevier RAS 或 IEEE RA-L]* | 路径 B：同行交流与预印本首发 (Peer Exchange / Workshop)<br>*[对应方向：待 2027 年初公布的 ICRA Workshop 或 arXiv]* |
+| :--- | :--- | :--- |
+| **出版属性与正式性** | **正式出版物 (Formal Archival Journal)**，具有正式卷期、页码与期刊 DOI。 | **非正式交流或会议研讨会 (Workshop / Non-archival)**，部分仅在官网或 arXiv 存档。 |
+| **官方学术检索认定** | 确保进入 **SCIE、EI Compendex、Scopus** 核心库检索。能满足大部分高校与科研机构的毕业/职称量化考核。 | **不保证 EI / SCI 检索**。通常仅被 Google Scholar 或 DBLP 收录；需作者提前确认所在机构对 Workshop 的认定政策。 |
+| **时间可行性与周期** | **常年可投**。但初审通常需 2–5 个月，修改复审约 1–3 个月，见刊周期相对较长。 | **受固定会议日历约束**。需等待 2027 年 1–2 月 ICRA 2027 Workshop CFP 公布，评审周期通常较短（约 3–4 周）。 |
+| **手稿篇幅与格式差距** | • **Elsevier RAS**: 格式差距小，10 页正文 + 4 页附录可完整作为正文与官方 Supplementary 保留；<br>• **IEEE RA-L**: 格式差距大，必须由 14 页大幅删减压缩至 $\le 8$ 页，附录须转移至外链。 | • 篇幅差距较大：通常要求 4–6 页双栏短文，必须高度精炼，删减大部分实现细节，只保留核心中性对比图表。 |
+| **学术主张与贡献风险** | **存在一定审查风险**：审稿人可能对单一布局、小样本（$n=3$）及中性结论提出质疑，或要求补充实物硬件对比。 | **审查风险相对较低**：研讨会审稿人普遍对阴性/中性结果、系统可复现性与工程账本持开放讨论态度。 |
+| **费用支出 (APC / 注册费)** | • 若选传统订阅模式：**$0 USD**（免费出版）；<br>• 若选 Gold OA：需支付 $2,800–$2,940 USD APC。 | 出版费通常为 **$0 USD**，但通常要求至少一位作者注册线下或线上会议（注册费依大会定价）。 |
+| **推荐适用场景** | 适用于**必须产出具备正规 SCIE/EI 检索记录的期刊成果**，且愿意承受长周期同行评审的学术场景。 | 适用于**优先追求研究理念传播、同行交流探讨、且不急于计入毕业或考核指标**的学术场景。 |
+
+---
+
+## 四、建议后续行动路线
+
+1. **第一步（作者团队决策目标类型）**:
+   - 作者团队审议上述一页决策表，确认是否需要正式 SCIE 期刊检索，还是倾向于等待 2027 年初的专业 Workshop。
+2. **第二步（模板适配与格式转换）**:
+   - 若作者选定 **Elsevier RAS**：将当前 Markdown/HTML 手稿排版适配转换为 Elsevier CAS LaTeX 模板，将 4 页附录整理为独立的 Supplementary Material PDF；
+   - 若作者选定 **IEEE RA-L**：启动精简压缩，将正文压缩至 6–8 页双栏，附录转为仓库链接，并评估是否需要筹备实物演示视频；
+   - 若作者决定等待 **ICRA 2027 Workshop**：保持手稿冻结，设置提醒于 2027 年 1 月中旬检索 ICRA 2027 获批 Workshop 名单。
