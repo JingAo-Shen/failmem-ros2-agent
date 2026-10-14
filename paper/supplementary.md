@@ -2,7 +2,7 @@
 
 **Title**: Auditable Failure Memory for ROS 2 Navigation: Supplementary Materials  
 **Document Status**: Accompanying Material for Review & Reproduction  
-**Associated Commit**: `e3cce9d`  
+**Associated Commit**: `de05246`  
 
 ---
 
