@@ -1,0 +1,68 @@
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\title{Auditable Failure Memory for ROS 2 Navigation:\\An Exploratory Comparison with Spatial Caching}
+
+% Venue-Neutral Author and Grant Placeholders
+% Authors: Replace placeholders with institutional names and grant identifiers upon venue selection
+\author{
+    Author One\thanks{Department of Robotics, University Placeholder. Correspondence to: \texttt{author.one@example.edu}}
+    \and
+    Author Two\thanks{Department of Computer Science, Institute Placeholder.}
+    \and
+    Author Three\thanks{Autonomous Systems Laboratory, University Placeholder.}
+}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+In multi-phase indoor robot navigation, reactive navigation systems lacking cross-phase memory repeatedly re-enter occluded dead-end corridors across sequential tasks when initial line-of-sight is obstructed. We present \textbf{FailMem}, an event-driven failure memory architecture for ROS~2 Nav2 that binds navigation aborts to immutable observation bundles---combining raw LiDAR scans, coordinate transforms, and local costmap regions of interest---and provides perception-driven dynamic invalidation when clearance is verified by sensors. Within an asymmetric dual-path environment in Gazebo~11 simulations with a TurtleBot3 robot, we evaluate FailMem across 30 Gazebo simulation runs ($n=3$ per condition under sequential fixed seeds) against reactive retry ($R$), persistent suppression ($M1$), and spatial observation caching ($O$) baselines, alongside an exploratory 4-run feasibility trial on action-conditioned navigation ($H_1$). Memory retention and invalidation are evaluated across sequential phases within a single continuous runner execution session. The evaluation demonstrates that cross-phase memory successfully prevents redundant dead-end exploration in obstructed settings, and dynamic invalidation unsuppresses the shorter route upon blockage removal (reducing travel distance by $\approx 11.0\%$ relative to permanent suppression, though total episode duration showed no observed improvement). Under static 2D geometry, FailMem and spatial caching chose identical topological routes with under $1\%$ difference in distance and duration, showing no additional routing benefit of FailMem over spatial caching in the evaluated layout and run sample. Furthermore, candidate action configurations in $H_1$ did not establish the expected executability divergence (Nav2 returned success in 4/4 runs, with strict physical arrival verified in 3/4 runs; the candidate scenario did not establish the expected executability divergence).
+\end{abstract}
+
+\section{Introduction}
+\input{sections/01_introduction}
+
+\section{Related Work \& Mechanism Taxonomy}
+\input{sections/02_related_work}
+
+\section{The FailMem Architecture}
+\input{sections/03_architecture}
+
+\section{Experimental Setup \& Benchmarking Protocol}
+\input{sections/04_experimental_setup}
+
+\section{Empirical Results \& Boundary Analysis}
+\input{sections/05_results}
+
+\section{Threats to Validity \& Limitations}
+\input{sections/06_threats_to_validity}
+
+\section{Conclusion}
+\input{sections/07_conclusion}
+
+\section*{Acknowledgment}
+\noindent [Funding Grant Placeholder: This work was supported by Grant Placeholder \texttt{\#XXXX-XXXX} from Funding Agency Placeholder. Compute resources were provided by Institution Placeholder.]
+
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\end{document}

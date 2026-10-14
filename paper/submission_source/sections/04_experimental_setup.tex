@@ -1,0 +1,36 @@
+\subsection{Gazebo Simulation Environment \& Geometry}
+Simulations are conducted in ROS 2 Humble with Gazebo 11 simulating a TurtleBot3 Waffle robot in an asymmetric dual-path environment (\texttt{configs/p2c\_dualpath\_world.model}).
+\begin{itemize}
+    \item \textbf{Path A (North Short Path)}: Waypoint polyline length is $6.124\,\text{m}$ from Decision Junction $J_0 [-2.50, 0.00]$ to Goal $[2.50, 0.00]$ through a $0.80\,\text{m}$ doorway chokepoint at $y=1.20$.
+    \item \textbf{Path B (South Bypass Detour)}: Waypoint polyline length is $9.105\,\text{m}$ from $J_0$ to Goal via open corridor at $y=-2.40$.
+\end{itemize}
+
+\subsection{Distance Metric Definitions}
+To evaluate performance across different phases, we define:
+\begin{enumerate}
+    \item \textbf{Decision Distance ($d_{\text{dec}}$)}: Physical odometry distance traversed during Phase 2 after goal dispatch from Decision Junction $J_0$ (Path B direct: $\approx 7.54\,\text{m}$; Path A direct: $\approx 5.89\,\text{m}$).
+    \item \textbf{Total Distance ($d_{\text{tot}}$)}: Cumulative odometry distance spanning both Phase 1 (historical observation/attempt) and Phase 2 (dispatch to goal).
+\end{enumerate}
+
+\subsection{Evaluated Scenarios \& Baseline Methods}
+\begin{itemize}
+    \item \textbf{Scenario D0 (Unobstructed)}: Doorway is clear; robot navigates Path A without prior history.
+    \item \textbf{Scenario D1 (Blocked)}: Doorway chokepoint is obstructed by a physical obstacle box. Phase 1 executes the following sequence:
+    (i)~\emph{Vantage Navigation}: The robot navigates from Decision Junction $J_0 [-2.50, 0.00]$ to approach vantage waypoint $[-1.00, 1.20, 0.0]$ and captures initial sensor observation bundle;
+    (ii)~\emph{Chokepoint Traversal Attempt}: The robot dispatches a genuine Nav2 action attempting chokepoint traversal to $[0.50, 1.20, 0.0]$ with a $15.0\,\text{s}$ timeout;
+    (iii)~\emph{Action Termination}: Nav2 execution aborts due to physical obstacle obstruction;
+    (iv)~\emph{Failure Memory Creation}: Upon action termination, the robot captures a fresh post-traversal observation bundle confirming \texttt{OCCUPIED}, classifies the failure cause, and commits an active failure memory record (or updates spatial cache $O$);
+    (v)~\emph{Structured Return}: The robot executes a return navigation action back to Decision Junction $J_0$.
+    Phase 2 then evaluates routing dispatched from $J_0$. Under Reactive $R$, having no cross-phase memory, the robot dispatches the nominal shortest path (Path A), physically travels to entrance waypoint $[-1.50, 1.20]$, detects the blockage on live sensors, and retreats to $J_0$ before taking Path B. This decision-phase unguided probe in $R$ is strictly distinct from the historical Phase 1 traversal attempt executed in $F$ and $O$.
+    \item \textbf{Scenario D2 (Cleared)}: Following D1, the obstacle is removed. Phase 1 observes \texttt{FREE} doorway clearance from vantage waypoint $[-1.00, 1.20]$ and retreats to $J_0$. Phase 2 evaluates routing from $J_0$.
+\end{itemize}
+
+\textbf{Evaluated Methods}:
+\begin{enumerate}
+    \item \textbf{Reactive Baseline ($R$)}: No cross-phase memory. In D1, enters Path A approach leg, detects blockage at $[-1.50, 1.20]$, and retreats to $J_0$ before taking Path B.
+    \item \textbf{Spatial Observation Cache ($O$)}: Caches 2D geometric occupancy observed from vantage point during Phase 1. Evaluated at $J_0$ during Phase 2.
+    \item \textbf{FailMem ($F$)}: Event-driven failure memory with dynamic perception-driven invalidation.
+    \item \textbf{Persistent Suppression ($M1$)}: Static failure memory permanently suppressing Path A without dynamic invalidation.
+\end{enumerate}
+
+All runs use $n=3$ per condition under sequential fixed seeds with an episode simulation time budget of $180.0\,\text{s}$, yielding 30 Gazebo simulation runs in total.

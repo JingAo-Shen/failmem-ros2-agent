@@ -1,0 +1,21 @@
+\begin{table*}[t]
+\centering
+\caption{Taxonomy of Memory Representations and Invalidation Mechanisms in Mobile Robot Navigation and Embodied Reasoning.}
+\label{tab:classification}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llll}
+\hline
+Paradigm & Representation & Grounding Level & Invalidation Trigger \\
+\hline
+\textbf{Costmap2D / Nav2} \cite{lu2014layered} & 2D Occupancy Grid & Geometric cells & Direct laser ray traversal \\
+\textbf{OctoMap} \cite{hornung2013octomap} & 3D Voxel Octree & Discrete 3D voxels & Direct laser ray traversal \\
+\textbf{Voxblox} \cite{oleynikova2017voxblox} & Continuous ESDF / TSDF & 3D Distance Field & Dynamic voxel integration \\
+\textbf{Experience Graphs} \cite{phillips2012egraphs} & Path Waypoints / Graph & Discrete Path & Collision check on graph edge / repair \\
+\textbf{Reflexion} \cite{shinn2023reflexion} & Natural Language Text & Semantic tokens & Trial reset / verbal memory update \\
+\textbf{REFLECT} \cite{liu2023reflect} & Natural Language Text & Multi-modal logs & Task execution cycle reset \\
+\textbf{FailMem (Implemented)} & Event Tuple & Raw sensor bundle & Sensor-verified \texttt{FREE} state \\
+\textbf{FailMem F2 (Proposed)} & Profile Tuple & Bundle + Profile & Profile capability check \\
+\hline
+\end{tabular}%
+}
+\end{table*}

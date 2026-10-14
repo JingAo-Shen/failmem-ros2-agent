@@ -32,7 +32,7 @@ If any precondition fails, the evaluator emits $\text{State}(B) = \text{UNKNOWN}
 
 ## S2. Cryptographic Replay Audit Engine
 
-To avoid reliance on self-reported runtime metrics, the independent replay auditor (`scripts/replay_and_score_p2c.py`) re-scores every physical simulation run offline:
+To avoid reliance on self-reported runtime metrics, the independent replay auditor (`scripts/replay_and_score_p2c.py`) re-scores every Gazebo simulation run offline:
 
 ### S2.1 Replay Integrity Verification Steps
 1. **Manifest Audit**: Verifies every serialized file against `checksums.sha256` to detect modifications relative to the recorded manifest (detecting file changes relative to the manifest, rather than asserting intrinsic authenticity of the original underlying sensor data).
