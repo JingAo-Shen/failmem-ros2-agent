@@ -1,0 +1,39 @@
+[COMMAND]
+cd /tmp/failmem_independent_acceptance && ./paper/scripts/build_paper_pdf.sh
+
+[TIMESTAMP]
+2026-10-13T23:12:09+08:00
+
+[EXIT_CODE]
+1
+
+[STDOUT_AND_STDERR]
+Generating LaTeX and Markdown tables in '/tmp/failmem_independent_acceptance/paper/tables'...
+Successfully generated all paper tables.
+Generated /tmp/failmem_independent_acceptance/paper/figures/trajectories_map.png and /tmp/failmem_independent_acceptance/paper/figures/trajectories_map.pdf
+Building paper PDF from /tmp/failmem_independent_acceptance/paper/draft.md...
+Running pandoc: pandoc /tmp/failmem_independent_acceptance/paper/.draft_processed.md --citeproc --bibliography=/tmp/failmem_independent_acceptance/paper/references.bib --css=/tmp/failmem_independent_acceptance/paper/paper_style.css --standalone --mathjax -o /tmp/failmem_independent_acceptance/paper/paper.html
+
+[ERROR] Paper build failed: Node.js dependency 'mathjax-full' not found.
+Repository local node_modules: /tmp/failmem_independent_acceptance/node_modules (exists: False)
+Active NODE_PATH: /tmp/failmem_independent_acceptance/node_modules
+Please install dependencies in the repository using the project lockfile:
+  npm ci
+or provide an explicit external NODE_PATH pointing to installed mathjax-full.
+Traceback (most recent call last):
+  File "/tmp/failmem_independent_acceptance/paper/scripts/build_paper_pdf.py", line 499, in main
+    build_pdf()
+    ~~~~~~~~~^^
+  File "/tmp/failmem_independent_acceptance/paper/scripts/build_paper_pdf.py", line 347, in build_pdf
+    render_math_to_svg(OUTPUT_HTML)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/tmp/failmem_independent_acceptance/paper/scripts/build_paper_pdf.py", line 143, in render_math_to_svg
+    raise RuntimeError(
+    ...<6 lines>...
+    )
+RuntimeError: Node.js dependency 'mathjax-full' not found.
+Repository local node_modules: /tmp/failmem_independent_acceptance/node_modules (exists: False)
+Active NODE_PATH: /tmp/failmem_independent_acceptance/node_modules
+Please install dependencies in the repository using the project lockfile:
+  npm ci
+or provide an explicit external NODE_PATH pointing to installed mathjax-full.

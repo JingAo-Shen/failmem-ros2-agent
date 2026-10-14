@@ -1,20 +1,22 @@
 # FailMem 独立构建验收与终审归档报告 (Release Acceptance & Final Audit)
 
-**验收执行时间**: 2026-10-13  
-**基准冻结提交 (Source Freeze SHA)**: `de05246f251263fb60a98ca3995fb8d65f38905c` (短哈希: `de05246`)  
+**验收执行时间**: 2026-10-14  
+**研究源码冻结基准 (Source Freeze SHA)**: `de05246f251263fb60a98ca3995fb8d65f38905c` (短哈希: `de05246`)  
 **验收分支**: `research/agent-task-repair-pilot`  
 **验收执行者**: Antigravity Autonomous Coding Agent  
+**验收证据归档目录**: [`reports/acceptance/`](reports/acceptance/) (详见 [`reports/acceptance/INDEX.md`](reports/acceptance/INDEX.md))  
 
 ---
 
 ## 一、验收环境与依赖分类
 
 ### 1.1 验收模式判定
-本轮独立构建验收执行了严格的 **“干净源码独立检出 + 锁文件就地依赖安装”**（从零隔离环境复现）全流程：
-- **隔离环境检出**: 使用独立 worktree 路径 `/tmp/failmem_independent_acceptance`，不共享主工作区的未提交文件或临时目录。
-- **环境隔离性检验**:
-  - 在未安装依赖状态下，构建脚本拒绝执行，未借用 `/code/failmem-ros2-agent/node_modules`。
-  - 触发确定性预检拦截并提示标准修复指令：
+本轮独立构建验收执行的严格模式分类为：  
+**“独立源码检出＋本地Node锁文件依赖安装，使用现有Python与系统工具链”**。  
+- **明确边界**：本验收并非从零创建全新操作系统镜像或重新安装全部系统依赖；它复用了宿主环境现有的 Python 3.13 解释器、系统 Pandoc 与 WeasyPrint 等全局二进制工具。
+- **独立性保障**：
+  - 在独立目录 `/tmp/failmem_independent_acceptance`（基于 `de05246` 检出）中运行，杜绝了与主工作区未提交修改的交叉污染。
+  - **杜绝依赖借用**：在未安装本地 `node_modules` 状态下，构建脚本拒绝执行，未借用 `/code/failmem-ros2-agent/node_modules`，严格触发报错并提示：
     ```text
     RuntimeError: Node.js dependency 'mathjax-full' not found.
     Repository local node_modules: /tmp/failmem_independent_acceptance/node_modules (exists: False)
@@ -23,7 +25,7 @@
       npm ci
     or provide an explicit external NODE_PATH pointing to installed mathjax-full.
     ```
-- **依赖安装来源**: 完全基于仓库声明的 `package-lock.json` 就地执行 `npm ci`（安装 8 个固定版本包，耗时 978ms，包含 `mathjax-full@3.2.2`）。
+  - **锁文件就地安装**：依据仓库声明的 `package-lock.json` 执行 `npm ci`（8 个版本锁定包，耗时 978ms，包含 `mathjax-full@3.2.2`）。
 
 ### 1.2 运行时系统与核心工具链版本
 | 工具 / 运行时 | 记录版本 | 路径 / 来源 |
@@ -36,63 +38,70 @@
 | **weasyprint** | `70.0` | Python 3.13 site-packages |
 | **pdftoppm** | `22.02.0` | `/usr/bin/pdftoppm` (poppler-utils) |
 | **pytest** | `8.3.4` | Python 3.13 site-packages |
-| **mathjax-full**| `3.2.2` | 本地 `node_modules/mathjax-full` (由 lockfile 确定性锁定) |
+| **mathjax-full**| `3.2.2` | 本地 `node_modules/mathjax-full` (由 package-lock.json 锁定) |
 
 ---
 
-## 二、独立复现流水线与自动化测试执行记录
+## 二、验收证据归档与命令执行记录
 
-所有命令均在干净检出的隔离目录 `/tmp/failmem_independent_acceptance` 中独立执行，记录如下：
+所有证据原始日志与生成文件均已归档于 [`reports/acceptance/`](reports/acceptance/) 目录下：
 
-### 2.1 预检与依赖安装
-1. **未装依赖构建拦截**:
-   - 命令: `./paper/scripts/build_paper_pdf.sh`
+### 2.1 原始保留证据 (自 de05246 独立 worktree 运行记录找回)
+1. **未装依赖构建拦截** ([`preflight_failure.log`](reports/acceptance/preflight_failure.log)):
+   - 命令: `./paper/scripts/build_paper_pdf.sh` (在无 node_modules 环境下)
    - 退出码: `1`
-   - 输出: 抛出 `RuntimeError`，明确提示运行 `npm ci`，无静默降级或隐式借用外部模块。
-2. **锁文件依赖安装**:
+   - 输出: 抛出 `RuntimeError`，明确提示运行 `npm ci`，无静默降级或隐式借用。
+2. **锁文件依赖安装** ([`npm_ci_install.log`](reports/acceptance/npm_ci_install.log)):
    - 命令: `npm ci`
    - 退出码: `0`
    - 耗时: 978ms，8 个依赖包就地写入 `./node_modules`。
+3. **环境工具链版本** ([`tool_versions.log`](reports/acceptance/tool_versions.log)):
+   - 记录独立检出执行时的各工具版本。
+4. **独立 PDF 构建后台任务日志** ([`pdf_build_standalone_task.log`](reports/acceptance/pdf_build_standalone_task.log)):
+   - 命令: `./paper/scripts/build_paper_pdf.sh` (在已执行 `npm ci` 的独立 worktree 下)
+   - 退出码: `0`
+   - 产物: 成功生成 10 页 `paper.pdf` 与 4 页 `supplementary.pdf`，表格结构验证 100% 通过。
+5. **独立 PDF 构建报告** ([`build_report_standalone_de05246.json`](reports/acceptance/build_report_standalone_de05246.json)):
+   - 记录源码 SHA `de05246`、产物哈希（`147e7eb...` / `3c6e504...`）、`math_clean: true` 与 0 处 TeX 泄露。
+6. **图表与 D2 时间账本分析** ([`d2_ledger_and_tables.log`](reports/acceptance/d2_ledger_and_tables.log)):
+   - 命令: `python3 paper/scripts/generate_paper_tables.py && python3 paper/scripts/plot_trajectories_map.py && python3 scripts/analyze_d2_trajectory_time_ledger.py`
+   - 退出码: `0`
+   - 结果: 12 个 D2 episode 闭合分析完成，27 组敏感度网格扫描完成，零残差确认由代数构造产生。
 
-### 2.2 离线重放与确定性审计流水线
-- **执行命令**: `./scripts/reproduce_offline.sh`
-- **退出码**: `0`
-- **耗时**: 2.51 秒
-- **执行结果**:
-  - **SHA256 清单核验**: 271/271 物理仿真原始文件哈希校验一致（通过率 100%）。
-  - **离线回放评分**: 30 轮仿真全部回放完毕，30/30 审计通过（物理停定稳定性与数据完整性 100%）。
-  - **基准比对**: `episodes.csv`、`condition_summary.csv`、`contrasts.csv` 与基线比对差异均为 0（Diffs: []）。
-  - **H1 可行性核验**: 4 轮试验 Nav2 成功率 4/4，严格停定到达通过 3/4；按预设规程判定 `GO=False (NO-GO (Scenario Not Established))`。
+### 2.2 补充重跑证据 (按规程单项重跑以补齐完整落盘记录)
+因原临时 worktree 在执行完后被移除，控制台输出部分截断或目录已清除，依据用户规程单项重跑保存完整落盘记录：
+1. **测试套件回归完整日志** ([`pytest_verbose.log`](reports/acceptance/pytest_verbose.log)):
+   - 命令: `pytest tests/ -v`
+   - 退出码: `0`
+   - 测试结果: **196 passed, 8 xfailed, 0 failed**（未截断完整 22KB 文本日志）。
+2. **离线复现流水线执行日志与产物** ([`reproduction_run.log`](reports/acceptance/reproduction_run.log) 与 [`reproduction_audit/`](reports/acceptance/reproduction_audit/)):
+   - 命令: `./scripts/reproduce_offline.sh --output-dir reports/acceptance/reproduction_audit`
+   - 退出码: `0`
+   - 结果: 271/271 SHA256 吻合，Replay 30/30 审计通过，CSV 比对 0 差异，完整持久化存储 `reproduction_report.json` 等文件。
 
-### 2.3 图表与时间账本分析
-- **表格与轨迹图生成**:
-  - 命令: `python3 paper/scripts/generate_paper_tables.py && python3 paper/scripts/plot_trajectories_map.py`
-  - 退出码: `0`
-  - 产物: 成功生成 `table1_condition_summary`、`table2_pairwise_contrasts`、`table3_h1_feasibility`（Markdown与LaTeX双版本），并渲染出 `trajectories_map.png` 与 `trajectories_map.pdf`。
-- **D2 轨迹时间账本与敏感性网格**:
-  - 命令: `python3 scripts/analyze_d2_trajectory_time_ledger.py`
-  - 退出码: `0`
-  - 产物: 分析 12 个 D2 episode，完成 27 组敏感性参数扫描；零残差确认由代数构造产生；门区沉降时间窗（Settling Window）作为独立事件级指标统计，不混入速度分类时间。
-
-### 2.4 测试套件回归
-- **执行命令**: `pytest tests/ -v`
-- **退出码**: `0`
-- **耗时**: 2.63 秒
-- **测试结果**: **196 passed, 8 xfailed, 0 failed**。全部正反负例测试均严格通过。
-
-### 2.5 论文与补充材料 PDF 构建
-- **执行命令**: `./paper/scripts/build_paper_pdf.sh`
-- **退出码**: `0`
-- **产物指标**:
-  - `paper.pdf`: 10 页，700,468 字节，`math_clean: True`，未渲染原始 TeX 泄露数为 0。
-  - `supplementary.pdf`: 4 页，191,452 字节，包含 S1–S5 完整支撑章节。
-  - `build_report.json`: 完整记录工具链版本、源码哈希、产物哈希与检查结果。
+### 2.3 构建报告来源区分说明
+- **历史主工作区构建报告** ([`paper/build_report.json`](paper/build_report.json)):
+  - 来源: 主工作区开发构建（包含对手稿的持续跟踪，`source_dirty: true`）。
+- **独立验收构建报告** ([`reports/acceptance/build_report_standalone_de05246.json`](reports/acceptance/build_report_standalone_de05246.json)):
+  - 来源: 独立 worktree 干净检出 `de05246` 后的独立构建。
+- 两者分开保留，来源界定清晰。
 
 ---
 
-## 三、逐页视觉走查记录表 (Page-by-Page Visual Inspection)
+## 三、视觉走查记录修正 (Visual Inspection Audit)
 
-对编译生成的 `paper.pdf`（主文 10 页）与 `supplementary.pdf`（补充材料 4 页）逐页渲染为图像，使用视觉走查工具进行了人工与代理双重核验，核验记录如下：
+### 3.1 规则与状态修正
+1. **构建脚本自动状态**:
+   - 构建脚本已修正为：默认记录 `visual_inspection: performed = false, status = "NOT_PERFORMED"`。
+   - 构建脚本不再自动宣称完成视觉走查。
+2. **走查主体真实性**:
+   - 明确删除“人工与代理双重核验”表述。
+   - 真实状态为：**由 Antigravity AI Agent 逐页查看高分辨率图像，`human_verified = false`（待人类作者在投稿前进行最终审阅）**。
+
+### 3.2 历史全量 14 页走查记录（关联查看时的 PDF 哈希）
+**关联查看产物哈希**:  
+- `paper.pdf`: `0336b61f771acd2bd66d223b961df937362269c8c855cffdf3691b8a2886d115`  
+- `supplementary.pdf`: `93f37e3e405f9a6b5ebf599f7f7887b4fb46effed1fbb03974a6fa66f36e0303`  
 
 | 页面 | 文件/章节 | 核心内容与结构 | 图表 / 公式渲染 | 版面、分页与排版 | 走查结果 |
 | :--- | :--- | :--- | :--- | :--- | :---: |
@@ -111,31 +120,38 @@
 | **附录 P3** | Supp §S5.1 Ledgers | 决策阶段、历史阶段、全周期三张时间分解汇总表 | 表格数据完全对齐，沉降时间窗独立标注 | 附注明确沉降时间窗为独立指标，排版整洁 | **通过 (PASSED)** |
 | **附录 P4** | Supp §S5.2 Sensitivity | 离散化阈值敏感性网格表（9 组典型参数扫描） | 表格行列整齐，负号与正号对齐 | 敏感性总结段落明确解释参数依赖性，无空白悬挂 | **通过 (PASSED)** |
 
+### 3.3 最新手稿修订页再核验
+本轮对 Abstract（移除细粒度时间数值）与 Contributions（严格限定三项）进行了最终润色，重新编译生成了最新 PDF：
+- 最新 `paper.pdf` SHA256: `77707d90162e3c10b9749a81ea7da00320ff5b0cbb55af81186ae98f423872e8`
+- 最新 `supplementary.pdf` SHA256: `b86bdb0b14ce528091cbe6d589c0760c71948eebec8fd3409490e7f743e09055`
+针对改动的 **主文第 1 页** 与 **主文第 2 页**，已单独重新渲染并完成视觉查看：
+- **P1**: 摘要单段呈现，行文连贯；引言衔接自然，底部与 P2 平滑过渡。
+- **P2**: 三大贡献限定清晰，相关工作段落与表格引用规整，排版通过。
+
 ---
 
-## 四、手稿主张收敛与一致性审计结果
+## 四、手稿终审编辑与主张严格收敛
 
-在全库各核心文档中，已彻底清查并收敛未经充分证实的表述：
-
-1. **Abstract 结构统一**:  
-   去除了加粗子标题形式，整合为标准的单一学术段落；逻辑贯通“问题背景 $\to$ 方法提出 $\to$ 实验设置与单会话跨阶段范围 $\to$ 实测收益与中性边界 $\to$ 局限与 $H_1$ 中止结论”。
-2. **$H_1$ 结论全篇统一标准化**:  
-   所有提及 $H_1$ 结论的位置（包括手稿 Abstract、引言贡献 3、正文 Section 5.3、README、审计报告与投稿摘要），统一规范为：  
-   *“Nav2返回成功4/4，严格物理到达验证3/4；该候选场景未建立预期可执行性差异。按照既定规程中止该假设探索。”*
-3. **消除大模型“无先验偏置”不当描述**:  
-   修正为“在受限输入来源与特定提示词下”，如实指明大模型提取候选规则受限于输入语境，已发现硬编码未泛化与语义倒置反例。
-4. **系统维护与开销主张收敛**:  
-   将“无低开销优势”等主张统一收敛为学术中性描述：“本研究未量化比较系统维护或计算开销”。
-5. **推广性结论范围限定**:  
-   将原“具备高置信度推广性的结论”调整为“当前实验支持的观察与可复用实现”，明确局限于当前实现。
-6. **记忆跨度界定**:  
-   全篇统一澄清，当前评测的记忆是在**单次持续运行会话中的跨阶段（single continuous runner session across sequential phases）**保留与失活，未宣称跨操作系统重启或多天运行的跨任务数据库能力。
+1. **论文标题与定位保持一致**:  
+   `Auditable Failure Memory for ROS 2 Navigation: An Exploratory Comparison with Spatial Caching`
+2. **三大核心贡献严格限定**:  
+   - 感知证据绑定的事件记录与动态失效实现；
+   - 可复算的探索性导航比较；
+   - 当前布局中未观察到 FailMem 优于 Spatial Cache 的边界结果。
+3. **摘要精炼**:  
+   摘要仅保留主线结果（D1 死胡同消除、D2 距离缩短、总耗时未见改善、拓扑路径一致中性边界、H1 中止），细粒度 D2 账本分量留存正文第 5 节与补充材料 S5。
+4. **统计等效主张禁止**:  
+   正文与全部报告明确禁止将小样本（$n=3$）下的均值接近表述为“统计等效”；强调仅在当前布局与样本下未观察到路由收益。
+5. **清除防御性与非学术性措辞**:  
+   全面清除“防守策略”、“最佳策略”等字眼，转为客观事实与证据边界描述。
+6. **科学定位与工程区分**:  
+   明确指出离线复现流水线、哈希清单与自动化构建属于可审计工程实践，不直接等同于学术创新充分，亦不宣称满足具体刊会的投稿标准，由作者团队决定后续研究安排。
 
 ---
 
 ## 五、遗留已知局限 (Acknowledged Limitations)
 
-本手稿与代码库已完全冻结，并明确承认以下客观局限：
+本研究代码与手稿已彻底冻结，明确承认以下客观局限：
 1. **单一环境布局**: 实验评估限定于长廊不对称双路径几何环境（北侧门区 $0.80\,\text{m}$，南侧开阔通道）；尚未覆盖多岔路迷宫或复杂多房间拓扑。
 2. **探索性小样本**: 主线对比实验为 $n=3$（共 30 轮仿真），属于机理验证性的小样本基准（Exploratory Pilot Benchmark），不构成大样本渐近统计检验。
 3. **仿真环境限制**: 评测在 Gazebo 11 物理仿真与标称传感器模型下完成，未在带有传感器丢包、动态人流或光照变化的实体机器人硬件上进行长周期测试。
@@ -144,8 +160,11 @@
 
 ---
 
-## 六、归档与冻结元数据
+## 六、关键提交元数据 (Commit Hashes)
 
-- **源码冻结提交 (Source Freeze SHA)**: `de05246f251263fb60a98ca3995fb8d65f38905c`
-- **复现验收判定**: **通过 (ACCEPTED)**
-- **远端同步状态**: 准备同步推送至 `origin/research/agent-task-repair-pilot`
+- **研究源码冻结基准 (Source Freeze SHA)**: `de05246f251263fb60a98ca3995fb8d65f38905c` (`de05246`)
+- **最终稿提交 (Final Manuscript SHA)**: `5e6ed1ff3e36e19195b0fe637ce02047ee2d7fc7` (`5e6ed1f`)
+- **验收证据归档提交 (Acceptance Archive SHA)**: 包含本报告与 `reports/acceptance/` 归档目录的提交
+- **上轮基准 (Prior Benchmark SHA)**: `202d7ac736d4b67c3b7b84ed39d8713d2f553f8b` (`202d7ac`)
+- **复现验收状态**: **通过 (ACCEPTED)**
+
