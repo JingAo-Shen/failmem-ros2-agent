@@ -61,7 +61,7 @@ If any precondition fails, the evaluator emits $\text{State}(B) = \text{UNKNOWN}
 \end{itemize}
 
 \section{S2. Cryptographic Replay Audit Engine}
-To avoid reliance on self-reported runtime metrics, the independent replay auditor (\texttt{scripts/replay\_and\_score\_p2c.py}) re-scores every Gazebo simulation run offline:
+To avoid reliance on self-reported runtime metrics, the independent replay auditor (\nolinkurl{scripts/replay_and_score_p2c.py}) re-scores every Gazebo simulation run offline:
 
 \subsection{S2.1 Replay Integrity Verification Steps}
 \begin{enumerate}
@@ -82,11 +82,11 @@ To avoid reliance on self-reported runtime metrics, the independent replay audit
 \end{enumerate}
 
 \section{S3. Reproducible PDF Build Pipeline}
-The manuscript build pipeline (\texttt{paper/scripts/build\_paper\_pdf.py}):
+The reference build pipeline (\texttt{paper/scripts/build\_paper\_pdf.py}):
 \begin{enumerate}
     \item \textbf{Dynamic Table Injection}: Substitutes table markers with freshly generated LaTeX and Markdown tables.
     \item \textbf{MathJax Vector SVG Pre-Rendering}: Converts formulas into inline SVG vector paths via Node.js \texttt{mathjax-full@3.2.2}.
-    \item \textbf{Table Row Validation}: Verifies table row counts (Table 1: 10 data rows, Table 2: 10 data rows, Table 3: 4 data rows).
+    \item \textbf{Table Row Validation}: Validates row counts of generated data tables prior to injection, distinguishing generated file names from paper table numbers: file \texttt{table1\_condition\_summary} (rendered as Table~2 in the main paper) requires exactly 10 condition rows; file \texttt{table2\_pairwise\_contrasts} (rendered as Table~3 in the main paper) requires exactly 10 contrast rows; and file \texttt{table3\_h1\_feasibility} (rendered as Table~4 in the main paper) requires exactly 4 trial rows (while Table~1 in the main paper presents the qualitative mechanism taxonomy).
     \item \textbf{Zero Raw TeX Leak Assertion}: Renders compiled PDF pages to PNG at $150\,\text{dpi}$ and extracts text (\texttt{pdftotext}) to ensure zero unrendered TeX control sequences.
     \item \textbf{Structured Build Record}: Emits \texttt{paper/build\_report.json} documenting tool versions, git status, and cryptographic digests.
 \end{enumerate}
@@ -101,58 +101,58 @@ To analyze timing differences between FailMem ($F$) and persistent suppression (
 
 \noindent\textbf{Notice on Algebraic Residuals}: \emph{The zero residual ($\text{residual} = 0.000\,\text{s}$) across all phases arises strictly by algebraic construction (absorbing unobserved active intervals and outside-action time as remainder components), and does not serve as independent validation of velocity classification accuracy or physical mechanism validity.}
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
+\footnotesize
 \caption{Decision Phase Ledger ($t \ge T_{\text{history}}$).}
 \label{tab:ledger_dec}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{llccccccccc}
-\hline
-Condition & $n$ & Distance (m) & Duration $T_{\text{dec}}$ (s) & Moving $T_{\text{mov}}$ (s) & Turning $T_{\text{turn}}$ (s) & Stopped $T_{\text{stop}}$ (s) & [Settling Window] (s) & Unobserved $T_{\text{unobs}}$ (s) & Outside Actions (s) \\
-\hline
-\textbf{D2\_F} & 3 & 5.89 $\pm$ 0.02 & 51.10 $\pm$ 0.95 & 28.70 $\pm$ 1.18 & 4.20 $\pm$ 0.82 & 15.83 $\pm$ 2.42 & [6.97] & 1.33 $\pm$ 0.06 & 1.03 $\pm$ 0.15 \\
+\setlength{\tabcolsep}{2.8pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llccccccccc@{}}
+\toprule
+Condition & $n$ & \shortstack{Dist\\(m)} & \shortstack{Duration\\$T_{\text{dec}}$ (s)} & \shortstack{Moving\\$T_{\text{mov}}$ (s)} & \shortstack{Turning\\$T_{\text{turn}}$ (s)} & \shortstack{Stopped\\$T_{\text{stop}}$ (s)} & \shortstack{[Settling\\Window] (s)} & \shortstack{Unobserved\\$T_{\text{unobs}}$ (s)} & \shortstack{Outside\\Actions (s)} \\
+\midrule
+\textbf{D2\_F}  & 3 & 5.89 $\pm$ 0.02 & 51.10 $\pm$ 0.95 & 28.70 $\pm$ 1.18 & 4.20 $\pm$ 0.82 & 15.83 $\pm$ 2.42 & [6.97] & 1.33 $\pm$ 0.06 & 1.03 $\pm$ 0.15 \\
 \textbf{D2\_M1} & 3 & 7.89 $\pm$ 0.02 & 51.30 $\pm$ 2.00 & 34.30 $\pm$ 1.76 & 3.47 $\pm$ 0.49 & 12.13 $\pm$ 1.41 & [4.60] & 0.70 $\pm$ 0.00 & 0.70 $\pm$ 0.00 \\
-\textbf{D2\_O} & 3 & 5.94 $\pm$ 0.07 & 52.03 $\pm$ 1.75 & 29.33 $\pm$ 2.15 & 3.83 $\pm$ 0.49 & 16.47 $\pm$ 0.06 & [6.93] & 1.30 $\pm$ 0.10 & 1.10 $\pm$ 0.20 \\
-\textbf{D2\_R} & 3 & 5.92 $\pm$ 0.04 & 49.57 $\pm$ 1.59 & 28.27 $\pm$ 0.45 & 4.17 $\pm$ 0.84 & 14.70 $\pm$ 1.55 & [5.37] & 1.27 $\pm$ 0.06 & 1.17 $\pm$ 0.12 \\
-\hline
-\end{tabular}%
-}
+\textbf{D2\_O}  & 3 & 5.94 $\pm$ 0.07 & 52.03 $\pm$ 1.75 & 29.33 $\pm$ 2.15 & 3.83 $\pm$ 0.49 & 16.47 $\pm$ 0.06 & [6.93] & 1.30 $\pm$ 0.10 & 1.10 $\pm$ 0.20 \\
+\textbf{D2\_R}  & 3 & 5.92 $\pm$ 0.04 & 49.57 $\pm$ 1.59 & 28.27 $\pm$ 0.45 & 4.17 $\pm$ 0.84 & 14.70 $\pm$ 1.55 & [5.37] & 1.27 $\pm$ 0.06 & 1.17 $\pm$ 0.12 \\
+\bottomrule
+\end{tabular*}
 \end{table*}
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
+\footnotesize
 \caption{History Phase Ledger ($t < T_{\text{history}}$).}
 \label{tab:ledger_hist}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{llccccccccc}
-\hline
-Condition & $n$ & Distance (m) & Duration $T_{\text{hist}}$ (s) & Moving $T_{\text{mov}}$ (s) & Turning $T_{\text{turn}}$ (s) & Stopped $T_{\text{stop}}$ (s) & [Settling Window] (s) & Unobserved $T_{\text{unobs}}$ (s) & Outside Actions (s) \\
-\hline
-\textbf{D2\_F} & 3 & 10.36 $\pm$ 0.08 & 100.00 $\pm$ 7.72 & 52.37 $\pm$ 3.66 & 9.93 $\pm$ 0.75 & 30.13 $\pm$ 4.31 & [11.00] & 3.17 $\pm$ 0.15 & 4.40 $\pm$ 0.30 \\
-\textbf{D2\_M1} & 3 & 10.35 $\pm$ 0.11 & 97.53 $\pm$ 2.12 & 49.23 $\pm$ 1.58 & 10.10 $\pm$ 0.76 & 30.63 $\pm$ 0.91 & [11.77] & 3.20 $\pm$ 0.10 & 4.37 $\pm$ 0.31 \\
-\textbf{D2\_O} & 3 & 10.46 $\pm$ 0.22 & 97.73 $\pm$ 1.21 & 49.80 $\pm$ 1.14 & 9.83 $\pm$ 0.50 & 30.70 $\pm$ 0.78 & [11.87] & 3.23 $\pm$ 0.06 & 4.17 $\pm$ 0.42 \\
-\textbf{D2\_R} & 3 & 10.43 $\pm$ 0.05 & 98.60 $\pm$ 2.38 & 50.90 $\pm$ 1.32 & 9.40 $\pm$ 0.46 & 30.53 $\pm$ 1.80 & [11.77] & 3.07 $\pm$ 0.06 & 4.70 $\pm$ 0.27 \\
-\hline
-\end{tabular}%
-}
+\setlength{\tabcolsep}{2.8pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llccccccccc@{}}
+\toprule
+Condition & $n$ & \shortstack{Dist\\(m)} & \shortstack{Duration\\$T_{\text{hist}}$ (s)} & \shortstack{Moving\\$T_{\text{mov}}$ (s)} & \shortstack{Turning\\$T_{\text{turn}}$ (s)} & \shortstack{Stopped\\$T_{\text{stop}}$ (s)} & \shortstack{[Settling\\Window] (s)} & \shortstack{Unobserved\\$T_{\text{unobs}}$ (s)} & \shortstack{Outside\\Actions (s)} \\
+\midrule
+\textbf{D2\_F}  & 3 & 10.36 $\pm$ 0.08 & 100.00 $\pm$ 7.72 & 52.37 $\pm$ 3.66 & 9.93 $\pm$ 0.75 & 30.13 $\pm$ 4.31 & [11.00] & 3.17 $\pm$ 0.15 & 4.40 $\pm$ 0.30 \\
+\textbf{D2\_M1} & 3 & 10.35 $\pm$ 0.11 & 97.53 $\pm$ 2.12  & 49.23 $\pm$ 1.58 & 10.10 $\pm$ 0.76 & 30.63 $\pm$ 0.91 & [11.77] & 3.20 $\pm$ 0.10 & 4.37 $\pm$ 0.31 \\
+\textbf{D2\_O}  & 3 & 10.46 $\pm$ 0.22 & 97.73 $\pm$ 1.21  & 49.80 $\pm$ 1.14 & 9.83 $\pm$ 0.50  & 30.70 $\pm$ 0.78 & [11.87] & 3.23 $\pm$ 0.06 & 4.17 $\pm$ 0.42 \\
+\textbf{D2\_R}  & 3 & 10.43 $\pm$ 0.05 & 98.60 $\pm$ 2.38  & 50.90 $\pm$ 1.32 & 9.40 $\pm$ 0.46  & 30.53 $\pm$ 1.80 & [11.77] & 3.07 $\pm$ 0.06 & 4.70 $\pm$ 0.27 \\
+\bottomrule
+\end{tabular*}
 \end{table*}
 
-\begin{table*}[h]
+\begin{table*}[t]
 \centering
+\footnotesize
 \caption{Full Episode Ledger.}
 \label{tab:ledger_full}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{llccccccccc}
-\hline
-Condition & $n$ & Distance (m) & Duration $T_{\text{total}}$ (s) & Moving $T_{\text{mov}}$ (s) & Turning $T_{\text{turn}}$ (s) & Stopped $T_{\text{stop}}$ (s) & [Settling Window] (s) & Unobserved $T_{\text{unobs}}$ (s) & Outside Actions (s) \\
-\hline
-\textbf{D2\_F} & 3 & 16.25 $\pm$ 0.10 & 151.10 $\pm$ 7.76 & 81.07 $\pm$ 4.48 & 14.13 $\pm$ 1.29 & 45.97 $\pm$ 2.57 & [17.97] & 4.50 $\pm$ 0.17 & 5.43 $\pm$ 0.45 \\
+\setlength{\tabcolsep}{2.8pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llccccccccc@{}}
+\toprule
+Condition & $n$ & \shortstack{Dist\\(m)} & \shortstack{Duration\\$T_{\text{total}}$ (s)} & \shortstack{Moving\\$T_{\text{mov}}$ (s)} & \shortstack{Turning\\$T_{\text{turn}}$ (s)} & \shortstack{Stopped\\$T_{\text{stop}}$ (s)} & \shortstack{[Settling\\Window] (s)} & \shortstack{Unobserved\\$T_{\text{unobs}}$ (s)} & \shortstack{Outside\\Actions (s)} \\
+\midrule
+\textbf{D2\_F}  & 3 & 16.25 $\pm$ 0.10 & 151.10 $\pm$ 7.76 & 81.07 $\pm$ 4.48 & 14.13 $\pm$ 1.29 & 45.97 $\pm$ 2.57 & [17.97] & 4.50 $\pm$ 0.17 & 5.43 $\pm$ 0.45 \\
 \textbf{D2\_M1} & 3 & 18.25 $\pm$ 0.09 & 148.83 $\pm$ 2.40 & 83.53 $\pm$ 3.01 & 13.57 $\pm$ 0.51 & 42.77 $\pm$ 1.61 & [16.37] & 3.90 $\pm$ 0.10 & 5.07 $\pm$ 0.31 \\
-\textbf{D2\_O} & 3 & 16.40 $\pm$ 0.24 & 149.77 $\pm$ 0.55 & 79.13 $\pm$ 1.03 & 13.67 $\pm$ 0.15 & 47.17 $\pm$ 0.76 & [18.80] & 4.53 $\pm$ 0.12 & 5.27 $\pm$ 0.50 \\
-\textbf{D2\_R} & 3 & 16.34 $\pm$ 0.03 & 148.17 $\pm$ 3.16 & 79.17 $\pm$ 0.90 & 13.57 $\pm$ 1.21 & 45.23 $\pm$ 1.16 & [17.13] & 4.33 $\pm$ 0.06 & 5.87 $\pm$ 0.38 \\
-\hline
-\end{tabular}%
-}
+\textbf{D2\_O}  & 3 & 16.40 $\pm$ 0.24 & 149.77 $\pm$ 0.55 & 79.13 $\pm$ 1.03 & 13.67 $\pm$ 0.15 & 47.17 $\pm$ 0.76 & [18.80] & 4.53 $\pm$ 0.12 & 5.27 $\pm$ 0.50 \\
+\textbf{D2\_R}  & 3 & 16.34 $\pm$ 0.03 & 148.17 $\pm$ 3.16 & 79.17 $\pm$ 0.90 & 13.57 $\pm$ 1.21 & 45.23 $\pm$ 1.16 & [17.13] & 4.33 $\pm$ 0.06 & 5.87 $\pm$ 0.38 \\
+\bottomrule
+\end{tabular*}
 \end{table*}
 
 \noindent\emph{Note}: Settling window duration (\texttt{sim\_duration\_covered}) is reported strictly as an independent event-level observation metric and is not algebraically subtracted from stopped time.
@@ -162,13 +162,14 @@ To evaluate sensitivity to kinematic classification parameters, Decision Phase m
 
 \begin{table}[h]
 \centering
+\footnotesize
 \caption{Sensitivity of Moving and Stopped Durations to Discretization Thresholds.}
 \label{tab:sensitivity}
-\resizebox{\columnwidth}{!}{%
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{ccccccccc}
-\hline
+\toprule
 $v_{\text{lin}}$ (m/s) & $\omega_{\text{ang}}$ (rad/s) & $\tau_{\text{gap}}$ (s) & $F$ Moving (s) & $M1$ Moving (s) & Diff (s) & $F$ Stopped (s) & $M1$ Stopped (s) & Diff (s) \\
-\hline
+\midrule
 0.03 & 0.05 & 0.25 & 31.30 & 36.40 & -5.10 & 13.80 & 10.70 & +3.10 \\
 0.03 & 0.08 & 0.50 & 31.30 & 36.40 & -5.10 & 13.80 & 10.70 & +3.10 \\
 0.03 & 0.12 & 1.00 & 31.30 & 36.40 & -5.10 & 13.80 & 10.70 & +3.10 \\
@@ -178,9 +179,8 @@ $v_{\text{lin}}$ (m/s) & $\omega_{\text{ang}}$ (rad/s) & $\tau_{\text{gap}}$ (s)
 0.08 & 0.05 & 0.25 & 25.80 & 32.60 & -6.80 & 18.33 & 13.13 & +5.20 \\
 0.08 & 0.08 & 0.50 & 25.80 & 32.60 & -6.80 & 18.47 & 13.27 & +5.20 \\
 0.08 & 0.12 & 1.00 & 25.80 & 32.60 & -6.80 & 18.53 & 13.30 & +5.23 \\
-\hline
-\end{tabular}%
-}
+\bottomrule
+\end{tabular}
 \end{table}
 
 \noindent\textbf{Sensitivity Summary}: Across thresholds, sample mean moving differences range from $-5.10\,\text{s}$ to $-6.80\,\text{s}$, and stopped differences range from $+3.10\,\text{s}$ to $+5.23\,\text{s}$. Because individual components depend on discretization thresholds, we report them as observational latencies without asserting exact physical compensation.
