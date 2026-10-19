@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-10-19T13:34:29Z",
+  "total_episodes": 9,
+  "llm_aggregate_stats": {
+    "total_calls": 31,
+    "total_input_tokens": 18596,
+    "total_output_tokens": 1622,
+    "total_tokens": 20218,
+    "total_latency_seconds": 123.96,
+    "avg_latency_per_call": 3.999
+  },
+  "round_summaries": [
+    {
+      "round": 1,
+      "total_episodes_so_far": 9,
+      "llm_stats": {
+        "total_calls": 31,
+        "total_input_tokens": 18596,
+        "total_output_tokens": 1622,
+        "total_tokens": 20218,
+        "total_latency_seconds": 123.96,
+        "avg_latency_per_call": 3.999
+      },
+      "groups": {
+        "A_NoMemory": {
+          "task_a_retention_rate": 1.0,
+          "task_b_success_rate": 0.0,
+          "task_b_misuse_rate": 1.0
+        },
+        "B_RawTrajectory": {
+          "task_a_retention_rate": 1.0,
+          "task_b_success_rate": 0.0,
+          "task_b_misuse_rate": 1.0
+        },
+        "C_Literature_BASM_ExpeL": {
+          "task_a_retention_rate": 1.0,
+          "task_b_success_rate": 1.0,
+          "task_b_misuse_rate": 0.0
+        },
+        "D_Counterexample_Local_Revision": {
+          "task_a_retention_rate": 1.0,
+          "task_b_success_rate": 1.0,
+          "task_b_misuse_rate": 0.0
+        }
+      }
+    }
+  ],
+  "decision_tree_check": {
+    "status": "COMPLETED",
+    "depth_1_acc": 0.55,
+    "depth_2_acc": 0.65,
+    "tree_structure": "|--- material_metal <= 0.50\n|   |--- phase_solid <= 0.50\n|   |   |--- class: 1\n|   |--- phase_solid >  0.50\n|   |   |--- class: 0\n|--- material_metal >  0.50\n|   |--- class: 1\n",
+    "conclusion": "Shallow decision tree (depth 2) achieves 65.0% on tabular attributes. While shallow attributes separate individual tasks, they do not resolve multi-step procedural prerequisites (e.g. focusing objects, opening appliances, pouring into correct vessels) which require sequential stateful action generation."
+  }
+}

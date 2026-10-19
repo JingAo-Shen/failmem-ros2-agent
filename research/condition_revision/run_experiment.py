@@ -31,6 +31,9 @@ class ExperimentRunner:
         self.step_limit = step_limit
         self.log_dir = log_dir
         os.makedirs(log_dir, exist_ok=True)
+        self.raw_trajectories_path = os.path.join(log_dir, "raw_trajectories.jsonl")
+        self.revision_events_path = os.path.join(log_dir, "revision_events.jsonl")
+        self.extracted_rules_path = os.path.join(log_dir, "extracted_rules.json")
         self.env = ScienceWorldWrapper(step_limit=step_limit)
         self.llm = LLMClient.get_instance()
         self.total_episodes = 0
@@ -46,6 +49,8 @@ class ExperimentRunner:
             return {"status": "BUDGET_EXCEEDED"}
 
         self.total_episodes += 1
+        if hasattr(agent, "reset_episode_state"):
+            agent.reset_episode_state()
         obs, task_desc, valid_actions, info = self.env.load_and_reset(task_name, variation)
         history = []
         steps_log = []
@@ -87,6 +92,13 @@ class ExperimentRunner:
             "num_steps": len(steps_log),
             "steps": steps_log
         }
+        # Immediately persist trajectory to raw_trajectories.jsonl
+        try:
+            with open(self.raw_trajectories_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(trajectory) + "\n")
+        except Exception as e:
+            print(f"[Warning] Failed to log trajectory: {e}")
+
         return trajectory
 
     def run_collection_phase(self, tasks: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
@@ -114,6 +126,12 @@ class ExperimentRunner:
                 extracted_rules.append(rule)
                 print(f"     Extracted Goal: {rule.get('goal')}")
                 print(f"     Conditions: {rule.get('applicability_conditions')}")
+
+        try:
+            with open(self.extracted_rules_path, "w", encoding="utf-8") as f:
+                json.dump(extracted_rules, f, indent=2)
+        except Exception as e:
+            print(f"[Warning] Failed to save extracted rules: {e}")
 
         return raw_trajectories, extracted_rules
 
@@ -154,13 +172,26 @@ class ExperimentRunner:
 
                 # If counterexample failed, trigger agent's update mechanism
                 if not is_success:
+                    failed_desc = traj_b.get("task_description", task_b["target"])
                     if ag.name == "B_RawTrajectory":
                         ag.add_trajectory(traj_b)
                     elif ag.name == "C_Literature_BASM_ExpeL":
-                        ag.update_on_counterexample(task_b["target"], traj_b.get("steps", []))
+                        rev_res = ag.update_on_counterexample(failed_desc, traj_b.get("steps", []))
+                        try:
+                            rev_event = {"round": round_num, "pair_id": pair_id, "agent": ag.name, "failed_task": failed_desc, "result": rev_res}
+                            with open(self.revision_events_path, "a", encoding="utf-8") as rf:
+                                rf.write(json.dumps(rev_event) + "\n")
+                        except Exception:
+                            pass
                     elif ag.name == "D_Counterexample_Local_Revision":
                         last_obs = traj_b.get("steps", [{}])[-1].get("observation", "")
-                        ag.revise_on_counterexample(task_b["target"], last_obs, traj_b.get("steps", []))
+                        rev_res = ag.revise_on_counterexample(failed_desc, last_obs, traj_b.get("steps", []))
+                        try:
+                            rev_event = {"round": round_num, "pair_id": pair_id, "agent": ag.name, "failed_task": failed_desc, "result": rev_res}
+                            with open(self.revision_events_path, "a", encoding="utf-8") as rf:
+                                rf.write(json.dumps(rev_event) + "\n")
+                        except Exception:
+                            pass
 
                 print(f"    [{ag.name}] Task B Result: {'SUCCESS' if is_success else 'FAILED'} (score={traj_b.get('score', 0)})")
 
@@ -181,22 +212,34 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--rounds", type=int, default=2, help="Number of independent rounds (default 2)")
     parser.add_argument("--step_limit", type=int, default=10, help="Per episode step limit")
+    parser.add_argument("--smoke_test", action="store_true", help="Run a quick smoke test on pair_03 and col_07")
+    parser.add_argument("--max_pairs", type=int, default=None, help="Limit number of diagnostic pairs")
+    parser.add_argument("--max_collections", type=int, default=None, help="Limit number of collection tasks")
     args = parser.parse_args()
 
     runner = ExperimentRunner(step_limit=args.step_limit)
 
+    if args.smoke_test:
+        collection_tasks = [COLLECTION_TASKS[6]]  # col_07 (conductivity of aluminum foil)
+        diagnostic_pairs = [DIAGNOSTIC_TASK_PAIRS[2]]  # pair_03 (aluminum vs apricot)
+        total_rounds = 1
+    else:
+        collection_tasks = COLLECTION_TASKS[:args.max_collections] if args.max_collections else COLLECTION_TASKS
+        diagnostic_pairs = DIAGNOSTIC_TASK_PAIRS[:args.max_pairs] if args.max_pairs else DIAGNOSTIC_TASK_PAIRS
+        total_rounds = args.rounds
+
     all_round_metrics = []
 
-    for r in range(1, args.rounds + 1):
+    for r in range(1, total_rounds + 1):
         print(f"\n############################################################")
-        print(f"               STARTING EXPERIMENT ROUND {r} OF {args.rounds}")
+        print(f"               STARTING EXPERIMENT ROUND {r} OF {total_rounds}")
         print(f"############################################################")
 
         # Select tasks for this round
-        raw_trajs, rules = runner.run_collection_phase(COLLECTION_TASKS)
+        raw_trajs, rules = runner.run_collection_phase(collection_tasks)
 
-        # Run evaluation on the 10 diagnostic pairs
-        eval_ledger = runner.run_evaluation_phase(DIAGNOSTIC_TASK_PAIRS, raw_trajs, rules, round_num=r)
+        # Run evaluation on diagnostic pairs
+        eval_ledger = runner.run_evaluation_phase(diagnostic_pairs, raw_trajs, rules, round_num=r)
 
         # Compute summary metrics for round r
         round_summary = {
@@ -206,7 +249,7 @@ def main():
             "groups": {}
         }
 
-        total_pairs = len(DIAGNOSTIC_TASK_PAIRS)
+        total_pairs = len(diagnostic_pairs)
         for ag_name, data in eval_ledger.items():
             round_summary["groups"][ag_name] = {
                 "task_a_retention_rate": round(data["task_a_successes"] / total_pairs, 3),
@@ -216,18 +259,18 @@ def main():
         all_round_metrics.append(round_summary)
 
         # Save round data
-        round_log_file = os.path.join(runner.log_dir, f"round_{r}_ledger.json")
-        with open(round_log_file, "w") as f:
-            # remove full steps if too large
-            clean_ledger = {}
-            for k, v in eval_ledger.items():
-                clean_ledger[k] = {
-                    "task_a_successes": v["task_a_successes"],
-                    "task_b_successes": v["task_b_successes"],
-                    "task_b_misuses": v["task_b_misuses"],
-                    "num_episodes": len(v["episodes"])
-                }
-            json.dump(clean_ledger, f, indent=2)
+        if not args.smoke_test:
+            round_log_file = os.path.join(runner.log_dir, f"round_{r}_ledger.json")
+            with open(round_log_file, "w") as f:
+                clean_ledger = {}
+                for k, v in eval_ledger.items():
+                    clean_ledger[k] = {
+                        "task_a_successes": v["task_a_successes"],
+                        "task_b_success_rate": v["task_b_successes"],
+                        "task_b_misuses": v["task_b_misuses"],
+                        "num_episodes": len(v["episodes"])
+                    }
+                json.dump(clean_ledger, f, indent=2)
 
     # Run decision tree check
     dt_checker = ShallowDecisionTreeChecker()
@@ -242,7 +285,8 @@ def main():
         "decision_tree_check": dt_res
     }
 
-    final_report_path = os.path.join(runner.log_dir, "experiment_summary.json")
+    report_name = "smoke_test_summary.json" if args.smoke_test else "experiment_summary.json"
+    final_report_path = os.path.join(runner.log_dir, report_name)
     with open(final_report_path, "w") as f:
         json.dump(final_output, f, indent=2)
 

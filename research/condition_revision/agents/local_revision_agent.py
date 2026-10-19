@@ -13,12 +13,24 @@ import json
 from agents.base_agent import BaseAgent
 
 
+STOP_WORDS = {"the", "and", "for", "are", "was", "were", "with", "from", "that", "this", "have", "has", "must", "should", "been", "there", "some", "also", "then", "into", "their", "here"}
+
+
+def extract_keywords(text: str) -> List[str]:
+    return [w for w in text.lower().split() if w not in STOP_WORDS and len(w) >= 3]
+
+
 class LocalRevisionAgent(BaseAgent):
     def __init__(self, llm_client, rule_library: List[Dict[str, Any]] = None):
         super().__init__(llm_client)
         self.name = "D_Counterexample_Local_Revision"
         self.rule_library = rule_library or []
         self.active_rule = None
+        self.last_applied_rule = None
+
+    def reset_episode_state(self):
+        self.active_rule = None
+        self.last_applied_rule = None
 
     def retrieve_matching_rule(self, task_desc: str, current_obs: str) -> Optional[Dict[str, Any]]:
         task_lower = task_desc.lower()
@@ -29,20 +41,22 @@ class LocalRevisionAgent(BaseAgent):
                 continue
 
             goal = rule.get("goal", "").lower()
-            if any(w in task_lower for w in goal.split() if len(w) > 3):
+            goal_words = extract_keywords(goal)
+            if any(w in task_lower for w in goal_words):
                 conds = rule.get("applicability_conditions", [])
                 match_all = True
                 for c in conds:
                     c_lower = c.lower()
                     # Check negative constraints (e.g., "must not be glass", "not solid")
                     if "not" in c_lower or "no " in c_lower:
-                        forbidden_words = [w for w in c_lower.replace("not", "").replace("must", "").split() if len(w) > 3]
+                        clean_c = c_lower.replace("not", "").replace("must", "").replace("never", "")
+                        forbidden_words = extract_keywords(clean_c)
                         if any(w in task_lower or w in obs_lower for w in forbidden_words):
                             match_all = False
                             break
                     else:
-                        req_words = [w for w in c_lower.split() if len(w) > 3]
-                        if not any(w in task_lower or w in obs_lower for w in req_words):
+                        req_words = extract_keywords(c_lower)
+                        if req_words and not any(w in task_lower or w in obs_lower for w in req_words):
                             match_all = False
                             break
                 if match_all:
@@ -66,9 +80,11 @@ Recommended Procedure: {rule.get('recovery_procedure')}
         extra_context: str = ""
     ) -> Tuple[str, str, Dict[str, Any]]:
         rule = self.retrieve_matching_rule(task_desc, current_obs)
-        self.active_rule = rule
+        if rule:
+            self.active_rule = rule
+            self.last_applied_rule = rule
 
-        rule_context = self.format_rule_context(rule) if rule else ""
+        rule_context = self.format_rule_context(self.active_rule or self.last_applied_rule) if (self.active_rule or self.last_applied_rule) else ""
         combined_context = f"{rule_context}\n\n{extra_context}" if extra_context else rule_context
 
         return super().select_action(
@@ -86,10 +102,11 @@ Recommended Procedure: {rule.get('recovery_procedure')}
         2. Propose candidate specializing condition.
         3. Verify against supporting cases to ensure no regression.
         """
-        if not self.active_rule:
+        target_rule = self.active_rule or self.last_applied_rule
+        if not target_rule:
             return {"status": "SKIPPED", "reason": "No active rule was applied."}
 
-        rule = self.active_rule
+        rule = target_rule
         support_cases = rule.get("support_trajectories", [])
         support_summaries = [f"- Task: {c.get('task_description')} (target: {c.get('target', 'N/A')})" for c in support_cases]
 

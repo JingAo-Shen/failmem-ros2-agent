@@ -148,12 +148,24 @@
    - 四组 Agent 实现：[`research/condition_revision/agents/`](file:///code/failmem-ros2-agent/research/condition_revision/agents/)
    - 决策树特征核验脚本：[`research/condition_revision/decision_tree_check.py`](file:///code/failmem-ros2-agent/research/condition_revision/decision_tree_check.py)
 2. **原始实验数据与记录**：
-   - 综合实验汇总报告：[`research/condition_revision/logs/experiment_summary.json`](file:///code/failmem-ros2-agent/research/condition_revision/logs/experiment_summary.json)
+   - 逐步真实执行轨迹（包含每步 thought, action, obs, reward）：[`research/condition_revision/logs/raw_trajectories.jsonl`](file:///code/failmem-ros2-agent/research/condition_revision/logs/raw_trajectories.jsonl)
+   - 自然探索提炼规则（含过拟合/过度泛化条件）：[`research/condition_revision/logs/extracted_rules.json`](file:///code/failmem-ros2-agent/research/condition_revision/logs/extracted_rules.json)
+   - 反例触发与条件修订事件流：[`research/condition_revision/logs/revision_events.jsonl`](file:///code/failmem-ros2-agent/research/condition_revision/logs/revision_events.jsonl)
+   - 快速验证汇总报告：[`research/condition_revision/logs/smoke_test_summary.json`](file:///code/failmem-ros2-agent/research/condition_revision/logs/smoke_test_summary.json)
+   - 184-Episode 综合实验汇总报告：[`research/condition_revision/logs/experiment_summary.json`](file:///code/failmem-ros2-agent/research/condition_revision/logs/experiment_summary.json)
    - Round 1 结果分类账：[`research/condition_revision/logs/round_1_ledger.json`](file:///code/failmem-ros2-agent/research/condition_revision/logs/round_1_ledger.json)
    - Round 2 结果分类账：[`research/condition_revision/logs/round_2_ledger.json`](file:///code/failmem-ros2-agent/research/condition_revision/logs/round_2_ledger.json)
    - 全量标准输出与调用日志：[`research/condition_revision/logs/experiment_stdout.log`](file:///code/failmem-ros2-agent/research/condition_revision/logs/experiment_stdout.log)
 3. **一键复现命令**：
-   ```bash
-   python3 /code/failmem-ros2-agent/research/condition_revision/run_experiment.py --rounds 2 --step_limit 10
-   python3 /code/failmem-ros2-agent/research/condition_revision/decision_tree_check.py
-   ```
+   - 快速端到端冒烟核验（~2分钟）：
+     ```bash
+     python3 /code/failmem-ros2-agent/research/condition_revision/run_experiment.py --smoke_test --step_limit 4
+     ```
+   - 浅层属性决策树基线核验：
+     ```bash
+     python3 /code/failmem-ros2-agent/research/condition_revision/decision_tree_check.py
+     ```
+   - 全量两轮基准评测（184 episodes, ~58分钟）：
+     ```bash
+     python3 /code/failmem-ros2-agent/research/condition_revision/run_experiment.py --rounds 2 --step_limit 10
+     ```
