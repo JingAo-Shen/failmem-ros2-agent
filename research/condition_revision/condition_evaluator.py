@@ -3,9 +3,12 @@ Condition Evaluator Module for Counterexample-Driven Condition Revision.
 Provides:
 1. Grounded predicate evaluation returning ConditionResult (TRUE, FALSE, UNKNOWN).
 2. Explicit subject binding: distinguishes rule's specified subject from task's target object.
-3. Dynamic observation precedence: physical state (solid/liquid/gas) in observation overrides static prior knowledge.
-4. Attribution tracking: distinguishes current_observation, historical_observation, prior_knowledge, and prior_inference_untested.
-5. Step-level re-evaluation to dynamically retract invalid rules.
+3. Target-specific observation binding: other objects' state (e.g. ice in freezer) does NOT alter target's state (water).
+4. Strict precedence of current observation over historical observation.
+5. Strict word boundary matching: 'non-living' is never preempted by 'living'.
+6. Empirical conductivity binding: electrical test results only apply to objects bound to the circuit.
+7. Unobserved state returns UNKNOWN rather than FALSE.
+8. Compound conditions are evaluated conjunctively.
 """
 
 from enum import Enum
@@ -30,7 +33,7 @@ class EvidenceSource(str, Enum):
 # Known material categories grounded in ScienceWorld semantics
 METAL_MATERIALS = {
     "aluminum", "copper", "iron", "steel", "gold", "silver", "brass", "metal",
-    "foil", "aluminum foil", "metal fork", "copper wire", "key", "metal spoon", "penny", "wire"
+    "foil", "aluminum foil", "metal fork", "copper wire", "key", "metal spoon", "penny", "wire", "pot"
 }
 
 NON_METAL_MATERIALS = {
@@ -54,11 +57,12 @@ LIVING_THINGS = {
 
 NON_LIVING_THINGS = {
     "rock", "chair", "table", "cup", "box", "door", "bed", "sink", "stove", "counter",
-    "fork", "foil", "book", "wire", "battery", "light bulb", "water", "ice", "glass"
+    "fork", "foil", "book", "wire", "battery", "light bulb", "water", "ice", "glass", "substance",
+    "apricot", "apple", "banana", "fruit", "wood block", "glass jar", "rubber band"
 }
 
-KNOWN_ROOMS = {"workshop", "kitchen", "bathroom", "bedroom", "living room", "hallway", "greenhouse", "outside"}
-KNOWN_CONTAINERS = {"red box", "green box", "stove", "freezer", "refrigerator", "cupboard", "sink"}
+KNOWN_ROOMS = {"workshop", "kitchen", "bathroom", "bedroom", "living room", "hallway", "greenhouse", "outside", "art studio", "foundry"}
+KNOWN_CONTAINERS = {"red box", "green box", "stove", "freezer", "refrigerator", "cupboard", "sink", "pot", "counter", "table"}
 
 
 def extract_target_entity(task_desc: str) -> str:
@@ -66,58 +70,97 @@ def extract_target_entity(task_desc: str) -> str:
     Extract the primary target object name from a ScienceWorld task description.
     e.g. 'determine if aluminum foil is electrically conductive' -> 'aluminum foil'
          'melt ice' -> 'ice'
+         'boil water' -> 'water'
          'power red light bulb' -> 'red light bulb'
     """
     desc_lower = task_desc.lower()
-    
-    # Pattern 1: determine if X is ...
+
+    # Pattern 1: melt / boil / freeze / change the state of matter of X
+    m = re.search(r"\b(?:melt|boil|freeze|change the state of matter of)\s+([a-z0-9\s\-]+?)(?:\s+in|\s+to|\.|$)", desc_lower)
+    if m:
+        t = m.group(1).strip()
+        if t not in ["substance", "item", "object", "target", "something"]:
+            return t
+
+    # Pattern 2: determine if X is ...
     m = re.search(r"determine if ([a-z0-9\s\-]+?) is (?:electrically|conductive|living)", desc_lower)
     if m:
         return m.group(1).strip()
-        
-    # Pattern 2: focus on the X
+
+    # Pattern 3: focus on the X (filter out generic placeholder nouns)
     m = re.search(r"first, focus on the ([a-z0-9\s\-]+?)\.", desc_lower)
     if m:
-        return m.group(1).strip()
-        
-    # Pattern 3: melt / boil / freeze X
-    m = re.search(r"\b(?:melt|boil|freeze|change the state of matter of)\s+([a-z0-9\s\-]+?)(?:\s+in|\s+to|\.|$)", desc_lower)
-    if m:
-        return m.group(1).strip()
+        t = m.group(1).strip()
+        if t not in ["substance", "item", "object", "target", "something"]:
+            return t
 
     # Pattern 4: power X
     m = re.search(r"\bpower\s+([a-z0-9\s\-]+?)(?:\.|$)", desc_lower)
     if m:
         return m.group(1).strip()
 
-    # Fallback: find living / non-living thing
+    # Fallback: check if known targets appear in task_desc
+    for cand in ["aluminum foil", "metal fork", "glass jar", "apricot", "apple", "ice", "water", "chocolate", "orange juice"]:
+        if cand in desc_lower:
+            return cand
+
     if "living thing" in desc_lower:
         return "living thing"
 
     return "unknown_target"
 
 
+def extract_target_clauses(target: str, text: str) -> List[str]:
+    """Extract sentences or clause fragments that specifically mention the target entity."""
+    if not text:
+        return []
+    target_lower = target.lower().strip()
+    # Split text into sentences and line fragments
+    sentences = re.split(r"[.\n;]", text)
+    matched = []
+    for s in sentences:
+        s_clean = s.strip()
+        if not s_clean:
+            continue
+        if target_lower in s_clean.lower():
+            matched.append(s_clean.lower())
+    return matched
+
+
 class ConditionEvaluator:
     """
     Evaluates condition predicates against target entity and observable state.
-    Distinguishes:
-    - Entity attributes (is_metal) vs physical properties (is_conductive)
-    - Dynamic observation state vs default prior knowledge
-    - Specified rule subject vs current task target
+    Strictly adheres to:
+    - Target-specific clause binding (no bleeding from other objects)
+    - Dynamic observation precedence over static prior
+    - Strict word boundary parsing for negation
+    - Target-bound empirical conductivity checking
+    - Grounded 3-valued logic (TRUE, FALSE, UNKNOWN)
     """
 
     @staticmethod
-    def is_target_metal(target: str, obs_text: str = "") -> Tuple[ConditionResult, EvidenceSource, str]:
+    def is_target_metal(target: str, obs_text: str = "", history_obs: List[str] = None) -> Tuple[ConditionResult, EvidenceSource, str]:
         target_lower = target.lower().strip()
-        obs_lower = obs_text.lower()
-        
-        # 1. Direct perceptual observation in current/recent text
-        if f"{target_lower} made of metal" in obs_lower or f"metallic {target_lower}" in obs_lower:
-            return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly states '{target}' is metallic"
-        if f"{target_lower} made of plastic" in obs_lower or f"{target_lower} made of glass" in obs_lower or f"{target_lower} made of wood" in obs_lower:
-            return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly states '{target}' is non-metallic"
+        target_clauses = extract_target_clauses(target, obs_text)
 
-        # 2. Prior knowledge dictionary (explicitly documented as prior, not perceptual)
+        # 1. Perceptual observation on target in current observation
+        for clause in target_clauses:
+            if any(p in clause for p in ["made of metal", "metallic", "metal"]):
+                return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation explicitly states '{target}' is metallic"
+            if any(p in clause for p in ["made of plastic", "made of glass", "made of wood", "non-metallic"]):
+                return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation explicitly states '{target}' is non-metallic"
+
+        # 2. History check
+        if history_obs:
+            for h in reversed(history_obs):
+                h_clauses = extract_target_clauses(target, h)
+                for clause in h_clauses:
+                    if any(p in clause for p in ["made of metal", "metallic", "metal"]):
+                        return ConditionResult.TRUE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation states '{target}' is metallic"
+                    if any(p in clause for p in ["made of plastic", "made of glass", "made of wood", "non-metallic"]):
+                        return ConditionResult.FALSE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation states '{target}' is non-metallic"
+
+        # 3. Prior knowledge dictionary (explicitly documented as prior, not perceptual)
         for m in METAL_MATERIALS:
             if m in target_lower:
                 return ConditionResult.TRUE, EvidenceSource.PRIOR_KNOWLEDGE, f"Inferred from prior material knowledge dictionary (material: metal), unverified by sensor"
@@ -136,62 +179,84 @@ class ConditionEvaluator:
     ) -> Tuple[ConditionResult, EvidenceSource, str]:
         """
         Physical property: electrical conductivity.
-        Distinguishes empirical test observation from prior inference.
+        CRITICAL: Light bulb turning on only proves conductivity IF the circuit was tested with the TARGET entity!
         """
-        combined_obs = " ".join([obs_text] + (history_obs or [])).lower()
         target_lower = target.lower().strip()
+        target_clauses = extract_target_clauses(target, obs_text)
 
-        # 1. Empirical electrical observation in current or history
-        test_indicators = [
-            "light bulb turns on", "light turns on", "bulb is on",
-            "current flows", "is conductive", "conducts electricity"
-        ]
-        non_test_indicators = [
-            "light bulb remains off", "light stays off", "bulb does not turn on",
-            "no current", "is non-conductive", "does not conduct electricity"
-        ]
+        # Check if target is directly mentioned as connected/conductive in current observation
+        for clause in target_clauses:
+            if any(p in clause for p in ["is conductive", "conducts electricity"]):
+                return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation states '{target}' is conductive"
+            if any(p in clause for p in ["is non-conductive", "does not conduct electricity"]):
+                return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation states '{target}' is non-conductive"
 
-        if any(ind in combined_obs for ind in test_indicators):
-            return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Empirical observation confirms electrical conductivity (circuit closed/light turned on)"
-        if any(ind in combined_obs for ind in non_test_indicators):
-            return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Empirical observation confirms non-conductivity (circuit open/light off)"
+        # Check if target was connected to the circuit and circuit closed
+        all_text = " ".join([obs_text] + (history_obs or []))
+        # Look for target in circuit connection: e.g. "terminal 1 on <target> is now connected"
+        target_connected = (
+            f"connected to {target_lower}" in all_text.lower() or
+            f"on {target_lower} is now connected" in all_text.lower() or
+            f"disconnecting {target_lower}" in all_text.lower()
+        )
 
-        # 2. Prior knowledge inference (if allowed, stamped as prior_inference_untested)
+        test_indicators = ["light bulb turns on", "light turns on", "bulb is on", "current flows"]
+        has_circuit_response = any(ind in obs_text.lower() for ind in test_indicators)
+
+        if target_connected and has_circuit_response:
+            return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Empirical circuit test bound to '{target}' produced active current/light"
+
+        # Check history for circuit response with target
+        if target_connected and history_obs:
+            for h in reversed(history_obs):
+                if any(ind in h.lower() for ind in test_indicators):
+                    return ConditionResult.TRUE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical empirical circuit test bound to '{target}' produced active current/light"
+
+        # If a light is mentioned on but target was NOT in the circuit, this is NOT evidence for target
+        # 2. Prior knowledge inference (explicitly stamped as prior_inference_untested)
         if allow_prior_inference:
-            is_m, src, expl = ConditionEvaluator.is_target_metal(target, obs_text)
+            is_m, src, expl = ConditionEvaluator.is_target_metal(target, obs_text, history_obs)
             if is_m == ConditionResult.TRUE:
                 return ConditionResult.TRUE, EvidenceSource.PRIOR_INFERENCE_UNTESTED, f"Inferred electrical conductivity from metal material prior without empirical circuit test"
             elif is_m == ConditionResult.FALSE:
                 return ConditionResult.FALSE, EvidenceSource.PRIOR_INFERENCE_UNTESTED, f"Inferred non-conductivity from non-metal material prior without empirical circuit test"
 
-        return ConditionResult.UNKNOWN, EvidenceSource.INSUFFICIENT_EVIDENCE, f"No empirical conductivity test recorded for '{target}'"
+        return ConditionResult.UNKNOWN, EvidenceSource.INSUFFICIENT_EVIDENCE, f"No empirical conductivity test bound to '{target}' recorded"
 
     @staticmethod
-    def is_target_liquid(target: str, obs_text: str = "") -> Tuple[ConditionResult, EvidenceSource, str]:
+    def is_target_liquid(target: str, obs_text: str = "", history_obs: List[str] = None) -> Tuple[ConditionResult, EvidenceSource, str]:
         """
         Evaluates whether target is currently in liquid state.
-        CRITICAL: Dynamic observation (frozen, ice, solid, boiling) MUST override static noun prior!
+        CRITICAL:
+        1. Only clauses mentioning target (or its immediate container) provide dynamic phase evidence.
+        2. Current observation strictly overrides older history.
         """
         target_lower = target.lower().strip()
-        obs_lower = obs_text.lower()
+        target_clauses = extract_target_clauses(target, obs_text)
 
-        # 1. Dynamic Observation Precedence
-        # Check for freezing / solid indicators
-        frozen_clues = ["frozen", "freezes", "froze", "ice", "solidified", "turned to solid", "temperature -", "degrees celsius (below freezing)"]
-        if any(clue in obs_lower for clue in frozen_clues):
-            return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly indicates target is frozen/solid (ice), not liquid"
+        # 1. Dynamic evidence from CURRENT observation on target
+        if target_clauses:
+            for clause in target_clauses:
+                if any(clue in clause for clue in ["frozen", "freezes", "froze", "solidified", "solid ice", "ice cube", "temperature -"]):
+                    return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation confirms '{target}' is frozen solid, not liquid"
+                if any(clue in clause for clue in ["steam", "gas", "vapor", "boiled away", "evaporated"]):
+                    return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation confirms '{target}' is gaseous, not liquid"
+                if any(clue in clause for clue in ["liquid", "melted", "fluid"]):
+                    return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation confirms '{target}' is in liquid state"
 
-        # Check for gaseous / boiling indicators
-        gas_clues = ["steam", "gas", "vapor", "boiled away", "evaporated"]
-        if any(clue in obs_lower for clue in gas_clues):
-            return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly indicates target is gaseous/steam, not liquid"
+        # 2. Dynamic evidence from RECENT history on target (most recent first)
+        if history_obs:
+            for h in reversed(history_obs):
+                h_clauses = extract_target_clauses(target, h)
+                for clause in h_clauses:
+                    if any(clue in clause for clue in ["frozen", "freezes", "froze", "solidified", "solid ice", "ice cube", "temperature -"]):
+                        return ConditionResult.FALSE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation confirms '{target}' was frozen solid"
+                    if any(clue in clause for clue in ["steam", "gas", "vapor", "boiled away", "evaporated"]):
+                        return ConditionResult.FALSE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation confirms '{target}' was gaseous"
+                    if any(clue in clause for clue in ["liquid", "melted", "fluid"]):
+                        return ConditionResult.TRUE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation confirms '{target}' was liquid"
 
-        # Check for explicit liquid indicators
-        liquid_clues = ["liquid", "melted", "water is liquid", "fluid"]
-        if any(clue in obs_lower for clue in liquid_clues):
-            return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly confirms target is liquid"
-
-        # 2. Static Default Prior (Only when observation has no dynamic thermal/phase clues)
+        # 3. Static Default Prior (Only when NO dynamic clues exist for target)
         for l in LIQUID_DEFAULT_SUBSTANCES:
             if l in target_lower:
                 return ConditionResult.TRUE, EvidenceSource.PRIOR_KNOWLEDGE, f"Inferred default liquid state for '{target}' from prior knowledge (unverified dynamically)"
@@ -202,24 +267,35 @@ class ConditionEvaluator:
         return ConditionResult.UNKNOWN, EvidenceSource.INSUFFICIENT_EVIDENCE, f"State of matter for '{target}' cannot be determined from observation or prior knowledge"
 
     @staticmethod
-    def is_target_solid(target: str, obs_text: str = "") -> Tuple[ConditionResult, EvidenceSource, str]:
+    def is_target_solid(target: str, obs_text: str = "", history_obs: List[str] = None) -> Tuple[ConditionResult, EvidenceSource, str]:
         """
         Evaluates whether target is currently in solid state.
-        Dynamic observation takes strict precedence over static priors.
+        Strictly bound to target clauses, with current obs taking precedence.
         """
-        obs_lower = obs_text.lower()
         target_lower = target.lower().strip()
+        target_clauses = extract_target_clauses(target, obs_text)
 
-        # 1. Dynamic Observation Precedence
-        solid_clues = ["frozen", "ice", "solid", "solidified", "ice cube"]
-        if any(clue in obs_lower for clue in solid_clues):
-            return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly indicates target is solid (frozen/ice)"
+        # 1. Dynamic evidence from CURRENT observation on target
+        if target_clauses:
+            for clause in target_clauses:
+                if any(clue in clause for clue in ["frozen", "freezes", "froze", "solidified", "solid", "ice cube", "temperature -"]):
+                    return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation confirms '{target}' is solid"
+                if any(clue in clause for clue in ["melted", "liquid", "fluid"]):
+                    return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation confirms '{target}' is liquid, not solid"
+                if any(clue in clause for clue in ["steam", "gas", "vapor"]):
+                    return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation confirms '{target}' is gas, not solid"
 
-        liquid_clues = ["melted", "liquid", "fluid"]
-        if any(clue in obs_lower for clue in liquid_clues):
-            return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly indicates target is liquid (melted), not solid"
+        # 2. Dynamic evidence from RECENT history on target
+        if history_obs:
+            for h in reversed(history_obs):
+                h_clauses = extract_target_clauses(target, h)
+                for clause in h_clauses:
+                    if any(clue in clause for clue in ["frozen", "freezes", "froze", "solidified", "solid", "ice cube", "temperature -"]):
+                        return ConditionResult.TRUE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation confirms '{target}' was solid"
+                    if any(clue in clause for clue in ["melted", "liquid", "fluid"]):
+                        return ConditionResult.FALSE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation confirms '{target}' was liquid"
 
-        # 2. Static Default Prior
+        # 3. Static Default Prior
         for s in SOLID_DEFAULT_SUBSTANCES:
             if s in target_lower:
                 return ConditionResult.TRUE, EvidenceSource.PRIOR_KNOWLEDGE, f"Inferred default solid state for '{target}' from prior knowledge"
@@ -230,15 +306,23 @@ class ConditionEvaluator:
         return ConditionResult.UNKNOWN, EvidenceSource.INSUFFICIENT_EVIDENCE, f"Cannot determine if '{target}' is solid"
 
     @staticmethod
-    def is_target_living(target: str, obs_text: str = "") -> Tuple[ConditionResult, EvidenceSource, str]:
+    def is_target_living(target: str, obs_text: str = "", history_obs: List[str] = None) -> Tuple[ConditionResult, EvidenceSource, str]:
+        """
+        Evaluates whether target is living matter.
+        CRITICAL: Checks 'non-living' FIRST before 'living' to avoid substring preemption!
+        """
         target_lower = target.lower().strip()
-        obs_lower = obs_text.lower()
+        combined_obs = " ".join([obs_text] + (history_obs or [])).lower()
 
-        if "living" in obs_lower and target_lower in obs_lower:
-            return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Observation states '{target}' is living"
-        if "non-living" in obs_lower and target_lower in obs_lower:
-            return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Observation states '{target}' is non-living"
+        # Check observation with strict word boundary
+        target_clauses = extract_target_clauses(target, combined_obs)
+        for clause in target_clauses:
+            if re.search(r"\bnon[- ]?living\b", clause):
+                return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly states '{target}' is non-living"
+            if re.search(r"\bliving\b", clause):
+                return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Observation explicitly states '{target}' is living"
 
+        # Prior dictionary check
         for lt in LIVING_THINGS:
             if lt in target_lower:
                 return ConditionResult.TRUE, EvidenceSource.PRIOR_KNOWLEDGE, f"Inferred living organism from prior knowledge"
@@ -257,13 +341,16 @@ class ConditionEvaluator:
         history_obs: List[str] = None
     ) -> Optional[Tuple[ConditionResult, EvidenceSource, str]]:
         """
-        Handles subject-location semantics, preventing false matches.
-        e.g., 'aluminum foil in workshop' MUST NOT evaluate to TRUE if current target is apricot,
-        even if apricot or the agent is in the workshop!
+        Handles subject-location semantics.
+        Adheres to:
+        - If location has not been observed/visited, returns UNKNOWN (not FALSE).
+        - If condition subject contradicts current target, returns FALSE (subject mismatch).
+        - If subject is verified in location, returns TRUE.
         """
         cond_lower = condition_str.lower().strip()
-        combined_obs = " ".join([current_obs] + (history_obs or [])).lower()
+        obs_lower = current_obs.lower()
         desc_lower = task_desc.lower()
+        all_obs = " ".join([current_obs] + (history_obs or [])).lower()
 
         # Find location mentioned in condition
         found_loc = None
@@ -280,63 +367,155 @@ class ConditionEvaluator:
         if not found_loc:
             return None
 
-        # Determine subject specified in condition
+        # Determine subject specified in condition, checking longer phrases first
+        all_entities = sorted(
+            list(METAL_MATERIALS | NON_METAL_MATERIALS | LIQUID_DEFAULT_SUBSTANCES | SOLID_DEFAULT_SUBSTANCES),
+            key=len,
+            reverse=True
+        )
         subject = None
-        # Check if condition specifies an explicit named entity other than generic "target/object/item"
-        for m in (METAL_MATERIALS | NON_METAL_MATERIALS | LIQUID_DEFAULT_SUBSTANCES | SOLID_DEFAULT_SUBSTANCES):
-            if m in cond_lower and m not in found_loc:
+        for m in all_entities:
+            if re.search(rf"\b{re.escape(m)}\b", cond_lower) and m != found_loc:
                 subject = m
                 break
 
         if subject is None:
-            # Condition uses generic subject e.g. "target in workshop" or "item in workshop"
             subject = current_target.lower()
 
-        # If condition explicitly named a subject that differs from current_target
-        # and subject is NOT observed in the environment:
-        subject_in_obs = subject in combined_obs
-        loc_in_obs = found_loc in combined_obs or found_loc in desc_lower
+        # Check if the location has been observed/visited at all
+        # The agent is in found_loc if found_loc is in current_obs (e.g. "This room is called the <found_loc>")
+        agent_in_loc = (
+            f"called the {found_loc}" in obs_lower or
+            f"you are in the {found_loc}" in obs_lower or
+            f"teleport to the {found_loc}" in all_obs or
+            found_loc in obs_lower
+        )
 
-        if subject != current_target.lower():
-            # Explicit subject mismatch
+        subject_in_obs = (subject in obs_lower)
+        target_in_obs = (current_target.lower() in obs_lower)
+
+        # Check if subject matches current_target (exact or substring/synonym e.g. "foil" and "aluminum foil")
+        is_subject_match = (
+            subject == current_target.lower() or
+            subject in current_target.lower() or
+            current_target.lower() in subject
+        )
+
+        # Case 1: Subject Mismatch (Condition specifies a specific object different from task target)
+        if not is_subject_match:
             if not subject_in_obs:
                 return (
                     ConditionResult.FALSE,
                     EvidenceSource.CURRENT_OBSERVATION,
-                    f"Condition subject '{subject}' is not observed in '{found_loc}' (current target is '{current_target}')"
-                )
-            elif loc_in_obs:
-                return (
-                    ConditionResult.TRUE,
-                    EvidenceSource.CURRENT_OBSERVATION,
-                    f"Condition subject '{subject}' is observed in '{found_loc}'"
+                    f"Rule subject '{subject}' does not match task target '{current_target}'"
                 )
             else:
                 return (
-                    ConditionResult.UNKNOWN,
-                    EvidenceSource.INSUFFICIENT_EVIDENCE,
-                    f"Condition subject '{subject}' found in obs, but location '{found_loc}' not confirmed"
+                    ConditionResult.TRUE,
+                    EvidenceSource.CURRENT_OBSERVATION,
+                    f"Subject '{subject}' is observed in environment"
                 )
+
+        # Case 2: Subject matches current_target
+        if not agent_in_loc:
+            # Location has NOT been observed yet! Evidence is insufficient, return UNKNOWN!
+            return (
+                ConditionResult.UNKNOWN,
+                EvidenceSource.INSUFFICIENT_EVIDENCE,
+                f"Location '{found_loc}' has not been visited or observed yet (evidence insufficient)"
+            )
+
+        if subject_in_obs:
+            return (
+                ConditionResult.TRUE,
+                EvidenceSource.CURRENT_OBSERVATION,
+                f"Target '{subject}' and location '{found_loc}' both verified in current observation"
+            )
         else:
-            # Subject matches current_target
-            if subject_in_obs and loc_in_obs:
-                return (
-                    ConditionResult.TRUE,
-                    EvidenceSource.CURRENT_OBSERVATION,
-                    f"Target '{subject}' and location '{found_loc}' both verified in observation"
-                )
-            elif not subject_in_obs:
-                return (
-                    ConditionResult.FALSE,
-                    EvidenceSource.CURRENT_OBSERVATION,
-                    f"Target '{subject}' is not present in observed location '{found_loc}'"
-                )
-            else:
-                return (
-                    ConditionResult.UNKNOWN,
-                    EvidenceSource.INSUFFICIENT_EVIDENCE,
-                    f"Target '{subject}' present, but location '{found_loc}' not yet confirmed in observation"
-                )
+            return (
+                ConditionResult.FALSE,
+                EvidenceSource.CURRENT_OBSERVATION,
+                f"Target '{subject}' is not found in observed location '{found_loc}'"
+            )
+
+    @staticmethod
+    def evaluate_atomic_condition(
+        cond_str: str,
+        target: str,
+        task_desc: str,
+        current_obs: str,
+        history_obs: List[str] = None
+    ) -> Tuple[ConditionResult, EvidenceSource, str]:
+        """Evaluates a single atomic condition clause."""
+        cond_lower = cond_str.lower().strip()
+
+        # 1. Location / presence check
+        loc_res = ConditionEvaluator.evaluate_subject_location(cond_str, target, task_desc, current_obs, history_obs)
+        if loc_res is not None:
+            return loc_res
+
+        # 2. Material Constraints (Metal / Non-Metal)
+        if any(w in cond_lower for w in ["metal", "metallic"]):
+            is_neg = bool(re.search(r"\b(?:not|non)\b", cond_lower))
+            res, src, expl = ConditionEvaluator.is_target_metal(target, current_obs, history_obs)
+            if is_neg:
+                if res == ConditionResult.TRUE:
+                    return ConditionResult.FALSE, src, f"Target '{target}' is metal, violating '{cond_str}'"
+                elif res == ConditionResult.FALSE:
+                    return ConditionResult.TRUE, src, f"Target '{target}' is verified non-metal"
+                return ConditionResult.UNKNOWN, src, expl
+            return res, src, expl
+
+        # 3. Physical Property: Electrical Conductivity
+        if any(w in cond_lower for w in ["conductive", "conductor"]):
+            is_neg = bool(re.search(r"\b(?:not|non)\b", cond_lower))
+            res, src, expl = ConditionEvaluator.is_target_conductive(target, current_obs, history_obs, allow_prior_inference=True)
+            if is_neg:
+                if res == ConditionResult.TRUE:
+                    return ConditionResult.FALSE, src, f"Target '{target}' is conductive, violating '{cond_str}'"
+                elif res == ConditionResult.FALSE:
+                    return ConditionResult.TRUE, src, f"Target '{target}' is non-conductive"
+                return ConditionResult.UNKNOWN, src, expl
+            return res, src, expl
+
+        # 4. State of Matter: Liquid
+        if "liquid" in cond_lower:
+            is_neg = bool(re.search(r"\b(?:not|non)\b", cond_lower))
+            res, src, expl = ConditionEvaluator.is_target_liquid(target, current_obs, history_obs)
+            if is_neg:
+                if res == ConditionResult.TRUE:
+                    return ConditionResult.FALSE, src, f"Target '{target}' is liquid, violating '{cond_str}'"
+                elif res == ConditionResult.FALSE:
+                    return ConditionResult.TRUE, src, f"Target '{target}' is not liquid"
+                return ConditionResult.UNKNOWN, src, expl
+            return res, src, expl
+
+        # 5. State of Matter: Solid / Ice
+        if "solid" in cond_lower or "ice" in cond_lower:
+            is_neg = bool(re.search(r"\b(?:not|non)\b", cond_lower))
+            res, src, expl = ConditionEvaluator.is_target_solid(target, current_obs, history_obs)
+            if is_neg:
+                if res == ConditionResult.TRUE:
+                    return ConditionResult.FALSE, src, f"Target '{target}' is solid, violating '{cond_str}'"
+                elif res == ConditionResult.FALSE:
+                    return ConditionResult.TRUE, src, f"Target '{target}' is not solid"
+                return ConditionResult.UNKNOWN, src, expl
+            return res, src, expl
+
+        # 6. Living Organism Constraints (Strict 'non-living' precedence)
+        if re.search(r"\bnon[- ]?living\b", cond_lower):
+            res, src, expl = ConditionEvaluator.is_target_living(target, current_obs, history_obs)
+            if res == ConditionResult.FALSE:
+                return ConditionResult.TRUE, src, f"Target '{target}' is confirmed non-living"
+            elif res == ConditionResult.TRUE:
+                return ConditionResult.FALSE, src, f"Target '{target}' is living, violating '{cond_str}'"
+            return ConditionResult.UNKNOWN, src, expl
+
+        if re.search(r"\bliving\b", cond_lower):
+            return ConditionEvaluator.is_target_living(target, current_obs, history_obs)
+
+        # Fallback: unsupported natural language predicate returns UNKNOWN
+        return ConditionResult.UNKNOWN, EvidenceSource.INSUFFICIENT_EVIDENCE, f"Condition '{cond_str}' is unsupported or cannot be grounded"
 
     @staticmethod
     def evaluate_condition_detailed(
@@ -347,83 +526,34 @@ class ConditionEvaluator:
         history_obs: List[str] = None
     ) -> Tuple[ConditionResult, EvidenceSource, str]:
         """
-        Parses and evaluates a condition string bound to the target entity.
-        Returns (ConditionResult, EvidenceSource, explanation).
+        Compound-aware evaluator.
+        Splits composite conditions on ' and ' or ';' and evaluates conjunctively.
         """
-        cond_lower = condition_str.lower().strip()
-        combined_obs = " ".join([current_obs] + (history_obs or []))
+        # Split on conjunctions
+        clauses = re.split(r"\s+and\s+|;\s*", condition_str, flags=re.IGNORECASE)
+        if len(clauses) > 1:
+            results = []
+            explanations = []
+            has_unknown = False
+            for cl in clauses:
+                cl_clean = cl.strip()
+                if not cl_clean:
+                    continue
+                r, s, e = ConditionEvaluator.evaluate_atomic_condition(cl_clean, target, task_desc, current_obs, history_obs)
+                results.append((r, s))
+                explanations.append(f"[{cl_clean}: {r.value} ({e})]")
+                if r == ConditionResult.FALSE:
+                    # Conjunction fails immediately
+                    return ConditionResult.FALSE, s, "; ".join(explanations)
+                if r == ConditionResult.UNKNOWN:
+                    has_unknown = True
 
-        # 1. Check Subject-Location / Presence first
-        loc_res = ConditionEvaluator.evaluate_subject_location(condition_str, target, task_desc, current_obs, history_obs)
-        if loc_res is not None:
-            return loc_res
+            if has_unknown:
+                return ConditionResult.UNKNOWN, EvidenceSource.INSUFFICIENT_EVIDENCE, "; ".join(explanations)
+            return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, "; ".join(explanations)
 
-        # 2. Material Constraints (Metal / Non-Metal)
-        if any(w in cond_lower for w in ["metal", "metallic"]):
-            is_neg = ("not" in cond_lower or "non" in cond_lower)
-            res, src, expl = ConditionEvaluator.is_target_metal(target, combined_obs)
-            if is_neg:
-                if res == ConditionResult.TRUE:
-                    return ConditionResult.FALSE, src, f"Target '{target}' is metal, violating negative condition '{condition_str}'"
-                elif res == ConditionResult.FALSE:
-                    return ConditionResult.TRUE, src, f"Target '{target}' is verified non-metal (satisfies negative condition)"
-                return ConditionResult.UNKNOWN, src, expl
-            else:
-                return res, src, expl
-
-        # 3. Physical Property: Electrical Conductivity
-        if any(w in cond_lower for w in ["conductive", "conductor"]):
-            is_neg = ("not" in cond_lower or "non" in cond_lower)
-            res, src, expl = ConditionEvaluator.is_target_conductive(target, current_obs, history_obs, allow_prior_inference=True)
-            if is_neg:
-                if res == ConditionResult.TRUE:
-                    return ConditionResult.FALSE, src, f"Target '{target}' is conductive, violating '{condition_str}'"
-                elif res == ConditionResult.FALSE:
-                    return ConditionResult.TRUE, src, f"Target '{target}' is non-conductive"
-                return ConditionResult.UNKNOWN, src, expl
-            else:
-                return res, src, expl
-
-        # 4. State of Matter Constraints (Liquid / Solid / Gas)
-        if "liquid" in cond_lower:
-            is_neg = ("not" in cond_lower or "non" in cond_lower)
-            res, src, expl = ConditionEvaluator.is_target_liquid(target, combined_obs)
-            if is_neg:
-                if res == ConditionResult.TRUE:
-                    return ConditionResult.FALSE, src, f"Target '{target}' is liquid, violating '{condition_str}'"
-                elif res == ConditionResult.FALSE:
-                    return ConditionResult.TRUE, src, f"Target '{target}' is not liquid"
-                return ConditionResult.UNKNOWN, src, expl
-            else:
-                return res, src, expl
-
-        if "solid" in cond_lower or "ice" in cond_lower:
-            is_neg = ("not" in cond_lower or "non" in cond_lower)
-            res, src, expl = ConditionEvaluator.is_target_solid(target, combined_obs)
-            if is_neg:
-                if res == ConditionResult.TRUE:
-                    return ConditionResult.FALSE, src, f"Target '{target}' is solid, violating '{condition_str}'"
-                elif res == ConditionResult.FALSE:
-                    return ConditionResult.TRUE, src, f"Target '{target}' is not solid"
-                return ConditionResult.UNKNOWN, src, expl
-            else:
-                return res, src, expl
-
-        # 5. Living organism constraints
-        if "living" in cond_lower:
-            is_neg = ("not" in cond_lower or "non" in cond_lower)
-            res, src, expl = ConditionEvaluator.is_target_living(target, combined_obs)
-            if is_neg:
-                if res == ConditionResult.TRUE:
-                    return ConditionResult.FALSE, src, f"Target '{target}' is living, violating '{condition_str}'"
-                elif res == ConditionResult.FALSE:
-                    return ConditionResult.TRUE, src, f"Target '{target}' is non-living"
-                return ConditionResult.UNKNOWN, src, expl
-            else:
-                return res, src, expl
-
-        # Fallback: cannot ground condition in verifiable physics or state
-        return ConditionResult.UNKNOWN, EvidenceSource.INSUFFICIENT_EVIDENCE, f"Condition '{condition_str}' cannot be grounded in observable state or physics"
+        # Single atomic condition
+        return ConditionEvaluator.evaluate_atomic_condition(condition_str, target, task_desc, current_obs, history_obs)
 
     @staticmethod
     def evaluate_condition_string(

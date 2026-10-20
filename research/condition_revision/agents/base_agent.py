@@ -1,20 +1,24 @@
 """
 Base ReAct Agent (No Memory):
 Acts as Control Group A without cross-task memory.
+Provides disciplined candidate filtering preventing illegal room-focus actions,
+and tracks proposed vs executed action telemetry.
 """
 
 from typing import List, Dict, Any, Tuple
 import json
+import re
+
+from condition_evaluator import extract_target_entity, KNOWN_ROOMS
 
 
 SYSTEM_PROMPT = """You are an intelligent agent interacting with the ScienceWorld scientific virtual environment.
 Your objective is to complete the specified task step by step.
 
 Guidelines:
-1. Carefully check where the target object is located in the task description (e.g. 'located around the workshop' or 'near the kitchen').
-2. If you are not in that room yet, your first action should be to navigate or teleport there (e.g. 'teleport to workshop' or 'teleport to kitchen').
-3. Only use 'focus on <target>' once the target object is in your current room or inventory. Never focus on doors, air, or unrelated furniture.
-4. Choose the single most effective action from the candidate valid actions.
+1. Check the task description for the target object and its location. To navigate to a room, use 'teleport to <room>' (e.g. 'teleport to kitchen' or 'teleport to workshop').
+2. NEVER use 'focus on <room>' (e.g. never 'focus on kitchen', never 'focus on workshop'). In ScienceWorld, focusing on a room or door is illegal and causes failure. Focus ONLY on specific physical target objects (e.g. 'focus on ice', 'focus on water', 'focus on aluminum foil').
+3. Choose the single most effective action from the candidate valid actions.
 
 Output ONLY a JSON object with this exact schema:
 {
@@ -22,6 +26,11 @@ Output ONLY a JSON object with this exact schema:
   "action": "the exact action string to execute"
 }
 """
+
+
+ILLEGAL_FOCUS_TARGETS = {
+    "door", "air", "hallway", "room", "agent", "wall", "ceiling", "floor"
+} | KNOWN_ROOMS
 
 
 class BaseAgent:
@@ -36,7 +45,7 @@ class BaseAgent:
         history: List[Tuple[str, str]],
         valid_actions: List[str],
         extra_context: str = ""
-    ) -> Tuple[str, str, Dict[str, Any]]:
+    ) -> Tuple[str, str, Dict[str, Any], Dict[str, Any]]:
         # Format history
         hist_str = ""
         if history:
@@ -53,7 +62,6 @@ class BaseAgent:
             hist_str = "None (Initial Step)"
 
         # Sample valid actions to show in prompt (up to 25 relevant candidates)
-        # Prioritize actions matching key words in task_desc or room
         sample_actions = self._filter_candidate_actions(valid_actions, task_desc, current_obs)
 
         user_prompt = f"""Task Description:
@@ -121,6 +129,7 @@ Candidate Valid Actions (select one from these or construct a valid action):
         task_words = set(re_word.lower() for re_word in task_desc.replace('.', ' ').replace(',', ' ').split() if len(re_word) > 2)
         obs_words = set(re_word.lower() for re_word in current_obs.replace('.', ' ').replace(',', ' ').split() if len(re_word) > 2)
         key_words = task_words | obs_words
+        target = extract_target_entity(task_desc).lower()
 
         scored = []
         for act in valid_actions:
@@ -132,12 +141,18 @@ Candidate Valid Actions (select one from these or construct a valid action):
             if act_lower.startswith("teleport to "):
                 dest = act_lower.replace("teleport to ", "").strip()
                 if dest in task_desc.lower():
-                    score += 10
-            elif act_lower.startswith(("focus on", "pick up", "drop", "move", "pour", "activate")):
+                    score += 12
+            elif act_lower.startswith(("pick up", "drop", "move", "pour", "activate", "connect")):
                 score += 3
-            # Penalize degenerate focus actions (like focusing on doors/air)
-            if act_lower.startswith("focus on ") and any(bad in act_lower for bad in ["door", "air", "hallway", "room", "agent"]):
-                score -= 15
+            elif act_lower.startswith("focus on "):
+                # Penalize illegal focus actions (focus on rooms, doors, air, etc.)
+                if any(bad in act_lower for bad in ILLEGAL_FOCUS_TARGETS):
+                    score -= 30
+                elif target and target in act_lower:
+                    score += 15
+                else:
+                    score += 2
+
             scored.append((score, act))
 
         scored.sort(key=lambda x: x[0], reverse=True)

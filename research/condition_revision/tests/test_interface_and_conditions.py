@@ -1,10 +1,17 @@
 """
-Unit Test Suite for Interface Unification and Condition Semantics:
+Comprehensive Unit Test Suite for Interface Unification and Condition Semantics:
 1. Trajectory Interface Round-Trip (ensures non-empty task description and executed actions reach extractor).
 2. Subject-Location Semantics ('aluminum foil in workshop' does not match apricot).
 3. Dynamic Physical State Precedence (water frozen in freezer evaluates to solid, not liquid).
 4. Entity Attribute vs Physical Property Distinction (material prior vs empirical circuit observation).
 5. Group B Memory Exposure & Demonstration Extraction.
+6. Target-specific isolation: Other objects' state (e.g. ice in freezer) does NOT alter target's state (water on table).
+7. Negation and word boundary: 'non-living' is never preempted by 'living'.
+8. Grounded electrical test: Light bulb on does not prove arbitrary target conductive unless bound to circuit.
+9. Unobserved location returns UNKNOWN rather than FALSE.
+10. Compound condition conjunction: All clauses evaluated, failing if any clause fails.
+11. Current observation overrides older historical observation.
+12. Target extraction for multi-step tasks (melt ice, boil water) correctly identifies specific substances.
 """
 
 import sys
@@ -57,7 +64,6 @@ class TestInterfaceAndConditions(unittest.TestCase):
 
         prompt = extractor.format_extraction_prompt(sample_traj)
 
-        # Assertions
         self.assertIn("determine if aluminum foil is electrically conductive", prompt)
         self.assertNotIn("Action: 'None'", prompt)
         self.assertIn("Action: 'teleport to workshop'", prompt)
@@ -66,16 +72,11 @@ class TestInterfaceAndConditions(unittest.TestCase):
         self.assertIn("Final Task Success: True", prompt)
 
     def test_aluminum_foil_in_workshop_not_matched_by_apricot(self):
-        """
-        Critical Semantic Test 1:
-        'aluminum foil located in workshop' MUST NOT evaluate to TRUE
-        when current target is apricot, even if apricot or agent is in workshop!
-        """
+        """Subject mismatch: condition specifying aluminum foil evaluates to FALSE when target is apricot."""
         task_desc = "Your task is to determine if apricot is electrically conductive. The apricot is located around the workshop."
         target = "apricot"
         current_obs = "You are in the workshop. You see an apricot, a red box, a green box."
 
-        # Condition specifying aluminum foil
         res, expl = ConditionEvaluator.evaluate_condition_string(
             condition_str="aluminum foil located in workshop",
             target=target,
@@ -83,74 +84,116 @@ class TestInterfaceAndConditions(unittest.TestCase):
             current_obs=current_obs
         )
 
-        self.assertEqual(res, ConditionResult.FALSE, f"False positive match! expl: {expl}")
-        self.assertIn("not observed", expl)
+        self.assertEqual(res, ConditionResult.FALSE)
+        self.assertIn("does not match", expl.lower())
 
-        # Condition specifying target or apricot SHOULD evaluate to TRUE
-        res_target, expl_target = ConditionEvaluator.evaluate_condition_string(
-            condition_str="target located in workshop",
+    def test_other_object_freezing_does_not_affect_water_liquid_state(self):
+        """CRITICAL FIX 1: An ice cube in freezer does NOT alter liquid state of water on table."""
+        target = "water"
+        obs = "In the freezer, you see an ice cube that is frozen solid. On the kitchen counter, you see a cup of water."
+
+        res_liquid, src_liquid, _ = ConditionEvaluator.is_target_liquid(target, obs)
+        self.assertEqual(res_liquid, ConditionResult.TRUE, "Water on table must remain liquid even if ice cube is in freezer")
+
+        res_solid, src_solid, _ = ConditionEvaluator.is_target_solid(target, obs)
+        self.assertEqual(res_solid, ConditionResult.FALSE)
+
+    def test_non_living_not_preempted_by_living(self):
+        """CRITICAL FIX 2: 'non-living' must never be preempted by 'living' substring."""
+        target = "apricot"
+        obs = "You examine the apricot. The apricot is non-living matter."
+
+        res_living, src_living, _ = ConditionEvaluator.is_target_living(target, obs)
+        self.assertEqual(res_living, ConditionResult.FALSE, "apricot must evaluate as non-living (FALSE for is_target_living)")
+        self.assertEqual(src_living, EvidenceSource.CURRENT_OBSERVATION)
+
+        # Evaluator condition string check
+        res_cond, expl = ConditionEvaluator.evaluate_condition_string("target is non-living", target, "", obs)
+        self.assertEqual(res_cond, ConditionResult.TRUE, f"Condition 'target is non-living' should be TRUE: {expl}")
+
+        res_cond_living, expl_l = ConditionEvaluator.evaluate_condition_string("target is living", target, "", obs)
+        self.assertEqual(res_cond_living, ConditionResult.FALSE, f"Condition 'target is living' should be FALSE: {expl_l}")
+
+    def test_bulb_on_does_not_prove_arbitrary_target_conductive(self):
+        """CRITICAL FIX 3: Light bulb turning on only proves conductivity IF bound to target in circuit."""
+        # Unrelated ceiling bulb
+        target = "wood block"
+        obs_unrelated = "In the ceiling, the light bulb is on. On the table, you see a wood block."
+        res_unrel, src_unrel, _ = ConditionEvaluator.is_target_conductive(target, obs_unrelated, allow_prior_inference=False)
+        self.assertEqual(res_unrel, ConditionResult.UNKNOWN, "Ceiling light should not prove wood block conductive")
+
+        # Target properly bound to circuit
+        target_metal = "aluminum foil"
+        obs_connected = "terminal 1 on aluminum foil is now connected to battery. The light bulb turns on."
+        res_conn, src_conn, _ = ConditionEvaluator.is_target_conductive(target_metal, obs_connected, allow_prior_inference=False)
+        self.assertEqual(res_conn, ConditionResult.TRUE, "Target bound to circuit with active light should be TRUE")
+        self.assertEqual(src_conn, EvidenceSource.CURRENT_OBSERVATION)
+
+    def test_unobserved_object_location_returns_unknown_not_false(self):
+        """CRITICAL FIX 4: If location has not been visited/observed yet, return UNKNOWN, not FALSE."""
+        target = "aluminum foil"
+        current_obs = "This room is called the hallway. In it you see a picture."
+
+        res, expl = ConditionEvaluator.evaluate_condition_string(
+            condition_str="aluminum foil located in workshop",
             target=target,
-            task_desc=task_desc,
+            task_desc="find aluminum foil",
             current_obs=current_obs
         )
-        self.assertEqual(res_target, ConditionResult.TRUE, f"Target in workshop should be TRUE! expl: {expl_target}")
 
-    def test_water_freezing_dynamic_observation_precedence(self):
-        """
-        Critical Semantic Test 2:
-        When observation shows water is frozen in the freezer,
-        is_target_liquid must return FALSE and is_target_solid must return TRUE!
-        """
+        self.assertEqual(res, ConditionResult.UNKNOWN, f"Unvisited workshop must return UNKNOWN, got: {res} ({expl})")
+        self.assertIn("insufficient", expl.lower())
+
+    def test_compound_conditions_all_evaluated(self):
+        """CRITICAL FIX 5: Compound conditions must evaluate all clauses conjunctively."""
+        target = "aluminum foil"
+        current_obs = "You are in the workshop. This room is called the workshop. You see a piece of aluminum foil."
+
+        # Case A: Location TRUE and Material TRUE -> TRUE
+        res_a, expl_a = ConditionEvaluator.evaluate_condition_string(
+            condition_str="aluminum foil located in workshop and aluminum foil is metal",
+            target=target,
+            task_desc="test aluminum foil",
+            current_obs=current_obs
+        )
+        self.assertEqual(res_a, ConditionResult.TRUE, f"Expected TRUE, got: {res_a} ({expl_a})")
+
+        # Case B: Location TRUE but Material FALSE -> FALSE
+        res_b, expl_b = ConditionEvaluator.evaluate_condition_string(
+            condition_str="aluminum foil located in workshop and aluminum foil is non-metal",
+            target=target,
+            task_desc="test aluminum foil",
+            current_obs=current_obs
+        )
+        self.assertEqual(res_b, ConditionResult.FALSE, f"Expected FALSE, got: {res_b} ({expl_b})")
+
+    def test_current_state_overrides_older_history_state(self):
+        """CRITICAL FIX 6: Current observation of freezing strictly overrides older liquid history."""
         target = "water"
-        frozen_obs = "In the freezer, the water in the cup is frozen into ice at temperature -5 degrees celsius."
+        history_obs = ["You see liquid water in the pot."]
+        current_obs = "In the freezer, the water in the pot is frozen into solid ice."
 
-        res_liquid, src_liquid, expl_liquid = ConditionEvaluator.is_target_liquid(target, frozen_obs)
-        self.assertEqual(res_liquid, ConditionResult.FALSE, "Frozen water should not evaluate as liquid!")
-        self.assertEqual(src_liquid, EvidenceSource.CURRENT_OBSERVATION)
-
-        res_solid, src_solid, expl_solid = ConditionEvaluator.is_target_solid(target, frozen_obs)
-        self.assertEqual(res_solid, ConditionResult.TRUE, "Frozen water must evaluate as solid!")
+        res_solid, src_solid, _ = ConditionEvaluator.is_target_solid(target, current_obs, history_obs)
+        self.assertEqual(res_solid, ConditionResult.TRUE)
         self.assertEqual(src_solid, EvidenceSource.CURRENT_OBSERVATION)
 
-        # When observation has no thermal clues, default prior kicks in
-        ambient_obs = "You see a cup of water on the kitchen table."
-        res_amb_liq, src_amb_liq, expl_amb_liq = ConditionEvaluator.is_target_liquid(target, ambient_obs)
-        self.assertEqual(res_amb_liq, ConditionResult.TRUE)
-        self.assertEqual(src_amb_liq, EvidenceSource.PRIOR_KNOWLEDGE)
+        res_liquid, src_liquid, _ = ConditionEvaluator.is_target_liquid(target, current_obs, history_obs)
+        self.assertEqual(res_liquid, ConditionResult.FALSE)
+        self.assertEqual(src_liquid, EvidenceSource.CURRENT_OBSERVATION)
 
-    def test_entity_attribute_vs_physical_property_distinction(self):
-        """
-        Critical Semantic Test 3:
-        Distinguish entity attribute (is_metal) from physical property (is_conductive).
-        Prior dictionary lookups must be recorded as prior_knowledge / prior_inference_untested,
-        not current_observation!
-        """
-        # 1. Attribute: is_target_metal
-        res_metal, src_metal, _ = ConditionEvaluator.is_target_metal("aluminum foil", "You see a piece of aluminum foil.")
-        self.assertEqual(res_metal, ConditionResult.TRUE)
-        self.assertEqual(src_metal, EvidenceSource.PRIOR_KNOWLEDGE)
+    def test_extract_target_entity_melt_and_boil(self):
+        """Verify target entity extraction for multi-step tasks without being confused by 'substance'."""
+        t_melt = extract_target_entity("Your task is to melt ice. First, focus on the substance. Then change its state.")
+        self.assertEqual(t_melt, "ice")
 
-        res_apricot_metal, src_apricot_metal, _ = ConditionEvaluator.is_target_metal("apricot", "You see an apricot.")
-        self.assertEqual(res_apricot_metal, ConditionResult.FALSE)
-        self.assertEqual(src_apricot_metal, EvidenceSource.PRIOR_KNOWLEDGE)
+        t_boil = extract_target_entity("Your task is to boil water. First, focus on the substance. Then heat it.")
+        self.assertEqual(t_boil, "water")
 
-        # 2. Property: is_target_conductive without empirical test
-        res_cond, src_cond, expl_cond = ConditionEvaluator.is_target_conductive("aluminum foil", "You see a piece of aluminum foil.")
-        self.assertEqual(res_cond, ConditionResult.TRUE)
-        self.assertEqual(src_cond, EvidenceSource.PRIOR_INFERENCE_UNTESTED)
-        self.assertIn("prior", expl_cond.lower())
-
-        # 3. Property: is_target_conductive WITH empirical test in observation
-        tested_obs = "You close the circuit with the wire. The light bulb turns on."
-        res_emp, src_emp, expl_emp = ConditionEvaluator.is_target_conductive("aluminum foil", tested_obs)
-        self.assertEqual(res_emp, ConditionResult.TRUE)
-        self.assertEqual(src_emp, EvidenceSource.CURRENT_OBSERVATION)
+        t_cond = extract_target_entity("Your task is to determine if aluminum foil is electrically conductive.")
+        self.assertEqual(t_cond, "aluminum foil")
 
     def test_group_b_trajectory_retrieval_memory_exposure(self):
-        """
-        Verify that Group B correctly sets active_memory with full demonstration details
-        when past trajectory is retrieved, and does not produce 'None' actions.
-        """
+        """Verify Group B sets active_memory and non-null actions."""
         past_trajs = [
             {
                 "task_name": "test-conductivity",

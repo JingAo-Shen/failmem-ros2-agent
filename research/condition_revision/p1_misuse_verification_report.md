@@ -47,18 +47,20 @@
 
 ---
 
-## 3. 单步前缀复现（Causal Prefix Replay）对比实验
+## 3. 同状态单步记忆干预探测（Same-State Single-Step Memory Intervention Probe）
 
-在所有 4 组开发诊断对的反例任务（Task B）的关键决策步（已完成导航与聚焦，面临放入红盒还是绿盒的分支点），进行严格的四条件分叉对照测试：
+在 4 组开发诊断对的反例任务（Task B）的关键决策步（已完成导航与聚焦，面临放入红盒还是绿盒的分支点），进行四条件分叉干预探测：
 
-- **Cond A (No Memory)**：基座对照组，无记忆；
-- **Cond B (Raw Trajectory)**：原始轨迹组，注入铝箔完整成功示范文本（完整记录内存暴露）；
-- **Cond C (Grounded Rule)**：文献条件记忆组，经 `ConditionEvaluator` 进行实体与观测判定；
-- **Cond D (Unconditioned Rule)**：反事实消融组，无条件强制注入规则，检验规则对决策的实际扰动。
+- **Condition A (No Memory)**：无记忆基线对照；
+- **Condition B (Raw Trajectory Demo)**：完整原始轨迹检索示范基线；
+- **Condition C (Condition-Gated Rule)**：经过条件门控的接地经验规则（最接近已有条件化记忆方法）；
+- **Condition D (Unconditioned Blind Rule)**：无条件注入经验规则的**诊断对照（压力测试）**，**绝非局部修订方法**。
 
-### 3.1 实验结果对比矩阵
+> **边界说明**：本探测仅测试在固定前缀状态下单步动作输出的敏感性，未推进后续完整环境交互分支，不代表任务最终环境结果层面的因果核验，亦未涉及修订损伤测试。
 
-| 诊断对 ID | 反例任务目标 (`Target`) | Cond C 规则是否激活 (`Injected`) | Cond A 动作 (无记忆) | Cond B 动作 (轨迹检索) | Cond C 动作 (条件规则) | Cond D 动作 (强制无条件规则) | 因果差异 (A vs C) | 因果差异 (A vs B) | 因果差异 (A vs D) |
+### 3.1 探测结果对比矩阵
+
+| 诊断对 ID | 反例任务目标 (`Target`) | Cond C 规则是否激活 (`Injected`) | Cond A 动作 (无记忆) | Cond B 动作 (轨迹检索) | Cond C 动作 (条件规则) | Cond D 动作 (强制无条件规则) | 单步动作差异 (A vs C) | 单步动作差异 (A vs B) | 单步动作差异 (A vs D) |
 | :--- | :---: | :---: | :--- | :--- | :--- | :--- | :---: | :---: | :---: |
 | **Pair 01 (导电: 铝箔 vs 杏子)** | 杏子 (`apricot`) | **False** (拒绝注入) | `move apricot to red box` | `move apricot to red box` | `move apricot to red box` | `move apricot to red box` | **False** | **False** | **False** |
 | **Pair 02 (导电: 叉子 vs 玻璃罐)** | 玻璃罐 (`glass jar`) | **False** (拒绝注入) | `connect glass jar to red box` | `connect glass jar to red box` | `connect glass jar to red box` | `connect glass jar to red box` | **False** | **False** | **False** |
@@ -67,7 +69,7 @@
 
 ---
 
-## 4. 关键科学发现
+## 4. 关键科学发现与断言修正
 
 ### 4.1 现象 1：在物理接地判据下，自然条件记忆未发生误用 (No Harmful Misuse Under Grounded Predicates)
 - 当 `ConditionEvaluator` 正确执行主语实体绑定（判定当前目标是“杏子/玻璃罐”，而非规则指定的“铝箔”）时：
@@ -78,20 +80,16 @@
   ```
 - 结果表明：**自然经验提取出的适用条件并未过度宽泛，在严格的实体感知求值下，规则自动被安全阻断，未在反例任务上发生错误注入（`Injected = False`）**。
 
-### 4.2 现象 2：反例任务上的致命失败 100% 来自基座先验偏差 (Base Model Prior Bias, Not Memory Misuse)
-- 在 Pair 01（杏子）与 Pair 02（玻璃罐）上，对比 Cond A（无记忆）与 Cond B/C/D：
-  - 无记忆的基座模型输出的动作也是 `move apricot to red box` 和 `connect glass jar to red box`；
-  - 无论是否注入记忆、无论注入轨迹还是无条件规则，模型的动作**毫无差异**（A vs B = False, A vs C = False, A vs D = False）；
-  - **因果结论**：反例任务的负收益（-100分）完全是基座模型在候选动作列表中的先验选择偏差，并非由于记忆造成的“负迁移”或“经验误导”。
+### 4.2 断言修正与因果边界澄清
+- **撤回“失败 100% 来自基座先验”的笼统断言**：在单步探测中，虽然 Pair 01 和 Pair 02 的单步动作相同，但这仅反映特定局部状态下的动作倾向，不能推论为所有多步交互失败均完全由基座先验主导。
+- **撤回“候选项顺序导致 100% 选择第一项”的推断**：该推论此前缺乏控制候选顺序反转的严格消融实验支持，且在完善候选动作过滤后，基座在多个任务中表现出对有效实体的定向选择能力。
+- **明确 Condition D 的诊断性质**：Condition D 强制注入不满足前置条件的规则，目的是检验模型抗干扰性与语义鲁棒性，不得将其作为局部修订方法进行效能评估。
 
 ---
 
-## 5. 正式结论与科研判定
+## 5. 阶段性结论与向环境后果推进
 
-依据科研守则中“不得通过放宽条件匹配器或人工注入坏规则人为制造误用”的强制要求，本轮实证检验形成最终结论：
+依据科研守则中“不得通过放宽条件匹配器或人工注入坏规则人为制造误用”的强制要求：
+- 在单步探测阶段，未观察到自然提取的接地经验在反例上发生有害误用；
+- 为验证长程多步环境后果，必须进一步推进到完整轨迹的分支 rollout（详见 `environmental_consequences_report.md`）。
 
-> **“在当前基座模型（`Qwen2.5-Coder-7B-Instruct`）与基准任务（ScienceWorld）下，自然生成的条件经验具备足够的实体具体性，在物理实体接地下未表现出有害迁移；反例任务的失败源于基座自身在多步动作选择中的先验偏置，而非记忆误用。”**
-
-因此：
-- **P1 阶段结论**：未能确立假设中的“自然经验有害泛化/误用”这一待解决问题；
-- **后续决策**：暂停进入 P2 开发“双分支条件动作修订”机制，避免在缺乏因果基础的伪问题上耗费后续 360 episodes / 18,000 calls 预算。

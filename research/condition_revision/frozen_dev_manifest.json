@@ -1,0 +1,86 @@
+[
+  {
+    "chain_id": "chain_01_conductivity_foil",
+    "family": "conductivity",
+    "source_task": {
+      "id": "src_foil_01",
+      "task_name": "test-conductivity",
+      "variation": 0,
+      "target": "aluminum foil",
+      "description": "determine if aluminum foil is electrically conductive"
+    },
+    "valid_context": "aluminum foil (metal conductor) in workshop -> red box",
+    "boundary_task": {
+      "id": "bnd_apricot_01",
+      "task_name": "test-conductivity",
+      "variation": 80,
+      "target": "apricot",
+      "expected_procedure": "move apricot to green box",
+      "potential_boundary_flaw": "misapplying red box procedure from conductive to non-conductive object"
+    },
+    "retention_task": {
+      "id": "ret_fork_01",
+      "task_name": "test-conductivity",
+      "variation": 300,
+      "target": "metal fork",
+      "expected_procedure": "move metal fork to red box",
+      "role": "unseen_retention_check"
+    }
+  },
+  {
+    "chain_id": "chain_02_conductivity_fork",
+    "family": "conductivity",
+    "source_task": {
+      "id": "src_fork_02",
+      "task_name": "test-conductivity",
+      "variation": 300,
+      "target": "metal fork",
+      "description": "determine if metal fork is electrically conductive"
+    },
+    "valid_context": "metal fork (metal conductor) in workshop -> red box",
+    "boundary_task": {
+      "id": "bnd_glass_02",
+      "task_name": "test-conductivity",
+      "variation": 230,
+      "target": "glass jar",
+      "expected_procedure": "move glass jar to green box",
+      "potential_boundary_flaw": "misapplying red box procedure to glass insulator"
+    },
+    "retention_task": {
+      "id": "ret_pot_02",
+      "task_name": "test-conductivity",
+      "variation": 380,
+      "target": "metal pot",
+      "expected_procedure": "move metal pot to red box",
+      "role": "unseen_retention_check"
+    }
+  },
+  {
+    "chain_id": "chain_03_classification_living",
+    "family": "classification",
+    "source_task": {
+      "id": "src_living_03",
+      "task_name": "find-living-thing",
+      "variation": 1,
+      "target": "living thing",
+      "description": "find living thing and place in green box"
+    },
+    "valid_context": "living organism -> green box",
+    "boundary_task": {
+      "id": "bnd_nonliving_03",
+      "task_name": "find-non-living-thing",
+      "variation": 1,
+      "target": "non-living thing",
+      "expected_procedure": "move non-living object to red box",
+      "potential_boundary_flaw": "misapplying green box placement to non-living object"
+    },
+    "retention_task": {
+      "id": "ret_living_03",
+      "task_name": "find-living-thing",
+      "variation": 2,
+      "target": "living thing",
+      "expected_procedure": "move living thing to green box",
+      "role": "unseen_retention_check"
+    }
+  }
+]
