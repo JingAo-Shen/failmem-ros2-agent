@@ -3,7 +3,7 @@ Run Manager Module for Experiment Execution and Output Isolation.
 Creates independent run directories and logs:
 - metadata.json (environment, model, commit, config)
 - episodes.jsonl (episode summaries)
-- steps.jsonl (step-level telemetry: proposed action, executed action, adapter modification, condition eval)
+- steps.jsonl (step-level telemetry: proposed action, executed action, adapter modification, condition eval, memory exposure)
 - revision_events.jsonl (deterministic condition verification traces and decisions)
 - metrics.json (computed objective metrics)
 """
@@ -66,14 +66,17 @@ class RunManager:
         done: bool,
         injected_rule: Optional[Dict[str, Any]] = None,
         condition_eval_results: Optional[List[Dict[str, Any]]] = None,
-        termination_reason: Optional[str] = None
+        termination_reason: Optional[str] = None,
+        memory_exposure: Optional[Dict[str, Any]] = None
     ):
         record = {
             "episode_id": episode_id,
             "step": step,
             "thought": thought,
-            "model_action": model_action,
+            "action": executed_action,
             "executed_action": executed_action,
+            "model_action": model_action,
+            "proposed_action": model_action,
             "adapter_modified": adapter_modified,
             "adapter_reason": adapter_reason,
             "observation": observation,
@@ -82,6 +85,7 @@ class RunManager:
             "injected_rule_id": injected_rule.get("rule_id") if injected_rule else None,
             "injected_rule_version": injected_rule.get("version") if injected_rule else None,
             "condition_eval_results": condition_eval_results or [],
+            "memory_exposure": memory_exposure,
             "termination_reason": termination_reason
         }
         with open(self.steps_path, "a", encoding="utf-8") as f:
@@ -101,7 +105,8 @@ class RunManager:
         score: float,
         num_steps: int,
         termination_reason: str,
-        memory_injected: bool
+        memory_injected: bool,
+        memory_exposure: Optional[Dict[str, Any]] = None
     ):
         record = {
             "episode_id": episode_id,
@@ -111,12 +116,14 @@ class RunManager:
             "task_name": task_name,
             "variation": variation,
             "task_desc": task_desc,
+            "task_description": task_desc,
             "target_entity": target_entity,
             "success": success,
             "score": score,
             "num_steps": num_steps,
             "termination_reason": termination_reason,
-            "memory_injected": memory_injected
+            "memory_injected": memory_injected,
+            "memory_exposure": memory_exposure
         }
         with open(self.episodes_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
