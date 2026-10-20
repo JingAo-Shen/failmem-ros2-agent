@@ -62,15 +62,12 @@ class NaturalExperienceExtractor:
 
         extracted_json, stats = self.llm.generate_json(prompt, max_new_tokens=384)
         if "goal" not in extracted_json or "applicability_conditions" not in extracted_json:
-            # Fallback structure
-            extracted_json = {
-                "goal": task_desc,
-                "observed_facts": {"outcome": "success" if success else "failed"},
-                "llm_explanation": "Derived directly from execution steps.",
-                "applicability_conditions": [f"task involves {task_desc.split()[-1] if task_desc else 'target'}"],
-                "unverified_generalization": "Apply this procedure to similar tasks.",
-                "avoidance_rules": [],
-                "recovery_procedure": "Execute the actions that succeeded in the trajectory."
+            # Do NOT synthesize human-written fallback rule
+            return {
+                "status": "PARSE_ERROR",
+                "rule_id": f"parse_error_{trajectory.get('task_name')}_{trajectory.get('variation', 0)}",
+                "raw_response": extracted_json,
+                "stats": stats
             }
 
         extracted_json["rule_id"] = f"rule_{trajectory.get('task_name')}_{trajectory.get('variation', 0)}"

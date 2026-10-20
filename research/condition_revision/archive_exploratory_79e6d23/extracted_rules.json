@@ -1,0 +1,37 @@
+[
+  {
+    "goal": "determine if aluminum foil is electrically conductive",
+    "observed_facts": {
+      "trigger_state": "aluminum foil is located around the workshop",
+      "key_actions": [
+        "teleport to workshop",
+        "focus on aluminum foil",
+        "connect aluminum foil to red box",
+        "move aluminum foil to red box"
+      ],
+      "outcome": "aluminum foil was placed in the red box"
+    },
+    "llm_explanation": "The agent successfully connected the aluminum foil to the red box and moved it there, indicating that the foil was electrically conductive.",
+    "applicability_conditions": [
+      "the aluminum foil must be present in the workshop",
+      "there should be a red box available for placement"
+    ],
+    "unverified_generalization": "If an object can be successfully connected to a power source and moved to a designated box, it is likely electrically conductive.",
+    "avoidance_rules": [
+      "do not attempt to connect non-conductive materials to power sources",
+      "ensure that the designated box is suitable for the material being tested"
+    ],
+    "recovery_procedure": "if the object does not move to the red box, recheck the connection and ensure the object is indeed electrically conductive.",
+    "rule_id": "rule_test-conductivity_0",
+    "support_trajectories": [
+      {
+        "task_name": "test-conductivity",
+        "variation": 0,
+        "task_description": "Your task is to determine if aluminum foil is electrically conductive. The aluminum foil is located around the workshop. First, focus on the aluminum foil. If it is electrically conductive, place it in the red box. If it is electrically nonconductive, place it in the green box.",
+        "target": "default",
+        "success": true
+      }
+    ],
+    "status": "active"
+  }
+]

@@ -75,9 +75,15 @@ Candidate Valid Actions (select one from these or construct a valid action):
         thought = parsed_json.get("thought", "")
         action = parsed_json.get("action", "")
 
+        proposed_action = str(action) if action is not None else ""
+        adapter_modified = False
+        adapter_reason = "exact_match"
+
         # Fallback if action is empty or invalid string
         if not action or not isinstance(action, str):
             action = sample_actions[0] if sample_actions else "look around"
+            adapter_modified = True
+            adapter_reason = "empty_or_non_string"
 
         # If action not in valid actions, pick closest or first
         clean_action = action.strip().lower()
@@ -92,11 +98,22 @@ Candidate Valid Actions (select one from these or construct a valid action):
                 if any(w in v for w in clean_action.split() if len(w) > 3):
                     action = v
                     matched = True
+                    adapter_modified = True
+                    adapter_reason = "fuzzy_keyword_match"
                     break
             if not matched and sample_actions:
                 action = sample_actions[0]
+                adapter_modified = True
+                adapter_reason = "fallback_to_candidate_zero"
 
-        return action, thought, stats
+        action_telemetry = {
+            "proposed_action": proposed_action,
+            "executed_action": action,
+            "adapter_modified": adapter_modified,
+            "adapter_reason": adapter_reason
+        }
+
+        return action, thought, stats, action_telemetry
 
     def _filter_candidate_actions(self, valid_actions: List[str], task_desc: str, current_obs: str) -> List[str]:
         if not valid_actions:

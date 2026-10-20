@@ -17,6 +17,9 @@ def extract_keywords(text: str) -> List[str]:
     return [w for w in text.lower().split() if w not in STOP_WORDS and len(w) >= 3]
 
 
+from condition_evaluator import ConditionEvaluator, ConditionResult, extract_target_entity
+
+
 class LiteratureMemoryAgent(BaseAgent):
     def __init__(self, llm_client, rule_library: List[Dict[str, Any]] = None):
         super().__init__(llm_client)
@@ -24,34 +27,51 @@ class LiteratureMemoryAgent(BaseAgent):
         self.rule_library = rule_library or []
         self.active_rule = None
         self.last_applied_rule = None
+        self.last_eval_records = []
 
     def reset_episode_state(self):
         self.active_rule = None
         self.last_applied_rule = None
+        self.last_eval_records = []
 
-    def retrieve_matching_rule(self, task_desc: str, current_obs: str) -> Optional[Dict[str, Any]]:
+    def retrieve_matching_rule(self, task_desc: str, current_obs: str, history: List[Tuple[str, str]] = None) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
         task_lower = task_desc.lower()
-        obs_lower = current_obs.lower()
+        target_entity = extract_target_entity(task_desc)
+        history_obs = [h[1] for h in history if isinstance(h, (tuple, list)) and len(h) >= 2] if history else []
 
+        eval_records = []
         for rule in self.rule_library:
+            if rule.get("status") in ["uncertain", "deprecated"]:
+                continue
+
             goal = rule.get("goal", "").lower()
             goal_words = extract_keywords(goal)
             if any(w in task_lower for w in goal_words):
-                # Check applicability conditions (keyword matching)
                 conds = rule.get("applicability_conditions", [])
                 match_all = True
                 for c in conds:
-                    c_words = extract_keywords(c)
-                    # If condition keywords are not satisfied by task_desc or observation
-                    if c_words and not any(w in task_lower or w in obs_lower for w in c_words):
+                    res, expl = ConditionEvaluator.evaluate_condition_string(
+                        condition_str=c,
+                        target=target_entity,
+                        task_desc=task_desc,
+                        current_obs=current_obs,
+                        history_obs=history_obs
+                    )
+                    eval_records.append({
+                        "rule_id": rule.get("rule_id"),
+                        "condition": c,
+                        "result": res.value,
+                        "explanation": expl
+                    })
+                    if res != ConditionResult.TRUE:
                         match_all = False
                         break
                 if match_all:
-                    return rule
-        return None
+                    return rule, eval_records
+        return None, eval_records
 
     def format_rule_context(self, rule: Dict[str, Any]) -> str:
-        return f"""### Retrieved Boundary-Aware Skill Memory (BASM):
+        return f"""### Retrieved Boundary-Aware Skill Memory (BASM Heuristic):
 Goal: {rule.get('goal')}
 Applicability Conditions: {', '.join(rule.get('applicability_conditions', []))}
 Avoidance Rules: {', '.join(rule.get('avoidance_rules', []))}
@@ -65,13 +85,14 @@ Recommended Procedure: {rule.get('recovery_procedure')}
         history: List[Tuple[str, str]],
         valid_actions: List[str],
         extra_context: str = ""
-    ) -> Tuple[str, str, Dict[str, Any]]:
-        rule = self.retrieve_matching_rule(task_desc, current_obs)
+    ) -> Tuple[str, str, Dict[str, Any], Dict[str, Any]]:
+        rule, eval_records = self.retrieve_matching_rule(task_desc, current_obs, history)
+        self.last_eval_records = eval_records
+        self.active_rule = rule
         if rule:
-            self.active_rule = rule
             self.last_applied_rule = rule
 
-        rule_context = self.format_rule_context(self.active_rule or self.last_applied_rule) if (self.active_rule or self.last_applied_rule) else ""
+        rule_context = self.format_rule_context(rule) if rule else ""
         combined_context = f"{rule_context}\n\n{extra_context}" if extra_context else rule_context
 
         return super().select_action(
