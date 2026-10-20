@@ -115,8 +115,8 @@ def extract_target_clauses(target: str, text: str) -> List[str]:
     if not text:
         return []
     target_lower = target.lower().strip()
-    # Split text into sentences and line fragments
-    sentences = re.split(r"[.\n;]", text)
+    # Split text into sentences, semicolons, and coordinate clause boundaries
+    sentences = re.split(r"[.\n;]|\b,\s*(?:and|while|but|whereas)\b", text, flags=re.IGNORECASE)
     matched = []
     for s in sentences:
         s_clean = s.strip()
@@ -145,27 +145,28 @@ class ConditionEvaluator:
 
         # 1. Perceptual observation on target in current observation
         for clause in target_clauses:
-            if any(p in clause for p in ["made of metal", "metallic", "metal"]):
-                return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation explicitly states '{target}' is metallic"
-            if any(p in clause for p in ["made of plastic", "made of glass", "made of wood", "non-metallic"]):
+            # Check negative predicates first with strict regex boundaries
+            if re.search(r"\b(?:non[- ]?metallic|non[- ]?metal|not metal|not metallic|made of plastic|made of glass|made of wood)\b", clause):
                 return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation explicitly states '{target}' is non-metallic"
+            if re.search(r"(?<!non-)(?<!non )(?<!not )\b(?:made of metal|metallic|metal)\b", clause):
+                return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation explicitly states '{target}' is metallic"
 
         # 2. History check
         if history_obs:
             for h in reversed(history_obs):
                 h_clauses = extract_target_clauses(target, h)
                 for clause in h_clauses:
-                    if any(p in clause for p in ["made of metal", "metallic", "metal"]):
-                        return ConditionResult.TRUE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation states '{target}' is metallic"
-                    if any(p in clause for p in ["made of plastic", "made of glass", "made of wood", "non-metallic"]):
+                    if re.search(r"\b(?:non[- ]?metallic|non[- ]?metal|not metal|not metallic|made of plastic|made of glass|made of wood)\b", clause):
                         return ConditionResult.FALSE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation states '{target}' is non-metallic"
+                    if re.search(r"(?<!non-)(?<!non )(?<!not )\b(?:made of metal|metallic|metal)\b", clause):
+                        return ConditionResult.TRUE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical observation states '{target}' is metallic"
 
         # 3. Prior knowledge dictionary (explicitly documented as prior, not perceptual)
         for m in METAL_MATERIALS:
-            if m in target_lower:
+            if re.search(rf"\b{re.escape(m)}\b", target_lower):
                 return ConditionResult.TRUE, EvidenceSource.PRIOR_KNOWLEDGE, f"Inferred from prior material knowledge dictionary (material: metal), unverified by sensor"
         for non_m in NON_METAL_MATERIALS:
-            if non_m in target_lower:
+            if re.search(rf"\b{re.escape(non_m)}\b", target_lower):
                 return ConditionResult.FALSE, EvidenceSource.PRIOR_KNOWLEDGE, f"Inferred from prior material knowledge dictionary (material: non-metal), unverified by sensor"
 
         return ConditionResult.UNKNOWN, EvidenceSource.INSUFFICIENT_EVIDENCE, f"Cannot determine if '{target}' is metal from observation or prior knowledge"
@@ -179,41 +180,64 @@ class ConditionEvaluator:
     ) -> Tuple[ConditionResult, EvidenceSource, str]:
         """
         Physical property: electrical conductivity.
-        CRITICAL: Light bulb turning on only proves conductivity IF the circuit was tested with the TARGET entity!
+        CRITICAL:
+        1. Light bulb turning on only proves conductivity IF the circuit was tested with the TARGET entity!
+        2. Historical wiring and light bulb states at other moments cannot be arbitrarily spliced together.
         """
         target_lower = target.lower().strip()
         target_clauses = extract_target_clauses(target, obs_text)
 
-        # Check if target is directly mentioned as connected/conductive in current observation
+        # 1. Direct explicit statement in current observation
         for clause in target_clauses:
             if any(p in clause for p in ["is conductive", "conducts electricity"]):
                 return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation states '{target}' is conductive"
             if any(p in clause for p in ["is non-conductive", "does not conduct electricity"]):
                 return ConditionResult.FALSE, EvidenceSource.CURRENT_OBSERVATION, f"Current observation states '{target}' is non-conductive"
 
-        # Check if target was connected to the circuit and circuit closed
-        all_text = " ".join([obs_text] + (history_obs or []))
-        # Look for target in circuit connection: e.g. "terminal 1 on <target> is now connected"
-        target_connected = (
-            f"connected to {target_lower}" in all_text.lower() or
-            f"on {target_lower} is now connected" in all_text.lower() or
-            f"disconnecting {target_lower}" in all_text.lower()
-        )
+        # 2. Chronological circuit tracing across history and current observation
+        all_steps = (history_obs or []) + ([obs_text] if obs_text else [])
+        test_indicators = ["light bulb turns on", "light turns on", "bulb is on", "bulb turns on", "current flows"]
 
-        test_indicators = ["light bulb turns on", "light turns on", "bulb is on", "current flows"]
-        has_circuit_response = any(ind in obs_text.lower() for ind in test_indicators)
+        target_in_circuit = False
+        valid_empirical_test = False
+        valid_test_source = None
+        valid_test_expl = ""
 
-        if target_connected and has_circuit_response:
-            return ConditionResult.TRUE, EvidenceSource.CURRENT_OBSERVATION, f"Empirical circuit test bound to '{target}' produced active current/light"
+        for i, step_text in enumerate(all_steps):
+            step_lower = step_text.lower()
+            is_current_step = (i == len(all_steps) - 1)
 
-        # Check history for circuit response with target
-        if target_connected and history_obs:
-            for h in reversed(history_obs):
-                if any(ind in h.lower() for ind in test_indicators):
-                    return ConditionResult.TRUE, EvidenceSource.HISTORICAL_OBSERVATION, f"Historical empirical circuit test bound to '{target}' produced active current/light"
+            # Check target connection event
+            if (
+                f"connected to {target_lower}" in step_lower or
+                f"on {target_lower} is now connected" in step_lower or
+                f"connect {target_lower}" in step_lower
+            ):
+                target_in_circuit = True
 
-        # If a light is mentioned on but target was NOT in the circuit, this is NOT evidence for target
-        # 2. Prior knowledge inference (explicitly stamped as prior_inference_untested)
+            # Check target disconnection event
+            if (
+                f"disconnecting {target_lower}" in step_lower or
+                f"disconnect {target_lower}" in step_lower
+            ):
+                target_in_circuit = False
+
+            # Check if circuit activated at this exact step
+            bulb_active = any(ind in step_lower for ind in test_indicators)
+            if bulb_active:
+                if target_in_circuit:
+                    valid_empirical_test = True
+                    valid_test_source = EvidenceSource.CURRENT_OBSERVATION if is_current_step else EvidenceSource.HISTORICAL_OBSERVATION
+                    valid_test_expl = f"Empirical circuit test bound to '{target}' produced active current/light while target was actively connected"
+                else:
+                    # Bulb was active, but target was NOT in the circuit!
+                    # Do NOT attribute this activation to target!
+                    pass
+
+        if valid_empirical_test:
+            return ConditionResult.TRUE, valid_test_source, valid_test_expl
+
+        # 3. Prior knowledge inference (explicitly stamped as prior_inference_untested)
         if allow_prior_inference:
             is_m, src, expl = ConditionEvaluator.is_target_metal(target, obs_text, history_obs)
             if is_m == ConditionResult.TRUE:
@@ -432,10 +456,25 @@ class ConditionEvaluator:
                 f"Target '{subject}' and location '{found_loc}' both verified in current observation"
             )
         else:
+            # Check if observation explicitly declares absence (e.g. empty container / nothing)
+            explicit_absence_patterns = [
+                r"\bcontains nothing\b",
+                r"\bempty\b",
+                rf"\bno {re.escape(subject)}\b",
+                r"\bthere is nothing\b",
+                r"\bcontaining nothing\b"
+            ]
+            if any(re.search(pat, obs_lower) for pat in explicit_absence_patterns):
+                return (
+                    ConditionResult.FALSE,
+                    EvidenceSource.CURRENT_OBSERVATION,
+                    f"Target '{subject}' is explicitly confirmed absent in '{found_loc}'"
+                )
+            # Otherwise: simply not mentioned in current observation text is NOT evidence of non-existence!
             return (
-                ConditionResult.FALSE,
-                EvidenceSource.CURRENT_OBSERVATION,
-                f"Target '{subject}' is not found in observed location '{found_loc}'"
+                ConditionResult.UNKNOWN,
+                EvidenceSource.INSUFFICIENT_EVIDENCE,
+                f"Target '{subject}' is not mentioned in current observation of '{found_loc}' (absence of mention is insufficient evidence of non-existence)"
             )
 
     @staticmethod

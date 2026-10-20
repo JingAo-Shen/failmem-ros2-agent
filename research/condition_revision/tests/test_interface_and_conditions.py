@@ -218,5 +218,48 @@ class TestInterfaceAndConditions(unittest.TestCase):
         self.assertNotIn("Action: None", mem_info["exposure_text"])
 
 
+    def test_sample_non_metallic_not_judged_as_metal(self):
+        """CRITICAL FIX 7: 'The sample is non-metallic.' must not be judged as metal."""
+        res, src, expl = ConditionEvaluator.is_target_metal("sample", "The sample is non-metallic.")
+        self.assertEqual(res, ConditionResult.FALSE, f"non-metallic sample must evaluate to FALSE, got {res} ({expl})")
+        self.assertIn("non-metallic", expl.lower())
+
+    def test_water_liquid_with_ice_cube_on_another_table_not_solid(self):
+        """CRITICAL FIX 8: 'The water is liquid, and an ice cube is frozen on another table.' must not judge water as solid."""
+        obs = "The water is liquid, and an ice cube is frozen on another table."
+        res_solid, src_solid, expl_solid = ConditionEvaluator.is_target_solid("water", obs)
+        self.assertEqual(res_solid, ConditionResult.FALSE, f"water must not be judged solid: {res_solid} ({expl_solid})")
+
+        res_liquid, src_liquid, expl_liquid = ConditionEvaluator.is_target_liquid("water", obs)
+        self.assertEqual(res_liquid, ConditionResult.TRUE, f"water must be judged liquid: {res_liquid} ({expl_liquid})")
+
+    def test_unmentioned_object_returns_unknown_not_false(self):
+        """CRITICAL FIX 9: Current observation not mentioning object cannot assert object does not exist solely due to absence."""
+        obs = "This room is called the kitchen. In it you see a table, a chair, and a cupboard."
+        res, expl = ConditionEvaluator.evaluate_condition_string(
+            condition_str="apple located in kitchen",
+            target="apple",
+            task_desc="find apple",
+            current_obs=obs
+        )
+        self.assertEqual(res, ConditionResult.UNKNOWN, f"Unmentioned object in visited room must be UNKNOWN, got: {res} ({expl})")
+        self.assertIn("insufficient", expl.lower())
+
+    def test_historical_wiring_not_spliced_with_disjoint_bulb_state(self):
+        """CRITICAL FIX 10: Historical wiring and light bulb states at other moments cannot be arbitrarily spliced into a target test."""
+        history_obs = [
+            "terminal 1 on battery is connected to anode on light bulb. The light bulb turns on.",
+            "You disconnect the battery."
+        ]
+        current_obs = "terminal 1 on metal fork is now connected to terminal 1 on wire. The light bulb is off."
+        res, src, expl = ConditionEvaluator.is_target_conductive(
+            target="metal fork",
+            obs_text=current_obs,
+            history_obs=history_obs,
+            allow_prior_inference=False
+        )
+        self.assertEqual(res, ConditionResult.UNKNOWN, f"Disjoint history wiring must not prove fork conductive: {res} ({expl})")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,132 +1,84 @@
 # 持续研究状态跟踪文件 (Research Status)
 
 **更新时间**：2026-10-20  
-**当前阶段**：**P1（自然经验误用与修订损伤核验）**  
-**当前状态**：**核验完成：全环境分支 rollout 实测表明，自然提取的条件记忆在严格实体与物理语义接地下未表现出有害误用；P2 开发继续暂停**  
+**当前阶段**：**P1 终结批次（真实数据核查、准入审计与有界 NO-GO 裁决）**  
+**当前状态**：**已终结：未建立自然经验有害误用或反例边界冲突；经验仅在示范组体现正向迁移；终止条件修订扩展方案 (NO-GO)**  
 **基准分支**：`research/counterexample-condition-revision`  
 
 ---
 
-## 1. 核心研究问题与当前定位
+## 1. 核心研究问题直接回答与最终定位
 
-> **“面对新反例，如何修订旧经验中被证伪的适用范围，同时保留其在原有有效情境中的作用？”**
+> **“我们是否真的获得了一条原本有用、在新情境下暴露边界的自然经验？”**
 
-### 明确四个条件的评估身份：
-- **Condition A (No Memory)**：无记忆基线对照；
-- **Condition B (Raw Trajectory Demo)**：完整原始轨迹检索示范基线；
-- **Condition C (Condition-Gated Rule)**：经过条件门控的接地经验规则（最接近已有条件化记忆方法）；
-- **Condition D (Unconditioned Blind Rule)**：无条件注入经验规则的**诊断对照（压力测试）**，**绝非局部修订方法**。
+### **结论：否 (Negative)。**
 
-### 撤回未经充分控制实验证明的断言：
-1. **撤回“失败 100% 来自基座先验”的笼统断言**：先前在 `p1_prefix_replay_check.py` 中仅开展了同状态单步干预探测，未执行各动作后的完整环境分支演化，不能作为全局因果结论。
-2. **撤回“候选项顺序导致 100% 选择第一项”的推论**：在修复基座动作过滤机制后，基座在 `glass jar` 与 `metal pot` 等任务上展现出根据任务描述自主选择正确容器并达标的能力（见 Chain 2 实测 100 分），证明模型并非单纯的位置顺序跟随者。
-
----
-
-## 2. P0 语义与判定基础设施修复结果 (已通过 100% 回归测试)
-
-针对先前发现的语义误判与匹配缺陷，在 `condition_evaluator.py` 与 `test_interface_and_conditions.py` 完成 6 项彻底修复，10 项单元测试全部通过（0.02s）：
-
-1. **实体与主语严格绑定**：在求值条件从句时，严格隔离条件实体与当前任务目标实体（`test_aluminum_foil_in_workshop_not_matched_by_apricot` 通过）。
-2. **观测动态状态绝对优先于先验**：当前观测到水结冰时，必须覆盖历史或词典液体先验（`test_current_state_overrides_older_history_state` 通过）。
-3. **多实体物理状态隔离**：环境内其它物体（如旁边的液体）冻结，绝不改变目标实体（如水）的独立液体判定（`test_other_object_freezing_does_not_affect_water_liquid_state` 通过）。
-4. **严格词边界匹配**：使用 `\bnon[- ]?living\b` 优先判定，杜绝 `non-living` 被 `living` 的子串匹配抢占（`test_non_living_not_preempted_by_living` 通过）。
-5. **电路绑定导电性判据**：灯泡点亮只有在观测明确提示目标实体接入闭合回路时才判定导电，杜绝未接入电路的任意目标被误判为导电（`test_bulb_on_does_not_prove_arbitrary_target_conductive` 通过）。
-6. **未观测实体返回 UNKNOWN**：当前观测未出现目标对象或地点时，返回 `ConditionResult.UNKNOWN` 与 `EvidenceSource.INSUFFICIENT_EVIDENCE`，严禁直接判为 FALSE（`test_unobserved_object_location_returns_unknown_not_false` 通过）。
-7. **复合条件合取求值**：支持 `and` / `;` 分隔的复合从句逐步求值，任一否定即为 FALSE，任一未决且无否定即为 UNKNOWN（`test_compound_conditions_all_evaluated` 通过）。
+1. **未在 Rollout 中生成待测规则（`NO_RULE_CREATED`）**：
+   在 `7244944` 的实验中，由于历史代码设置了来源任务 100 分门槛，未成功来源任务被跳过提取。因此 Condition C 规则库大小为 0，Condition D 提示词为空。先前记录的“安全阻断”并非物理接地的条件求值拒绝，而是**尚未生成待测规则**。
+2. **迁移范围未建立（`TRANSFER_SCOPE_NOT_ESTABLISHED`）**：
+   事后对真实轨迹进行补充提取后发现，LLM 生成的适用条件均高度特化于具体实体（如 `aluminum foil must be present in workshop`）。在严谨物理接地下，这些规则在反例（杏子、非生物）上均被判定为 `FALSE` 或 `UNKNOWN`，无法在任何新情境下激活。
+3. **轨迹示范（Condition B）仅表现为中性或正向迁移**：
+   在唯一真实注入经验的 Condition B 中，检索到的示范文本在玻璃罐任务中提速 28.6%（7步 $\to$ 5步），在非生物任务中直接从超时失败提升至 **100分满分成功（仅需 3 步）**，未出现任何灾难性负迁移。
 
 ---
 
-## 3. 基座模型基线能力预检 (Planner Pre-check)
+## 2. 交付核心问题系统解答
 
-在 `research/condition_revision/planner_precheck.py` 中，对基座模型（`Qwen2.5-Coder-7B-Instruct`，`temperature=0.0`）在来源任务与多步任务上的基础能力进行无记忆标定（结果记录于 `runs/planner_precheck_results.json`）：
+### Q1: 旧经验在哪些情境中确实有用？
+- **实证证据**：在当前评测范围内，**仅在原始轨迹检索示范（Condition B）中观察到确凿的效用提升**：
+  - 在生物分类边界任务中，示范帮助模型习得容器转移模式，从无记忆的 25分超时跃升至 **100分满分成功**；
+  - 在玻璃罐导电测试中，示范使动作序列更紧凑，完成步数从 7 步缩减至 5 步。
+  - 对于规则文本（Condition C），在严格物理接地下尚未建立具有跨任务泛化收益的有效规则。
 
-- **`test-conductivity` (var 0, aluminum foil)**：成功导航至 workshop，精准聚焦目标，并完成部分电路探针连接（得分 60.0，8 步超时）。展现出基础多步规划能力，但受限于环境具体词法（`move` vs `place`），未在 8 步内闭合完整电路；
-- **`melt` (var 4, ice)**：成功导航至 kitchen（得分 3.0），后续尝试通过通用动词聚焦 ice 发生环境词法不匹配；
-- **`boil` (var 2, water)**：尝试连接杯子与炉灶，体现出基于常识的任务意图，但在缺少多步容器转移先验下未完成煮水。
+### Q2: 旧经验在哪些新情境中确实失效？
+- **实证证据**：**未观察到在新情境下由于旧经验导致的失败（0 负迁移事件）**。
+  - 在所有边界任务（如杏子被放入红盒），无记忆基线（Cond A）同样犯下完全相同的错误；
+  - 经验注入后，未出现任何“无记忆能做对，但有记忆做错”的实例。
 
-**结论**：基座模型在单步导航与目标聚焦上具备确定性有效动作生成能力，在复杂工具交互（连接电极、加热）上依赖清晰的语法支持或环境反馈。
-
----
-
-## 4. 全环境后果比较实验 (Environmental Rollout Results)
-
-在实验前预先登记并冻结 3 条跨家族经验链条（记录于 `frozen_dev_manifest.json` 与 `task_manifest.py`），对每条链条在 4 种条件下完整 rollout 至环境终止（跑到底，而非单步截断），完整记录暴露文本、条件门控状态、模型建议与执行动作及环境最终得分：
-
-### 经验链条 1：`chain_01_conductivity_foil`
-- **来源任务**：`test-conductivity` (var 0, 目标: aluminum foil)
-- **边界任务 (Task B)**：`test-conductivity` (var 80, 目标: apricot, 绝缘体)
-- **保留测试 (Retention)**：`test-conductivity` (var 300, 目标: metal fork, 导体)
-
-| 条件分支 | 任务角色 | 记忆注入状态 | 记忆暴露 / 门控状态 | 执行步数 | 终止原因 | 最终得分 |
-| :--- | :--- | :---: | :--- | :---: | :---: | :---: |
-| **Cond A (No Memory)** | Boundary B | 否 | `not_exposed_to_rule` | 6 | fatal_penalty | -100.0 |
-| **Cond B (Raw Trajectory)** | Boundary B | **是** | 注入 aluminum foil 完整轨迹 | 6 | fatal_penalty | -100.0 |
-| **Cond C (Grounded Rule)** | Boundary B | 否 | **`not_exposed_to_rule` (条件求值拒识)** | 6 | fatal_penalty | -100.0 |
-| **Cond D (Blind Rule Stress)**| Boundary B | 否/强行 | `not_exposed_to_rule` | 6 | fatal_penalty | -100.0 |
-| **Cond A (No Memory)** | Retention | 否 | `not_exposed_to_rule` | 7 | fatal_penalty | -100.0 |
-| **Cond C (Grounded Rule)** | Retention | 否 | `not_exposed_to_rule` | 7 | fatal_penalty | -100.0 |
-
-*实测发现*：Cond A、B、C、D 在反例（apricot）上均于第 6 步选择 `move apricot to red box` 终止。Cond C 准确将 foil 经验拦截；Cond B 即使注入了 foil 的操作过程，模型最终决策也与无记忆组完全一致。
-
-### 经验链条 2：`chain_02_conductivity_fork`
-- **来源任务**：`test-conductivity` (var 300, 目标: metal fork)
-- **边界任务 (Task B)**：`test-conductivity` (var 230, 目标: glass jar, 绝缘体)
-- **保留测试 (Retention)**：`test-conductivity` (var 380, 目标: metal pot, 导体)
-
-| 条件分支 | 任务角色 | 记忆注入状态 | 记忆暴露 / 门控状态 | 执行步数 | 终止原因 | 最终得分 |
-| :--- | :--- | :---: | :--- | :---: | :---: | :---: |
-| **Cond A (No Memory)** | Boundary B | 否 | `not_exposed_to_rule` | 7 | **success** | **100.0** |
-| **Cond B (Raw Trajectory)** | Boundary B | **是** | 注入 metal fork 完整轨迹 | **5** | **success** | **100.0** |
-| **Cond C (Grounded Rule)** | Boundary B | 否 | **`not_exposed_to_rule` (准确拦截)** | 7 | **success** | **100.0** |
-| **Cond D (Blind Rule Stress)**| Boundary B | 否 | `not_exposed_to_rule` | 7 | **success** | **100.0** |
-| **Cond A (No Memory)** | Retention | 否 | `not_exposed_to_rule` | 5 | **success** | **100.0** |
-| **Cond C (Grounded Rule)** | Retention | 否 | `not_exposed_to_rule` | 5 | **success** | **100.0** |
-
-*实测发现*：在 glass jar 反例上，**所有条件均取得 100.0 满分成功**！注入 metal fork 失败轨迹（Cond B）不仅没有误导模型将玻璃罐放入红盒子，反而使动作步数从 7 步缩短为 5 步（更快完成绿盒子放置）。Retention 任务（metal pot）在各组中亦稳定取得 100.0 满分。
-
-### 经验链条 3：`chain_03_classification_living`
-- **来源任务**：`find-living-thing` (var 1, 目标: living thing)
-- **边界任务 (Task B)**：`find-non-living-thing` (var 1, 目标: non-living thing)
-- **保留测试 (Retention)**：`find-living-thing` (var 2, 目标: living thing)
-
-| 条件分支 | 任务角色 | 记忆注入状态 | 记忆暴露 / 门控状态 | 执行步数 | 终止原因 | 最终得分 |
-| :--- | :--- | :---: | :--- | :---: | :---: | :---: |
-| **Cond A (No Memory)** | Boundary B | 否 | `not_exposed_to_rule` | 7 | timeout | 25.0 |
-| **Cond B (Raw Trajectory)** | Boundary B | **是** | 注入 living thing 轨迹 | **3** | **success** | **100.0** |
-| **Cond C (Grounded Rule)** | Boundary B | 否 | **`not_exposed_to_rule` (准确拦截)** | 7 | timeout | 25.0 |
-| **Cond D (Blind Rule Stress)**| Boundary B | 否 | `not_exposed_to_rule` | 7 | timeout | 25.0 |
-| **Cond A (No Memory)** | Retention | 否 | `not_exposed_to_rule` | 2 | fatal_penalty | -100.0 |
-| **Cond C (Grounded Rule)** | Retention | 否 | `not_exposed_to_rule` | 2 | fatal_penalty | -100.0 |
-
-*实测发现*：在 `find-non-living-thing` 边界任务上，无记忆组（Cond A）因探索超时仅得 25.0 分；而检索到轨迹的示范组（Cond B）**从示范动作中学习到容器定位与转移模式，以 3 步直接斩获 100.0 满分**！
+### Q3: 现有证据是否足以研究局部修订？
+- **实证证据**：**完全不足以（Insufficient）**。
+  - 局部修订算法的研究前提是“经验过度泛化导致有害误用”。
+  - 既然在严格物理接地系统下，具象实体条件不会发生泛化误用；而在轨迹示范下又表现为正向迁移，那么“反例后局部修订条件”就缺乏真实的现象基础与因果痛点。
 
 ---
 
-## 5. 核心科学结论与转段裁决
+## 3. 语义修复与单测完全回归 (14/14 通过)
 
-### 核心结论：
-1. **自然提取规则具有天然的实体具体性**：基座模型从真实交互轨迹中归纳的适用条件通常包含实体特异性从句（如 `aluminum foil must be present` 或 `at least one living thing present`）。在严谨物理接地下，这些规则在反例上均被准确阻断（`not_exposed_to_rule`），未发生自然有害误用。
-2. **轨迹示范（Cond B）表现为中性或正向迁移**：在跨任务或边界任务中，示范给出了环境可用动作与对象交互模式，在 Chain 2 中加速任务完成（7步 -> 5步），在 Chain 3 中直接帮助模型找到关键物体完成任务（25分 -> 100分）。
-3. **未观测到记忆诱发的负迁移（Negative Transfer）**：在全部 3 条经验链条与 4 个条件的全分支 rollout 中，不存在任何一例“原本无记忆能做对、但注入记忆后做错”的现象。
+在 `condition_evaluator.py` 中彻底修复 4 项语义逻辑漏洞，并在 `test_interface_and_conditions.py` 扩充并通过对应单测：
 
-### 阶段转段裁决：
-根据总指令明确的转段红线：
-> “只有在观察到自然提取的经验在新的边界任务上发生有害误用，或观察到某种修订导致保留任务发生灾难性损伤时，才允许进入 P2。若二者均未出现，请如实汇报，并保持在 P1 阶段深入分析原因。严禁为了转段而故意放宽条件匹配、人工构造伪反例或植入错误规则。”
-
-**裁决：P2（双分支条件动作修订开发）继续暂停 (PAUSED)；当前研究阶段保持为 P1。**
+1. **`test_sample_non_metallic_not_judged_as_metal`**：通过负向正则词边界判定，确保 `"The sample is non-metallic."` 100% 判定为 `FALSE`（杜绝 `metallic` 子串假阳性）；
+2. **`test_water_liquid_with_ice_cube_on_another_table_not_solid`**：引入并列连词切分，确保 `"The water is liquid, and an ice cube is frozen on another table."` 判定水为 `liquid = TRUE`, `solid = FALSE`（杜绝冰块状态污染水）；
+3. **`test_unmentioned_object_returns_unknown_not_false`**：未提及对象返回 `UNKNOWN / INSUFFICIENT_EVIDENCE`（杜绝将未在视口提及降级为否定）；
+4. **`test_historical_wiring_not_spliced_with_disjoint_bulb_state`**：建立时序电路跟踪，杜绝将断开后的历史灯亮任意拼接为当前实体的导电证据。
 
 ---
 
-## 6. 累计资源消耗账本 (Cumulative Accounting)
+## 4. 阶段裁决与科研转向建议
 
-- **总预算硬上限**：3,000 Episodes / 150,000 Model Calls / 120.0 GPU Hours
-- **P0 实际消耗**：8 Episodes / 35 Calls / 20,431 In Tokens / 1,704 Out Tokens / 177.4s
-- **P1 累计消耗**：69 Episodes / 287 Calls / 160,483 In Tokens / 16,061 Out Tokens / 1,238.7s
-- **本轮环境后果 Rollout 批次消耗**：
-  - 来源采集与分支 Rollout：21 Episodes / 93 Calls
-  - 基线能力预检：3 Episodes / 24 Calls
-  - 提取调试核验：3 Calls
-  - **本轮总计**：**24 Episodes / 120 Calls** (严格控制在本轮授权上限 80 Episodes / 4000 Calls 内，预算利用率 Episodes: 30.0%, Calls: 3.0%)
-- **新周期当前累计**：**77 Episodes / 322 Calls / 198,679 Tokens / 1,416.1s (~23.6 分钟)**
-- *(历史 79e6d23 探索性消耗单列于 `archive_exploratory_79e6d23/`，共计 184 Episodes, 839 Calls)*
+### 4.1 正式科研裁决
+根据总指令：
+> “若本批完成后，仍然只有轨迹示范的正向迁移、没有适用边界冲突，则停止继续扩展当前条件修订方案，提交有覆盖范围限制的 no-go 结论。”
+
+**裁决**：
+- **提交有覆盖范围限制的 NO-GO 结论**；
+- **终止“反例驱动的条件适用范围局部修订”方案在 ScienceWorld 中的继续扩展开发**；
+- **P2 开发正式关闭，封存实验成果**。
+
+### 4.2 两个更具 SCI 价值的替代研究方向
+1. **替代方向 1：基于环境反馈交互式澄清约束的在线闭环修正 (Interactive Feedback-Driven Constraint Grounding)**
+   - 核心问题：当 Agent 遇到未明属性（如不可见容器、非标准动作谓词）受阻时，如何利用环境试错报错信号在线澄清约束并纠偏动作？
+   - 最小区分实验：对比静态规则注入 vs 在线交互报错反思；评价指标为任务完成率与试错步数成本。
+2. **替代方向 2：长程 Agent 轨迹归纳中的“归纳跃迁过度泛化”检测与因果过滤 (Inductive Leap Detection in Agent Trajectory Summarization)**
+   - 核心问题：当 LLM 自发将单次交互经验抽象为通用常识时，何时会产生错误的归纳跃迁（Inductive Leap）？如何设计前置因果探针拦截伪知识？
+   - 最小区分实验：对比具象规则与跨实体归纳规则在反例上的负迁移率，测试因果门控有效性。
+
+---
+
+## 5. 累计资源消耗账本 (Final Accounting)
+
+- **总硬上限**：3,000 Episodes / 150,000 Model Calls / 120.0 GPU Hours
+- **累计实际消耗**：
+  - **P0**：8 Episodes / 35 Calls / 20,431 In / 1,704 Out Tokens
+  - **P1**：69 Episodes / 287 Calls / 160,483 In / 16,061 Out Tokens
+  - **总计**：**77 Episodes / 322 Calls / 198,679 Tokens / 1,416.1s (~23.6 分钟)**
+  - **预算合规率**：**100% 严格合规**（Episodes 占 2.57%，Calls 占 0.21%，GPU 时间占 0.33%）。

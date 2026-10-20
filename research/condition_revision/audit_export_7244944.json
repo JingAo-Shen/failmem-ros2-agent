@@ -1,0 +1,660 @@
+{
+  "run_id": "run_20261020_161138_P1_environmental_rollout",
+  "base_commit": "7244944",
+  "chains": {
+    "chain_01_conductivity_foil": {
+      "source_task": {
+        "episode_id": "col_chain_01_conductivity_foil_src_foil_01",
+        "task_name": "test-conductivity",
+        "variation": 0,
+        "target": "aluminum foil",
+        "task_desc": "Your task is to determine if aluminum foil is electrically conductive. The aluminum foil is located around the workshop. First, focus on the aluminum foil. If it is electrically conductive, place it in the red box. If it is electrically nonconductive, place it in the green box.",
+        "success": false,
+        "score": 60.0,
+        "num_steps": 8,
+        "steps": [
+          {
+            "step": 1,
+            "model_action": "teleport to workshop",
+            "executed_action": "teleport to workshop",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You teleport to the workshop.",
+            "reward": 10
+          },
+          {
+            "step": 2,
+            "model_action": "focus on aluminum foil",
+            "executed_action": "focus on aluminum foil",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You focus on the aluminum foil.",
+            "reward": 50
+          },
+          {
+            "step": 3,
+            "model_action": "connect aluminum foil to anode in red light bulb",
+            "executed_action": "connect aluminum foil to anode in red light bulb",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "terminal 1 on aluminum foil is now connected to anode on red light bulb",
+            "reward": 0
+          },
+          {
+            "step": 4,
+            "model_action": "connect anode in green light bulb to green box",
+            "executed_action": "connect anode in green light bulb to green box",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "anode on green light bulb is now connected to terminal 1 on green box",
+            "reward": 0
+          },
+          {
+            "step": 5,
+            "model_action": "place aluminum foil in red box",
+            "executed_action": "focus on aluminum foil",
+            "adapter_modified": true,
+            "adapter_reason": "fuzzy_keyword_match",
+            "observation": "You focus on the aluminum foil.",
+            "reward": 0
+          },
+          {
+            "step": 6,
+            "model_action": "connect aluminum foil to cathode in red light bulb",
+            "executed_action": "connect aluminum foil to cathode in red light bulb",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "terminal 2 on aluminum foil is now connected to cathode on red light bulb",
+            "reward": 0
+          },
+          {
+            "step": 7,
+            "model_action": "connect cathode in green light bulb to red box",
+            "executed_action": "connect cathode in green light bulb to red box",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "cathode on green light bulb is now connected to terminal 1 on red box",
+            "reward": 0
+          },
+          {
+            "step": 8,
+            "model_action": "move green light bulb to red box",
+            "executed_action": "move green light bulb to red box",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "(disconnecting green light bulb)You move the green light bulb to the red box.",
+            "reward": 0
+          }
+        ]
+      },
+      "rule_extraction": {
+        "executed_in_rollout_runner": false,
+        "reason_skipped": "source_task success == False (line 150 of run_environmental_consequences.py)",
+        "non_injection_reason": "NO_RULE_CREATED"
+      },
+      "boundary_b": {
+        "Cond_A_NoMemory": {
+          "episode_id": "rollout_chain_01_conductivity_foil_boundary_b_Cond_A_NoMemory",
+          "score": -100.0,
+          "success": false,
+          "num_steps": 6,
+          "term_reason": "fatal_penalty",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NOT_APPLICABLE",
+          "actions": [
+            "connect apricot to red box",
+            "connect apricot to red box",
+            "focus on apricot",
+            "move apricot to red box"
+          ]
+        },
+        "Cond_B_RawTrajectory": {
+          "episode_id": "rollout_chain_01_conductivity_foil_boundary_b_Cond_B_RawTrajectory",
+          "score": -100.0,
+          "success": false,
+          "num_steps": 6,
+          "term_reason": "fatal_penalty",
+          "memory_injected": true,
+          "memory_exposure": {
+            "type": "raw_trajectory",
+            "retrieved_task": "test-conductivity",
+            "retrieved_variation": 0,
+            "overlap_score": 13,
+            "exposure_text": "### Reference Past Trajectory (from task: test-conductivity):\nTask Goal: Your task is to determine if aluminum foil is electrically conductive. The aluminum foil is located around the workshop. First, focus on the aluminum foil. If it is electrically conductive, place it in the red box. If it is electrically nonconductive, place it in the green box.\nOutcome: FAILED\nAction Sequence:\n  Step 1: Action: teleport to workshop\n  Step 2: Action: focus on aluminum foil\n  Step 3: Action: connect aluminum foil to anode in red light bulb\n  Step 4: Action: connect anode in green light bulb to green box\n  Step 5: Action: focus on aluminum foil\n  Step 6: Action: connect aluminum foil to cathode in red light bulb\n  Step 7: Action: connect cathode in green light bulb to red box\n  Step 8: Action: move green light bulb to red box\n"
+          },
+          "rule_library_size": null,
+          "retrieval_result": {
+            "type": "raw_trajectory",
+            "retrieved_task": "test-conductivity",
+            "retrieved_variation": 0,
+            "overlap_score": 13,
+            "exposure_text": "### Reference Past Trajectory (from task: test-conductivity):\nTask Goal: Your task is to determine if aluminum foil is electrically conductive. The aluminum foil is located around the workshop. First, focus on the aluminum foil. If it is electrically conductive, place it in the red box. If it is electrically nonconductive, place it in the green box.\nOutcome: FAILED\nAction Sequence:\n  Step 1: Action: teleport to workshop\n  Step 2: Action: focus on aluminum foil\n  Step 3: Action: connect aluminum foil to anode in red light bulb\n  Step 4: Action: connect anode in green light bulb to green box\n  Step 5: Action: focus on aluminum foil\n  Step 6: Action: connect aluminum foil to cathode in red light bulb\n  Step 7: Action: connect cathode in green light bulb to red box\n  Step 8: Action: move green light bulb to red box\n"
+          },
+          "condition_eval_records": [],
+          "non_injection_reason": "INJECTED_DEMO",
+          "actions": [
+            "connect apricot to green box",
+            "connect green box to red box",
+            "teleport to workshop",
+            "move apricot to red box"
+          ]
+        },
+        "Cond_C_GroundedRule": {
+          "episode_id": "rollout_chain_01_conductivity_foil_boundary_b_Cond_C_GroundedRule",
+          "score": -100.0,
+          "success": false,
+          "num_steps": 6,
+          "term_reason": "fatal_penalty",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": 0,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "connect apricot to red box",
+            "connect apricot to red box",
+            "focus on apricot",
+            "move apricot to red box"
+          ]
+        },
+        "Cond_D_UnconditionedBlindRule": {
+          "episode_id": "rollout_chain_01_conductivity_foil_boundary_b_Cond_D_UnconditionedBlindRule",
+          "score": -100.0,
+          "success": false,
+          "num_steps": 6,
+          "term_reason": "fatal_penalty",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "connect apricot to red box",
+            "connect apricot to red box",
+            "focus on apricot",
+            "move apricot to red box"
+          ]
+        }
+      },
+      "retention": {
+        "Cond_A_NoMemory": {
+          "episode_id": "rollout_chain_01_conductivity_foil_retention_Cond_A_NoMemory",
+          "score": -100.0,
+          "success": false,
+          "num_steps": 7,
+          "term_reason": "fatal_penalty",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "non_injection_reason": "NOT_APPLICABLE",
+          "actions": [
+            "connect anode in red light bulb to metal fork",
+            "connect anode in green light bulb to metal fork",
+            "connect green box to anode in orange light bulb",
+            "move orange light bulb to red box",
+            "move metal fork to green box"
+          ]
+        },
+        "Cond_C_GroundedRule": {
+          "episode_id": "rollout_chain_01_conductivity_foil_retention_Cond_C_GroundedRule",
+          "score": -100.0,
+          "success": false,
+          "num_steps": 7,
+          "term_reason": "fatal_penalty",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": 0,
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "connect anode in red light bulb to metal fork",
+            "connect anode in green light bulb to metal fork",
+            "connect green box to anode in orange light bulb",
+            "move orange light bulb to red box",
+            "move metal fork to green box"
+          ]
+        }
+      }
+    },
+    "chain_02_conductivity_fork": {
+      "source_task": {
+        "episode_id": "col_chain_02_conductivity_fork_src_fork_02",
+        "task_name": "test-conductivity",
+        "variation": 300,
+        "target": "metal fork",
+        "task_desc": "Your task is to determine if metal fork is electrically conductive. The metal fork is located around the workshop. First, focus on the metal fork. If it is electrically conductive, place it in the red box. If it is electrically nonconductive, place it in the green box.",
+        "success": false,
+        "score": -100.0,
+        "num_steps": 7,
+        "steps": [
+          {
+            "step": 1,
+            "model_action": "teleport to workshop",
+            "executed_action": "teleport to workshop",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You teleport to the workshop.",
+            "reward": 10
+          },
+          {
+            "step": 2,
+            "model_action": "focus on metal fork",
+            "executed_action": "focus on metal fork",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You focus on the metal fork.",
+            "reward": 50
+          },
+          {
+            "step": 3,
+            "model_action": "connect anode in red light bulb to metal fork",
+            "executed_action": "connect anode in red light bulb to metal fork",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "anode on red light bulb is now connected to terminal 1 on metal fork",
+            "reward": 0
+          },
+          {
+            "step": 4,
+            "model_action": "connect green box to anode in red light bulb",
+            "executed_action": "connect anode in green light bulb to metal fork",
+            "adapter_modified": true,
+            "adapter_reason": "fuzzy_keyword_match",
+            "observation": "anode on green light bulb is now connected to terminal 2 on metal fork",
+            "reward": 0
+          },
+          {
+            "step": 5,
+            "model_action": "connect green box to anode in orange light bulb",
+            "executed_action": "connect green box to anode in orange light bulb",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "terminal 1 on green box is now connected to anode on orange light bulb",
+            "reward": 0
+          },
+          {
+            "step": 6,
+            "model_action": "move orange light bulb to red box",
+            "executed_action": "move orange light bulb to red box",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "(disconnecting orange light bulb)You move the orange light bulb to the red box.",
+            "reward": 0
+          },
+          {
+            "step": 7,
+            "model_action": "move metal fork to green box",
+            "executed_action": "move metal fork to green box",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "(disconnecting metal fork)You move the metal fork to the green box.",
+            "reward": -160
+          }
+        ]
+      },
+      "rule_extraction": {
+        "executed_in_rollout_runner": false,
+        "reason_skipped": "source_task success == False (line 150 of run_environmental_consequences.py)",
+        "non_injection_reason": "NO_RULE_CREATED"
+      },
+      "boundary_b": {
+        "Cond_A_NoMemory": {
+          "episode_id": "rollout_chain_02_conductivity_fork_boundary_b_Cond_A_NoMemory",
+          "score": 100.0,
+          "success": true,
+          "num_steps": 7,
+          "term_reason": "success",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NOT_APPLICABLE",
+          "actions": [
+            "connect anode in red light bulb to glass jar",
+            "connect anode in green light bulb to red box",
+            "connect cathode in red light bulb to green box",
+            "focus on glass jar",
+            "move glass jar to green box"
+          ]
+        },
+        "Cond_B_RawTrajectory": {
+          "episode_id": "rollout_chain_02_conductivity_fork_boundary_b_Cond_B_RawTrajectory",
+          "score": 100.0,
+          "success": true,
+          "num_steps": 5,
+          "term_reason": "success",
+          "memory_injected": true,
+          "memory_exposure": {
+            "type": "raw_trajectory",
+            "retrieved_task": "test-conductivity",
+            "retrieved_variation": 300,
+            "overlap_score": 13,
+            "exposure_text": "### Reference Past Trajectory (from task: test-conductivity):\nTask Goal: Your task is to determine if metal fork is electrically conductive. The metal fork is located around the workshop. First, focus on the metal fork. If it is electrically conductive, place it in the red box. If it is electrically nonconductive, place it in the green box.\nOutcome: FAILED\nAction Sequence:\n  Step 1: Action: teleport to workshop\n  Step 2: Action: focus on metal fork\n  Step 3: Action: connect anode in red light bulb to metal fork\n  Step 4: Action: connect anode in green light bulb to metal fork\n  Step 5: Action: connect green box to anode in orange light bulb\n  Step 6: Action: move orange light bulb to red box\n  Step 7: Action: move metal fork to green box\n"
+          },
+          "rule_library_size": null,
+          "retrieval_result": {
+            "type": "raw_trajectory",
+            "retrieved_task": "test-conductivity",
+            "retrieved_variation": 300,
+            "overlap_score": 13,
+            "exposure_text": "### Reference Past Trajectory (from task: test-conductivity):\nTask Goal: Your task is to determine if metal fork is electrically conductive. The metal fork is located around the workshop. First, focus on the metal fork. If it is electrically conductive, place it in the red box. If it is electrically nonconductive, place it in the green box.\nOutcome: FAILED\nAction Sequence:\n  Step 1: Action: teleport to workshop\n  Step 2: Action: focus on metal fork\n  Step 3: Action: connect anode in red light bulb to metal fork\n  Step 4: Action: connect anode in green light bulb to metal fork\n  Step 5: Action: connect green box to anode in orange light bulb\n  Step 6: Action: move orange light bulb to red box\n  Step 7: Action: move metal fork to green box\n"
+          },
+          "condition_eval_records": [],
+          "non_injection_reason": "INJECTED_DEMO",
+          "actions": [
+            "connect anode in red light bulb to glass jar",
+            "connect anode in green light bulb to green box",
+            "move glass jar to green box"
+          ]
+        },
+        "Cond_C_GroundedRule": {
+          "episode_id": "rollout_chain_02_conductivity_fork_boundary_b_Cond_C_GroundedRule",
+          "score": 100.0,
+          "success": true,
+          "num_steps": 7,
+          "term_reason": "success",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": 0,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "connect anode in red light bulb to glass jar",
+            "connect anode in green light bulb to red box",
+            "connect cathode in red light bulb to green box",
+            "focus on glass jar",
+            "move glass jar to green box"
+          ]
+        },
+        "Cond_D_UnconditionedBlindRule": {
+          "episode_id": "rollout_chain_02_conductivity_fork_boundary_b_Cond_D_UnconditionedBlindRule",
+          "score": 100.0,
+          "success": true,
+          "num_steps": 7,
+          "term_reason": "success",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "connect anode in red light bulb to glass jar",
+            "connect anode in green light bulb to red box",
+            "connect cathode in red light bulb to green box",
+            "focus on glass jar",
+            "move glass jar to green box"
+          ]
+        }
+      },
+      "retention": {
+        "Cond_A_NoMemory": {
+          "episode_id": "rollout_chain_02_conductivity_fork_retention_Cond_A_NoMemory",
+          "score": 100.0,
+          "success": true,
+          "num_steps": 5,
+          "term_reason": "success",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "non_injection_reason": "NOT_APPLICABLE",
+          "actions": [
+            "connect anode in green light bulb to metal pot",
+            "connect metal pot to red box",
+            "move metal pot to red box"
+          ]
+        },
+        "Cond_C_GroundedRule": {
+          "episode_id": "rollout_chain_02_conductivity_fork_retention_Cond_C_GroundedRule",
+          "score": 100.0,
+          "success": true,
+          "num_steps": 5,
+          "term_reason": "success",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": 0,
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "connect anode in green light bulb to metal pot",
+            "connect metal pot to red box",
+            "move metal pot to red box"
+          ]
+        }
+      }
+    },
+    "chain_03_classification_living": {
+      "source_task": {
+        "episode_id": "col_chain_03_classification_living_src_living_03",
+        "task_name": "find-living-thing",
+        "variation": 1,
+        "target": "living thing",
+        "task_desc": "Your task is to find a(n) living thing. First, focus on the thing. Then, move it to the green box in the kitchen.",
+        "success": false,
+        "score": -100.0,
+        "num_steps": 6,
+        "steps": [
+          {
+            "step": 1,
+            "model_action": "teleport to kitchen",
+            "executed_action": "teleport to kitchen",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You teleport to the kitchen.",
+            "reward": 17
+          },
+          {
+            "step": 2,
+            "model_action": "move apple to green box",
+            "executed_action": "move apple to green box",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You move the apple to the green box.",
+            "reward": 0
+          },
+          {
+            "step": 3,
+            "model_action": "teleport to kitchen",
+            "executed_action": "teleport to kitchen",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You teleport to the kitchen.",
+            "reward": 0
+          },
+          {
+            "step": 4,
+            "model_action": "move apple to green box",
+            "executed_action": "move apple to green box",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You move the apple to the green box.",
+            "reward": 0
+          },
+          {
+            "step": 5,
+            "model_action": "teleport to kitchen",
+            "executed_action": "teleport to kitchen",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You teleport to the kitchen.",
+            "reward": 0
+          },
+          {
+            "step": 6,
+            "model_action": "focus on cup containing nothing in table",
+            "executed_action": "focus on cup containing nothing in table",
+            "adapter_modified": false,
+            "adapter_reason": "exact_match",
+            "observation": "You focus on the glass cup.",
+            "reward": -125
+          }
+        ]
+      },
+      "rule_extraction": {
+        "executed_in_rollout_runner": false,
+        "reason_skipped": "source_task success == False (line 150 of run_environmental_consequences.py)",
+        "non_injection_reason": "NO_RULE_CREATED"
+      },
+      "boundary_b": {
+        "Cond_A_NoMemory": {
+          "episode_id": "rollout_chain_03_classification_living_boundary_b_Cond_A_NoMemory",
+          "score": 25.0,
+          "success": false,
+          "num_steps": 7,
+          "term_reason": "timeout",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NOT_APPLICABLE",
+          "actions": [
+            "move cup containing nothing in table to green box",
+            "move bowl to cup containing nothing in green box",
+            "move tin cup to green box",
+            "move thermometer to green box",
+            "move bowl to green box",
+            "teleport to kitchen"
+          ]
+        },
+        "Cond_B_RawTrajectory": {
+          "episode_id": "rollout_chain_03_classification_living_boundary_b_Cond_B_RawTrajectory",
+          "score": 100.0,
+          "success": true,
+          "num_steps": 3,
+          "term_reason": "success",
+          "memory_injected": true,
+          "memory_exposure": {
+            "type": "raw_trajectory",
+            "retrieved_task": "find-living-thing",
+            "retrieved_variation": 1,
+            "overlap_score": 11,
+            "exposure_text": "### Reference Past Trajectory (from task: find-living-thing):\nTask Goal: Your task is to find a(n) living thing. First, focus on the thing. Then, move it to the green box in the kitchen.\nOutcome: FAILED\nAction Sequence:\n  Step 1: Action: teleport to kitchen\n  Step 2: Action: move apple to green box\n  Step 3: Action: teleport to kitchen\n  Step 4: Action: move apple to green box\n  Step 5: Action: teleport to kitchen\n  Step 6: Action: focus on cup containing nothing in table\n"
+          },
+          "rule_library_size": null,
+          "retrieval_result": {
+            "type": "raw_trajectory",
+            "retrieved_task": "find-living-thing",
+            "retrieved_variation": 1,
+            "overlap_score": 11,
+            "exposure_text": "### Reference Past Trajectory (from task: find-living-thing):\nTask Goal: Your task is to find a(n) living thing. First, focus on the thing. Then, move it to the green box in the kitchen.\nOutcome: FAILED\nAction Sequence:\n  Step 1: Action: teleport to kitchen\n  Step 2: Action: move apple to green box\n  Step 3: Action: teleport to kitchen\n  Step 4: Action: move apple to green box\n  Step 5: Action: teleport to kitchen\n  Step 6: Action: focus on cup containing nothing in table\n"
+          },
+          "condition_eval_records": [],
+          "non_injection_reason": "INJECTED_DEMO",
+          "actions": [
+            "focus on cup containing nothing in table",
+            "move cup containing nothing in table to green box"
+          ]
+        },
+        "Cond_C_GroundedRule": {
+          "episode_id": "rollout_chain_03_classification_living_boundary_b_Cond_C_GroundedRule",
+          "score": 25.0,
+          "success": false,
+          "num_steps": 7,
+          "term_reason": "timeout",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": 0,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "move cup containing nothing in table to green box",
+            "move bowl to cup containing nothing in green box",
+            "move tin cup to green box",
+            "move thermometer to green box",
+            "move bowl to green box",
+            "teleport to kitchen"
+          ]
+        },
+        "Cond_D_UnconditionedBlindRule": {
+          "episode_id": "rollout_chain_03_classification_living_boundary_b_Cond_D_UnconditionedBlindRule",
+          "score": 25.0,
+          "success": false,
+          "num_steps": 7,
+          "term_reason": "timeout",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "retrieval_result": null,
+          "condition_eval_records": [],
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "move cup containing nothing in table to green box",
+            "move bowl to cup containing nothing in green box",
+            "move tin cup to green box",
+            "move thermometer to green box",
+            "move bowl to green box",
+            "teleport to kitchen"
+          ]
+        }
+      },
+      "retention": {
+        "Cond_A_NoMemory": {
+          "episode_id": "rollout_chain_03_classification_living_retention_Cond_A_NoMemory",
+          "score": -100.0,
+          "success": false,
+          "num_steps": 2,
+          "term_reason": "fatal_penalty",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": null,
+          "non_injection_reason": "NOT_APPLICABLE",
+          "actions": [
+            "focus on cup containing nothing in table"
+          ]
+        },
+        "Cond_C_GroundedRule": {
+          "episode_id": "rollout_chain_03_classification_living_retention_Cond_C_GroundedRule",
+          "score": -100.0,
+          "success": false,
+          "num_steps": 2,
+          "term_reason": "fatal_penalty",
+          "memory_injected": false,
+          "memory_exposure": {
+            "status": "not_exposed_to_rule"
+          },
+          "rule_library_size": 0,
+          "non_injection_reason": "NO_RULE_CREATED",
+          "actions": [
+            "focus on cup containing nothing in table"
+          ]
+        }
+      }
+    }
+  }
+}
