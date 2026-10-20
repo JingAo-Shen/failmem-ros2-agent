@@ -93,32 +93,56 @@ Candidate Valid Actions (select one from these or construct a valid action):
             adapter_modified = True
             adapter_reason = "empty_or_non_string"
 
-        # If action not in valid actions, pick closest or first
+        # Action matching and transparent normalization
         clean_action = action.strip().lower()
         valid_lower = [v.lower() for v in valid_actions]
+
         if clean_action in valid_lower:
             idx = valid_lower.index(clean_action)
             action = valid_actions[idx]
+            adapter_reason = "exact_match"
         elif valid_actions:
-            # find candidate that contains key words or fallback to first
-            matched = False
-            for v in sample_actions:
-                if any(w in v for w in clean_action.split() if len(w) > 3):
-                    action = v
-                    matched = True
+            # 1. Place/put synonym normalization to move
+            if clean_action.startswith(("place ", "put ")):
+                cand = re.sub(r"^(?:place|put)\s+", "move ", clean_action)
+                cand_to = re.sub(r"\s+in\s+", " to ", cand)
+                if cand_to in valid_lower:
+                    action = valid_actions[valid_lower.index(cand_to)]
                     adapter_modified = True
-                    adapter_reason = "fuzzy_keyword_match"
-                    break
-            if not matched and sample_actions:
-                action = sample_actions[0]
-                adapter_modified = True
-                adapter_reason = "fallback_to_candidate_zero"
+                    adapter_reason = "synonym_place_in_to_move_to"
+                elif cand in valid_lower:
+                    action = valid_actions[valid_lower.index(cand)]
+                    adapter_modified = True
+                    adapter_reason = "synonym_place_to_move"
+                else:
+                    action = "look around" if "look around" in valid_actions else sample_actions[0]
+                    adapter_modified = True
+                    adapter_reason = "invalid_placement_fallback_look_around"
+            else:
+                # 2. Strict verb-preserving match (never turn a move/place into focus or vice-versa)
+                verb = clean_action.split()[0] if clean_action.split() else ""
+                matched = False
+                for v in sample_actions:
+                    if v.lower().startswith(verb):
+                        target_nouns = [w for w in clean_action.split() if len(w) > 3 and w != verb]
+                        if any(n in v.lower() for n in target_nouns):
+                            action = v
+                            matched = True
+                            adapter_modified = True
+                            adapter_reason = f"same_verb_match_{verb}"
+                            break
+                if not matched:
+                    # Neutral fallback to look around rather than executing an arbitrary action
+                    action = "look around" if "look around" in valid_actions else (sample_actions[0] if sample_actions else "look around")
+                    adapter_modified = True
+                    adapter_reason = "unmatched_action_neutral_fallback"
 
         action_telemetry = {
             "proposed_action": proposed_action,
             "executed_action": action,
             "adapter_modified": adapter_modified,
-            "adapter_reason": adapter_reason
+            "adapter_reason": adapter_reason,
+            "candidate_actions": sample_actions
         }
 
         return action, thought, stats, action_telemetry

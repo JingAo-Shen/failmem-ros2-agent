@@ -1,0 +1,143 @@
+{
+  "manifest_name": "frozen_attribution_manifest_v1",
+  "created_at": "2026-10-20T23:15:00Z",
+  "purpose": "Disentangle the source of failure trajectory transfer benefits across 6 conditions (A, B, C, D, E, F)",
+  "hypotheses": {
+    "H1": "Benefit primarily from action syntax and tool interface examples (tested by Condition C)",
+    "H2": "Benefit primarily from extra hints provided by source task description (tested by Condition E)",
+    "H3": "Benefit from longer context or general demonstration effect (tested by Condition D)",
+    "H4": "Benefit from task-relevant transferable interaction experience (tested by Condition B and F)"
+  },
+  "source_experiences": {
+    "src_group_1_conductivity": {
+      "task_name": "test-conductivity",
+      "variation": 0,
+      "target": "aluminum foil",
+      "task_desc": "Your task is to determine if aluminum foil is electrically conductive. The aluminum foil is located around the workshop. First, focus on the aluminum foil. If it is electrically conductive, place it in the red box. If it is electrically nonconductive, place it in the green box.",
+      "outcome": "FAILED",
+      "action_sequence": [
+        "teleport to workshop",
+        "focus on aluminum foil",
+        "connect aluminum foil to anode in red light bulb",
+        "connect anode in green light bulb to green box",
+        "focus on aluminum foil",
+        "connect aluminum foil to cathode in red light bulb",
+        "connect cathode in green light bulb to red box",
+        "move green light bulb to red box"
+      ],
+      "grounded_feedback_snippets": [
+        "Confirmed Navigation: 'teleport to workshop' reached the workshop.",
+        "Confirmed Focus: 'focus on aluminum foil' established focus on target.",
+        "Confirmed Circuit Connection: 'connect aluminum foil to anode in red light bulb' connected terminal 1 of target to bulb anode."
+      ]
+    },
+    "src_group_2_classification": {
+      "task_name": "find-living-thing",
+      "variation": 1,
+      "target": "living thing",
+      "task_desc": "Your task is to find a(n) living thing. First, focus on the thing. Then, move it to the green box in the kitchen.",
+      "outcome": "FAILED",
+      "action_sequence": [
+        "teleport to kitchen",
+        "move apple to green box",
+        "teleport to kitchen",
+        "move apple to green box",
+        "teleport to kitchen",
+        "focus on cup containing nothing in table"
+      ],
+      "grounded_feedback_snippets": [
+        "Confirmed Navigation: 'teleport to kitchen' reached the kitchen.",
+        "Confirmed Move: 'move apple to green box' placed object into destination container."
+      ]
+    },
+    "src_group_unrelated_thermo": {
+      "task_name": "melt",
+      "variation": 4,
+      "target": "ice",
+      "task_desc": "Your task is to melt ice.",
+      "outcome": "FAILED",
+      "action_sequence": [
+        "teleport to kitchen",
+        "focus on ice",
+        "connect ice to thermometer",
+        "focus on ice",
+        "connect ice to thermometer"
+      ]
+    }
+  },
+  "generic_interface_spec_c": "### Environment Action Interface & Usage Examples:\nScienceWorld actions follow standard grammatical templates:\n- Navigation: 'teleport to <room>' (e.g., 'teleport to kitchen', 'teleport to workshop')\n- Perception: 'focus on <object>' (e.g., 'focus on substance'), 'look around'\n- Manipulation: 'pick up <object>', 'drop <object>'\n- Movement: 'move <object> to <container>' (e.g., 'move apple to red box', 'move fork to table')\n- Interaction: 'open <container>', 'close <container>', 'activate <device>'\n- Connections: 'connect <object1> to <object2>' (e.g., 'connect wire to battery')\nSelect exactly one valid action from the provided candidates list.",
+  "target_tasks": [
+    {
+      "task_id": "T1_conductivity_paper_clip_workshop",
+      "task_family": "test-conductivity",
+      "task_name": "test-conductivity",
+      "variation": 460,
+      "target": "paper clip",
+      "source_group": "src_group_1_conductivity",
+      "expected_property": "conductive_metal"
+    },
+    {
+      "task_id": "T2_conductivity_apricot_kitchen",
+      "task_family": "test-conductivity",
+      "task_name": "test-conductivity",
+      "variation": 120,
+      "target": "apricot",
+      "source_group": "src_group_1_conductivity",
+      "expected_property": "non_conductive_organic"
+    },
+    {
+      "task_id": "T3_conductivity_metal_pot_kitchen",
+      "task_family": "test-conductivity",
+      "task_name": "test-conductivity",
+      "variation": 410,
+      "target": "metal pot",
+      "source_group": "src_group_1_conductivity",
+      "expected_property": "conductive_metal"
+    },
+    {
+      "task_id": "T4_conductivity_book_workshop",
+      "task_family": "test-conductivity",
+      "task_name": "test-conductivity",
+      "variation": 160,
+      "target": "book",
+      "source_group": "src_group_1_conductivity",
+      "expected_property": "non_conductive_paper"
+    },
+    {
+      "task_id": "T5_classification_living_bedroom_blue_box",
+      "task_family": "find-living-thing",
+      "task_name": "find-living-thing",
+      "variation": 20,
+      "target": "living thing",
+      "source_group": "src_group_2_classification",
+      "expected_property": "target_living"
+    },
+    {
+      "task_id": "T6_classification_living_kitchen_red_box",
+      "task_family": "find-living-thing",
+      "task_name": "find-living-thing",
+      "variation": 30,
+      "target": "living thing",
+      "source_group": "src_group_2_classification",
+      "expected_property": "target_living"
+    },
+    {
+      "task_id": "T7_classification_nonliving_bedroom_blue_box",
+      "task_family": "find-non-living-thing",
+      "task_name": "find-non-living-thing",
+      "variation": 20,
+      "target": "non-living thing",
+      "source_group": "src_group_2_classification",
+      "expected_property": "target_nonliving"
+    },
+    {
+      "task_id": "T8_classification_nonliving_kitchen_red_box",
+      "task_family": "find-non-living-thing",
+      "task_name": "find-non-living-thing",
+      "variation": 30,
+      "target": "non-living thing",
+      "source_group": "src_group_2_classification",
+      "expected_property": "target_nonliving"
+    }
+  ]
+}
