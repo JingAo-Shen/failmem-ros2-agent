@@ -260,6 +260,81 @@ class TestInterfaceAndConditions(unittest.TestCase):
         )
         self.assertEqual(res, ConditionResult.UNKNOWN, f"Disjoint history wiring must not prove fork conductive: {res} ({expl})")
 
+    def test_base_agent_history_modes(self):
+        """Verify history_mode='last5' vs 'all_steps' formatting behavior."""
+        from agents.base_agent import BaseAgent
+
+        captured_prompts = []
+        class DummyLLM:
+            def generate_json(self, prompt, system_prompt="", max_new_tokens=128):
+                captured_prompts.append(prompt)
+                return {"thought": "test", "action": "look around"}, {"input_tokens": 10, "output_tokens": 5}
+
+        llm = DummyLLM()
+        agent_last5 = BaseAgent(llm, adapter_mode="native", history_mode="last5")
+        agent_all = BaseAgent(llm, adapter_mode="native", history_mode="all_steps")
+
+        history_3 = [
+            ("teleport to workshop", "You teleport to workshop."),
+            ("look around", "You see a table."),
+            ("focus on paper clip", "You focus on paper clip.")
+        ]
+
+        # For <= 5 steps, prompts should be identical
+        captured_prompts.clear()
+        agent_last5.select_action("Task", "Obs", history_3, ["look around"])
+        agent_all.select_action("Task", "Obs", history_3, ["look around"])
+        self.assertEqual(captured_prompts[0], captured_prompts[1])
+
+        # For 7 steps, last5 only includes last 5, all_steps includes all 7
+        history_7 = [
+            (f"action_{i}", f"obs_{i}") for i in range(1, 8)
+        ]
+        captured_prompts.clear()
+        agent_last5.select_action("Task", "Obs", history_7, ["look around"])
+        agent_all.select_action("Task", "Obs", history_7, ["look around"])
+
+        p_last5 = captured_prompts[0]
+        p_all = captured_prompts[1]
+
+        self.assertNotIn("action_1", p_last5)
+        self.assertNotIn("action_2", p_last5)
+        self.assertIn("action_3", p_last5)
+        self.assertIn("action_7", p_last5)
+        self.assertIn("Step -5:", p_last5)
+        self.assertNotIn("Step -7:", p_last5)
+
+        self.assertIn("action_1", p_all)
+        self.assertIn("action_7", p_all)
+        self.assertIn("Step -7:", p_all)
+        self.assertIn("Step -1:", p_all)
+
+    def test_base_agent_native_adapter(self):
+        """Verify native adapter mode preserves exact model action with whitespace stripping only."""
+        from agents.base_agent import BaseAgent
+
+        class DummyLLM:
+            def __init__(self, action_to_return):
+                self.act = action_to_return
+            def generate_json(self, prompt, system_prompt="", max_new_tokens=128):
+                return {"thought": "t", "action": self.act}, {"input_tokens": 10, "output_tokens": 5}
+
+        # Raw pass-through
+        agent = BaseAgent(DummyLLM("  teleport to kitchen  \n"), adapter_mode="native")
+        act, _, _, telem = agent.select_action("Task", "Obs", [], ["look around"])
+        self.assertEqual(act, "teleport to kitchen")
+        self.assertTrue(telem["adapter_modified"])
+        self.assertEqual(telem["adapter_reason"], "native_passthrough")
+        self.assertFalse(telem["terminate_immediately"])
+
+        # Empty/non-string action triggers termination
+        agent_empty = BaseAgent(DummyLLM(""), adapter_mode="native")
+        act, _, _, telem = agent_empty.select_action("Task", "Obs", [], ["look around"])
+        self.assertIsNone(act)
+        self.assertTrue(telem["terminate_immediately"])
+        self.assertEqual(telem["adapter_reason"], "empty_or_non_string_terminate")
+
 
 if __name__ == "__main__":
     unittest.main()
+

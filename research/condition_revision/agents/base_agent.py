@@ -34,10 +34,11 @@ ILLEGAL_FOCUS_TARGETS = {
 
 
 class BaseAgent:
-    def __init__(self, llm_client, adapter_mode: str = "current"):
+    def __init__(self, llm_client, adapter_mode: str = "current", history_mode: str = "last5"):
         self.llm = llm_client
         self.name = "A_NoMemory"
         self.adapter_mode = adapter_mode
+        self.history_mode = history_mode
 
     def select_action(
         self,
@@ -50,7 +51,10 @@ class BaseAgent:
         # Format history
         hist_str = ""
         if history:
-            recent = history[-5:]
+            if self.history_mode == "all_steps":
+                recent = history
+            else:
+                recent = history[-5:]
             hist_lines = []
             for i, item in enumerate(recent):
                 if isinstance(item, (list, tuple)) and len(item) >= 2:
@@ -275,6 +279,7 @@ Candidate Valid Actions (select one from these or construct a valid action):
             "alias_applied": alias_applied,
             "adapter_reason": adapter_reason,
             "candidate_actions": sample_actions,
+            "history_mode": self.history_mode,
             "proposed_action_in_candidate_list": (proposed_action.strip().lower() in [s.lower() for s in sample_actions]),
             "executed_action_equals_trimmed_proposed": (action == proposed_action.strip()) if action is not None else False,
             "terminate_immediately": (action is None)

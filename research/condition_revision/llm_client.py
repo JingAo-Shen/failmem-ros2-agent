@@ -121,3 +121,20 @@ class LLMClient:
             "total_latency_seconds": round(self.total_latency_seconds, 2),
             "avg_latency_per_call": round(self.total_latency_seconds / max(1, self.total_calls), 3)
         }
+
+    def get_model_metadata(self) -> Dict[str, Any]:
+        first_param = next(self.model.parameters(), None)
+        return {
+            "model_class": f"{self.model.__class__.__module__}.{self.model.__class__.__name__}",
+            "model_config_name_or_path": getattr(self.model.config, "_name_or_path", str(self.model_path)),
+            "tokenizer_name_or_path": getattr(self.tokenizer, "name_or_path", str(self.model_path)),
+            "tokenizer_class": f"{self.tokenizer.__class__.__module__}.{self.tokenizer.__class__.__name__}",
+            "parameter_dtype": str(first_param.dtype) if first_param is not None else "unknown",
+            "generation_parameters": {
+                "do_sample": False,
+                "temperature": None,
+                "max_new_tokens": 128,
+                "pad_token_id": self.tokenizer.eos_token_id
+            }
+        }
+
