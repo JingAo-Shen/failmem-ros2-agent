@@ -1,0 +1,137 @@
+{
+  "hardware_and_capacity": {
+    "gpu": {
+      "count": 1,
+      "devices": [
+        {
+          "model": "NVIDIA GeForce RTX 2080 Ti",
+          "total_vram_mib": 22528.0,
+          "free_vram_mib": 21775.0,
+          "used_vram_mib": 224.0,
+          "total_vram_gib": 22.0,
+          "free_vram_gib": 21.26
+        }
+      ]
+    },
+    "system_memory": {
+      "mem_total_raw": "32701424 kB",
+      "mem_free_raw": "1617764 kB",
+      "mem_available_raw": "9814328 kB",
+      "mem_total_gib": 31.19,
+      "mem_available_gib": 9.36
+    },
+    "model_directory_disk": {
+      "path": "/models",
+      "total_bytes": 789695692800,
+      "free_bytes": 693570371584,
+      "total_gib": 735.46,
+      "free_gib": 645.94
+    }
+  },
+  "existing_local_models": [
+    {
+      "directory": "/models/Qwen2.5-Coder-7B-Instruct",
+      "config_found": true,
+      "model_type": "qwen2",
+      "architectures": [
+        "Qwen2ForCausalLM"
+      ],
+      "torch_dtype": "bfloat16",
+      "num_hidden_layers": 28,
+      "hidden_size": 3584,
+      "quantization_config_exists": false,
+      "quantization_config_raw": null,
+      "weights_complete": true,
+      "weight_files_count": 4,
+      "weight_files": [
+        "model-00001-of-00004.safetensors",
+        "model-00002-of-00004.safetensors",
+        "model-00003-of-00004.safetensors",
+        "model-00004-of-00004.safetensors"
+      ],
+      "total_weight_bytes": 15231271864,
+      "total_weight_gib": 14.185
+    },
+    {
+      "directory": "/models/Qwen3-14B-AWQ",
+      "config_found": true,
+      "model_type": "qwen3",
+      "architectures": [
+        "Qwen3ForCausalLM"
+      ],
+      "torch_dtype": "float16",
+      "num_hidden_layers": 40,
+      "hidden_size": 5120,
+      "quantization_config_exists": true,
+      "quantization_config_raw": {
+        "bits": 4,
+        "group_size": 128,
+        "modules_to_not_convert": null,
+        "quant_method": "awq",
+        "version": "gemm",
+        "zero_point": true
+      },
+      "weights_complete": true,
+      "weight_files_count": 2,
+      "weight_files": [
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors"
+      ],
+      "total_weight_bytes": 9976690240,
+      "total_weight_gib": 9.292
+    }
+  ],
+  "huggingface_hub_cache_status": [
+    {
+      "hub_repo_dir": "models--Qwen--Qwen2.5-Coder-0.5B-Instruct",
+      "snapshot_path": "/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-0.5B-Instruct/snapshots/ea3f2471cf1b1f0db85067f1ef93848e38e88c25",
+      "config_exists": true,
+      "weight_files_count": 0,
+      "weights_present": false,
+      "status": "config_only_incomplete_cache"
+    },
+    {
+      "hub_repo_dir": "models--Qwen--Qwen2.5-Coder-3B-Instruct",
+      "snapshot_path": "/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-3B-Instruct/snapshots/488639f1ff808d1d3d0ba301aef8c11461451ec5",
+      "config_exists": true,
+      "weight_files_count": 0,
+      "weights_present": false,
+      "status": "config_only_incomplete_cache"
+    },
+    {
+      "hub_repo_dir": "models--Qwen--Qwen2.5-Coder-7B-Instruct",
+      "snapshot_path": "/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
+      "config_exists": true,
+      "weight_files_count": 0,
+      "weights_present": false,
+      "status": "config_only_incomplete_cache"
+    }
+  ],
+  "software_environment": {
+    "torch": "2.10.0",
+    "transformers": "5.17.0",
+    "accelerate": "1.15.0",
+    "bitsandbytes": null,
+    "auto-gptq": null,
+    "autoawq": "0.2.9",
+    "vllm": null,
+    "llama-cpp-python": null
+  },
+  "currently_verified_runtime_configuration": {
+    "source_file": "/code/failmem-ros2-agent/research/condition_revision/history_window_comparison/live_model_metadata.json",
+    "scope_qualification": "This record verifies the live loaded model object for the history window comparison experiment (R15-R18, commit 26f8ac0). It does not serve as retroactive proof for historical runs prior to batch 9.",
+    "live_model_metadata": {
+      "model_class": "transformers.models.qwen2.modeling_qwen2.Qwen2ForCausalLM",
+      "model_config_name_or_path": "/models/Qwen2.5-Coder-7B-Instruct",
+      "tokenizer_name_or_path": "/models/Qwen2.5-Coder-7B-Instruct",
+      "tokenizer_class": "transformers.models.qwen2.tokenization_qwen2.Qwen2Tokenizer",
+      "parameter_dtype": "torch.bfloat16",
+      "generation_parameters": {
+        "do_sample": false,
+        "temperature": null,
+        "max_new_tokens": 128,
+        "pad_token_id": 151645
+      }
+    }
+  }
+}
