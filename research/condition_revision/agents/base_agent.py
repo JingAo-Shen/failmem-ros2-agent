@@ -89,7 +89,16 @@ Candidate Valid Actions (select one from these or construct a valid action):
         adapter_reason = "exact_match"
 
         alias_applied = False
-        if self.adapter_mode in ("strict", "strict_alias"):
+        if self.adapter_mode == "native":
+            if not action or not isinstance(action, str) or not action.strip():
+                action = None
+                adapter_modified = True
+                adapter_reason = "empty_or_non_string_terminate"
+            else:
+                action = action.strip()
+                adapter_modified = (action != proposed_action)
+                adapter_reason = "native_passthrough"
+        elif self.adapter_mode in ("strict", "strict_alias"):
             clean_action = proposed_action.strip().lower()
             valid_lower = [v.lower() for v in valid_actions]
 
@@ -266,6 +275,8 @@ Candidate Valid Actions (select one from these or construct a valid action):
             "alias_applied": alias_applied,
             "adapter_reason": adapter_reason,
             "candidate_actions": sample_actions,
+            "proposed_action_in_candidate_list": (proposed_action.strip().lower() in [s.lower() for s in sample_actions]),
+            "executed_action_equals_trimmed_proposed": (action == proposed_action.strip()) if action is not None else False,
             "terminate_immediately": (action is None)
         }
 
