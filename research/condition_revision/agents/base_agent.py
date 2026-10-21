@@ -88,7 +88,8 @@ Candidate Valid Actions (select one from these or construct a valid action):
         adapter_modified = False
         adapter_reason = "exact_match"
 
-        if self.adapter_mode == "strict":
+        alias_applied = False
+        if self.adapter_mode in ("strict", "strict_alias"):
             clean_action = proposed_action.strip().lower()
             valid_lower = [v.lower() for v in valid_actions]
 
@@ -110,6 +111,60 @@ Candidate Valid Actions (select one from these or construct a valid action):
                 action = valid_actions[idx]
                 adapter_modified = (action != proposed_action)
                 adapter_reason = "exact_match"
+            elif self.adapter_mode == "strict_alias" and clean_action.startswith(("focus ", "move ", "place ", "put ")) and "book (the foundations of the origin of species)" in clean_action:
+                aliased = clean_action.replace("book (the foundations of the origin of species)", "book")
+                if aliased.startswith(("place ", "put ")):
+                    m_in = re.match(r"^(?:place|put)\s+(.+?)\s+in\s+(.+)$", aliased)
+                    m_to = re.match(r"^(?:place|put)\s+(.+?)\s+to\s+(.+)$", aliased)
+                    converted = None
+                    reason_tag = ""
+                    if m_in:
+                        obj = m_in.group(1).strip()
+                        dest = m_in.group(2).strip()
+                        converted = f"move {obj} to {dest}"
+                        reason_tag = "alias_and_synonym_place_in_to_move_to"
+                    elif m_to:
+                        obj = m_to.group(1).strip()
+                        dest = m_to.group(2).strip()
+                        converted = f"move {obj} to {dest}"
+                        reason_tag = "alias_and_synonym_place_to_to_move_to"
+
+                    if converted and converted in valid_lower:
+                        idx = valid_lower.index(converted)
+                        action = valid_actions[idx]
+                        adapter_modified = True
+                        alias_applied = True
+                        adapter_reason = reason_tag
+                    elif aliased in valid_lower:
+                        idx = valid_lower.index(aliased)
+                        action = valid_actions[idx]
+                        adapter_modified = True
+                        alias_applied = True
+                        adapter_reason = "alias_book_name_normalized"
+                    else:
+                        if look_around_action:
+                            action = look_around_action
+                            adapter_modified = True
+                            adapter_reason = "unmatched_placement_fallback_look_around"
+                        else:
+                            action = None
+                            adapter_modified = True
+                            adapter_reason = "unmatched_placement_look_around_unavailable_terminate"
+                elif aliased in valid_lower:
+                    idx = valid_lower.index(aliased)
+                    action = valid_actions[idx]
+                    adapter_modified = True
+                    alias_applied = True
+                    adapter_reason = "alias_book_name_normalized"
+                else:
+                    if look_around_action:
+                        action = look_around_action
+                        adapter_modified = True
+                        adapter_reason = "unmatched_alias_fallback_look_around"
+                    else:
+                        action = None
+                        adapter_modified = True
+                        adapter_reason = "unmatched_look_around_unavailable_terminate"
             elif clean_action.startswith(("place ", "put ")):
                 m_in = re.match(r"^(?:place|put)\s+(.+?)\s+in\s+(.+)$", clean_action)
                 m_to = re.match(r"^(?:place|put)\s+(.+?)\s+to\s+(.+)$", clean_action)
@@ -208,6 +263,7 @@ Candidate Valid Actions (select one from these or construct a valid action):
             "proposed_action": proposed_action,
             "executed_action": action,
             "adapter_modified": adapter_modified,
+            "alias_applied": alias_applied,
             "adapter_reason": adapter_reason,
             "candidate_actions": sample_actions,
             "terminate_immediately": (action is None)
