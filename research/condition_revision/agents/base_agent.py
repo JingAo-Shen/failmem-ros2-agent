@@ -5,7 +5,7 @@ Provides disciplined candidate filtering preventing illegal room-focus actions,
 and tracks proposed vs executed action telemetry.
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import json
 import re
 
@@ -34,11 +34,12 @@ ILLEGAL_FOCUS_TARGETS = {
 
 
 class BaseAgent:
-    def __init__(self, llm_client, adapter_mode: str = "current", history_mode: str = "last5"):
+    def __init__(self, llm_client, adapter_mode: str = "current", history_mode: str = "last5", max_new_tokens: Optional[int] = None):
         self.llm = llm_client
         self.name = "A_NoMemory"
         self.adapter_mode = adapter_mode
         self.history_mode = history_mode
+        self.max_new_tokens = max_new_tokens
 
     def select_action(
         self,
@@ -84,7 +85,10 @@ Candidate Valid Actions (select one from these or construct a valid action):
         if extra_context:
             user_prompt = f"{extra_context}\n\n{user_prompt}"
 
-        parsed_json, stats = self.llm.generate_json(user_prompt, system_prompt=SYSTEM_PROMPT, max_new_tokens=128)
+        gen_kwargs = {}
+        if self.max_new_tokens is not None:
+            gen_kwargs["max_new_tokens"] = self.max_new_tokens
+        parsed_json, stats = self.llm.generate_json(user_prompt, system_prompt=SYSTEM_PROMPT, **gen_kwargs)
         thought = parsed_json.get("thought", "")
         action = parsed_json.get("action", "")
 

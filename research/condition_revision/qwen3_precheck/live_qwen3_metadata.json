@@ -1,0 +1,32 @@
+{
+  "model_wrapper_class": "awq.models.qwen3.Qwen3AWQForCausalLM",
+  "underlying_model_class": "transformers.models.qwen3.modeling_qwen3.Qwen3ForCausalLM",
+  "model_config_name_or_path": "/models/Qwen3-14B-AWQ",
+  "tokenizer_class": "transformers.models.qwen2.tokenization_qwen2.Qwen2Tokenizer",
+  "tokenizer_name_or_path": "/models/Qwen3-14B-AWQ",
+  "quantization_config": {
+    "bits": 4,
+    "group_size": 128,
+    "modules_to_not_convert": null,
+    "quant_method": "awq",
+    "version": "gemm",
+    "zero_point": true
+  },
+  "quantized_layer_types": [
+    "awq.modules.linear.gemm.WQLinear_GEMM"
+  ],
+  "device_distribution": {
+    "cuda:0": 163
+  },
+  "non_quantized_parameter_dtype": "torch.float16",
+  "chat_template_enable_thinking": false,
+  "generation_parameters": {
+    "do_sample": true,
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 20,
+    "max_new_tokens": 256,
+    "pad_token_id": 151645
+  },
+  "peak_vram_gib": 10.861
+}
