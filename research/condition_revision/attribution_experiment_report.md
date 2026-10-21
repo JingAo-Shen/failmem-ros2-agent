@@ -6,6 +6,9 @@
 **基准模型**：`Qwen2.5-Coder-7B-Instruct`（贪婪解码，温度 0.0）  
 **运行记录目录**：`research/condition_revision/runs/run_20261020_232315_P1_attribution_experiment/`
 
+> [!NOTE]
+> **状态标注（待复核 / Pending Verification）**：本报告包含的历史原始数据保持不变。报告中所述的因果机制解释与全面终止结论暂标记为“待复核”，正在开展针对 T1 任务与动作适配器影响的独立复核实验。
+
 ---
 
 ## 1. 核心研究问题与对立假设

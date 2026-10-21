@@ -79,6 +79,7 @@ class LLMClient:
 
     def generate_json(self, user_prompt: str, system_prompt: str = "", max_new_tokens: int = 256) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raw_text, stats = self.generate(user_prompt, system_prompt, max_new_tokens=max_new_tokens)
+        stats["raw_text"] = raw_text
         parsed = self._extract_json(raw_text)
         if parsed is not None:
             return parsed, stats
@@ -86,6 +87,7 @@ class LLMClient:
         # Retry once if JSON was invalid
         retry_prompt = f"{user_prompt}\n\nPREVIOUS OUTPUT WAS INVALID JSON:\n{raw_text}\nPlease output ONLY valid JSON."
         raw_text2, stats2 = self.generate(retry_prompt, system_prompt, max_new_tokens=max_new_tokens)
+        stats2["raw_text"] = raw_text2
         parsed2 = self._extract_json(raw_text2)
         if parsed2 is not None:
             return parsed2, stats2
