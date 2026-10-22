@@ -334,7 +334,38 @@ class TestInterfaceAndConditions(unittest.TestCase):
         self.assertTrue(telem["terminate_immediately"])
         self.assertEqual(telem["adapter_reason"], "empty_or_non_string_terminate")
 
+    def test_base_agent_prompt_mode_no_candidates(self):
+        """Verify prompt_mode='no_candidates' omits candidates and uses modified system prompt."""
+        from agents.base_agent import BaseAgent
+
+        class DummyLLM:
+            def __init__(self):
+                self.last_user_prompt = ""
+                self.last_sys_prompt = ""
+            def generate_json(self, prompt, system_prompt="", max_new_tokens=256):
+                self.last_user_prompt = prompt
+                self.last_sys_prompt = system_prompt
+                return {"thought": "t", "action": "look around"}, {"input_tokens": 10, "output_tokens": 5}
+
+        llm = DummyLLM()
+        # Default mode (with candidates)
+        agent_default = BaseAgent(llm, prompt_mode="default")
+        agent_default.select_action("Find foil", "You see table.", [], ["teleport to workshop", "look around"])
+        self.assertIn("Candidate Valid Actions", llm.last_user_prompt)
+        self.assertIn("teleport to workshop", llm.last_user_prompt)
+        self.assertIn("from the candidate valid actions", llm.last_sys_prompt)
+
+        # No candidates mode
+        agent_no_cand = BaseAgent(llm, prompt_mode="no_candidates")
+        _, _, _, telem = agent_no_cand.select_action("Find foil", "You see table.", [], ["teleport to workshop", "look around"])
+        self.assertNotIn("Candidate Valid Actions", llm.last_user_prompt)
+        self.assertNotIn("teleport to workshop", llm.last_user_prompt)
+        self.assertIn("Choose the single most effective valid action.", llm.last_sys_prompt)
+        self.assertNotIn("from the candidate valid actions", llm.last_sys_prompt)
+        self.assertEqual(telem["prompt_mode"], "no_candidates")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

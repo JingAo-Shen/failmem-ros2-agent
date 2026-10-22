@@ -27,6 +27,21 @@ Output ONLY a JSON object with this exact schema:
 }
 """
 
+SYSTEM_PROMPT_NO_CANDIDATES = """You are an intelligent agent interacting with the ScienceWorld scientific virtual environment.
+Your objective is to complete the specified task step by step.
+
+Guidelines:
+1. Check the task description for the target object and its location. To navigate to a room, use 'teleport to <room>' (e.g. 'teleport to kitchen' or 'teleport to workshop').
+2. NEVER use 'focus on <room>' (e.g. never 'focus on kitchen', never 'focus on workshop'). In ScienceWorld, focusing on a room or door is illegal and causes failure. Focus ONLY on specific physical target objects (e.g. 'focus on ice', 'focus on water', 'focus on aluminum foil').
+3. Choose the single most effective valid action.
+
+Output ONLY a JSON object with this exact schema:
+{
+  "thought": "Your concise step-by-step reasoning",
+  "action": "the exact action string to execute"
+}
+"""
+
 
 ILLEGAL_FOCUS_TARGETS = {
     "door", "air", "hallway", "room", "agent", "wall", "ceiling", "floor"
@@ -34,12 +49,20 @@ ILLEGAL_FOCUS_TARGETS = {
 
 
 class BaseAgent:
-    def __init__(self, llm_client, adapter_mode: str = "current", history_mode: str = "last5", max_new_tokens: Optional[int] = None):
+    def __init__(
+        self,
+        llm_client,
+        adapter_mode: str = "current",
+        history_mode: str = "last5",
+        max_new_tokens: Optional[int] = None,
+        prompt_mode: str = "default"
+    ):
         self.llm = llm_client
         self.name = "A_NoMemory"
         self.adapter_mode = adapter_mode
         self.history_mode = history_mode
         self.max_new_tokens = max_new_tokens
+        self.prompt_mode = prompt_mode
 
     def select_action(
         self,
@@ -67,10 +90,23 @@ class BaseAgent:
         else:
             hist_str = "None (Initial Step)"
 
-        # Sample valid actions to show in prompt (up to 25 relevant candidates)
+        # Sample valid actions to show in prompt or log in telemetry
         sample_actions = self._filter_candidate_actions(valid_actions, task_desc, current_obs)
 
-        user_prompt = f"""Task Description:
+        if self.prompt_mode == "no_candidates":
+            sys_prompt = SYSTEM_PROMPT_NO_CANDIDATES
+            user_prompt = f"""Task Description:
+{task_desc}
+
+Current Observation:
+{current_obs}
+
+Recent Execution History:
+{hist_str}
+"""
+        else:
+            sys_prompt = SYSTEM_PROMPT
+            user_prompt = f"""Task Description:
 {task_desc}
 
 Current Observation:
@@ -88,7 +124,7 @@ Candidate Valid Actions (select one from these or construct a valid action):
         gen_kwargs = {}
         if self.max_new_tokens is not None:
             gen_kwargs["max_new_tokens"] = self.max_new_tokens
-        parsed_json, stats = self.llm.generate_json(user_prompt, system_prompt=SYSTEM_PROMPT, **gen_kwargs)
+        parsed_json, stats = self.llm.generate_json(user_prompt, system_prompt=sys_prompt, **gen_kwargs)
         thought = parsed_json.get("thought", "")
         action = parsed_json.get("action", "")
 
@@ -273,8 +309,9 @@ Candidate Valid Actions (select one from these or construct a valid action):
                         adapter_reason = "unmatched_action_neutral_fallback"
 
         action_telemetry = {
-            "system_prompt": SYSTEM_PROMPT,
+            "system_prompt": sys_prompt,
             "user_prompt": user_prompt,
+            "prompt_mode": self.prompt_mode,
             "raw_response": stats.get("raw_text", ""),
             "parsed_response": parsed_json,
             "proposed_action": proposed_action,

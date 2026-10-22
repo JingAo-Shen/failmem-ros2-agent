@@ -108,6 +108,7 @@ class Qwen3AWQClient:
         raw_text, stats = self.generate(user_prompt, system_prompt, max_new_tokens=max_new_tokens)
         stats["raw_text"] = raw_text
         stats["attempts"] = 1
+        stats["calls_used"] = 1
         parsed = self._extract_json(raw_text)
         if parsed is not None:
             return parsed, stats
@@ -118,6 +119,7 @@ class Qwen3AWQClient:
         stats2["raw_text"] = raw_text2
         stats2["raw_text_first_attempt"] = raw_text
         stats2["attempts"] = 2
+        stats2["calls_used"] = 2
         # Cumulative tokens for the JSON request
         stats2["input_tokens"] += stats["input_tokens"]
         stats2["output_tokens"] += stats["output_tokens"]

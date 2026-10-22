@@ -2,27 +2,29 @@
 
 > [!IMPORTANT]
 > **当前状态说明**：
-> 当前Qwen2.5-Coder-7B-Instruct配置的开发诊断暂停。最近历史窗口对照四轮均未完成任务，尚不足以支持失败记忆机制评价。此结论仅针对当前实验配置，不推广至整个失败记忆研究方向。
+> Qwen3-14B-AWQ 无候选列表诊断（N1–N6）已完成，成功率 0/6，未达成至少 4/6 成功且 melt/boil 至少一项成功的准入门槛。根据预设停止条件，标记为 **LOCAL_BASELINE_QUALIFICATION_FAILED**。暂停当前本地配置的进一步调参与任务扩展，不恢复 P2，等待后续研究决策。
 
-**更新时间**：2026-10-21  
-**当前阶段**：**配置开发诊断暂停与本机资源清点**  
-**当前状态**：**开发诊断暂停 (Development Diagnosis Paused)**  
+**更新时间**：2026-10-22  
+**当前阶段**：**Qwen3 无候选列表诊断（N1–N6）与基线准入评定**  
+**当前状态**：**LOCAL_BASELINE_QUALIFICATION_FAILED**  
 **基准分支**：`research/counterexample-condition-revision`  
 
 ---
 
 ## 1. 现行结论事实说明 (Current Factual Status)
 
-- **当前开发状态**：Qwen2.5-Coder-7B-Instruct 配置的开发诊断已暂停；目前正在执行候选规划器 Qwen3-14B-AWQ 的无记忆基础能力预检。
-- **事实记录**：在 Qwen2.5-Coder-7B-Instruct 的严格受控实验中，历史窗口对照（R15–R18）与多轮交互均未能在测试变体上达成稳定任务成功，当前实测数据尚不足以对失败记忆机制提供充分的判定支持。
-- **历史解释撤回说明**：此前报告中关于“完全证实长度/缓冲效应”、“全面否定失败轨迹价值”等解释性推论，已被正式标记为**已撤回的历史解释 (Withdrawn Historical Interpretations)**，仅作为特定早期实验配置下的观测记录留存，不再作为当前有效的研究结论。
+- **Qwen3 基础能力预检事实**：
+  - 在有候选列表的 C1–C6 预检中，达成 2/6 任务成功（C1 导电var0: 100分，C2 导电var460: 100分；其余 C3: 60分, C4: 60分, C5: -100分, C6: -100分）；
+  - 在无候选列表（`prompt_mode="no_candidates"`）的 N1–N6 诊断中，达成 0/6 任务成功（N1: 60分, N2: 55分, N3: 60分, N4: 60分, N5: 3分, N6: -100分）；
+  - 移除人工排序候选动作列表后，未出现达到预设门槛的基础能力改善，准入标记为 `LOCAL_BASELINE_QUALIFICATION_FAILED`。
+- **历史解释撤回说明**：此前早期报告中关于“完全证实长度/缓冲效应”、“全面否定失败轨迹价值”等解释性推论，已被正式标记为**已撤回的历史解释 (Withdrawn Historical Interpretations)**，仅作为早期实验记录留存，不再作为当前结论。
 
 ---
 
 ## 2. 决策与规划记录 (Decision Records)
 
-- **阶段决策**：原基于自然失败轨迹条件修订的特定方法扩展继续封存，不自动恢复 P2 架构扩展。
-- **当前方向**：在独立、无记忆、原生动作直通基线下，先完成候选规划器（Qwen3-14B-AWQ）的多任务基础环境交互预检，依据客观执行记录确定后续能力基线。
+- **停止与暂停**：按照预设规则，六项完成后立即停止，不自动追加实验，不恢复 P2。暂停当前本地配置的进一步调参与任务扩展。
+- **结论边界**：候选列表移除后的结果仅作为当前配置开发诊断，不宣称候选排序是失败的唯一原因，不作为独立验证。
 
 ---
 
@@ -41,16 +43,20 @@
 4. **判别实验分析报告**：[`attribution_experiment_report.md`](file:///code/failmem-ros2-agent/research/condition_revision/attribution_experiment_report.md)
 5. **严谨的接地语义判定器与回归套件**：
    - [`condition_evaluator.py`](file:///code/failmem-ros2-agent/research/condition_revision/condition_evaluator.py)
-   - [`test_interface_and_conditions.py`](file:///code/failmem-ros2-agent/research/condition_revision/tests/test_interface_and_conditions.py)（14/14 测试全部通过）。
+   - [`test_interface_and_conditions.py`](file:///code/failmem-ros2-agent/research/condition_revision/tests/test_interface_and_conditions.py)（17/17 测试全部通过）。
 
 ---
 
 ## 4. 累计资源消耗最终核算 (Final Resource Accounting)
 
 - **总硬上限**：3,000 Episodes / 150,000 Model Calls / 120.0 GPU Hours
-- **累计实际消耗总计**：
-  - **总轮次**：**129 Episodes**（占硬上限 4.3%）
-  - **总调用**：**675 LLM Calls**（占硬上限 0.45%）
-  - **总 Tokens**：**482,996 Tokens**
-  - **总耗时**：**3,090.5s (~51.5 分钟，占 GPU 预算 0.72%)**
-- **预算合规性**：**100% 严格在预算红线内执行，无任何超额消耗**。
+- **统计口径**：
+  - **P0 基础校准**：8 episodes, 35 calls, 22,135 tokens, 177.4s (COMPLETED)
+  - **P1 归因、复核与基线诊断（Batches 2–12）**：153 episodes, 1248 calls, 1,007,907 tokens, 10,229.2s (预算 160 episodes，已消耗 153，剩余 7 episodes)
+- **累计实际消耗总计（P0 + P1）**：
+  - **总轮次**：**161 Episodes**（占总硬上限 5.37%）
+  - **总调用**：**1283 LLM Calls**（占总硬上限 0.86%）
+  - **总 Tokens**：**1,030,042 Tokens**
+  - **总耗时**：**10,406.6s (~173.4 分钟，约 2.89 GPU 小时，占 GPU 预算 2.41%)**
+- **预算合规性**：**100% 严格在预算红线内执行，无超额消耗，剩余 7 个 P1 episodes 预算保留**。
+
