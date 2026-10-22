@@ -1,8 +1,9 @@
-# Runtime Inventory & Pause Status Execution Notes
-- **Status Update**: Added pause statement to `research_status.md` header for current Qwen2.5-Coder-7B-Instruct configuration.
-- **Inventory Generated**: Inspected hardware, models, software versions, and verified live runtime config in `runtime_inventory.json`.
-- **Hardware**: 1x RTX 2080 Ti (22.0 GiB VRAM, 21.26 GiB free), 31.19 GiB system RAM (9.36 GiB available), /models disk has 645.94 GiB free.
-- **Local Models**: /models/Qwen2.5-Coder-7B-Instruct (bfloat16, 28 layers, 14.185 GiB, complete) and /models/Qwen3-14B-AWQ (int4 AWQ, 40 layers, 9.292 GiB, complete).
-- **Software**: torch 2.10.0, transformers 5.17.0, accelerate 1.15.0, autoawq 0.2.9; others (vllm, bitsandbytes, etc.) null.
-- **Runtime Config**: Recorded reference to live_model_metadata.json (qualifying it specifically to batch 9).
-- **Accounting**: 0 new episodes, 0 model calls, ledger budget preserved with 19 P1 episodes remaining.
+# Strong Planner Offline Backend Preparation Execution Notes
+- **Stage**: OFFLINE_BACKEND_PREPARATION_COMPLETE (Local baseline qualification remains LOCAL_BASELINE_QUALIFICATION_FAILED).
+- **Accounting**: 0 environment episodes executed, 0 live model calls, 0 tokens consumed.
+- **P1 Budget**: Strictly preserved at 153/160 episodes consumed, exactly 7 episodes remaining reserved for planner admission testing.
+- **Implementation**: Created RemoteLLMClient with OpenAI-compatible JSON format, default network blocking, and fail-fast configuration check.
+- **Prompt Mode**: Added BaseAgent prompt_mode="action_templates" with ScienceWorld 27 action syntax templates and fixed disclaimer.
+- **Test Suite**: Created tests/test_remote_planner_offline.py (all 8 new tests passing, 25/25 total test suite passing).
+- **Documentation**: Delivered counterexample_revision_protocol.md, offline_backend_preparation_guide.md, and config example.
+- **Security**: No credentials stored; default mock transport enforced; fail-fast error without local model fallback.

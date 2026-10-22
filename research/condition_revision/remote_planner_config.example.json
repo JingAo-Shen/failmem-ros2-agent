@@ -1,0 +1,21 @@
+{
+  "_comment": "Example configuration for remote strong planner client. DO NOT store actual API keys in this file. The client reads keys strictly from environment variables.",
+  "endpoint": "https://api.openai.com/v1/chat/completions",
+  "model_id": "gpt-4o",
+  "api_key_env_var": "REMOTE_PLANNER_API_KEY",
+  "timeout": 60.0,
+  "allow_live_network": false,
+  "generation_params": {
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "max_tokens": 256
+  },
+  "notes": {
+    "protocol": "OpenAI-compatible /v1/chat/completions JSON REST protocol",
+    "security": "Set export REMOTE_PLANNER_API_KEY='sk-...' in your shell before enabling allow_live_network=true. Never commit secrets.",
+    "hard_limits": {
+      "max_episodes_p1_admission": 7,
+      "max_cost_usd_cap": 10.0
+    }
+  }
+}

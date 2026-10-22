@@ -42,6 +42,51 @@ Output ONLY a JSON object with this exact schema:
 }
 """
 
+SYSTEM_PROMPT_ACTION_TEMPLATES = """You are an intelligent agent interacting with the ScienceWorld scientific virtual environment.
+Your objective is to complete the specified task step by step.
+
+Guidelines:
+1. Check the task description for the target object and its location. To navigate to a room, use 'teleport to <room>' (e.g. 'teleport to kitchen' or 'teleport to workshop').
+2. NEVER use 'focus on <room>' (e.g. never 'focus on kitchen', never 'focus on workshop'). In ScienceWorld, focusing on a room or door is illegal and causes failure. Focus ONLY on specific physical target objects (e.g. 'focus on ice', 'focus on water', 'focus on aluminum foil').
+3. Choose the single most effective valid action.
+
+Output ONLY a JSON object with this exact schema:
+{
+  "thought": "Your concise step-by-step reasoning",
+  "action": "the exact action string to execute"
+}
+"""
+
+SCIENCEWORLD_ACTION_TEMPLATES: List[str] = [
+    "activate OBJ",
+    "close OBJ",
+    "connect OBJ to OBJ",
+    "deactivate OBJ",
+    "disconnect OBJ",
+    "dunk OBJ in OBJ",
+    "eat OBJ",
+    "flush OBJ",
+    "focus on OBJ",
+    "go OBJ",
+    "inventory",
+    "look around",
+    "look at OBJ",
+    "look in OBJ",
+    "mix OBJ",
+    "move OBJ to OBJ",
+    "open OBJ",
+    "pick up OBJ",
+    "pour OBJ in OBJ",
+    "put down OBJ",
+    "read OBJ",
+    "reset task",
+    "task",
+    "teleport OBJ",
+    "use OBJ on OBJ",
+    "wait",
+    "wait1",
+]
+
 
 ILLEGAL_FOCUS_TARGETS = {
     "door", "air", "hallway", "room", "agent", "wall", "ceiling", "floor"
@@ -55,7 +100,8 @@ class BaseAgent:
         adapter_mode: str = "current",
         history_mode: str = "last5",
         max_new_tokens: Optional[int] = None,
-        prompt_mode: str = "default"
+        prompt_mode: str = "default",
+        action_templates: Optional[List[str]] = None
     ):
         self.llm = llm_client
         self.name = "A_NoMemory"
@@ -63,6 +109,7 @@ class BaseAgent:
         self.history_mode = history_mode
         self.max_new_tokens = max_new_tokens
         self.prompt_mode = prompt_mode
+        self.action_templates = list(action_templates) if action_templates is not None else list(SCIENCEWORLD_ACTION_TEMPLATES)
 
     def select_action(
         self,
@@ -70,7 +117,8 @@ class BaseAgent:
         current_obs: str,
         history: List[Tuple[str, str]],
         valid_actions: List[str],
-        extra_context: str = ""
+        extra_context: str = "",
+        action_templates: Optional[List[str]] = None
     ) -> Tuple[str, str, Dict[str, Any], Dict[str, Any]]:
         # Format history
         hist_str = ""
@@ -92,6 +140,7 @@ class BaseAgent:
 
         # Sample valid actions to show in prompt or log in telemetry
         sample_actions = self._filter_candidate_actions(valid_actions, task_desc, current_obs)
+        active_templates = action_templates if action_templates is not None else self.action_templates
 
         if self.prompt_mode == "no_candidates":
             sys_prompt = SYSTEM_PROMPT_NO_CANDIDATES
@@ -103,6 +152,22 @@ Current Observation:
 
 Recent Execution History:
 {hist_str}
+"""
+        elif self.prompt_mode == "action_templates":
+            sys_prompt = SYSTEM_PROMPT_ACTION_TEMPLATES
+            templates_formatted = "\n".join(f"- {tmpl}" for tmpl in active_templates)
+            user_prompt = f"""Task Description:
+{task_desc}
+
+Current Observation:
+{current_obs}
+
+Recent Execution History:
+{hist_str}
+
+Action Syntax Reference:
+These templates describe action syntax. They do not guarantee that an action is executable in the current state.
+{templates_formatted}
 """
         else:
             sys_prompt = SYSTEM_PROMPT
@@ -319,9 +384,9 @@ Candidate Valid Actions (select one from these or construct a valid action):
             "adapter_modified": adapter_modified,
             "alias_applied": alias_applied,
             "adapter_reason": adapter_reason,
-            "candidate_actions": sample_actions,
+            "candidate_actions": sample_actions if self.prompt_mode != "action_templates" else active_templates,
             "history_mode": self.history_mode,
-            "proposed_action_in_candidate_list": (proposed_action.strip().lower() in [s.lower() for s in sample_actions]),
+            "proposed_action_in_candidate_list": (proposed_action.strip().lower() in [s.lower() for s in (active_templates if self.prompt_mode == "action_templates" else sample_actions)]),
             "executed_action_equals_trimmed_proposed": (action == proposed_action.strip()) if action is not None else False,
             "terminate_immediately": (action is None)
         }
