@@ -41,27 +41,29 @@ Extracted strictly from `deepseek_precheck/D6_boil_var2.json` using the fixed pr
 
 ## 3. Screening Results Summary (24 Episodes)
 
-| Condition | Description | Episodes | Success Rate | Mean Final Score | Mean Steps (All) | Mean Steps (Succ) | Total Cost (USD) |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Condition A** | No-Memory Baseline | 8 | **5/8 (62.5%)** | 89.25 | 24.38 | 21.40 | $0.3282 |
-| **Condition B** | Failure-Only Experience | 8 | **2/8 (25.0%)** | 78.38 | 21.50 | 23.00 | $0.3170 |
-| **Condition C** | Success-With-Failure | 8 | **8/8 (100.0%)** | 100.00 | 18.12 | 18.12 | $0.2171 |
+| Condition | Description | Episodes | Completion Rate | Empty Action Terminations | Mean Final Score | Mean Steps (All) | Mean Steps (Succ) | Total Cost (USD) |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Condition A** | No-Memory Baseline | 8 | **5/8 (62.5%)** | 0/8 (0.0%) | 89.25 | 24.38 | 21.40 | $0.3282 |
+| **Condition B** | Failure-Only Experience | 8 | **2/8 (25.0%)** | 3/8 (37.5%)* | 78.38 | 21.50 | 23.00 | $0.3170 |
+| **Condition C** | Success-With-Failure | 8 | **8/8 (100.0%)** | 0/8 (0.0%) | 100.00 | 18.12 | 18.12 | $0.2171 |
+
+*\*Note on Condition B premature terminations*: In 3 out of 8 episodes (E13, E19, E21), the environment entered an ambiguous cancellation menu (`Ambiguous request: ... (or blank to cancel)`). The model output valid JSON with an intended blank string cancellation (`{"thought": "...", "action": ""}`), but under the original native adapter protocol, any empty action was treated as an unhandled error and prematurely aborted the episode (`empty_or_non_string_terminate`). This adapter behavior accounts for 3 of the 6 non-completion events in Condition B.
 
 ### Variation-Level Breakdown
 
 - **Variation 0 (Sink Normal, Stove Normal)**:
   - Condition A: Block 1 = Success (19 steps), Block 2 = Success (20 steps) -> 2/2 Success
-  - Condition B: Block 1 = Success (22 steps), Block 2 = Fail (Score 70, 15 steps) -> 1/2 Success
+  - Condition B: Block 1 = Success (22 steps), Block 2 = Fail (Score 70, 15 steps; terminated via empty action in ambiguous menu) -> 1/2 Success
   - Condition C: Block 1 = Success (15 steps), Block 2 = Success (14 steps) -> 2/2 Success
 
 - **Variation 1 (Sink Normal, Stove Broken)**:
   - Condition A: Block 1 = Fail (Score 72, 28 steps), Block 2 = Success (25 steps) -> 1/2 Success
-  - Condition B: Block 1 = Fail (Score 72, 30 steps), Block 2 = Fail (Score 70, 18 steps) -> 0/2 Success
+  - Condition B: Block 1 = Fail (Score 72, 30 steps), Block 2 = Fail (Score 70, 18 steps; terminated via empty action in ambiguous menu) -> 0/2 Success
   - Condition C: Block 1 = Success (17 steps, used oven), Block 2 = Success (25 steps, used oven) -> 2/2 Success
 
-- **Variation 2 (Sink Broken, Stove Normal - Source Instance)**:
+- **Variation 2 (Sink Broken, Stove Normal - Source Instance Replay)**:
   - Condition A: Block 1 = Success (20 steps), Block 2 = Success (23 steps) -> 2/2 Success
-  - Condition B: Block 1 = Fail (Score 73, 22 steps), Block 2 = Fail (Score 70, 11 steps) -> 0/2 Success
+  - Condition B: Block 1 = Fail (Score 73, 22 steps), Block 2 = Fail (Score 70, 11 steps; terminated via empty action in ambiguous menu) -> 0/2 Success
   - Condition C: Block 1 = Success (11 steps), Block 2 = Success (13 steps) -> 2/2 Success
 
 - **Variation 3 (Sink Broken, Stove Broken)**:
@@ -73,27 +75,45 @@ Extracted strictly from `deepseek_precheck/D6_boil_var2.json` using the fixed pr
 
 ## 4. Paired Comparison Analysis
 
-### B vs A (Evaluating Failure-Only Memory Transfer)
-- **Score Wins**: Condition A wins 4, Condition B wins 2, Ties 2
-- **Success Rate Delta**: Condition B (25.0%) vs Condition A (62.5%) -> **Δ = -37.5%**
-- **Matched Pairs where both succeeded**: 1/8 pairs (Var 0, Block 1). Condition B required 22 steps vs Condition A's 19 steps (**Δ = +3 steps slower**).
-- **Factual Finding**: Failure-only memory produced significant negative transfer across natural variations, dropping success rate from 62.5% to 25.0%, and failing even on the exact instance (Var 2) that generated the experience.
+### B vs A (Observation on Failure-Only Experience in this Sample)
+- **Score Wins / Losses / Ties**: Condition B scored higher in 2 pairs, Condition A scored higher in 4 pairs, and 2 pairs had equal scores.
+- **Success / Completion Distribution**:
+  - Condition B succeeded while Condition A failed: 1 pair (Var 3, Block 2)
+  - Condition A succeeded while Condition B failed: 4 pairs (Var 0 Block 2, Var 1 Block 2, Var 2 Block 1, Var 2 Block 2)
+  - Both had identical success outcome: 3 pairs (Var 0 Block 1 [both succ], Var 1 Block 1 [both fail], Var 3 Block 1 [both fail])
+- **Dual-Success Step Delta**: 1/8 pairs (Var 0, Block 1). Condition B required 22 steps vs Condition A's 19 steps (**Δ = +3 steps slower**).
+- **Sample Empirical Observation**: On this 24-episode sample under native adapter handling, Condition B achieved a completion rate of 25.0% compared to Condition A's 62.5%. 3 of the 6 non-completions in B were prematurely aborted by the adapter on ambiguous cancellation menus. This observation characterizes sample performance under the specific adapter protocol, rather than serving as theoretical proof of general negative transfer.
 
-### C vs A (Evaluating Full Grounded Trajectory Transfer)
-- **Score Wins**: Condition C wins 3, Condition A wins 0, Ties 5 (0 losses to A)
-- **Success Rate Delta**: Condition C (100.0%) vs Condition A (62.5%) -> **Δ = +37.5%**
-- **Matched Pairs where both succeeded**: 5/8 pairs. Mean delta steps (C - A) = **-5.8 steps** (Condition C solved tasks faster by an average of 5.8 decision steps).
-- **Factual Finding**: Grounded experience containing both the local failure and the recovery mechanism achieved 100% success across all natural variations (including variations with broken stoves where it autonomously pivoted to the oven), while reducing decision step count.
+### C vs A (Observation on Success-With-Failure Experience in this Sample)
+- **Score Wins / Losses / Ties**: Condition C scored higher in 3 pairs, Condition A scored higher in 0 pairs, and 5 pairs had equal scores (all 100.0).
+- **Success / Completion Distribution**:
+  - Condition C succeeded while Condition A failed: 3 pairs (Var 1 Block 1, Var 3 Block 1, Var 3 Block 2)
+  - Condition A succeeded while Condition C failed: 0 pairs
+  - Both had identical success outcome: 5 pairs (all succeeded)
+- **Dual-Success Step Delta**: 5/8 pairs. Mean delta steps (C - A) = **-5.8 steps** (Condition C completed tasks with an average of 5.8 fewer decision steps on mutually successful pairs).
+- **Sample Empirical Observation**: On this sample, injecting the full trajectory experience with failure and subsequent recovery coincided with 100% completion and reduced decision steps across mutually successful instances.
 
 ---
 
-## 5. Budget and Token Accounting
+## 5. Budget, Model Calls, and Environmental Interaction Accounting
 
+### Financial & Model Request Accounting
 - **Authorized Pool**: $10.00 USD cumulative
 - **Previous Known Cost (P1 Precheck)**: $0.126752 USD
 - **P1b Consumed (Extraction + 24 Episodes + Retries)**: $0.865073 USD
 - **Cumulative Known Cost (P1 + P1b)**: $0.991825 USD
+- **Conservative Reserved Hold**: $0.060458 USD
 - **Cumulative Committed Cost (including holds)**: $1.052283 USD
 - **Remaining Budget Pool**: **$8.947717 USD**
 - **P1b Model Calls**: 517 calls (within 1,500 call limit)
-- **P1b Episodes**: 24 episodes (within 24 episode limit)
+- **Status of Billing**: Pending official monthly billing reconciliation (current: $0.00 audited bill).
+
+### Environmental Interaction Accounting (Full Life-Cycle Audit)
+To prevent undercounting of physical environment interactions, environment rollouts are explicitly tracked:
+1. **P1 Historical Quota Usage**: 159 episodes recorded against the 160-episode P1 allocation.
+   - Local 7B exploratory/diagnostic batches: 141 episodes
+   - Local Qwen3 precheck batches: 12 episodes
+   - Remote DeepSeek admission precheck (D1–D6): 6 episodes (satisfying the >=4 episode precheck requirement)
+2. **P1b Natural Experience Screening**: 24 formal episodes (E01–E24)
+3. **P1c Menu Protocol Recheck**: 12 formal episodes (R01–R12)
+4. **Cumulative Environmental Interactions Total**: 195 episodes (formal quota breakdown) + 8 calibration episodes from P0 = **203 total environment interactions across project lifecycle**. All environmental limits remain strictly respected.

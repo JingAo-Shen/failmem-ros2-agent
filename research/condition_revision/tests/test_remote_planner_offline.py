@@ -279,3 +279,59 @@ def test_initial_cost_and_budget_continuation():
         client.generate("test", "sys")
     assert "Insufficient budget" in str(exc.value)
 
+
+def test_menu_blank_cancellation_protocol():
+    """Offline fixtures verifying ambiguous menu blank cancellation vs error branches."""
+    menu_obs = "Ambiguous request: Please enter the number for the action you intended (or blank to cancel):\n0:\tdunk cup\n1:\tdunk jar"
+    normal_obs = "This room is called the kitchen."
+
+    # 1. Blank string in ambiguous menu -> allowed, returns ""
+    client1 = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": '{"thought": "cancel", "action": ""}'}}]})
+    agent1 = BaseAgent(llm_client=client1, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+    act1, _, _, telem1 = agent1.select_action("task", menu_obs, [], ["wait"])
+    assert act1 == ""
+    assert telem1["adapter_reason"] == "menu_blank_cancellation"
+
+    # 2. Whitespace-only string in ambiguous menu -> allowed, returns ""
+    client2 = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": '{"thought": "cancel", "action": "   "}'}}]})
+    agent2 = BaseAgent(llm_client=client2, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+    act2, _, _, telem2 = agent2.select_action("task", menu_obs, [], ["wait"])
+    assert act2 == ""
+    assert telem2["adapter_reason"] == "menu_blank_cancellation"
+
+    # 3. Blank string in normal observation -> rejected as error, returns None
+    client3 = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": '{"thought": "noop", "action": ""}'}}]})
+    agent3 = BaseAgent(llm_client=client3, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+    act3, _, _, telem3 = agent3.select_action("task", normal_obs, [], ["wait"])
+    assert act3 is None
+    assert telem3["adapter_reason"] == "empty_or_non_string_terminate"
+
+    # 4. Action missing in ambiguous menu -> rejected, returns None
+    client4 = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": '{"thought": "cancel"}'}}]})
+    agent4 = BaseAgent(llm_client=client4, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+    act4, _, _, telem4 = agent4.select_action("task", menu_obs, [], ["wait"])
+    assert act4 is None
+    assert telem4["adapter_reason"] == "empty_or_non_string_terminate"
+
+    # 5. Action null in ambiguous menu -> rejected, returns None
+    client5 = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": '{"thought": "cancel", "action": null}'}}]})
+    agent5 = BaseAgent(llm_client=client5, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+    act5, _, _, telem5 = agent5.select_action("task", menu_obs, [], ["wait"])
+    assert act5 is None
+    assert telem5["adapter_reason"] == "empty_or_non_string_terminate"
+
+    # 6. Action non-string (int) in ambiguous menu -> rejected, returns None
+    client6 = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": '{"thought": "zero", "action": 0}'}}]})
+    agent6 = BaseAgent(llm_client=client6, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+    act6, _, _, telem6 = agent6.select_action("task", menu_obs, [], ["wait"])
+    assert act6 is None
+    assert telem6["adapter_reason"] == "empty_or_non_string_terminate"
+
+    # 7. Valid choice "0" in ambiguous menu -> passed through
+    client7 = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": '{"thought": "pick 0", "action": "0"}'}}]})
+    agent7 = BaseAgent(llm_client=client7, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+    act7, _, _, telem7 = agent7.select_action("task", menu_obs, [], ["wait"])
+    assert act7 == "0"
+    assert telem7["adapter_reason"] == "native_passthrough"
+
+

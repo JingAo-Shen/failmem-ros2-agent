@@ -197,11 +197,23 @@ Candidate Valid Actions (select one from these or construct a valid action):
 
         proposed_action = str(action) if action is not None else ""
         adapter_modified = False
-        adapter_reason = "exact_match"
+        is_ambiguous_menu = (
+            isinstance(current_obs, str) and
+            "Ambiguous request:" in current_obs and
+            "blank to cancel" in current_obs
+        )
+        has_action_key = isinstance(parsed_json, dict) and ("action" in parsed_json)
+        raw_action = parsed_json.get("action") if has_action_key else None
+        is_blank_str = (has_action_key and isinstance(raw_action, str) and raw_action.strip() == "")
 
         alias_applied = False
         if self.adapter_mode == "native":
-            if not action or not isinstance(action, str) or not action.strip():
+            if is_ambiguous_menu and is_blank_str:
+                # In ambiguous cancellation menu, pass raw empty string to cancel
+                action = ""
+                adapter_modified = False
+                adapter_reason = "menu_blank_cancellation"
+            elif not action or not isinstance(action, str) or not action.strip():
                 action = None
                 adapter_modified = True
                 adapter_reason = "empty_or_non_string_terminate"

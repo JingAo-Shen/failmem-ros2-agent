@@ -80,6 +80,19 @@
       "consumed_cost_usd": 0.865073,
       "duration_seconds": 2022.3,
       "status": "COMPLETED"
+    },
+    "P1c": {
+      "name": "Menu Protocol Recheck",
+      "budget_episodes": 12,
+      "budget_calls": 750,
+      "budget_cost_usd_limit": 10.0,
+      "consumed_episodes": 12,
+      "consumed_calls": 242,
+      "consumed_input_tokens": 224938,
+      "consumed_output_tokens": 133188,
+      "consumed_cost_usd": 0.387431,
+      "duration_seconds": 1071.2,
+      "status": "COMPLETED"
     }
   },
   "batches": {
@@ -191,15 +204,44 @@
       "success_rate_condition_a": "5/8 (62.5%)",
       "success_rate_condition_b": "2/8 (25.0%)",
       "success_rate_condition_c": "8/8 (100.0%)",
-      "paired_b_vs_a_delta_success": "-37.5%",
-      "paired_c_vs_a_delta_success": "+37.5%"
+      "empty_action_abort_count_b": 3,
+      "paired_b_vs_a_delta_score": "-10.87",
+      "paired_c_vs_a_delta_score": "+10.75"
+    },
+    "batch_16_menu_protocol_recheck": {
+      "episodes": 12,
+      "calls": 242,
+      "tokens": 358126,
+      "cost_usd": 0.387431,
+      "run_id": "menu_protocol_recheck",
+      "status": "COMPLETED",
+      "success_rate_condition_a": "1/4 (25.0%)",
+      "success_rate_condition_b": "2/4 (50.0%)",
+      "success_rate_condition_c": "4/4 (100.0%)",
+      "empty_action_abort_count": 0,
+      "paired_b_vs_a_delta_score": "+7.00",
+      "paired_c_vs_a_delta_score": "+21.25"
     }
   },
   "cumulative_active_cycle": {
-    "total_episodes": 191,
-    "total_calls": 1857,
-    "total_tokens": 1895527,
-    "total_cost_usd": 0.991825,
-    "duration_seconds": 12728.9
+    "total_episodes_formal_accounting": 203,
+    "breakdown_episodes": {
+      "p0_calibration": 8,
+      "p1_historical_batches_2_to_13": 153,
+      "p1_deepseek_precheck_batch_14": 6,
+      "p1b_natural_experience_screen_batch_15": 24,
+      "p1c_menu_protocol_recheck_batch_16": 12
+    },
+    "total_calls": 2099,
+    "total_tokens": 2253653,
+    "estimated_cost_usd_from_usage": 1.379255,
+    "known_cost_usd": 1.379255,
+    "conservative_reserved_cost_usd": 0.081020,
+    "total_committed_cost_usd": 1.460275,
+    "audited_bill_usd": 0.0,
+    "audited_bill_status": "pending_billing_audit",
+    "remaining_budget_usd": 8.539725,
+    "budget_exceeded": false,
+    "duration_seconds": 13800.1
   }
 }

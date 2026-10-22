@@ -1,0 +1,328 @@
+{
+  "phase": "P1c_MENU_PROTOCOL_RECHECK",
+  "total_episodes": 12,
+  "overall_summary": {
+    "Condition_A": {
+      "total_episodes": 4,
+      "success_count": 1,
+      "success_rate": "1/4 (25.0%)",
+      "mean_final_score": 78.75,
+      "mean_decision_steps_all": 23.25,
+      "mean_decision_steps_successful": 18.0,
+      "mean_env_moves_all": 25.5,
+      "mean_env_moves_successful": 34.0,
+      "mean_duration_seconds": 147.97,
+      "total_cost_usd": 0.1821
+    },
+    "Condition_B": {
+      "total_episodes": 4,
+      "success_count": 2,
+      "success_rate": "2/4 (50.0%)",
+      "mean_final_score": 85.75,
+      "mean_decision_steps_all": 24.0,
+      "mean_decision_steps_successful": 18.0,
+      "mean_env_moves_all": 28.25,
+      "mean_env_moves_successful": 32.0,
+      "mean_duration_seconds": 81.83,
+      "total_cost_usd": 0.1451
+    },
+    "Condition_C": {
+      "total_episodes": 4,
+      "success_count": 4,
+      "success_rate": "4/4 (100.0%)",
+      "mean_final_score": 100.0,
+      "mean_decision_steps_all": 12.75,
+      "mean_decision_steps_successful": 12.75,
+      "mean_env_moves_all": 30.0,
+      "mean_env_moves_successful": 30.0,
+      "mean_duration_seconds": 38.0,
+      "total_cost_usd": 0.0602
+    }
+  },
+  "menu_blank_cancellations_count": 0,
+  "menu_blank_cancellations_details": [],
+  "variation_breakdown": {
+    "variation_0": {
+      "is_source_instance_replay": false,
+      "conditions": {
+        "A": [
+          {
+            "block": 3,
+            "episode_id": "R03",
+            "success": true,
+            "score": 100.0,
+            "steps": 18,
+            "moves": 34
+          },
+          {
+            "block": 4,
+            "episode_id": "R08",
+            "success": false,
+            "score": 75.0,
+            "steps": 15,
+            "moves": 33
+          }
+        ],
+        "B": [
+          {
+            "block": 3,
+            "episode_id": "R06",
+            "success": true,
+            "score": 100.0,
+            "steps": 21,
+            "moves": 33
+          },
+          {
+            "block": 4,
+            "episode_id": "R09",
+            "success": false,
+            "score": 70.0,
+            "steps": 30,
+            "moves": 20
+          }
+        ],
+        "C": [
+          {
+            "block": 3,
+            "episode_id": "R02",
+            "success": true,
+            "score": 100.0,
+            "steps": 14,
+            "moves": 31
+          },
+          {
+            "block": 4,
+            "episode_id": "R12",
+            "success": true,
+            "score": 100.0,
+            "steps": 15,
+            "moves": 31
+          }
+        ]
+      }
+    },
+    "variation_2": {
+      "is_source_instance_replay": true,
+      "conditions": {
+        "A": [
+          {
+            "block": 3,
+            "episode_id": "R05",
+            "success": false,
+            "score": 70.0,
+            "steps": 30,
+            "moves": 19
+          },
+          {
+            "block": 4,
+            "episode_id": "R10",
+            "success": false,
+            "score": 70.0,
+            "steps": 30,
+            "moves": 16
+          }
+        ],
+        "B": [
+          {
+            "block": 3,
+            "episode_id": "R04",
+            "success": true,
+            "score": 100.0,
+            "steps": 15,
+            "moves": 31
+          },
+          {
+            "block": 4,
+            "episode_id": "R07",
+            "success": false,
+            "score": 73.0,
+            "steps": 30,
+            "moves": 29
+          }
+        ],
+        "C": [
+          {
+            "block": 3,
+            "episode_id": "R01",
+            "success": true,
+            "score": 100.0,
+            "steps": 10,
+            "moves": 29
+          },
+          {
+            "block": 4,
+            "episode_id": "R11",
+            "success": true,
+            "score": 100.0,
+            "steps": 12,
+            "moves": 29
+          }
+        ]
+      }
+    }
+  },
+  "paired_comparison_B_vs_A": {
+    "comparison": "Condition B vs Condition A",
+    "total_pairs": 4,
+    "score_comparison": {
+      "B_higher": 2,
+      "A_higher": 1,
+      "equal_scores": 1
+    },
+    "success_comparison": {
+      "B_success_only": 1,
+      "A_success_only": 0,
+      "both_same_success": 3
+    },
+    "both_succeeded_count": 1,
+    "mean_delta_steps_when_both_succeeded": 3.0,
+    "paired_runs": [
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 3,
+        "episode_base": "R03",
+        "episode_test": "R06",
+        "score_A": 100.0,
+        "score_B": 100.0,
+        "success_A": true,
+        "success_B": true,
+        "steps_A": 18,
+        "steps_B": 21,
+        "delta_score": 0.0,
+        "both_succeeded": true,
+        "delta_steps": 3
+      },
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 4,
+        "episode_base": "R08",
+        "episode_test": "R09",
+        "score_A": 75.0,
+        "score_B": 70.0,
+        "success_A": false,
+        "success_B": false,
+        "steps_A": 15,
+        "steps_B": 30,
+        "delta_score": -5.0,
+        "both_succeeded": false,
+        "delta_steps": null
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 3,
+        "episode_base": "R05",
+        "episode_test": "R04",
+        "score_A": 70.0,
+        "score_B": 100.0,
+        "success_A": false,
+        "success_B": true,
+        "steps_A": 30,
+        "steps_B": 15,
+        "delta_score": 30.0,
+        "both_succeeded": false,
+        "delta_steps": null
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 4,
+        "episode_base": "R10",
+        "episode_test": "R07",
+        "score_A": 70.0,
+        "score_B": 73.0,
+        "success_A": false,
+        "success_B": false,
+        "steps_A": 30,
+        "steps_B": 30,
+        "delta_score": 3.0,
+        "both_succeeded": false,
+        "delta_steps": null
+      }
+    ]
+  },
+  "paired_comparison_C_vs_A": {
+    "comparison": "Condition C vs Condition A",
+    "total_pairs": 4,
+    "score_comparison": {
+      "C_higher": 3,
+      "A_higher": 0,
+      "equal_scores": 1
+    },
+    "success_comparison": {
+      "C_success_only": 3,
+      "A_success_only": 0,
+      "both_same_success": 1
+    },
+    "both_succeeded_count": 1,
+    "mean_delta_steps_when_both_succeeded": -4.0,
+    "paired_runs": [
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 3,
+        "episode_base": "R03",
+        "episode_test": "R02",
+        "score_A": 100.0,
+        "score_C": 100.0,
+        "success_A": true,
+        "success_C": true,
+        "steps_A": 18,
+        "steps_C": 14,
+        "delta_score": 0.0,
+        "both_succeeded": true,
+        "delta_steps": -4
+      },
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 4,
+        "episode_base": "R08",
+        "episode_test": "R12",
+        "score_A": 75.0,
+        "score_C": 100.0,
+        "success_A": false,
+        "success_C": true,
+        "steps_A": 15,
+        "steps_C": 15,
+        "delta_score": 25.0,
+        "both_succeeded": false,
+        "delta_steps": null
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 3,
+        "episode_base": "R05",
+        "episode_test": "R01",
+        "score_A": 70.0,
+        "score_C": 100.0,
+        "success_A": false,
+        "success_C": true,
+        "steps_A": 30,
+        "steps_C": 10,
+        "delta_score": 30.0,
+        "both_succeeded": false,
+        "delta_steps": null
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 4,
+        "episode_base": "R10",
+        "episode_test": "R11",
+        "score_A": 70.0,
+        "score_C": 100.0,
+        "success_A": false,
+        "success_C": true,
+        "steps_A": 30,
+        "steps_C": 12,
+        "delta_score": 30.0,
+        "both_succeeded": false,
+        "delta_steps": null
+      }
+    ]
+  }
+}
