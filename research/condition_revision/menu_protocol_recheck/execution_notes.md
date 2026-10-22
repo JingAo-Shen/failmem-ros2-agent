@@ -53,8 +53,7 @@
   - Condition B succeeded while Condition A failed: 1 pair (Var 2, Block 3: R04 score 100 vs R05 score 70)
   - Condition A succeeded while Condition B failed: 0 pairs
   - Both had identical success outcome: 3 pairs (Var 0 Block 3 [both succ], Var 0 Block 4 [both fail], Var 2 Block 4 [both fail])
-- **Dual-Success Step Delta**: 1/4 pairs (Var 0, Block 3). Condition B required 21 steps vs Condition A's 18 steps (**Δ = +3 steps slower**).
-- **Observation on this Sample**: With the menu cancellation protocol bug fixed, Condition B completed 2/4 episodes (including 1 success on the source replay instance Var 2), whereas Condition A completed 1/4. In Var 2, Condition B scored 100 and 73, outperforming Condition A's 70 and 70.
+- **Observation on this Sample**: In this 12-episode sample, no episodes were aborted by empty actions (`menu_blank_cancellations_count=0`, as the model selected numbered options rather than blank cancellation). Condition B completed 2/4 episodes (including 1 success on the source replay instance Var 2), whereas Condition A completed 1/4. In Var 2, Condition B scored 100 and 73, while Condition A scored 70 and 70. However, because `menu_blank_cancellations_count=0` in this run, this result must NOT be claimed as empirical proof that the cancellation protocol fix causally increased the success rate.
 
 ### C vs A
 - **Score Wins / Losses / Ties**: Condition C scored higher in 3 pairs, Condition A scored higher in 0 pairs, and 1 pair had equal scores (both 100.0).

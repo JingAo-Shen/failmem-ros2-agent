@@ -42,6 +42,15 @@ class PayloadSizeLimitExceededError(RemotePlannerError):
     pass
 
 
+class StepRequestBudgetExhaustedError(RemotePlannerError):
+    """Raised when the per-decision request budget (max HTTP attempts) is exhausted."""
+    def __init__(self, message: str, attempts: Optional[List[Dict[str, Any]]] = None, last_error: Optional[Exception] = None):
+        super().__init__(message)
+        self.attempts = attempts or []
+        self.attempts_count = len(self.attempts)
+        self.last_error = last_error
+
+
 class RemoteLLMClient:
     """
     Client for calling a remote chat completion endpoint adhering to
@@ -427,34 +436,97 @@ class RemoteLLMClient:
 
         return response_text, stats
 
-    def generate_json(self, user_prompt: str, system_prompt: str = "", max_new_tokens: Optional[int] = None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def generate_json(
+        self,
+        user_prompt: str,
+        system_prompt: str = "",
+        max_new_tokens: Optional[int] = None,
+        max_step_attempts: int = 2
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
-        Executes structured JSON generation with single retry on parse error.
-        Returns combined usage across all attempts in this invocation and preserves
-        detailed per-attempt metadata.
+        Executes structured JSON generation with a strict shared per-decision budget
+        of at most max_step_attempts HTTP requests across transport retries and JSON retries.
+        Third request is strictly forbidden; exhausted budget records an explicit termination reason.
         """
         attempts: List[Dict[str, Any]] = []
+        current_prompt = user_prompt
+        last_exception: Optional[Exception] = None
 
-        raw_text_1, stats_1 = self.generate(user_prompt, system_prompt, max_new_tokens=max_new_tokens)
-        attempts.append(stats_1)
-        parsed_1 = self._extract_json(raw_text_1)
+        while len(attempts) < max_step_attempts:
+            try:
+                raw_text, stats = self.generate(current_prompt, system_prompt, max_new_tokens=max_new_tokens)
+                attempts.append(stats)
+                parsed = self._extract_json(raw_text)
+                if parsed is not None:
+                    combined_stats = self._aggregate_invocation_stats(
+                        attempts, parsed, retry_attempted=(len(attempts) > 1)
+                    )
+                    return parsed, combined_stats
 
-        if parsed_1 is not None:
-            combined_stats = self._aggregate_invocation_stats(attempts, parsed_1, retry_attempted=False)
-            return parsed_1, combined_stats
+                # JSON parse error occurred
+                if len(attempts) < max_step_attempts:
+                    current_prompt = (
+                        f"{user_prompt}\n\nPREVIOUS OUTPUT WAS INVALID JSON:\n{raw_text}\n"
+                        f"Please output ONLY valid JSON."
+                    )
+                else:
+                    # Budget exhausted after invalid JSON
+                    fallback_json = {
+                        "raw_text": raw_text,
+                        "parse_error": True,
+                        "budget_exhausted": True,
+                        "termination_reason": "step_request_budget_exhausted"
+                    }
+                    combined_stats = self._aggregate_invocation_stats(
+                        attempts, fallback_json, retry_attempted=True
+                    )
+                    return fallback_json, combined_stats
 
-        # Retry once if output was invalid JSON
-        retry_prompt = f"{user_prompt}\n\nPREVIOUS OUTPUT WAS INVALID JSON:\n{raw_text_1}\nPlease output ONLY valid JSON."
-        raw_text_2, stats_2 = self.generate(retry_prompt, system_prompt, max_new_tokens=max_new_tokens)
-        attempts.append(stats_2)
-        parsed_2 = self._extract_json(raw_text_2)
+            except RemotePlannerError as e:
+                last_exception = e
+                # Transport error occurred. self.generate() already incremented self.total_calls
+                # and charged the budget. Record failed attempt:
+                attempts.append({
+                    "transport_error": str(e),
+                    "error_type": type(e).__name__,
+                    "status": "failed",
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0,
+                    "latency_s": 0.0,
+                    "finish_reason": "error",
+                    "empty_content": True,
+                    "hit_output_token_limit": False,
+                    "parse_error": False,
+                    "model": self.model_id,
+                    "call_index": self.total_calls
+                })
+                if len(attempts) < max_step_attempts:
+                    time.sleep(1.0)
+                    # Retry with current_prompt
+                    continue
+                else:
+                    # Budget exhausted on transport error
+                    raise StepRequestBudgetExhaustedError(
+                        f"Per-decision request budget exhausted ({max_step_attempts} attempts). "
+                        f"Last transport error: {e}",
+                        attempts=attempts,
+                        last_error=e
+                    ) from e
 
-        if parsed_2 is not None:
-            combined_stats = self._aggregate_invocation_stats(attempts, parsed_2, retry_attempted=True)
-            return parsed_2, combined_stats
+        if last_exception is not None:
+            raise StepRequestBudgetExhaustedError(
+                f"Per-decision request budget exhausted ({max_step_attempts} attempts). "
+                f"Last error: {last_exception}",
+                attempts=attempts,
+                last_error=last_exception
+            )
 
-        # Fallback dictionary if parsing completely failed
-        fallback_json = {"raw_text": raw_text_2, "parse_error": True}
+        fallback_json = {
+            "parse_error": True,
+            "budget_exhausted": True,
+            "termination_reason": "step_request_budget_exhausted"
+        }
         combined_stats = self._aggregate_invocation_stats(attempts, fallback_json, retry_attempted=True)
         return fallback_json, combined_stats
 

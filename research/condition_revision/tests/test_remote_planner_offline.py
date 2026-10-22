@@ -335,3 +335,162 @@ def test_menu_blank_cancellation_protocol():
     assert telem7["adapter_reason"] == "native_passthrough"
 
 
+def test_step_budget_json_error_then_transport_error():
+    """
+    Offline check for combination: JSON error on attempt 1, transport error on attempt 2.
+    - Exactly 2 attempts must be dispatched.
+    - Third request must NOT be issued.
+    - Total calls = 2.
+    - Action returned is None.
+    - Adapter reason is step_request_budget_exhausted.
+    """
+    call_count = 0
+    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "choices": [{"message": {"role": "assistant", "content": "I will think about this invalid JSON output."}}],
+                "usage": {"prompt_tokens": 30, "completion_tokens": 10, "total_tokens": 40}
+            }
+        elif call_count == 2:
+            raise requests.exceptions.ConnectionError("Connection aborted by peer")
+        else:
+            raise AssertionError(f"Third attempt was illegally issued! call_count={call_count}")
+
+    client = RemoteLLMClient(mock_transport=mock_transport)
+    agent = BaseAgent(llm_client=client, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+
+    action, thought, stats, telemetry = agent.select_action("task", "obs", [], ["wait"])
+
+    assert call_count == 2
+    assert client.total_calls == 2
+    assert action is None
+    assert telemetry["adapter_reason"] == "step_request_budget_exhausted"
+    assert telemetry["budget_exhausted"] is True
+
+
+def test_step_budget_transport_error_then_json_error():
+    """
+    Offline check for combination: transport error on attempt 1, JSON error on attempt 2.
+    - Exactly 2 attempts must be dispatched.
+    - Third request must NOT be issued.
+    - Total calls = 2.
+    - Action returned is None.
+    - Adapter reason is step_request_budget_exhausted.
+    """
+    call_count = 0
+    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise requests.exceptions.Timeout("Read timeout")
+        elif call_count == 2:
+            return {
+                "choices": [{"message": {"role": "assistant", "content": "Still not valid JSON"}}],
+                "usage": {"prompt_tokens": 35, "completion_tokens": 10, "total_tokens": 45}
+            }
+        else:
+            raise AssertionError(f"Third attempt was illegally issued! call_count={call_count}")
+
+    client = RemoteLLMClient(mock_transport=mock_transport)
+    agent = BaseAgent(llm_client=client, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+
+    action, thought, stats, telemetry = agent.select_action("task", "obs", [], ["wait"])
+
+    assert call_count == 2
+    assert client.total_calls == 2
+    assert action is None
+    assert telemetry["adapter_reason"] == "step_request_budget_exhausted"
+    assert telemetry["budget_exhausted"] is True
+
+
+def test_step_budget_double_transport_error():
+    """
+    Offline check for combination: 2 consecutive transport errors.
+    - Exactly 2 attempts must be dispatched.
+    - Third request must NOT be issued.
+    - Total calls = 2.
+    - Action returned is None.
+    - Adapter reason is step_request_budget_exhausted.
+    """
+    call_count = 0
+    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise requests.exceptions.ConnectionError(f"Network failure attempt {call_count}")
+        else:
+            raise AssertionError(f"Third attempt was illegally issued! call_count={call_count}")
+
+    client = RemoteLLMClient(mock_transport=mock_transport)
+    agent = BaseAgent(llm_client=client, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+
+    action, thought, stats, telemetry = agent.select_action("task", "obs", [], ["wait"])
+
+    assert call_count == 2
+    assert client.total_calls == 2
+    assert action is None
+    assert telemetry["adapter_reason"] == "step_request_budget_exhausted"
+    assert telemetry["budget_exhausted"] is True
+
+
+def test_step_budget_transport_error_then_success():
+    """
+    Offline check for combination: transport error on attempt 1, success on attempt 2.
+    - Exactly 2 attempts dispatched.
+    - Total calls = 2.
+    - Action returned successfully.
+    """
+    call_count = 0
+    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise requests.exceptions.Timeout("Read timeout on attempt 1")
+        elif call_count == 2:
+            return {
+                "choices": [{"message": {"role": "assistant", "content": '{"thought": "Recovered", "action": "wait"}'}}],
+                "usage": {"prompt_tokens": 40, "completion_tokens": 10, "total_tokens": 50}
+            }
+        else:
+            raise AssertionError(f"Third attempt was illegally issued! call_count={call_count}")
+
+    client = RemoteLLMClient(mock_transport=mock_transport)
+    agent = BaseAgent(llm_client=client, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+
+    action, thought, stats, telemetry = agent.select_action("task", "obs", [], ["wait"])
+
+    assert call_count == 2
+    assert client.total_calls == 2
+    assert action == "wait"
+    assert stats["calls"] == 2
+    assert telemetry["adapter_reason"] == "native_passthrough"
+
+
+def test_prompt_slots_ordering():
+    """Verifies that prompt slots are ordered: Generic Semantics -> Experience -> Base Task."""
+    recorded_prompts = []
+    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        recorded_prompts.append(payload["messages"][-1]["content"])
+        return {
+            "choices": [{"message": {"role": "assistant", "content": '{"action": "wait"}'}}],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25}
+        }
+
+    client = RemoteLLMClient(mock_transport=mock_transport)
+    agent = BaseAgent(llm_client=client, adapter_mode="native", prompt_mode="action_templates", action_templates=["wait"])
+
+    g_text = "Generic action semantics:\n1. Dunk semantics."
+    c_text = "Experience from a previous ScienceWorld interaction:\nSink is broken."
+    
+    agent.select_action("Task boil water", "Current obs", [], ["wait"], extra_context=c_text, generic_semantics=g_text)
+
+    prompt = recorded_prompts[0]
+    idx_g = prompt.index("Generic action semantics:")
+    idx_c = prompt.index("Experience from a previous ScienceWorld interaction:")
+    idx_task = prompt.index("Task Description:\nTask boil water")
+
+    assert idx_g < idx_c < idx_task
+
+

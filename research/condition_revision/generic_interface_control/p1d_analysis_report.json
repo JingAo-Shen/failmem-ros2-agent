@@ -1,0 +1,697 @@
+{
+  "phase": "P1d_GENERIC_INTERFACE_CONTROL",
+  "total_episodes": 16,
+  "overall_summary": {
+    "Condition_A": {
+      "total_episodes": 4,
+      "success_count": 2,
+      "success_rate": "2/4 (50.0%)",
+      "mean_final_score": 86.25,
+      "mean_decision_steps_all": 22.5,
+      "mean_decision_steps_successful": 22.0,
+      "mean_env_moves_all": 30.5,
+      "mean_env_moves_successful": 35.5,
+      "total_model_calls": 90,
+      "total_input_tokens": 82401,
+      "total_output_tokens": 55917,
+      "total_cost_usd": 0.1585,
+      "mean_duration_seconds": 110.11,
+      "total_dunk_errors": 1,
+      "total_menu_disambiguations": 2,
+      "total_menu_blank_cancellations": 0,
+      "termination_reasons": {
+        "success_100": 2,
+        "env_done": 1,
+        "step_limit_30": 1
+      }
+    },
+    "Condition_G": {
+      "total_episodes": 4,
+      "success_count": 3,
+      "success_rate": "3/4 (75.0%)",
+      "mean_final_score": 93.75,
+      "mean_decision_steps_all": 23.75,
+      "mean_decision_steps_successful": 21.67,
+      "mean_env_moves_all": 33.25,
+      "mean_env_moves_successful": 35.0,
+      "total_model_calls": 95,
+      "total_input_tokens": 100362,
+      "total_output_tokens": 29840,
+      "total_cost_usd": 0.1066,
+      "mean_duration_seconds": 67.75,
+      "total_dunk_errors": 2,
+      "total_menu_disambiguations": 5,
+      "total_menu_blank_cancellations": 0,
+      "termination_reasons": {
+        "success_100": 3,
+        "step_limit_30": 1
+      }
+    },
+    "Condition_C": {
+      "total_episodes": 4,
+      "success_count": 2,
+      "success_rate": "2/4 (50.0%)",
+      "mean_final_score": 43.0,
+      "mean_decision_steps_all": 15.0,
+      "mean_decision_steps_successful": 12.5,
+      "mean_env_moves_all": 26.75,
+      "mean_env_moves_successful": 30.5,
+      "total_model_calls": 63,
+      "total_input_tokens": 52853,
+      "total_output_tokens": 47522,
+      "total_cost_usd": 0.1241,
+      "mean_duration_seconds": 129.11,
+      "total_dunk_errors": 0,
+      "total_menu_disambiguations": 5,
+      "total_menu_blank_cancellations": 0,
+      "termination_reasons": {
+        "fatal_penalty": 1,
+        "success_100": 2,
+        "env_done": 1
+      }
+    },
+    "Condition_GC": {
+      "total_episodes": 4,
+      "success_count": 3,
+      "success_rate": "3/4 (75.0%)",
+      "mean_final_score": 93.0,
+      "mean_decision_steps_all": 15.0,
+      "mean_decision_steps_successful": 15.67,
+      "mean_env_moves_all": 31.75,
+      "mean_env_moves_successful": 32.0,
+      "total_model_calls": 60,
+      "total_input_tokens": 56806,
+      "total_output_tokens": 18717,
+      "total_cost_usd": 0.0625,
+      "mean_duration_seconds": 42.04,
+      "total_dunk_errors": 0,
+      "total_menu_disambiguations": 4,
+      "total_menu_blank_cancellations": 0,
+      "termination_reasons": {
+        "env_done": 1,
+        "success_100": 3
+      }
+    }
+  },
+  "primary_comparison_GC_vs_G": {
+    "comparison": "Condition GC vs Condition G",
+    "total_pairs": 4,
+    "score_comparison": {
+      "GC_higher": 1,
+      "G_higher": 1,
+      "equal": 2
+    },
+    "success_comparison": {
+      "GC_success_only": 1,
+      "G_success_only": 1,
+      "both_same": 2
+    },
+    "both_succeeded_count": 2,
+    "mean_delta_decision_steps_when_both_succeeded": -4.0,
+    "mean_delta_env_moves_when_both_succeeded": -2.5,
+    "paired_runs": [
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 5,
+        "episode_base": "M02",
+        "episode_test": "M05",
+        "score_G": 100.0,
+        "score_GC": 100.0,
+        "success_G": true,
+        "success_GC": true,
+        "steps_G": 22,
+        "steps_GC": 18,
+        "moves_G": 36,
+        "moves_GC": 32,
+        "delta_score": 0.0,
+        "both_succeeded": true,
+        "delta_decision_steps": -4,
+        "delta_env_moves": -4
+      },
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 6,
+        "episode_base": "M14",
+        "episode_test": "M15",
+        "score_G": 100.0,
+        "score_GC": 100.0,
+        "success_G": true,
+        "success_GC": true,
+        "steps_G": 22,
+        "steps_GC": 18,
+        "moves_G": 35,
+        "moves_GC": 34,
+        "delta_score": 0.0,
+        "both_succeeded": true,
+        "delta_decision_steps": -4,
+        "delta_env_moves": -1
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 5,
+        "episode_base": "M07",
+        "episode_test": "M04",
+        "score_G": 100.0,
+        "score_GC": 72.0,
+        "success_G": true,
+        "success_GC": false,
+        "steps_G": 21,
+        "steps_GC": 13,
+        "moves_G": 34,
+        "moves_GC": 31,
+        "delta_score": -28.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 6,
+        "episode_base": "M09",
+        "episode_test": "M11",
+        "score_G": 75.0,
+        "score_GC": 100.0,
+        "success_G": false,
+        "success_GC": true,
+        "steps_G": 30,
+        "steps_GC": 11,
+        "moves_G": 28,
+        "moves_GC": 30,
+        "delta_score": 25.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      }
+    ]
+  },
+  "secondary_comparison_G_vs_A": {
+    "comparison": "Condition G vs Condition A",
+    "total_pairs": 4,
+    "score_comparison": {
+      "G_higher": 2,
+      "A_higher": 0,
+      "equal": 2
+    },
+    "success_comparison": {
+      "G_success_only": 1,
+      "A_success_only": 0,
+      "both_same": 3
+    },
+    "both_succeeded_count": 2,
+    "mean_delta_decision_steps_when_both_succeeded": -0.5,
+    "mean_delta_env_moves_when_both_succeeded": -0.5,
+    "paired_runs": [
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 5,
+        "episode_base": "M08",
+        "episode_test": "M02",
+        "score_A": 100.0,
+        "score_G": 100.0,
+        "success_A": true,
+        "success_G": true,
+        "steps_A": 20,
+        "steps_G": 22,
+        "moves_A": 35,
+        "moves_G": 36,
+        "delta_score": 0.0,
+        "both_succeeded": true,
+        "delta_decision_steps": 2,
+        "delta_env_moves": 1
+      },
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 6,
+        "episode_base": "M10",
+        "episode_test": "M14",
+        "score_A": 75.0,
+        "score_G": 100.0,
+        "success_A": false,
+        "success_G": true,
+        "steps_A": 16,
+        "steps_G": 22,
+        "moves_A": 33,
+        "moves_G": 35,
+        "delta_score": 25.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 5,
+        "episode_base": "M06",
+        "episode_test": "M07",
+        "score_A": 100.0,
+        "score_G": 100.0,
+        "success_A": true,
+        "success_G": true,
+        "steps_A": 24,
+        "steps_G": 21,
+        "moves_A": 36,
+        "moves_G": 34,
+        "delta_score": 0.0,
+        "both_succeeded": true,
+        "delta_decision_steps": -3,
+        "delta_env_moves": -2
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 6,
+        "episode_base": "M13",
+        "episode_test": "M09",
+        "score_A": 70.0,
+        "score_G": 75.0,
+        "success_A": false,
+        "success_G": false,
+        "steps_A": 30,
+        "steps_G": 30,
+        "moves_A": 18,
+        "moves_G": 28,
+        "delta_score": 5.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      }
+    ]
+  },
+  "secondary_comparison_C_vs_A": {
+    "comparison": "Condition C vs Condition A",
+    "total_pairs": 4,
+    "score_comparison": {
+      "C_higher": 2,
+      "A_higher": 1,
+      "equal": 1
+    },
+    "success_comparison": {
+      "C_success_only": 1,
+      "A_success_only": 1,
+      "both_same": 2
+    },
+    "both_succeeded_count": 1,
+    "mean_delta_decision_steps_when_both_succeeded": -14.0,
+    "mean_delta_env_moves_when_both_succeeded": -7.0,
+    "paired_runs": [
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 5,
+        "episode_base": "M08",
+        "episode_test": "M01",
+        "score_A": 100.0,
+        "score_C": -100.0,
+        "success_A": true,
+        "success_C": false,
+        "steps_A": 20,
+        "steps_C": 7,
+        "moves_A": 35,
+        "moves_C": 15,
+        "delta_score": -200.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      },
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 6,
+        "episode_base": "M10",
+        "episode_test": "M12",
+        "score_A": 75.0,
+        "score_C": 100.0,
+        "success_A": false,
+        "success_C": true,
+        "steps_A": 16,
+        "steps_C": 15,
+        "moves_A": 33,
+        "moves_C": 32,
+        "delta_score": 25.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 5,
+        "episode_base": "M06",
+        "episode_test": "M03",
+        "score_A": 100.0,
+        "score_C": 100.0,
+        "success_A": true,
+        "success_C": true,
+        "steps_A": 24,
+        "steps_C": 10,
+        "moves_A": 36,
+        "moves_C": 29,
+        "delta_score": 0.0,
+        "both_succeeded": true,
+        "delta_decision_steps": -14,
+        "delta_env_moves": -7
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 6,
+        "episode_base": "M13",
+        "episode_test": "M16",
+        "score_A": 70.0,
+        "score_C": 72.0,
+        "success_A": false,
+        "success_C": false,
+        "steps_A": 30,
+        "steps_C": 28,
+        "moves_A": 18,
+        "moves_C": 31,
+        "delta_score": 2.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      }
+    ]
+  },
+  "secondary_comparison_GC_vs_C": {
+    "comparison": "Condition GC vs Condition C",
+    "total_pairs": 4,
+    "score_comparison": {
+      "GC_higher": 2,
+      "C_higher": 1,
+      "equal": 1
+    },
+    "success_comparison": {
+      "GC_success_only": 2,
+      "C_success_only": 1,
+      "both_same": 1
+    },
+    "both_succeeded_count": 1,
+    "mean_delta_decision_steps_when_both_succeeded": 3.0,
+    "mean_delta_env_moves_when_both_succeeded": 2.0,
+    "paired_runs": [
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 5,
+        "episode_base": "M01",
+        "episode_test": "M05",
+        "score_C": -100.0,
+        "score_GC": 100.0,
+        "success_C": false,
+        "success_GC": true,
+        "steps_C": 7,
+        "steps_GC": 18,
+        "moves_C": 15,
+        "moves_GC": 32,
+        "delta_score": 200.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      },
+      {
+        "variation": 0,
+        "is_source_instance_replay": false,
+        "block": 6,
+        "episode_base": "M12",
+        "episode_test": "M15",
+        "score_C": 100.0,
+        "score_GC": 100.0,
+        "success_C": true,
+        "success_GC": true,
+        "steps_C": 15,
+        "steps_GC": 18,
+        "moves_C": 32,
+        "moves_GC": 34,
+        "delta_score": 0.0,
+        "both_succeeded": true,
+        "delta_decision_steps": 3,
+        "delta_env_moves": 2
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 5,
+        "episode_base": "M03",
+        "episode_test": "M04",
+        "score_C": 100.0,
+        "score_GC": 72.0,
+        "success_C": true,
+        "success_GC": false,
+        "steps_C": 10,
+        "steps_GC": 13,
+        "moves_C": 29,
+        "moves_GC": 31,
+        "delta_score": -28.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      },
+      {
+        "variation": 2,
+        "is_source_instance_replay": true,
+        "block": 6,
+        "episode_base": "M16",
+        "episode_test": "M11",
+        "score_C": 72.0,
+        "score_GC": 100.0,
+        "success_C": false,
+        "success_GC": true,
+        "steps_C": 28,
+        "steps_GC": 11,
+        "moves_C": 31,
+        "moves_GC": 30,
+        "delta_score": 28.0,
+        "both_succeeded": false,
+        "delta_decision_steps": null,
+        "delta_env_moves": null
+      }
+    ]
+  },
+  "variation_breakdown": {
+    "variation_0": {
+      "is_source_instance_replay": false,
+      "conditions": {
+        "A": [
+          {
+            "block": 5,
+            "episode_id": "M08",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 20,
+            "env_moves": 35,
+            "dunk_errors": 0,
+            "term_reason": "success_100"
+          },
+          {
+            "block": 6,
+            "episode_id": "M10",
+            "success": false,
+            "score": 75.0,
+            "decision_steps": 16,
+            "env_moves": 33,
+            "dunk_errors": 1,
+            "term_reason": "env_done"
+          }
+        ],
+        "G": [
+          {
+            "block": 5,
+            "episode_id": "M02",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 22,
+            "env_moves": 36,
+            "dunk_errors": 1,
+            "term_reason": "success_100"
+          },
+          {
+            "block": 6,
+            "episode_id": "M14",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 22,
+            "env_moves": 35,
+            "dunk_errors": 0,
+            "term_reason": "success_100"
+          }
+        ],
+        "C": [
+          {
+            "block": 5,
+            "episode_id": "M01",
+            "success": false,
+            "score": -100.0,
+            "decision_steps": 7,
+            "env_moves": 15,
+            "dunk_errors": 0,
+            "term_reason": "fatal_penalty"
+          },
+          {
+            "block": 6,
+            "episode_id": "M12",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 15,
+            "env_moves": 32,
+            "dunk_errors": 0,
+            "term_reason": "success_100"
+          }
+        ],
+        "GC": [
+          {
+            "block": 5,
+            "episode_id": "M05",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 18,
+            "env_moves": 32,
+            "dunk_errors": 0,
+            "term_reason": "success_100"
+          },
+          {
+            "block": 6,
+            "episode_id": "M15",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 18,
+            "env_moves": 34,
+            "dunk_errors": 0,
+            "term_reason": "success_100"
+          }
+        ]
+      }
+    },
+    "variation_2": {
+      "is_source_instance_replay": true,
+      "conditions": {
+        "A": [
+          {
+            "block": 5,
+            "episode_id": "M06",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 24,
+            "env_moves": 36,
+            "dunk_errors": 0,
+            "term_reason": "success_100"
+          },
+          {
+            "block": 6,
+            "episode_id": "M13",
+            "success": false,
+            "score": 70.0,
+            "decision_steps": 30,
+            "env_moves": 18,
+            "dunk_errors": 0,
+            "term_reason": "step_limit_30"
+          }
+        ],
+        "G": [
+          {
+            "block": 5,
+            "episode_id": "M07",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 21,
+            "env_moves": 34,
+            "dunk_errors": 1,
+            "term_reason": "success_100"
+          },
+          {
+            "block": 6,
+            "episode_id": "M09",
+            "success": false,
+            "score": 75.0,
+            "decision_steps": 30,
+            "env_moves": 28,
+            "dunk_errors": 0,
+            "term_reason": "step_limit_30"
+          }
+        ],
+        "C": [
+          {
+            "block": 5,
+            "episode_id": "M03",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 10,
+            "env_moves": 29,
+            "dunk_errors": 0,
+            "term_reason": "success_100"
+          },
+          {
+            "block": 6,
+            "episode_id": "M16",
+            "success": false,
+            "score": 72.0,
+            "decision_steps": 28,
+            "env_moves": 31,
+            "dunk_errors": 0,
+            "term_reason": "env_done"
+          }
+        ],
+        "GC": [
+          {
+            "block": 5,
+            "episode_id": "M04",
+            "success": false,
+            "score": 72.0,
+            "decision_steps": 13,
+            "env_moves": 31,
+            "dunk_errors": 0,
+            "term_reason": "env_done"
+          },
+          {
+            "block": 6,
+            "episode_id": "M11",
+            "success": true,
+            "score": 100.0,
+            "decision_steps": 11,
+            "env_moves": 30,
+            "dunk_errors": 0,
+            "term_reason": "success_100"
+          }
+        ]
+      }
+    }
+  },
+  "dunk_errors_sample": [
+    {
+      "episode_id": "M02",
+      "condition": "G",
+      "step": "8",
+      "executed_action": "dunk glass cup in sink",
+      "observation": "The sink does not contain any liquids to dunk into."
+    },
+    {
+      "episode_id": "M07",
+      "condition": "G",
+      "step": "9",
+      "executed_action": "dunk glass cup in bathtub",
+      "observation": "The bathtub does not contain any liquids to dunk into."
+    },
+    {
+      "episode_id": "M10",
+      "condition": "A",
+      "step": "6",
+      "executed_action": "dunk glass cup in sink",
+      "observation": "The sink does not contain any liquids to dunk into."
+    }
+  ],
+  "menu_interaction_stats": {
+    "total_menu_disambiguations": 16,
+    "total_menu_blank_cancellations": 0,
+    "blank_cancellations_by_condition": {
+      "A": 0,
+      "G": 0,
+      "C": 0,
+      "GC": 0
+    }
+  }
+}

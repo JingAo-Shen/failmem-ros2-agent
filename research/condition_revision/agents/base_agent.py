@@ -11,6 +11,12 @@ import re
 
 from condition_evaluator import extract_target_entity, KNOWN_ROOMS
 
+try:
+    from remote_llm_client import StepRequestBudgetExhaustedError
+except ImportError:
+    class StepRequestBudgetExhaustedError(Exception):
+        pass
+
 
 SYSTEM_PROMPT = """You are an intelligent agent interacting with the ScienceWorld scientific virtual environment.
 Your objective is to complete the specified task step by step.
@@ -118,8 +124,9 @@ class BaseAgent:
         history: List[Tuple[str, str]],
         valid_actions: List[str],
         extra_context: str = "",
+        generic_semantics: str = "",
         action_templates: Optional[List[str]] = None
-    ) -> Tuple[str, str, Dict[str, Any], Dict[str, Any]]:
+    ) -> Tuple[Optional[str], str, Dict[str, Any], Dict[str, Any]]:
         # Format history
         hist_str = ""
         if history:
@@ -185,13 +192,69 @@ Recent Execution History:
 Candidate Valid Actions (select one from these or construct a valid action):
 {chr(10).join(f"- {act}" for act in sample_actions[:25])}
 """
-        if extra_context:
-            user_prompt = f"{extra_context}\n\n{user_prompt}"
+        prefix_slots = []
+        if generic_semantics and isinstance(generic_semantics, str) and generic_semantics.strip():
+            prefix_slots.append(generic_semantics.strip())
+        if extra_context and isinstance(extra_context, str) and extra_context.strip():
+            prefix_slots.append(extra_context.strip())
+
+        if prefix_slots:
+            user_prompt = "\n\n".join(prefix_slots) + "\n\n" + user_prompt
 
         gen_kwargs = {}
         if self.max_new_tokens is not None:
             gen_kwargs["max_new_tokens"] = self.max_new_tokens
-        parsed_json, stats = self.llm.generate_json(user_prompt, system_prompt=sys_prompt, **gen_kwargs)
+
+        try:
+            parsed_json, stats = self.llm.generate_json(
+                user_prompt, system_prompt=sys_prompt, max_step_attempts=2, **gen_kwargs
+            )
+        except StepRequestBudgetExhaustedError as e:
+            parsed_json = {
+                "thought": "",
+                "action": None,
+                "budget_exhausted": True,
+                "parse_error": False,
+                "transport_error": True,
+                "termination_reason": "step_request_budget_exhausted",
+                "error": str(e)
+            }
+            stats = {
+                "calls": getattr(e, "attempts_count", 2),
+                "total_calls": getattr(e, "attempts_count", 2),
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "retry_attempted": (getattr(e, "attempts_count", 2) > 1),
+                "finish_reason": "error",
+                "empty_content": True,
+                "hit_output_token_limit": False,
+                "parse_error": False,
+                "attempts": getattr(e, "attempts", []),
+                "client_cumulative_calls": getattr(self.llm, "total_calls", 2),
+                "client_known_cost_usd": round(getattr(self.llm, "known_cost_usd", 0.0), 6),
+                "client_reserved_cost_usd": round(getattr(self.llm, "unknown_reserved_cost_usd", 0.0), 6),
+                "client_total_cost_usd": round(getattr(self.llm, "known_cost_usd", 0.0) + getattr(self.llm, "unknown_reserved_cost_usd", 0.0), 6)
+            }
+
+        if parsed_json.get("budget_exhausted"):
+            telemetry = {
+                "system_prompt": sys_prompt,
+                "user_prompt": user_prompt,
+                "prompt_mode": self.prompt_mode,
+                "raw_response": stats.get("raw_text", ""),
+                "parsed_response": parsed_json,
+                "proposed_action": "",
+                "executed_action": None,
+                "adapter_modified": True,
+                "alias_applied": False,
+                "adapter_reason": "step_request_budget_exhausted",
+                "budget_exhausted": True,
+                "termination_reason": "step_request_budget_exhausted",
+                "valid_candidates_count": len(valid_actions),
+                "sample_candidates": sample_actions[:10]
+            }
+            return None, "", stats, telemetry
         thought = parsed_json.get("thought", "")
         action = parsed_json.get("action", "")
 

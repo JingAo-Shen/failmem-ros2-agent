@@ -93,6 +93,19 @@
       "consumed_cost_usd": 0.387431,
       "duration_seconds": 1071.2,
       "status": "COMPLETED"
+    },
+    "P1d": {
+      "name": "Generic Interface Control",
+      "budget_episodes": 16,
+      "budget_calls": 1000,
+      "budget_cost_usd_limit": 10.0,
+      "consumed_episodes": 16,
+      "consumed_calls": 308,
+      "consumed_input_tokens": 292422,
+      "consumed_output_tokens": 151996,
+      "consumed_cost_usd": 0.451680,
+      "duration_seconds": 1396.1,
+      "status": "COMPLETED"
     }
   },
   "batches": {
@@ -221,27 +234,48 @@
       "empty_action_abort_count": 0,
       "paired_b_vs_a_delta_score": "+7.00",
       "paired_c_vs_a_delta_score": "+21.25"
+    },
+    "batch_17_generic_interface_control": {
+      "episodes": 16,
+      "calls": 308,
+      "tokens": 444418,
+      "cost_usd": 0.451680,
+      "run_id": "generic_interface_control",
+      "status": "COMPLETED",
+      "success_rate_condition_a": "2/4 (50.0%)",
+      "success_rate_condition_g": "3/4 (75.0%)",
+      "success_rate_condition_c": "2/4 (50.0%)",
+      "success_rate_condition_gc": "3/4 (75.0%)",
+      "empty_action_abort_count": 0,
+      "paired_gc_vs_g_delta_decision_steps_both_succeeded": "-4.00",
+      "paired_gc_vs_g_delta_env_moves_both_succeeded": "-2.50"
     }
   },
   "cumulative_active_cycle": {
-    "total_episodes_formal_accounting": 203,
+    "total_episodes_formal_accounting": 219,
     "breakdown_episodes": {
       "p0_calibration": 8,
       "p1_historical_batches_2_to_13": 153,
       "p1_deepseek_precheck_batch_14": 6,
       "p1b_natural_experience_screen_batch_15": 24,
-      "p1c_menu_protocol_recheck_batch_16": 12
+      "p1c_menu_protocol_recheck_batch_16": 12,
+      "p1d_generic_interface_control_batch_17": 16
     },
-    "total_calls": 2099,
-    "total_tokens": 2253653,
-    "estimated_cost_usd_from_usage": 1.379255,
-    "known_cost_usd": 1.379255,
-    "conservative_reserved_cost_usd": 0.081020,
-    "total_committed_cost_usd": 1.460275,
+    "environmental_interaction_audit": {
+      "formal_model_episodes": 219,
+      "verifiable_preflight_resets": 4,
+      "early_unverified_probes_note": "未留存独立完整日志的早期排查探针，历史记录预估约0-12次交互，按未知处理"
+    },
+    "total_calls": 2407,
+    "total_tokens": 2698071,
+    "estimated_cost_usd_from_usage": 1.847586,
+    "known_cost_usd": 1.847586,
+    "conservative_reserved_cost_usd": 0.102252,
+    "total_committed_cost_usd": 1.949837,
     "audited_bill_usd": 0.0,
     "audited_bill_status": "pending_billing_audit",
-    "remaining_budget_usd": 8.539725,
+    "remaining_budget_usd": 8.050163,
     "budget_exceeded": false,
-    "duration_seconds": 13800.1
+    "duration_seconds": 15196.2
   }
 }

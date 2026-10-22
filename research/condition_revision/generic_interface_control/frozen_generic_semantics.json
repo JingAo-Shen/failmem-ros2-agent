@@ -1,0 +1,15 @@
+{
+  "generic_semantics_g": {
+    "text": "Generic action semantics:\n1. In \"dunk A in B\", A is the receiving container and B is the source container. The action transfers movable liquid contained in B into A. A must be movable, open, and a container. B must currently contain movable liquid. Refer to the containing object as B; the liquid itself is not a substitute for its container.\n2. When an ambiguity menu is shown, resolve the intended objects using the currently displayed descriptions, locations, and inventory information. Return the chosen option number as a string, or an empty string to cancel. Option numbers are local to the current menu and must not be reused from earlier menus.",
+    "sha256": "ab7aadf7f7f0aa52fa23c789c1f479fdb93e45579658da74b53b760473d124f7",
+    "type": "human_authored_baseline_specification",
+    "description": "Human-authored baseline specification based on public ScienceWorld operational semantics (ActionDunkObject container rules and menu disambiguation protocols). It is NOT learned or extracted from model interactions.",
+    "verification_against_scienceworld_jar": "Confirmed against ActionDunkObject (containerToMoveFrom=B, containerMoveTo=A, isMovable, isContainer, getMoveableLiquids)."
+  },
+  "experience_c": {
+    "text": "In this environment, activating the kitchen sink may fail because it is broken. The bathroom sink was empty, so dunking the glass cup there failed; the toilet contained water, and dunking the glass cup in the toilet successfully transferred water into the cup. When an ambiguous dunk prompt appears, select the option including the cup in inventory. After filling the cup, teleport to the kitchen, move the glass cup to the stove, and activate the stove.",
+    "sha256": "3ecb0e984256d3f81c995bd57141dced84c08fe76355d48990b11cadce3edf15",
+    "source": "deepseek_precheck/D6_boil_var2.json steps 1-17",
+    "type": "success_with_failure_full_trajectory"
+  }
+}
