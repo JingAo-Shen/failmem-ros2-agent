@@ -1,22 +1,23 @@
 # 反例局部条件修订研究协议 (Counterexample Revision Protocol)
 
-**版本号**：1.0 (Frozen Protocol)  
+**版本号**：1.1 (Synchronized Protocol)  
 **基准分支**：`research/counterexample-condition-revision`  
-**基线 Commit**：`e87026d`  
-**制定时间**：2026-10-22  
+**更新时间**：2026-10-22  
 
 ---
 
 ## 1. 研究假说与核心问题 (Hypothesis & Research Question)
 
-### 1.1 假说 (Hypothesis)
+### 1.1 假说与待检验目标 (Hypothesis & Goals to be Tested)
 智能体在科学模拟环境（如 ScienceWorld）中利用失败轨迹/反例生成动作规则时，往往由于反思过程对上下文局部线索的过度抽象，形成**触发条件过于宽泛（Over-generalized Preconditions）**的经验规则。当该规则迁移到表观相似但因果逻辑不同的目标任务子集时，会诱发有害的动作偏向或死循环（负迁移）。  
-**局部条件修订（Local Condition Revision）**假说认为：通过仅对经验规则的局部适用前置条件（Applicability Conditions / Preconditions）进行精确收紧与因果边界澄清，而保持核心行动经验主干不变，可以在完全消除目标任务负迁移的同时，无损保留源任务中的正向收益。
+**局部条件修订（Local Condition Revision）**假说将以下两点确立为核心**待检验目标 (Goals to be Tested)**，而非先验结论：
+1. **负迁移消除**：仅通过对经验规则的局部适用前置条件（Applicability Conditions / Preconditions）进行精确收紧与因果边界澄清，能否有效消除目标任务中的负迁移？
+2. **正向经验保留**：在保持核心行动主干不变的前提下，能否在源任务子集上实质性保留最初由反例带来的正向收益？
 
 ### 1.2 核心研究问题 (Research Questions)
 1. **RQ1（负迁移的经验再现）**：在强规划器与纯原生动作直通环境下，反例经验规则是否在目标子任务上表现出统计显著且因果清晰的负迁移？
 2. **RQ2（局部修订的有效性）**：相较于“完全丢弃”或“全局重写”，“局部条件修订”是否能在消除目标任务负迁移的同时，最高效地保留源任务的正向收益？
-3. **RQ3（机制特异性）**：收益是否真正来自局部条件的因果收紧，而非提示词长度变化、解码随机性或偶然的动作重排序？
+3. **RQ3（机制特异性）**：收益是否真正来自局部条件的因果收紧，而非提示词长度变化、服务端随机波动或偶然的动作重排序？
 
 ---
 
@@ -39,16 +40,28 @@ graph TD
      $$\text{Performance}(R_0 \mid \mathcal{T}_{\text{target}}) < \text{Performance}(\text{No\_Memory} \mid \mathcal{T}_{\text{target}})$$  
    - 且衰退必须能追溯到规则诱导的特定错误动作执行。
 
-3. **证据支柱 3：修订后负迁移消除且正迁移无损 (Target Restored & Source Preserved)**  
-   - 经过局部条件修订后的新规则 $R_{\text{revised}}$，必须同时满足两个方向的统计检验：  
+3. **证据支柱 3：修订后目标任务负迁移消除与源任务正向收益保留（待检验目标）**  
+   - 经过局部条件修订后的新规则 $R_{\text{revised}}$，必须同时满足两个方向的实证检验：  
      - **目标任务修复**：在目标子集上消除负迁移，恢复到无记忆基线水平或更高：  
        $$\text{Performance}(R_{\text{revised}} \mid \mathcal{T}_{\text{target}}) \ge \text{Performance}(\text{No\_Memory} \mid \mathcal{T}_{\text{target}})$$  
-     - **源任务保留**：在源任务子集上完整保留初始正向收益，无显著性能衰退：  
-       $$\text{Performance}(R_{\text{revised}} \mid \mathcal{T}_{\text{source}}) \approx \text{Performance}(R_0 \mid \mathcal{T}_{\text{source}}) > \text{Performance}(\text{No\_Memory} \mid \mathcal{T}_{\text{source}})$$
+     - **源任务实质保留**：必须在源任务子集上提供确凿的正向收益实质保留证据；不能简单将“统计上未出现显著下降”等同于“证明了收益被完整保留”。
 
 ---
 
-## 3. 五项严格受控实验对照条件 (Five Controlled Experimental Conditions)
+## 3. 三类数据集的严格划分 (Data Separation Requirements)
+
+为防止信息泄露与过拟合，实验必须在数据流上严格物理隔离以下三类数据：
+
+1. **经验生成数据 (Experience Generation Data)**：  
+   - 用于提取初始反例规则 $R_0$ 的原始失败轨迹；仅来自特定的源任务探索。
+2. **修订反例数据 (Revision Counterexample Data)**：  
+   - 在迁移中暴露过度宽泛前置条件的冲突/失败样本；仅用于驱动局部条件的因果收紧，不得用于后续最终评价。
+3. **独立评估数据 (Independent Evaluation Data)**：  
+   - 完全留出的独立测试子集（未参与任何规则生成或条件修订）；所有的消融对比、基线评测与收益保留检验必须在此独立集上封闭进行。
+
+---
+
+## 4. 五项严格受控实验对照条件 (Five Controlled Experimental Conditions)
 
 为消除混杂因素，所有后续评估必须横跨以下 5 个受控条件：
 
@@ -62,41 +75,29 @@ graph TD
 
 ---
 
-## 4. 统一且冻结的强规划器规则 (Frozen Strong Planner Rule)
-
-此前在本地小型模型（Qwen2.5-Coder-7B、Qwen3-14B-AWQ）上的诊断表明，弱规划器受限于内在指令遵循与动作语法空间建模能力，无法建立有效基线。接入远程强规划器时必须严格遵守以下冻结规则：
+## 5. 统一且冻结的强规划器规则与环境交互原则 (Frozen Strong Planner Rule)
 
 1. **模型与超参数全流程冻结**：  
-   - 一旦在准入测试中确定强规划器模型 ID（如 `gpt-4o` 或 `deepseek-chat`），后续整个研究周期中**严格冻结**；
+   - 一旦在准入测试中确定强规划器模型 ID（如 `deepseek-flash`），后续整个研究周期中**严格冻结**；
    - 严禁在源任务、目标任务或不同对照组之间更换模型或模型版本；
-   - 解码超参数全局锁定：`temperature=0.0`（贪婪确定性解码），`top_p=1.0`，`max_tokens=256`。
+   - 解码超参数固定（不发送未经审定的 temperature 或 top_p，固定 max_tokens=8192 与 thinking/reasoning_effort 配置）；
+   - **关于确定性的说明**：删除任何“temperature=0 即可保证完全确定性”的断言。远程商业 API 服务端受并发批处理调度与混合专家（MoE）动态路由影响，天然存在微小的输出波动。因此本地随机种子（如 3407）仅用于固定环境内部逻辑，不宣称对远程模型具备绝对确定性控制。
 2. **禁止针对任务微调或定制提示词**：  
    - 系统提示词与动作交互格式保持统一（使用标准 `SYSTEM_PROMPT_ACTION_TEMPLATES` 与 `prompt_mode="action_templates"`）；
-   - 严禁在提示词中人为硬编码针对特定 variation 的补丁逻辑或特异性先验。
+   - 动作模板动态来源于环境 `env.get_action_templates()`，禁止硬编码或针对特定任务修改。
 3. **原生动作直通保证**：  
    - 统一采用 `adapter_mode="native"`，严格依靠规划器自身的语法理解与任务推理，禁止任何外部动作名称替换或作弊补全。
 
 ---
 
-## 5. 预算隔离与分阶段准入原则 (Budget Isolation & Phased Admission)
+## 6. 预算隔离与准入判定边界 (Budget Isolation & Boundary of Admission Failure)
 
-为防止资源滥用与无边界试错，实施严格的分阶段预算红线：
-
-```mermaid
-graph LR
-    P1_Rem["P1 剩余预算: 7 Episodes<br/>(仅用于强规划器准入预检)"] --> Gate{"准入预检通过?<br/>(>=4/6 成功率 且 包含长程任务)"}
-    Gate -- 否 --> Stop["标记 ADMISSION_FAILED<br/>终止研究，不开启P2"]
-    Gate -- 是 --> Rebudget["准入通过<br/>重新核定 P2 预算与立题"]
-```
-
-1. **P1 剩余预算专门用途**：  
-   - P1 累计消耗 153/160 episodes，**剩余 7 个 episodes**；
-   - 剩余 7 个 episodes **仅且只能用于远程强规划器的基础准入预检**（例如运行 6 个基准任务）；
-   - 在准入预检前，严禁调用任何额外的实验轮次。
+1. **预算红线与 P1/P2 隔离**：  
+   - P1 预算为 160 个 episodes。准入预检执行 6 项任务后，消耗增至 159/160 episodes，剩余 1 个 episode 预算；
+   - P2 预算必须重新核定，即便准入预检通过，也不得自动开启 P2 或擅自扩展记忆机制实验。
 2. **准入判定红线 (Admission Gate)**：  
-   - 强规划器在 6 个无记忆基准任务（涵盖简单聚焦、导电性测试、长程状态转变如融化/沸腾）中，必须达成：  
-     $$\text{Success Count} \ge 4/6 \quad \text{且必须成功完成至少一项长程多步物理交互任务}$$
-3. **P2 状态与重新核定机制**：  
-   - P2 当前处于 `TERMINATED_NO_GO` 状态；
-   - 若强规划器未能通过 7 个 episode 内的准入测试，立即终止实验，保持终止决定；
-   - 若准入通过，亦不得擅自消耗历史 P2 额度，必须在用户审核同意下重新立题、明确核定 P2 新预算后，方可开展局部条件修订的主体实验。
+   - 规划器在 6 个无记忆基准任务（涵盖简单聚焦、导电性测试、长程状态转变如融化/沸腾）中，必须达成：  
+     $$\text{Success Count} \ge 4/6 \quad \text{且必须成功完成至少一项长程多步物理交互任务（melt 或 boil）}$$
+3. **准入未通过的结论边界**：  
+   - 若规划器未能达到准入指标，判定为 `REMOTE_PLANNER_ADMISSION_FAILED`；
+   - **结论边界**：准入失败仅表明“当前测试的特定模型与提示词配置在 ScienceWorld 基础规划基线任务上不达标”，属于基准工程筛选结果，**严禁将其直接推广为对整个失败记忆机制或反例条件修订研究方向的否定**。

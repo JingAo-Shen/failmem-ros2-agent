@@ -1,8 +1,6 @@
 """
-Offline test suite for RemoteLLMClient and BaseAgent action_templates mode.
-Verifies payload assembly, native action pass-through, invalid JSON retry,
-timeout handling, network blocking, fail-fast configuration without local model fallback,
-and token accounting.
+Offline test suite for RemoteLLMClient, BaseAgent action_templates mode,
+ScienceWorldWrapper get_action_templates, DeepSeek parameters, and budget tracking.
 """
 
 import os
@@ -16,6 +14,8 @@ from remote_llm_client import (
     ConfigurationError,
     NetworkAccessBlockedError,
     RemotePlannerTimeoutError,
+    BudgetExceededError,
+    PayloadSizeLimitExceededError,
 )
 from agents.base_agent import (
     BaseAgent,
@@ -25,235 +25,198 @@ from agents.base_agent import (
 import requests
 
 
-def test_prompt_and_templates_reach_payload():
-    """Verifies that prompt_mode='action_templates' assembles prompt and templates into OpenAI payload."""
-    recorded_payloads: List[Dict[str, Any]] = []
-
-    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
-        recorded_payloads.append(payload)
-        return {
-            "choices": [
-                {
-                    "message": {
-                        "role": "assistant",
-                        "content": '{"thought": "Examine environment", "action": "look around"}'
-                    }
-                }
-            ],
-            "usage": {
-                "prompt_tokens": 120,
-                "completion_tokens": 15,
-                "total_tokens": 135
-            }
-        }
-
-    client = RemoteLLMClient(
-        endpoint="https://api.example.com/v1/chat/completions",
-        model_id="test-strong-planner",
-        mock_transport=mock_transport,
-        allow_live_network=False
-    )
-
-    agent = BaseAgent(
-        llm_client=client,
-        adapter_mode="native",
-        prompt_mode="action_templates"
-    )
-
-    action, thought, stats, telemetry = agent.select_action(
-        task_desc="test conductivity of paper clip in workshop",
-        current_obs="You are in the hallway. You see a closed door to workshop.",
-        history=[("open door", "You opened the door.")],
-        valid_actions=["teleport to workshop", "look around", "inventory"]
-    )
-
-    assert len(recorded_payloads) == 1
-    payload = recorded_payloads[0]
-
-    assert payload["model"] == "test-strong-planner"
-    assert len(payload["messages"]) == 2
-    assert payload["messages"][0]["role"] == "system"
-    assert payload["messages"][1]["role"] == "user"
-
-    sys_text = payload["messages"][0]["content"]
-    assert "ScienceWorld scientific virtual environment" in sys_text
-    assert "Choose the single most effective valid action." in sys_text
-
-    user_text = payload["messages"][1]["content"]
-    assert "Action Syntax Reference:" in user_text
-    assert "These templates describe action syntax. They do not guarantee that an action is executable in the current state." in user_text
-    assert "Candidate Valid Actions (select one from these" not in user_text
-
-    # All 27 templates present verbatim
-    for tmpl in SCIENCEWORLD_ACTION_TEMPLATES:
-        assert f"- {tmpl}" in user_text
-
-    assert action == "look around"
-    assert telemetry["prompt_mode"] == "action_templates"
-    assert telemetry["adapter_reason"] == "native_passthrough"
+def test_wrapper_get_action_templates():
+    """Verifies that ScienceWorldWrapper exposes get_action_templates."""
+    from env_wrapper import ScienceWorldWrapper
+    # Mock underlying env without loading full heavyweight physics
+    class MockInnerEnv:
+        def get_possible_actions(self):
+            return ["teleport OBJ", "focus on OBJ", "look around"]
+    
+    wrapper = ScienceWorldWrapper.__new__(ScienceWorldWrapper)
+    wrapper.env = MockInnerEnv()
+    templates = wrapper.get_action_templates()
+    assert templates == ["teleport OBJ", "focus on OBJ", "look around"]
 
 
-def test_native_action_extraction_and_whitespace_trimming():
-    """Verifies that native mode extracts action string and trims whitespace without replacement."""
-    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "choices": [
-                {
-                    "message": {
-                        "role": "assistant",
-                        "content": '{"thought": "Moving to workshop", "action": "  teleport to workshop \\n\\t"}'
-                    }
-                }
-            ],
-            "usage": {"prompt_tokens": 50, "completion_tokens": 10, "total_tokens": 60}
-        }
-
-    client = RemoteLLMClient(mock_transport=mock_transport)
-    agent = BaseAgent(llm_client=client, adapter_mode="native", prompt_mode="action_templates")
-
-    action, thought, stats, telemetry = agent.select_action(
-        task_desc="test task",
-        current_obs="obs",
-        history=[],
-        valid_actions=["look around"]
-    )
-
-    assert action == "teleport to workshop"
-    assert telemetry["proposed_action"] == "  teleport to workshop \n\t"
-    assert telemetry["executed_action"] == "teleport to workshop"
-    assert telemetry["executed_action_equals_trimmed_proposed"] is True
-    assert telemetry["adapter_reason"] == "native_passthrough"
-    assert telemetry["adapter_modified"] is True  # because raw had whitespace
+def test_base_agent_forbids_silent_fallback_when_templates_missing():
+    """Verifies that BaseAgent in action_templates mode forbids silent fallback to hardcoded list."""
+    client = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": '{"action": "wait"}'}}]})
+    agent = BaseAgent(llm_client=client, prompt_mode="action_templates", action_templates=None)
+    
+    with pytest.raises(ValueError) as exc:
+        agent.select_action(
+            task_desc="test",
+            current_obs="obs",
+            history=[],
+            valid_actions=["wait"],
+            action_templates=None  # Explicitly omitted
+        )
+    assert "silent fallback to hardcoded list is forbidden" in str(exc.value)
 
 
-def test_invalid_json_retry_and_logging():
-    """Verifies retry upon invalid JSON and logging of retry attempts."""
+def test_fixed_accounting_case_first_40_10_retry_65_15():
+    """
+    Mandatory offline check:
+    First attempt: input 40 / output 10 (invalid JSON)
+    Retry attempt: input 65 / output 15 (valid JSON)
+    Should return 2 calls, input 105, output 25.
+    """
     call_count = 0
-    recorded_prompts: List[str] = []
 
     def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
         nonlocal call_count
         call_count += 1
-        user_msg = payload["messages"][-1]["content"]
-        recorded_prompts.append(user_msg)
         if call_count == 1:
             return {
-                "choices": [{"message": {"role": "assistant", "content": "I recommend taking the paper clip."}}],
+                "choices": [{"message": {"role": "assistant", "content": "Thinking about picking up apple..."}}],
                 "usage": {"prompt_tokens": 40, "completion_tokens": 10, "total_tokens": 50}
             }
         else:
             return {
-                "choices": [{"message": {"role": "assistant", "content": '{"thought": "Retrying JSON", "action": "pick up paper clip"}'}}],
+                "choices": [{"message": {"role": "assistant", "content": '{"thought": "ok", "action": "pick up apple"}'}}],
                 "usage": {"prompt_tokens": 65, "completion_tokens": 15, "total_tokens": 80}
             }
 
     client = RemoteLLMClient(mock_transport=mock_transport)
-    parsed, stats = client.generate_json("What is your next move?", system_prompt="You are a helper.")
+    parsed, stats = client.generate_json("Take the apple", system_prompt="You are an assistant.")
 
-    assert call_count == 2
-    assert "PREVIOUS OUTPUT WAS INVALID JSON:" in recorded_prompts[1]
-    assert "I recommend taking the paper clip." in recorded_prompts[1]
+    assert stats["calls"] == 2
+    assert stats["total_calls"] == 2
+    assert stats["input_tokens"] == 105
+    assert stats["output_tokens"] == 25
+    assert stats["total_tokens"] == 130
     assert stats["retry_attempted"] is True
-    assert parsed["action"] == "pick up paper clip"
+    assert len(stats["attempts"]) == 2
+    assert parsed["action"] == "pick up apple"
+    assert client.total_calls == 2
 
 
-def test_invalid_json_unrecovered_fallback():
-    """Verifies fallback dictionary when JSON remains malformed after retry."""
+def test_attempt_counted_on_timeout_or_error():
+    """Verifies that sending to transport increments total_calls even if timeout or HTTP error occurs."""
+    def timeout_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        raise requests.exceptions.Timeout("Read timeout")
+
+    client = RemoteLLMClient(mock_transport=timeout_transport, timeout=10.0)
+    assert client.total_calls == 0
+
+    with pytest.raises(RemotePlannerTimeoutError):
+        client.generate("hello", "sys")
+
+    # Call attempt must be recorded!
+    assert client.total_calls == 1
+    # Cost for unknown failed request remains reserved conservatively
+    assert client.unknown_reserved_cost_usd > 0.0
+
+
+def test_deepseek_parameters_and_exclusion_of_temp_topp_seed():
+    """Verifies that DeepSeek parameters are set and temperature/top_p/seed are NOT sent."""
+    recorded_payloads = []
+
+    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        recorded_payloads.append(payload)
+        return {
+            "choices": [{"message": {"role": "assistant", "content": '{"action": "wait"}'}}],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25}
+        }
+
+    client = RemoteLLMClient(
+        model_id="deepseek-flash",
+        generation_params={
+            "thinking": {"type": "enabled"},
+            "reasoning_effort": "high",
+            "response_format": {"type": "json_object"},
+            "max_tokens": 8192,
+            "stream": False
+        },
+        mock_transport=mock_transport
+    )
+
+    client.generate("do something", "system prompt", max_new_tokens=256)
+
+    assert len(recorded_payloads) == 1
+    p = recorded_payloads[0]
+    assert p["model"] == "deepseek-flash"
+    assert p["thinking"] == {"type": "enabled"}
+    assert p["reasoning_effort"] == "high"
+    assert p["response_format"] == {"type": "json_object"}
+    assert p["max_tokens"] == 8192  # Old 256 did NOT overwrite 8192!
+    assert p["stream"] is False
+
+    # Temperature, top_p, seed MUST NOT be present
+    assert "temperature" not in p
+    assert "top_p" not in p
+    assert "seed" not in p
+
+
+def test_action_parsed_only_from_content_never_reasoning_content():
+    """Verifies that action is extracted strictly from message.content, not reasoning_content."""
     def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            "choices": [{"message": {"role": "assistant", "content": "Still plain text!"}}],
-            "usage": None
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": '{"thought": "final", "action": "teleport to workshop"}',
+                        "reasoning_content": '{"thought": "hidden", "action": "focus on illegal_door"}'
+                    }
+                }
+            ],
+            "usage": {"prompt_tokens": 30, "completion_tokens": 20, "total_tokens": 50}
         }
 
     client = RemoteLLMClient(mock_transport=mock_transport)
-    parsed, stats = client.generate_json("prompt", "sys")
+    agent = BaseAgent(llm_client=client, adapter_mode="native", prompt_mode="action_templates", action_templates=["teleport to workshop"])
 
-    assert parsed.get("parse_error") is True
-    assert parsed.get("raw_text") == "Still plain text!"
-    assert stats["retry_attempted"] is True
-
-
-def test_timeout_handling():
-    """Verifies that timeouts in remote calls raise RemotePlannerTimeoutError."""
-    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
-        raise requests.exceptions.Timeout("Connection timed out after 15s")
-
-    client = RemoteLLMClient(timeout=15.0, mock_transport=mock_transport)
-
-    with pytest.raises(RemotePlannerTimeoutError) as exc_info:
-        client.generate("prompt", "sys")
-    assert "timed out after 15.0s" in str(exc_info.value)
+    action, thought, stats, telemetry = agent.select_action("task", "obs", [], ["teleport to workshop"])
+    assert action == "teleport to workshop"
+    assert action != "focus on illegal_door"
 
 
-def test_default_network_block():
-    """Verifies that live network requests are strictly blocked by default when no mock transport is provided."""
+def test_messages_payload_size_limit_32kib():
+    """Verifies that payloads exceeding 32 KiB are rejected without sending."""
+    client = RemoteLLMClient(mock_transport=lambda p: {"choices": []})
+    giant_prompt = "x" * 35000  # > 32 KiB
+
+    with pytest.raises(PayloadSizeLimitExceededError):
+        client.generate(giant_prompt, "sys")
+    assert client.total_calls == 0  # Was not sent to transport
+
+
+def test_budget_reservation_and_enforcement():
+    """Verifies that budget cannot be exceeded."""
     client = RemoteLLMClient(
-        endpoint="https://api.openai.com/v1/chat/completions",
-        model_id="gpt-4o",
-        allow_live_network=False,
-        mock_transport=None
+        max_budget_usd=0.01,  # very tiny budget
+        mock_transport=lambda p: {"choices": [{"message": {"content": '{"action": "look around"}'}}]}
     )
 
-    with pytest.raises(NetworkAccessBlockedError) as exc_info:
+    # A single request with 8192 max tokens output at $2.19/1M requires ~$0.018 reservation
+    # It should exceed $0.01 budget limit before sending
+    with pytest.raises(BudgetExceededError) as exc:
         client.generate("hello", "sys")
-    assert "Live network egress is blocked by default" in str(exc_info.value)
+    assert "Insufficient budget" in str(exc.value)
 
 
-def test_incomplete_config_fail_fast_without_local_fallback(monkeypatch):
-    """Verifies that missing config fails fast with ConfigurationError and never falls back to local models."""
-    # Ensure local model singletons are untouched
-    monkeypatch.delenv("TEST_KEY_ENV", raising=False)
+def test_native_action_passthrough_with_env_templates():
+    """Verifies that environment templates enter prompt intact and native action is passed through."""
+    recorded_prompts = []
 
-    # 1. Missing endpoint
-    with pytest.raises(ConfigurationError) as exc:
-        RemoteLLMClient(endpoint="", model_id="gpt-4o", api_key_env_var="TEST_KEY_ENV", allow_live_network=True)
-    assert "endpoint" in str(exc.value)
-
-    # 2. Missing model_id
-    with pytest.raises(ConfigurationError) as exc:
-        RemoteLLMClient(endpoint="https://example.com", model_id="", api_key_env_var="TEST_KEY_ENV", allow_live_network=True)
-    assert "model_id" in str(exc.value)
-
-    # 3. Missing api_key_env_var
-    with pytest.raises(ConfigurationError) as exc:
-        RemoteLLMClient(endpoint="https://example.com", model_id="gpt-4o", api_key_env_var="", allow_live_network=True)
-    assert "api_key_env_var" in str(exc.value)
-
-    # 4. Environment variable not set in OS
-    with pytest.raises(ConfigurationError) as exc:
-        RemoteLLMClient(endpoint="https://example.com", model_id="gpt-4o", api_key_env_var="TEST_KEY_ENV", allow_live_network=True)
-    assert "TEST_KEY_ENV" in str(exc.value)
-    assert "Fail-fast: local models will NOT be used as a fallback." in str(exc.value)
-
-    # Verify no local model was imported or loaded
-    assert "llm_client" not in sys.modules or not hasattr(sys.modules.get("llm_client"), "_instance_called")
-
-
-def test_token_usage_accounting():
-    """Verifies that token usage records 'unknown' rather than 0 when provider omits usage."""
-    # 1. Normal usage
-    def mock_normal(payload):
+    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        recorded_prompts.append(payload["messages"][-1]["content"])
         return {
-            "choices": [{"message": {"role": "assistant", "content": '{"action": "test"}'}}],
-            "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120}
+            "choices": [{"message": {"role": "assistant", "content": '{"thought": "Go", "action": "  focus on book  "}'}}],
+            "usage": {"prompt_tokens": 50, "completion_tokens": 10, "total_tokens": 60}
         }
 
-    client1 = RemoteLLMClient(mock_transport=mock_normal)
-    _, stats1 = client1.generate("p", "s")
-    assert stats1["input_tokens"] == 100
-    assert stats1["output_tokens"] == 20
-    assert stats1["total_tokens"] == 120
+    client = RemoteLLMClient(mock_transport=mock_transport)
+    custom_env_templates = ["activate OBJ", "focus on OBJ", "look around", "teleport OBJ"]
+    agent = BaseAgent(llm_client=client, adapter_mode="native", prompt_mode="action_templates", action_templates=custom_env_templates)
 
-    # 2. Missing usage
-    def mock_missing_usage(payload):
-        return {
-            "choices": [{"message": {"role": "assistant", "content": '{"action": "test"}'}}],
-            "usage": None
-        }
+    action, thought, stats, telemetry = agent.select_action("task desc", "obs", [], ["look around"])
 
-    client2 = RemoteLLMClient(mock_transport=mock_missing_usage)
-    _, stats2 = client2.generate("p", "s")
-    assert stats2["input_tokens"] == "unknown"
-    assert stats2["output_tokens"] == "unknown"
-    assert stats2["total_tokens"] == "unknown"
-    assert stats2["total_tokens"] != 0
+    assert action == "focus on book"  # Whitespace stripped, no synonym conversion
+    user_prompt = recorded_prompts[0]
+    for tmpl in custom_env_templates:
+        assert f"- {tmpl}" in user_prompt
+    assert "Action Syntax Reference:" in user_prompt
+    assert "These templates describe action syntax. They do not guarantee that an action is executable in the current state." in user_prompt

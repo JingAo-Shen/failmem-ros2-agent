@@ -49,6 +49,10 @@ class ScienceWorldWrapper:
     def get_score(self) -> float:
         return float(self.env.lastStepScore)
 
+    def get_action_templates(self) -> List[str]:
+        """Returns raw possible action templates from the underlying ScienceWorld environment."""
+        return list(self.env.get_possible_actions())
+
     def close(self):
         try:
             self.env.close()

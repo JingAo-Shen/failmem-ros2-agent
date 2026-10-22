@@ -109,7 +109,7 @@ class BaseAgent:
         self.history_mode = history_mode
         self.max_new_tokens = max_new_tokens
         self.prompt_mode = prompt_mode
-        self.action_templates = list(action_templates) if action_templates is not None else list(SCIENCEWORLD_ACTION_TEMPLATES)
+        self.action_templates = list(action_templates) if action_templates is not None else None
 
     def select_action(
         self,
@@ -154,6 +154,8 @@ Recent Execution History:
 {hist_str}
 """
         elif self.prompt_mode == "action_templates":
+            if not active_templates or not isinstance(active_templates, (list, tuple)):
+                raise ValueError("action_templates mode requires explicit action_templates from environment; silent fallback to hardcoded list is forbidden.")
             sys_prompt = SYSTEM_PROMPT_ACTION_TEMPLATES
             templates_formatted = "\n".join(f"- {tmpl}" for tmpl in active_templates)
             user_prompt = f"""Task Description:
