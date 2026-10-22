@@ -1,0 +1,35 @@
+{
+  "pricing_model_reference": "DeepSeek Official Chat API Peak Conservative Pricing",
+  "source_url": "https://api-docs.deepseek.com/quick_start/pricing",
+  "source_date": "2026-10-22",
+  "model_id": "deepseek-flash",
+  "rates_usd_per_1m_tokens": {
+    "prompt_cache_miss": 0.55,
+    "prompt_cache_hit": 0.14,
+    "output_tokens": 2.19
+  },
+  "unit_rates_usd_per_token": {
+    "prompt_cache_miss": 5.5e-07,
+    "prompt_cache_hit": 1.4e-07,
+    "output_tokens": 2.19e-06
+  },
+  "accounting_categories": {
+    "estimated_cost_usd_from_usage": {
+      "definition": "Cost calculated strictly from actual token counts (prompt_cache_hit_tokens, prompt_cache_miss_tokens, completion_tokens) reported in API response usage metadata.",
+      "status": "runtime_estimate",
+      "audited": false
+    },
+    "conservative_reserved_cost_usd": {
+      "definition": "Upper-bound financial reservation committed prior to dispatching an HTTP request, based on conservative byte-length input token upper bounds and max_tokens output at peak cache-miss pricing. Released upon receiving valid usage, or permanently reserved if request fails with unknown consumption.",
+      "status": "safety_hold",
+      "audited": false
+    },
+    "audited_bill_usd": {
+      "definition": "Actual financial deduction verified against official DeepSeek billing management console / monthly invoice. Never conflated with runtime usage estimates.",
+      "status": "pending_billing_audit",
+      "audited": true,
+      "reconciliation_required": true
+    }
+  },
+  "policy_notice": "不得将按usage估算的金额直接等同于最终账单实扣金额。账单实扣需以官方控制台账单对账为准。"
+}

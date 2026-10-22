@@ -71,7 +71,12 @@ class RemoteLLMClient:
         allow_live_network: bool = False,
         mock_transport: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         max_budget_usd: float = 10.00,
-        max_attempts: int = 400
+        max_attempts: int = 400,
+        initial_cost_usd: float = 0.0,
+        initial_reserved_usd: float = 0.0,
+        initial_calls: int = 0,
+        initial_input_tokens: int = 0,
+        initial_output_tokens: int = 0
     ):
         self.endpoint = (endpoint or "").strip()
         self.model_id = (model_id or "").strip()
@@ -95,15 +100,15 @@ class RemoteLLMClient:
             }
 
         # Global counters & ledger across entire client session
-        self.total_calls = 0  # Total request attempts sent to transport
-        self.total_input_tokens = 0
-        self.total_output_tokens = 0
+        self.total_calls = int(initial_calls)  # Total request attempts sent to transport
+        self.total_input_tokens = int(initial_input_tokens)
+        self.total_output_tokens = int(initial_output_tokens)
         self.has_unknown_tokens = False
         self.total_latency_seconds = 0.0
 
         # Cost tracking (USD)
-        self.known_cost_usd = 0.0
-        self.unknown_reserved_cost_usd = 0.0
+        self.known_cost_usd = float(initial_cost_usd)
+        self.unknown_reserved_cost_usd = float(initial_reserved_usd)
 
         # Attempt log
         self.call_history: List[Dict[str, Any]] = []
@@ -211,11 +216,26 @@ class RemoteLLMClient:
         """
         Validates messages payload size limit (32 KiB) and reserves conservative
         budget (peak pricing, cache miss, max output tokens) prior to sending.
+        Refuses to send if reliable upper bound cannot be established.
         """
-        messages_bytes = json.dumps(payload["messages"], ensure_ascii=False).encode("utf-8")
+        messages = payload.get("messages")
+        if not isinstance(messages, list) or len(messages) == 0:
+            raise RemotePlannerError("Cannot establish reliable token upper bound: 'messages' is empty or invalid.")
+
+        try:
+            messages_bytes = json.dumps(messages, ensure_ascii=False).encode("utf-8")
+        except Exception as e:
+            raise RemotePlannerError(f"Cannot establish reliable token upper bound: failed to encode messages: {e}")
+
         if len(messages_bytes) > self.MAX_MESSAGES_BYTES:
             raise PayloadSizeLimitExceededError(
                 f"Message payload size ({len(messages_bytes)} bytes) exceeds the 32 KiB (32,768 bytes) limit."
+            )
+
+        max_output_tokens = payload.get("max_tokens")
+        if not isinstance(max_output_tokens, int) or max_output_tokens <= 0:
+            raise RemotePlannerError(
+                f"Cannot establish reliable token upper bound: max_tokens ({max_output_tokens}) is invalid."
             )
 
         if self.total_calls >= self.max_attempts:
@@ -223,8 +243,8 @@ class RemoteLLMClient:
                 f"Hard attempt limit ({self.max_attempts} calls) reached. Current calls: {self.total_calls}."
             )
 
-        est_input_tokens = max(len(messages_bytes) // 3, 500)
-        max_output_tokens = payload.get("max_tokens", 8192)
+        # In UTF-8, each byte can produce at most 1 token. With 1024 formatting tokens buffer:
+        est_input_tokens = len(messages_bytes) + 1024
 
         reserved_cost = (
             (est_input_tokens / 1_000_000.0) * self.PRICE_PER_M_INPUT_MISS +
@@ -328,6 +348,11 @@ class RemoteLLMClient:
         response_text = message.get("content", "") or ""
         reasoning_content = message.get("reasoning_content", "") or ""
 
+        # Parse termination and content properties
+        finish_reason = first_choice.get("finish_reason", "unknown")
+        empty_content = (len(response_text.strip()) == 0)
+        hit_output_token_limit = (finish_reason == "length")
+
         # Response metadata
         response_model = raw_response.get("model", self.model_id)
         system_fingerprint = raw_response.get("system_fingerprint", "unknown")
@@ -376,6 +401,9 @@ class RemoteLLMClient:
         attempt_record["system_fingerprint"] = system_fingerprint
         attempt_record["request_id"] = request_id
         attempt_record["has_reasoning_content"] = bool(reasoning_content)
+        attempt_record["finish_reason"] = finish_reason
+        attempt_record["empty_content"] = empty_content
+        attempt_record["hit_output_token_limit"] = hit_output_token_limit
         self.call_history.append(attempt_record)
 
         stats = {
@@ -390,6 +418,9 @@ class RemoteLLMClient:
             "model": response_model,
             "system_fingerprint": system_fingerprint,
             "request_id": request_id,
+            "finish_reason": finish_reason,
+            "empty_content": empty_content,
+            "hit_output_token_limit": hit_output_token_limit,
             "reasoning_content_length": len(reasoning_content),
             "raw_text": response_text
         }
@@ -464,6 +495,10 @@ class RemoteLLMClient:
             "output_tokens": out_tokens,
             "total_tokens": tot_tokens,
             "retry_attempted": retry_attempted,
+            "finish_reason": last_attempt.get("finish_reason", "unknown"),
+            "empty_content": last_attempt.get("empty_content", False),
+            "hit_output_token_limit": any(a.get("hit_output_token_limit", False) for a in attempts),
+            "parse_error": parsed_json.get("parse_error", False),
             "attempts": attempts,
             "raw_text": last_attempt.get("raw_text", ""),
             "model": last_attempt.get("model", self.model_id),
@@ -503,13 +538,17 @@ class RemoteLLMClient:
             "total_request_attempts": self.total_calls,
             "remaining_attempts": max(0, self.max_attempts - self.total_calls),
             "known_cost_usd": round(self.known_cost_usd, 6),
+            "estimated_cost_usd_from_usage": round(self.known_cost_usd, 6),
             "unknown_reserved_cost_usd": round(self.unknown_reserved_cost_usd, 6),
+            "conservative_reserved_cost_usd": round(self.unknown_reserved_cost_usd, 6),
             "total_committed_cost_usd": round(total_committed, 6),
             "remaining_budget_usd": round(max(0.0, self.max_budget_usd - total_committed), 6),
             "budget_exceeded": total_committed > self.max_budget_usd,
             "total_input_tokens": self.total_input_tokens if not self.has_unknown_tokens else f">={self.total_input_tokens} (partial unknown)",
             "total_output_tokens": self.total_output_tokens if not self.has_unknown_tokens else f">={self.total_output_tokens} (partial unknown)",
-            "has_unknown_tokens": self.has_unknown_tokens
+            "has_unknown_tokens": self.has_unknown_tokens,
+            "audited_bill_usd": None,
+            "audited_bill_status": "pending_billing_audit"
         }
 
     def get_model_metadata(self) -> Dict[str, Any]:

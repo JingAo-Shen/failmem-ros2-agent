@@ -5,6 +5,7 @@ ScienceWorldWrapper get_action_templates, DeepSeek parameters, and budget tracki
 
 import os
 import sys
+import json
 import pytest
 from typing import Dict, Any, List
 
@@ -220,3 +221,61 @@ def test_native_action_passthrough_with_env_templates():
         assert f"- {tmpl}" in user_prompt
     assert "Action Syntax Reference:" in user_prompt
     assert "These templates describe action syntax. They do not guarantee that an action is executable in the current state." in user_prompt
+
+
+def test_conservative_byte_token_reservation_and_unbound_rejection():
+    """Verifies that token reservation uses byte length + 1024 formatting overhead and rejects unbound requests."""
+    client = RemoteLLMClient(mock_transport=lambda p: {"choices": [{"message": {"content": "{}"}}]})
+    
+    # Valid payload should compute reservation >= len(bytes) + 1024
+    payload = client._build_payload("Short prompt", system_prompt="Sys")
+    msg_bytes_len = len(json.dumps(payload["messages"], ensure_ascii=False).encode("utf-8"))
+    reserved = client._reserve_budget_for_request(payload)
+    est_in_tokens = msg_bytes_len + 1024
+    expected_reserved = (est_in_tokens / 1e6) * client.PRICE_PER_M_INPUT_MISS + (8192 / 1e6) * client.PRICE_PER_M_OUTPUT
+    assert abs(reserved - expected_reserved) < 1e-9
+
+    # Rejection when max_tokens is invalid
+    bad_payload = dict(payload)
+    bad_payload["max_tokens"] = None
+    with pytest.raises(RemotePlannerError) as exc:
+        client._reserve_budget_for_request(bad_payload)
+    assert "Cannot establish reliable token upper bound" in str(exc.value)
+
+
+def test_finish_reason_and_empty_content_tracking():
+    """Verifies that finish_reason, empty_content, and hit_output_token_limit are recorded."""
+    def mock_transport(payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "choices": [{
+                "message": {"role": "assistant", "content": '{"action": "wait"}'},
+                "finish_reason": "stop"
+            }],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+        }
+
+    client = RemoteLLMClient(mock_transport=mock_transport)
+    parsed, stats = client.generate_json("Prompt", "Sys")
+    assert stats["finish_reason"] == "stop"
+    assert stats["empty_content"] is False
+    assert stats["hit_output_token_limit"] is False
+    assert stats["parse_error"] is False
+
+
+def test_initial_cost_and_budget_continuation():
+    """Verifies that client initializes with prior costs and enforces overall budget."""
+    prior_cost = 0.126752
+    client = RemoteLLMClient(
+        max_budget_usd=0.14,  # only ~0.013 left
+        initial_cost_usd=prior_cost,
+        initial_calls=57,
+        mock_transport=lambda p: {"choices": [{"message": {"content": "{}"}}]}
+    )
+    assert client.known_cost_usd == prior_cost
+    assert client.total_calls == 57
+
+    # Since 8192 output tokens reserve ~$0.018, having only 0.14 - 0.126752 = ~0.0132 left should raise BudgetExceededError
+    with pytest.raises(BudgetExceededError) as exc:
+        client.generate("test", "sys")
+    assert "Insufficient budget" in str(exc.value)
+
